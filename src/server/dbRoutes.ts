@@ -1,0 +1,4019 @@
+import { Express, Request, Response } from 'express';
+import { db, pool, ensureTablesExist, isDatabaseConfigured, getDatabaseUrl, testDatabaseConnection, withDbRetry } from '../db/index';
+import { categories, products, orders, storeInfo, users, tvMedia, appInstalls, customers, restaurantTables, drivers, deliveryZones, totemBackups, customerAddresses } from '../db/schema';
+import { eq, desc, asc, sql } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { registerAiRoutes } from './aiAssistant';
+import { cleanProductDescription } from '../constants';
+import { printOrderToNetworkPrinter } from './printerRoutes';
+import { queueOrderForAgent } from './printerAgentRoutes';
+import { createPixPayment, checkPixStatus, confirmPixPayment, processCardPayment } from './mercadoPagoService';
+
+// Initial default data for auto-seeding & in-memory fallback (clean state for new ERP integration)
+const DEFAULT_CATEGORIES: any[] = [];
+
+const DEFAULT_PRODUCTS: any[] = [];
+
+const DEFAULT_STORE_INFO = {
+  id: 'default',
+  name: 'BALBEC - REVENDA',
+  themeColor: '#e6a800',
+  addButtonColor: '#e6a800',
+  iconColor: '#e6a800',
+  headerPhrase: 'Salgados Especiais e Revenda',
+  logoUrl: '/logo.svg',
+  address: 'Praça Dr. Jorge Frange, 72 - São Benedito, Uberaba - MG',
+  hours: 'De segunda à sábado das 06:00h às 20:00h.\nDomingo das 07:00h às 13:00h.',
+  instagram: '@balbecrevenda',
+  whatsapp: '(34) 3338-3795',
+  categoryTitleColor: '#e6a800',
+  deliveryEnabled: true,
+  deliveryScheduleEnabled: false,
+  deliveryScheduleSlots: '["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"]',
+  inStoreEnabled: true,
+  kioskEnabled: true,
+  requireQrCodeForOrdering: true,
+  isOpen: true,
+  ntfyTopic: 'balbecrevenda_pedidos',
+  ntfyEnabled: true,
+  tvTickerText: '🥟 Salgados fresquinhos e crocantes para revenda e consumo! Peça pelo app ou no balcão!',
+  tvMode: 'split_menu',
+  tvSelectedCategories: '[]',
+  tvSoundEnabled: false,
+  tvShowClock: true,
+  tvShowCaptions: false,
+  isMaintenance: false,
+  maintenanceMessage: 'Estamos atualizando nosso cardápio e sistemas para melhor atendê-lo. Voltaremos em breve!',
+  weeklySchedule: JSON.stringify([
+    { dayOfWeek: 0, dayName: 'Domingo', shortName: 'Dom', isOpen: true, openTime: '07:00', closeTime: '13:00' },
+    { dayOfWeek: 1, dayName: 'Segunda-feira', shortName: 'Seg', isOpen: true, openTime: '06:00', closeTime: '20:00' },
+    { dayOfWeek: 2, dayName: 'Terça-feira', shortName: 'Ter', isOpen: true, openTime: '06:00', closeTime: '20:00' },
+    { dayOfWeek: 3, dayName: 'Quarta-feira', shortName: 'Qua', isOpen: true, openTime: '06:00', closeTime: '20:00' },
+    { dayOfWeek: 4, dayName: 'Quinta-feira', shortName: 'Qui', isOpen: true, openTime: '06:00', closeTime: '20:00' },
+    { dayOfWeek: 5, dayName: 'Sexta-feira', shortName: 'Sex', isOpen: true, openTime: '06:00', closeTime: '20:00' },
+    { dayOfWeek: 6, dayName: 'Sábado', shortName: 'Sáb', isOpen: true, openTime: '06:00', closeTime: '20:00' },
+  ]),
+  autoOpenClose: false,
+  forceOpen: false,
+  closedMessage: 'Estamos fechados no momento. Confira nossos horários de atendimento!',
+  aiAgentEnabled: true,
+  aiAgentName: 'Balbec IA',
+  aiAgentTone: 'amigavel',
+  aiAgentCustomPrompt: 'Salgados fresquinhos para festa e revenda. Aceitamos encomendas pelo app e WhatsApp.',
+  aiAgentWhatsAppPhone: '',
+  aiAgentWhatsAppDefaultMessage: 'Olá! Vim pelo site da Balbec e gostaria de fazer um pedido.',
+  aiAgentTrainingExamples: '[]',
+  aiAgentKnowledgeBase: '• Variedades de salgados fritos e assados para revenda e eventos.\n• Encomendas devem ser feitas com antecedência pelo WhatsApp.\n• Não cobramos taxa de entrega para pedidos no mesmo bairro acima de R$ 50.',
+  aiAgentForbiddenPhrases: 'Não prometa entrega em tempo menor que 30 minutos; Não prometa fiado ou cheque; Não invente produtos que não estejam no cardápio.',
+  aiAgentCreativity: 0.65,
+  aiAgentAntiRepeat: true,
+  inStoreGpsValidation: false,
+  inStoreLatitude: -19.7478,
+  inStoreLongitude: -47.9392,
+  inStoreMaxRadiusMeters: 150,
+  inStorePinValidation: false,
+  inStorePinCode: '1234',
+  preferredPrinterName: 'EPSON TM-T20X (Rede 192.168.0.90)',
+  printerCutMode: 'partial',
+  printerCopies: 2,
+  totemPrinterCutMode: 'partial',
+  totemPrinterCopies: 2,
+  totemPrinterBottomSpaceCm: 2.5,
+  windowsPrinterCutMode: 'partial',
+  windowsPrinterCopies: 2,
+  windowsPrinterBottomSpaceCm: 8.0,
+  configuredPrinters: JSON.stringify([
+    { id: 'p1', name: 'EPSON TM-T20X (Rede 192.168.0.90)', model: 'Epson Térmica 80mm (IP: 192.168.0.90)', isOrderPrinter: true, ip: '192.168.0.90' },
+    { id: 'p2', name: 'Elgin i9 (Balcão / Ignorada para Pedidos)', model: 'Térmica 80mm (Ignorada)', isOrderPrinter: false }
+  ]),
+  caixaPrinterName: 'EPSON TM-T20X (Rede 192.168.0.90)',
+  autoPrintOrdersOnCaixa: true,
+  printerConnectionType: 'network',
+  networkPrinterIp: '192.168.0.90',
+  networkPrinterPort: 9100,
+  mercadoPagoEnabled: true,
+  mercadoPagoAccessToken: '',
+  mercadoPagoPublicKey: '',
+  mercadoPagoPixKey: '3433383795',
+  deliveryEstimatedTimeMin: 35,
+  deliveryEstimatedTimeMax: 50
+};
+
+export function sanitizeStoreInfoPrinters(info: any) {
+  if (!info) return info;
+  if (!info.networkPrinterIp || info.networkPrinterIp === '192.168.1.200' || info.networkPrinterIp.trim() === '') {
+    info.networkPrinterIp = '192.168.0.90';
+  }
+  if (!info.preferredPrinterName || /elgin/i.test(info.preferredPrinterName)) {
+    info.preferredPrinterName = 'EPSON TM-T20X (Rede 192.168.0.90)';
+  }
+  if (!info.caixaPrinterName || /elgin/i.test(info.caixaPrinterName)) {
+    info.caixaPrinterName = 'EPSON TM-T20X (Rede 192.168.0.90)';
+  }
+  if (info.autoPrintOrdersOnCaixa === undefined) {
+    info.autoPrintOrdersOnCaixa = true;
+  }
+  try {
+    let printers: any[] = [];
+    if (typeof info.configuredPrinters === 'string') {
+      printers = JSON.parse(info.configuredPrinters);
+    } else if (Array.isArray(info.configuredPrinters)) {
+      printers = info.configuredPrinters;
+    }
+    if (Array.isArray(printers) && printers.length > 0) {
+      let hasEpson = false;
+      const sanitizedPrinters = printers.map((p: any) => {
+        if (/elgin/i.test(p.name || '')) {
+          return { ...p, isOrderPrinter: false, name: 'Elgin i9 (Ignorada para Pedidos)' };
+        }
+        if (/epson/i.test(p.name || '')) {
+          hasEpson = true;
+          return { ...p, isOrderPrinter: true, ip: '192.168.0.90' };
+        }
+        return p;
+      });
+      if (!hasEpson) {
+        sanitizedPrinters.unshift({
+          id: 'p_epson_auto',
+          name: 'EPSON TM-T20X (Rede 192.168.0.90)',
+          model: 'Epson Térmica 80mm (IP: 192.168.0.90)',
+          isOrderPrinter: true,
+          ip: '192.168.0.90'
+        });
+      }
+      info.configuredPrinters = JSON.stringify(sanitizedPrinters);
+    }
+  } catch (e) {}
+
+  // Padrão consolidado (desde 19/09/26): SEMPRE 2 VIAS (1ª Via Cliente + 2ª Via Balcão com corte).
+  // Corrige qualquer valor residual de 1 via do Totem voltando para 2 vias.
+  if (info.totemPrinterCopies === undefined || info.totemPrinterCopies === 1) {
+    info.totemPrinterCopies = 2;
+  }
+  if (info.printerCopies === undefined) {
+    info.printerCopies = 2;
+  }
+  if (info.windowsPrinterCopies === undefined) {
+    info.windowsPrinterCopies = 2;
+  }
+  return info;
+}
+
+const STORAGE_DIR = path.join(process.cwd(), '.data', 'balbec_persistent_store');
+try {
+  if (!fs.existsSync(STORAGE_DIR)) {
+    fs.mkdirSync(STORAGE_DIR, { recursive: true });
+  }
+  const altDirs = [
+    path.join(os.tmpdir() || '/tmp', 'balbec_persistent_store'),
+    process.cwd()
+  ];
+  const oldFiles = [
+    '.store_info_data.json', '.tv_media_data.json', '.categories_data.json',
+    '.products_data.json', '.users_data.json', '.orders_data.json',
+    '.orders_backup_data.json', '.customers_data.json', '.tables_data.json',
+    '.app_installs_data.json', '.totem_backups_data.json', '.app_persistent_state.json'
+  ];
+  oldFiles.forEach(fileName => {
+    const newPath = path.join(STORAGE_DIR, fileName);
+    for (const altDir of altDirs) {
+      const srcPath = path.join(altDir, fileName);
+      if (srcPath !== newPath && fs.existsSync(srcPath) && !fs.existsSync(newPath)) {
+        try {
+          fs.copyFileSync(srcPath, newPath);
+          break;
+        } catch (e) {}
+      }
+    }
+  });
+} catch (e) {}
+
+const STORE_INFO_FILE = path.join(STORAGE_DIR, '.store_info_data.json');
+const TV_MEDIA_FILE = path.join(STORAGE_DIR, '.tv_media_data.json');
+const CATEGORIES_FILE = path.join(STORAGE_DIR, '.categories_data.json');
+const PRODUCTS_FILE = path.join(STORAGE_DIR, '.products_data.json');
+const USERS_FILE = path.join(STORAGE_DIR, '.users_data.json');
+const ORDERS_FILE = path.join(STORAGE_DIR, '.orders_data.json');
+const ORDERS_BACKUP_FILE = path.join(STORAGE_DIR, '.orders_backup_data.json');
+const CUSTOMERS_FILE = path.join(STORAGE_DIR, '.customers_data.json');
+const TABLES_FILE = path.join(STORAGE_DIR, '.tables_data.json');
+const APP_INSTALLS_FILE = path.join(STORAGE_DIR, '.app_installs_data.json');
+const TOTEM_BACKUPS_FILE = path.join(STORAGE_DIR, '.totem_backups_data.json');
+const MASTER_STATE_FILE = path.join(STORAGE_DIR, '.app_persistent_state.json');
+const DRIVERS_FILE = path.join(STORAGE_DIR, '.drivers_data.json');
+
+const DEFAULT_DRIVERS: any[] = [];
+
+let memDrivers: any[] = [];
+if (fs.existsSync(DRIVERS_FILE)) {
+  try {
+    memDrivers = JSON.parse(fs.readFileSync(DRIVERS_FILE, 'utf8'));
+  } catch (e) {}
+}
+
+function persistDriversToDisk(data: any[]) {
+  writeJsonFile(DRIVERS_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+const DELIVERY_ZONES_FILE = path.join(STORAGE_DIR, '.delivery_zones_data.json');
+const DEFAULT_DELIVERY_ZONES: any[] = [];
+
+let memDeliveryZones: any[] = [];
+if (fs.existsSync(DELIVERY_ZONES_FILE)) {
+  try {
+    memDeliveryZones = JSON.parse(fs.readFileSync(DELIVERY_ZONES_FILE, 'utf8'));
+  } catch (e) {}
+}
+
+function persistDeliveryZonesToDisk(data: any[]) {
+  writeJsonFile(DELIVERY_ZONES_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+const DEFAULT_USERS = [
+  { id: 1, uid: 'master-1', email: 'camillasites@gmail.com', name: 'Camilla (Master)', role: 'master', password: 'admin' },
+  { id: 2, uid: 'master-2', email: 'contato2@balbec.com.br', name: 'Contato 2 (Admin)', role: 'admin', password: 'admin' },
+  { id: 3, uid: 'master-3', email: 'contato@balbec.com.br', name: 'Contato (Admin)', role: 'admin', password: 'admin' },
+  { id: 4, uid: 'master-4', email: 'admin@balbec.com.br', name: 'Admin BALBEC', role: 'admin', password: 'admin' },
+  { id: 5, uid: 'master-5', email: 'operador@balbec.com.br', name: 'Operador Padrão', role: 'padrao', password: '123' },
+  { id: 6, uid: 'caixa-1', email: 'caixa@balbec.com.br', name: 'Operadora do Caixa', role: 'padrao', password: '123' },
+];
+
+const DEFAULT_TABLES: any[] = [];
+
+// In-memory runtime state (serves local preview & instant fallback)
+let memCategories: any[] = [...DEFAULT_CATEGORIES];
+let memProducts: any[] = [...DEFAULT_PRODUCTS];
+let memOrders: any[] = [];
+let memStoreInfo: any = { ...DEFAULT_STORE_INFO };
+let memCustomers: any[] = [];
+let memUsers: any[] = [...DEFAULT_USERS];
+let memTvMedia: any[] = [];
+let memAppInstalls: any[] = [];
+let memTables: any[] = [...DEFAULT_TABLES];
+let memTotemBackups: any[] = [];
+
+// Helper functions for safe disk persistence
+function loadJsonFile<T>(filePath: string, fallback: T): T {
+  try {
+    const baseName = path.basename(filePath).replace(/^\./, '');
+    const altBaseName = baseName.includes('_data.json') 
+      ? baseName.replace('_data.json', '.json') 
+      : baseName.replace('.json', '_data.json');
+
+    const candidatePaths = [
+      filePath,
+      path.join(process.cwd(), 'src', 'data', 'seed', baseName),
+      path.join(process.cwd(), 'src', 'data', 'seed', altBaseName),
+      path.join(process.cwd(), 'dist', 'seed', baseName),
+      path.join(process.cwd(), 'dist', 'seed', altBaseName),
+      path.join(process.cwd(), baseName),
+      path.join(process.cwd(), altBaseName),
+    ];
+
+    let bestArrayResult: any[] | null = null;
+
+    for (const cand of candidatePaths) {
+      if (fs.existsSync(cand)) {
+        try {
+          const raw = fs.readFileSync(cand, 'utf8');
+          const parsed = JSON.parse(raw);
+          if (parsed !== undefined && parsed !== null) {
+            if (Array.isArray(fallback)) {
+              if (Array.isArray(parsed)) {
+                if (!bestArrayResult || parsed.length > bestArrayResult.length) {
+                  bestArrayResult = parsed;
+                }
+              }
+            } else {
+              return parsed;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (Array.isArray(fallback) && bestArrayResult && bestArrayResult.length > 0) {
+      return bestArrayResult as unknown as T;
+    }
+  } catch (e) {
+    console.warn(`Aviso: Não foi possível ler ${path.basename(filePath)}:`, e);
+  }
+  return fallback;
+}
+
+function writeJsonFile(filePath: string, data: any) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    // Also keep permanent seed folder synchronized so repo always has latest backup
+    const baseName = path.basename(filePath).replace(/^\./, '');
+    const altBaseName = baseName.includes('_data.json') 
+      ? baseName.replace('_data.json', '.json') 
+      : baseName.replace('.json', '_data.json');
+
+    const seedDirs = [
+      path.join(process.cwd(), 'src', 'data', 'seed'),
+      path.join(process.cwd(), 'dist', 'seed')
+    ];
+
+    for (const dir of seedDirs) {
+      if (dir.includes('dist') && !fs.existsSync(path.join(process.cwd(), 'dist'))) {
+        continue;
+      }
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(dir, baseName), JSON.stringify(data, null, 2), 'utf8');
+      if (altBaseName !== baseName) {
+        fs.writeFileSync(path.join(dir, altBaseName), JSON.stringify(data, null, 2), 'utf8');
+      }
+    }
+  } catch (e) {
+    console.warn(`Aviso: Não foi possível gravar ${path.basename(filePath)}:`, e);
+  }
+}
+
+function persistAllStateToMasterFile() {
+  const masterPayload = {
+    storeInfo: memStoreInfo,
+    tvMedia: memTvMedia,
+    categories: memCategories,
+    products: memProducts,
+    users: memUsers,
+    tables: memTables,
+    customers: memCustomers,
+    orders: memOrders,
+    totemBackups: memTotemBackups,
+    drivers: memDrivers,
+    deliveryZones: memDeliveryZones,
+    savedAt: new Date().toISOString()
+  };
+  writeJsonFile(MASTER_STATE_FILE, masterPayload);
+}
+
+// 1. Carregar Estado Inicial de Todos os Arquivos Persistidos
+// Permanent bundled seed files (ensures full catalog survives container rebuilds)
+const seedProducts: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'products_data.json'), []);
+const seedCategories: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'categories_data.json'), []);
+const seedStoreInfo: any = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'store_info_data.json'), {});
+const seedTvMedia: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'tv_media_data.json'), []);
+const seedTotemBackups: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'totem_backups_data.json'), []);
+
+// 1. Carregar Estado Inicial de Todos os Arquivos Persistidos
+try {
+  const masterState = loadJsonFile<any>(MASTER_STATE_FILE, null);
+
+  const diskCategories = loadJsonFile(CATEGORIES_FILE, []);
+  const diskProducts = loadJsonFile(PRODUCTS_FILE, []);
+
+  memCategories = (Array.isArray(diskCategories) && diskCategories.length > 0)
+    ? diskCategories
+    : (Array.isArray(masterState?.categories) && masterState.categories.length > 0)
+      ? masterState.categories
+      : (Array.isArray(seedCategories) && seedCategories.length > 0)
+        ? seedCategories
+        : DEFAULT_CATEGORIES;
+
+  memProducts = (Array.isArray(diskProducts) && diskProducts.length > 0)
+    ? diskProducts
+    : (Array.isArray(masterState?.products) && masterState.products.length > 0)
+      ? masterState.products
+      : (Array.isArray(seedProducts) && seedProducts.length > 0)
+        ? seedProducts
+        : DEFAULT_PRODUCTS;
+  memTvMedia = loadJsonFile(TV_MEDIA_FILE, masterState?.tvMedia || (Array.isArray(seedTvMedia) && seedTvMedia.length > 0 ? seedTvMedia : []));
+  memStoreInfo = { ...DEFAULT_STORE_INFO, ...seedStoreInfo, ...(masterState?.storeInfo || {}), ...loadJsonFile(STORE_INFO_FILE, {}) };
+  const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
+  const initialBackupOrders = loadJsonFile(ORDERS_BACKUP_FILE, []);
+  const initialMasterOrders = masterState?.orders || [];
+  const initOrderMap = new Map<string, any>();
+  [...initialMasterOrders, ...initialDiskOrders, ...initialBackupOrders].forEach((o: any) => {
+    if (o && o.id) initOrderMap.set(String(o.id), { ...(initOrderMap.get(String(o.id)) || {}), ...o });
+  });
+  memOrders = Array.from(initOrderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+  memCustomers = loadJsonFile(CUSTOMERS_FILE, masterState?.customers || [])
+    .filter((c: any) => c.source !== 'pedido_totem' && c.source !== 'totem' && (c.name || '').toLowerCase() !== 'cliente totem')
+    .map((c: any) => ({
+      ...c,
+      status: (c.status === 'rejected') ? 'rejected' : 'approved'
+    }));
+  memUsers = loadJsonFile(USERS_FILE, masterState?.users || DEFAULT_USERS);
+  memTables = loadJsonFile(TABLES_FILE, masterState?.tables || DEFAULT_TABLES);
+  memAppInstalls = loadJsonFile(APP_INSTALLS_FILE, []);
+  memTotemBackups = loadJsonFile(TOTEM_BACKUPS_FILE, masterState?.totemBackups || (Array.isArray(seedTotemBackups) ? seedTotemBackups : []));
+
+  // Se não houver backups salvos, cria o primeiro backup padrão automaticamente
+  if (memTotemBackups.length === 0 && memCategories.length > 0) {
+    const activeCats = memCategories.map(c => ({
+      id: c.id,
+      name: c.name,
+      externalId: c.externalId,
+      availableForKiosk: c.availableForKiosk !== false
+    }));
+    const activeProds = memProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      externalId: p.externalId,
+      categoryId: p.categoryId,
+      availableForKiosk: p.availableForKiosk !== false
+    }));
+    memTotemBackups = [{
+      id: `totem_bkp_baseline_${Date.now()}`,
+      name: 'Backup Inicial Padrão Totem',
+      createdAt: new Date().toISOString(),
+      activeCategoriesCount: activeCats.filter(c => c.availableForKiosk).length,
+      activeProductsCount: activeProds.filter(p => p.availableForKiosk).length,
+      categories: activeCats,
+      products: activeProds
+    }];
+    writeJsonFile(TOTEM_BACKUPS_FILE, memTotemBackups);
+  }
+} catch (e) {
+  console.warn('Aviso: Falha na inicialização dos dados persistidos:', e);
+}
+
+// A hidratação autoritativa do PostgreSQL é executada sequencialmente pelo server.ts (hydrateFromPostgres)
+
+
+let productsVersion = Date.now();
+let categoriesVersion = Date.now();
+let storeInfoVersion = Date.now();
+
+function persistTotemBackupsToDisk(data: any[]) {
+  writeJsonFile(TOTEM_BACKUPS_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistCategoriesToDisk(data: any[]) {
+  if (!Array.isArray(data)) return;
+  categoriesVersion = Date.now();
+  writeJsonFile(CATEGORIES_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistProductsToDisk(data: any[]) {
+  if (!Array.isArray(data)) return;
+  productsVersion = Date.now();
+  writeJsonFile(PRODUCTS_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistTvMediaToDisk(data: any[]) {
+  writeJsonFile(TV_MEDIA_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistUsersToDisk(data: any[]) {
+  writeJsonFile(USERS_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistOrdersToDisk(data: any[]) {
+  writeJsonFile(ORDERS_FILE, data);
+  writeJsonFile(ORDERS_BACKUP_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistStoreInfoToDisk(data: any) {
+  storeInfoVersion = Date.now();
+  writeJsonFile(STORE_INFO_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistCustomersToDisk(data: any[]) {
+  writeJsonFile(CUSTOMERS_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistTablesToDisk(data: any[]) {
+  writeJsonFile(TABLES_FILE, data);
+  persistAllStateToMasterFile();
+}
+
+function persistAppInstallsToDisk(data: any[]) {
+  writeJsonFile(APP_INSTALLS_FILE, data);
+}
+
+function calculateNextOrderNumber(currentOrders: any[] = []): string {
+  const usedNumbers = new Set<number>();
+  let maxNum = 0;
+  currentOrders.forEach(o => {
+    if (!o || !o.id) return;
+    const digits = String(o.id).replace(/\D/g, '');
+    if (digits) {
+      const num = parseInt(digits, 10);
+      if (!isNaN(num) && num >= 1 && num <= 99999) {
+        usedNumbers.add(num);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  });
+  let candidate = maxNum + 1;
+  if (candidate > 99999) {
+    candidate = 1;
+    while (usedNumbers.has(candidate)) {
+      candidate++;
+    }
+  }
+  return String(candidate).padStart(4, '0');
+}
+
+export function getMemStoreInfo() {
+  return memStoreInfo || DEFAULT_STORE_INFO;
+}
+
+export function formatProductForDb(p: any) {
+  return {
+    id: String(p.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
+    categoryId: p.categoryId ? String(p.categoryId) : (p.category_id ? String(p.category_id) : null),
+    name: String(p.name || 'Produto sem nome').trim(),
+    description: cleanProductDescription(p.description || '', false),
+    price: typeof p.price === 'number' ? (isNaN(p.price) ? 0 : p.price) : (parseFloat(p.price) || 0),
+    imageUrl: p.imageUrl ? String(p.imageUrl) : (p.image_url ? String(p.image_url) : ''),
+    isActive: p.isActive !== false && p.is_active !== false,
+    isAddon: Boolean(p.isAddon || p.is_addon),
+    isFlavor: Boolean(p.isFlavor || p.is_flavor),
+    addonIds: Array.isArray(p.addonIds) ? p.addonIds : (Array.isArray(p.addon_ids) ? p.addon_ids : []),
+    maxAddons: typeof p.maxAddons === 'number' ? p.maxAddons : (parseInt(p.max_addons, 10) || 0),
+    flavorIds: Array.isArray(p.flavorIds) ? p.flavorIds : (Array.isArray(p.flavor_ids) ? p.flavor_ids : []),
+    externalId: p.externalId ? String(p.externalId) : (p.external_id ? String(p.external_id) : null),
+    availableForDelivery: p.availableForDelivery !== false && p.available_for_delivery !== false,
+    availableInStore: p.availableInStore !== false && p.available_in_store !== false,
+    availableForKiosk: p.availableForKiosk !== false && p.available_for_kiosk !== false,
+  };
+}
+
+export function formatCategoryForDb(c: any) {
+  return {
+    id: String(c.id || `cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
+    name: String(c.name || 'Categoria sem nome').trim(),
+    order: typeof c.order === 'number' ? c.order : (parseInt(c.order, 10) || 0),
+    externalId: c.externalId ? String(c.externalId) : (c.external_id ? String(c.external_id) : null),
+    isVisible: c.isVisible !== false && c.is_visible !== false,
+    availableForDelivery: c.availableForDelivery !== false && c.available_for_delivery !== false,
+    availableInStore: c.availableInStore !== false && c.available_in_store !== false,
+    availableForKiosk: c.availableForKiosk !== false && c.available_for_kiosk !== false,
+  };
+}
+
+export async function saveProductsToPostgresBatch(productList: any[]): Promise<number> {
+  if (!isDatabaseConfigured() || !Array.isArray(productList) || productList.length === 0) return 0;
+  const sanitized = productList.map(formatProductForDb);
+  const CHUNK_SIZE = 50;
+  let savedCount = 0;
+
+  for (let i = 0; i < sanitized.length; i += CHUNK_SIZE) {
+    const chunk = sanitized.slice(i, i + CHUNK_SIZE);
+    try {
+      await withDbRetry(async () => {
+        for (const item of chunk) {
+          await db.insert(products)
+            .values(item)
+            .onConflictDoUpdate({
+              target: products.id,
+              set: {
+                name: item.name,
+                categoryId: item.categoryId,
+                description: item.description,
+                price: item.price,
+                imageUrl: item.imageUrl,
+                isActive: item.isActive,
+                isAddon: item.isAddon,
+                isFlavor: item.isFlavor,
+                addonIds: item.addonIds,
+                maxAddons: item.maxAddons,
+                flavorIds: item.flavorIds,
+                externalId: item.externalId,
+                availableForDelivery: item.availableForDelivery,
+                availableInStore: item.availableInStore,
+                availableForKiosk: item.availableForKiosk,
+              }
+            });
+        }
+      });
+      savedCount += chunk.length;
+    } catch (chunkErr) {
+      console.warn(`[DB Batch Insert] Aviso no bloco ${i}-${i + chunk.length}:`, chunkErr);
+      for (const item of chunk) {
+        try {
+          await db.insert(products).values(item).onConflictDoUpdate({
+            target: products.id,
+            set: {
+              name: item.name,
+              categoryId: item.categoryId,
+              description: item.description,
+              price: item.price,
+              imageUrl: item.imageUrl,
+              isActive: item.isActive,
+              externalId: item.externalId,
+            }
+          });
+          savedCount++;
+        } catch (itemErr) {
+          console.warn(`[DB Product Item Error] Item ${item.id} pulado:`, itemErr);
+        }
+      }
+    }
+  }
+  return savedCount;
+}
+
+export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promise<number> {
+  if (!isDatabaseConfigured() || !Array.isArray(categoryList) || categoryList.length === 0) return 0;
+  const sanitized = categoryList.map(formatCategoryForDb);
+  let saved = 0;
+  for (const cat of sanitized) {
+    try {
+      await withDbRetry(() =>
+        db.insert(categories).values(cat).onConflictDoUpdate({
+          target: categories.id,
+          set: {
+            name: cat.name,
+            order: cat.order,
+            externalId: cat.externalId,
+            isVisible: cat.isVisible,
+            availableForDelivery: cat.availableForDelivery,
+            availableInStore: cat.availableInStore,
+            availableForKiosk: cat.availableForKiosk,
+          }
+        })
+      );
+      saved++;
+    } catch (e) {
+      console.warn(`[DB Cat Error] Falha na categoria ${cat.id}:`, e);
+    }
+  }
+  return saved;
+}
+
+/**
+ * Hidrata o estado em memória diretamente do PostgreSQL ao inicializar o servidor.
+ * Garante que em ambientes com disco efêmero (como Render e contêineres),
+ * configurações cruciais (horários, status de loja, totem, delivery e agente IA)
+ * NUNCA sejam perdidas ao subir novas versões.
+ */
+export async function hydrateFromPostgres(): Promise<void> {
+  if (!isDatabaseConfigured()) {
+    console.log('[DB Hydrate] Banco de dados não configurado, mantendo estado do disco/memória.');
+    return;
+  }
+
+  try {
+    console.log('[DB Hydrate] Hidratando estado da loja e cadastros diretamente do PostgreSQL...');
+    
+    // 1. Hidratar Store Info
+    try {
+      const storeList = await withDbRetry(() => db.select().from(storeInfo).where(eq(storeInfo.id, 'default')));
+      if (storeList.length > 0) {
+        const dbRow = storeList[0];
+        // Merge: Base defaults -> Local seed/memory -> PostgreSQL row
+        const merged: any = { ...DEFAULT_STORE_INFO, ...memStoreInfo };
+        for (const [key, val] of Object.entries(dbRow)) {
+          if (val !== null && val !== undefined) {
+            // Protect valid defaults against accidental empty strings or empty arrays
+            if (typeof val === 'string' && val.trim() === '' && merged[key] && merged[key] !== '') {
+              // keep existing
+            } else if (val === '[]' && merged[key] && merged[key] !== '[]') {
+              // keep existing
+            } else {
+              merged[key] = val;
+            }
+          }
+        }
+        memStoreInfo = sanitizeStoreInfoPrinters(merged);
+        persistStoreInfoToDisk(memStoreInfo);
+        console.log(`[DB Hydrate] StoreInfo carregada com sucesso do PostgreSQL: "${memStoreInfo.name}" (Aberta: ${memStoreInfo.isOpen}, Agente IA: ${memStoreInfo.aiAgentEnabled})`);
+      } else {
+        // Se a linha 'default' ainda não existe no Postgres, salva o estado atual
+        await withDbRetry(() => db.insert(storeInfo).values({ ...DEFAULT_STORE_INFO, ...memStoreInfo, id: 'default' }).onConflictDoNothing());
+        console.log('[DB Hydrate] Criada linha default em store_info no PostgreSQL.');
+      }
+    } catch (storeErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
+    }
+
+    // 2. Hidratar Categorias
+    try {
+      const catList = await withDbRetry(() => db.select().from(categories));
+      memCategories = (catList || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+      persistCategoriesToDisk(memCategories);
+      console.log(`[DB Hydrate] ${memCategories.length} categorias carregadas do PostgreSQL.`);
+    } catch (catErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar categories do PostgreSQL:', catErr?.message || catErr);
+    }
+
+    // 3. Hidratar Produtos
+    try {
+      let prodList;
+      try {
+        prodList = await withDbRetry(() => db.select().from(products));
+      } catch (err: any) {
+        if (err?.message && (err.message.includes('column') || err.message.includes('does not exist'))) {
+          await ensureTablesExist();
+          prodList = await withDbRetry(() => db.select().from(products));
+        } else {
+          throw err;
+        }
+      }
+      memProducts = prodList || [];
+      persistProductsToDisk(memProducts);
+      console.log(`[DB Hydrate] ${memProducts.length} produtos carregados do PostgreSQL.`);
+    } catch (prodErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar products do PostgreSQL:', prodErr?.message || prodErr);
+    }
+
+    // 3.0. Hidratar Totem Backups
+    try {
+      const tbList = await withDbRetry(() => db.select().from(totemBackups).orderBy(desc(totemBackups.createdAt)));
+      memTotemBackups = tbList || [];
+      persistTotemBackupsToDisk(memTotemBackups);
+      console.log(`[DB Hydrate] ${memTotemBackups.length} backups do totem carregados do PostgreSQL.`);
+    } catch (tbErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar totem_backups do PostgreSQL:', tbErr?.message || tbErr);
+    }
+
+    // 3.1. Hidratar Clientes
+    try {
+      const custList = await withDbRetry(() => db.select().from(customers));
+      memCustomers = custList || [];
+      persistCustomersToDisk(memCustomers);
+      console.log(`[DB Hydrate] ${memCustomers.length} clientes carregados do PostgreSQL.`);
+    } catch (custErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar customers do PostgreSQL:', custErr?.message || custErr);
+    }
+
+    // 3.2. Hidratar Pedidos
+    try {
+      const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(1000);
+      memOrders = ordList || [];
+      persistOrdersToDisk(memOrders);
+      console.log(`[DB Hydrate] ${memOrders.length} pedidos carregados do PostgreSQL.`);
+    } catch (ordHydrateErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar orders do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
+    }
+
+    // 4. Hidratar Mesas
+    try {
+      const tableList = await db.select().from(restaurantTables);
+      memTables = tableList || [];
+      persistTablesToDisk(memTables);
+      console.log(`[DB Hydrate] ${memTables.length} mesas carregadas do PostgreSQL.`);
+    } catch (tblErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar restaurant_tables do PostgreSQL:', tblErr?.message || tblErr);
+    }
+
+    // 4.1. Hidratar Motoboys
+    try {
+      const drvList = await db.select().from(drivers);
+      memDrivers = drvList || [];
+      persistDriversToDisk(memDrivers);
+      console.log(`[DB Hydrate] ${memDrivers.length} motoboys carregados do PostgreSQL.`);
+    } catch (drvErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar drivers do PostgreSQL:', drvErr?.message || drvErr);
+    }
+
+    // 4.2. Hidratar Zonas de Entrega
+    try {
+      const zoneList = await db.select().from(deliveryZones);
+      memDeliveryZones = zoneList || [];
+      persistDeliveryZonesToDisk(memDeliveryZones);
+      console.log(`[DB Hydrate] ${memDeliveryZones.length} zonas de entrega carregadas do PostgreSQL.`);
+    } catch (zoneErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar delivery_zones do PostgreSQL:', zoneErr?.message || zoneErr);
+    }
+
+    // 5. Hidratar TV Media
+    try {
+      const tvList = await db.select().from(tvMedia);
+      memTvMedia = (tvList || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+      persistTvMediaToDisk(memTvMedia);
+      console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
+    } catch (tvErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar tv_media do PostgreSQL:', tvErr?.message || tvErr);
+    }
+
+    // 6. Migration final: Aprovar todos os clientes pendentes (regra de negócio atualizada: sem aprovação manual)
+    try {
+      let migrationCount = 0;
+      memCustomers = memCustomers.map(c => {
+        if (c.status === 'pending' || !c.status) {
+          migrationCount++;
+          return { ...c, status: 'approved' };
+        }
+        return c;
+      });
+      if (migrationCount > 0) {
+        persistCustomersToDisk(memCustomers);
+        console.log(`[Migration] Auto-aprovados ${migrationCount} clientes em memória.`);
+        if (isDatabaseConfigured()) {
+          try {
+            await db.update(customers).set({ status: 'approved' }).where(eq(customers.status, 'pending'));
+            console.log('[Migration] Auto-aprovados clientes pendentes no PostgreSQL.');
+          } catch (migDbErr) {}
+        }
+      }
+    } catch (migErr: any) {
+      console.warn('[Migration] Erro ao auto-aprovar clientes:', migErr.message);
+    }
+
+    // Persiste o snapshot mestre atualizado em disco
+    persistAllStateToMasterFile();
+    console.log('[DB Hydrate] Hidratação do PostgreSQL concluída com sucesso!');
+  } catch (globalHydrateErr: any) {
+    console.error('[DB Hydrate] Erro durante hidratação inicial do PostgreSQL:', globalHydrateErr);
+  }
+}
+
+export function cleanPhoneDigits(phone?: string | null): string {
+  if (!phone) return '';
+  return String(phone).replace(/\D/g, '');
+}
+
+export async function upsertCustomerLead(leadData: {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  source?: string;
+  orderTotal?: number;
+  isOrder?: boolean;
+  tags?: string[];
+  notes?: string;
+}) {
+  // REGRA DE NEGÓCIO: Pedidos feitos pelo totem NÃO viram leads no sistema
+  if (leadData.source === 'pedido_totem' || leadData.source === 'totem' || leadData.source === 'kiosk') {
+    return null;
+  }
+
+  const rawName = (leadData.name || '').trim();
+  const phone = (leadData.phone || '').trim();
+  const digits = cleanPhoneDigits(phone);
+  
+  if (!rawName && !digits) return null;
+  if (rawName.toLowerCase() === 'cliente totem') return null;
+
+  const now = Date.now();
+  const cleanName = rawName || (digits ? `Cliente (${digits.slice(-4)})` : 'Cliente');
+
+  // Buscar cliente existente por telefone ou nome
+  let existingIndex = -1;
+  if (digits && digits.length >= 8) {
+    existingIndex = memCustomers.findIndex(c => {
+      const cDigits = cleanPhoneDigits(c.phone || '');
+      return cDigits && (cDigits === digits || cDigits.endsWith(digits) || digits.endsWith(cDigits));
+    });
+  }
+  
+  if (existingIndex === -1 && cleanName && cleanName.toLowerCase() !== 'cliente') {
+    existingIndex = memCustomers.findIndex(c => 
+      (c.name || '').trim().toLowerCase() === cleanName.toLowerCase() && 
+      (!digits || !c.phone || cleanPhoneDigits(c.phone) === digits)
+    );
+  }
+
+  let customerRecord: any;
+
+  if (existingIndex >= 0) {
+    const existing = memCustomers[existingIndex];
+    let parsedTags: string[] = [];
+    try {
+      parsedTags = Array.isArray(existing.tags) 
+        ? existing.tags 
+        : typeof existing.tags === 'string' 
+        ? JSON.parse(existing.tags || '[]') 
+        : [];
+    } catch {
+      parsedTags = [];
+    }
+
+    if (leadData.tags && Array.isArray(leadData.tags)) {
+      leadData.tags.forEach(t => {
+        if (t && !parsedTags.includes(t)) parsedTags.push(t);
+      });
+    }
+
+    if (leadData.isOrder) {
+      if (!parsedTags.includes('Cliente')) parsedTags.push('Cliente');
+      if (leadData.source === 'pedido_delivery' && !parsedTags.includes('Delivery')) parsedTags.push('Delivery');
+    } else {
+      if (!parsedTags.includes('Lead')) parsedTags.push('Lead');
+    }
+
+    const updatedTotalOrders = Number(existing.totalOrders || 0) + (leadData.isOrder ? 1 : 0);
+    if (updatedTotalOrders >= 2 && !parsedTags.includes('Recorrente')) {
+      parsedTags.push('Recorrente');
+    }
+
+    customerRecord = {
+      ...existing,
+      name: (cleanName && cleanName.toLowerCase() !== 'cliente') ? cleanName : existing.name,
+      phone: phone || existing.phone,
+      email: leadData.email || existing.email || '',
+      address: leadData.address || existing.address || '',
+      source: existing.source || leadData.source || 'cadastro_cardapio',
+      totalOrders: updatedTotalOrders,
+      totalSpent: Number(existing.totalSpent || 0) + (Number(leadData.orderTotal) || 0),
+      lastOrderAt: leadData.isOrder ? now : (existing.lastOrderAt || null),
+      status: existing.status === 'rejected' ? 'rejected' : 'approved',
+      tags: JSON.stringify(parsedTags),
+      notes: leadData.notes !== undefined ? leadData.notes : (existing.notes || ''),
+    };
+
+    memCustomers[existingIndex] = customerRecord;
+  } else {
+    const initialTags: string[] = leadData.tags ? [...leadData.tags] : [];
+    if (leadData.isOrder) {
+      initialTags.push('Cliente');
+      if (leadData.source === 'pedido_delivery') initialTags.push('Delivery');
+    } else {
+      initialTags.push('Lead');
+    }
+
+    customerRecord = {
+      id: `cust_${now}_${Math.random().toString(36).substring(2, 7)}`,
+      name: cleanName,
+      phone: phone || '',
+      email: leadData.email || '',
+      address: leadData.address || '',
+      source: leadData.source || 'cadastro_cardapio',
+      totalOrders: leadData.isOrder ? 1 : 0,
+      totalSpent: Number(leadData.orderTotal) || 0,
+      lastOrderAt: leadData.isOrder ? now : null,
+      createdAt: now,
+      status: 'approved',
+      tags: JSON.stringify(initialTags),
+      notes: leadData.notes || '',
+    };
+
+    memCustomers.unshift(customerRecord);
+  }
+
+  persistCustomersToDisk(memCustomers);
+
+  if (isDatabaseConfigured()) {
+    try {
+      const payload = {
+        ...customerRecord,
+        tags: typeof customerRecord.tags === 'string' ? customerRecord.tags : JSON.stringify(customerRecord.tags || [])
+      };
+      await db.insert(customers).values(payload).onConflictDoUpdate({
+        target: customers.id,
+        set: payload
+      });
+    } catch (err: any) {
+      console.warn('Aviso: Falha ao persistir cliente no DB:', err?.message || err);
+    }
+  }
+
+  return customerRecord;
+}
+
+let latestTvCall: {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  type?: string;
+  tableOrDesk?: string;
+  calledAt: number;
+} | null = null;
+
+// SSE Connections set for real-time synchronization
+const sseClients = new Set<Response>();
+
+export function broadcastSSE(data: any) {
+  const payload = `data: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(payload);
+    } catch (e) {
+      sseClients.delete(client);
+    }
+  }
+}
+
+// Keep-alive heartbeat every 15 seconds
+setInterval(() => {
+  broadcastSSE({ type: 'ping', time: Date.now() });
+}, 15000);
+
+export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) => void) {
+  // SSE Real-Time Sync Endpoint
+  app.get('/api/events', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    res.write(`data: ${JSON.stringify({ type: 'connected', time: Date.now() })}\n\n`);
+    sseClients.add(res);
+
+    req.on('close', () => {
+      sseClients.delete(res);
+    });
+  });
+
+  // NTFY Proxy Endpoint (Evita bloqueios de CORS no navegador e garante entrega garantida de notificações)
+  app.post('/api/ntfy/send', async (req: Request, res: Response) => {
+    try {
+      const { topic, title, message, priority, tags, clickUrl } = req.body || {};
+      const safeTopic = (topic || 'balbecrevenda_pedidos').toString().replace(/[^a-zA-Z0-9_-]/g, '') || 'balbecrevenda_pedidos';
+      
+      if (!message) {
+        return res.status(400).json({ success: false, error: 'Mensagem é obrigatória' });
+      }
+
+      const ntfyPayload: Record<string, any> = {
+        topic: safeTopic,
+        message: String(message),
+        priority: Number(priority) || 4
+      };
+      if (title) ntfyPayload.title = String(title);
+      if (Array.isArray(tags) && tags.length > 0) ntfyPayload.tags = tags;
+      if (clickUrl) ntfyPayload.click = String(clickUrl);
+
+      const ntfyRes = await fetch('https://ntfy.sh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        },
+        body: JSON.stringify(ntfyPayload)
+      });
+
+      if (ntfyRes.ok) {
+        return res.json({ success: true, message: 'Notificação enviada com sucesso via ntfy' });
+      } else {
+        const errText = await ntfyRes.text();
+        return res.status(500).json({ success: false, error: 'Falha no serviço ntfy', details: errText });
+      }
+    } catch (err: any) {
+      console.error('[NTFY Proxy Error]:', err);
+      return res.status(500).json({ success: false, error: err?.message || 'Erro interno ao enviar ntfy' });
+    }
+  });
+
+  // Diagnostic Test Connection Route
+  app.get('/api/db/test-connection', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const envDetected = {
+      DATABASE_URL: !!getDatabaseUrl(),
+      PGHOST: !!process.env.PGHOST,
+      SQL_HOST: !!process.env.SQL_HOST,
+      nodeEnv: process.env.NODE_ENV
+    };
+
+    if (!isDatabaseConfigured()) {
+      return res.status(200).json({
+        success: false,
+        status: 'missing_config',
+        message: 'Variável de ambiente do Banco de Dados não configurada.',
+        details: 'Configure a variável DATABASE_URL com a URL de conexão do PostgreSQL / Cloud SQL.',
+        envDetected,
+        responseTimeMs: Date.now() - startTime
+      });
+    }
+
+    try {
+      const result = await pool.query('SELECT NOW() as current_time, current_database() as db_name, version() as pg_version');
+      const row = result.rows[0];
+      let productCount = 0;
+      let categoryCount = 0;
+      try {
+        const pRes = await pool.query('SELECT COUNT(*) as c FROM products');
+        productCount = parseInt(pRes.rows[0]?.c || '0', 10);
+      } catch (_) {}
+
+      try {
+        const cRes = await pool.query('SELECT COUNT(*) as c FROM categories');
+        categoryCount = parseInt(cRes.rows[0]?.c || '0', 10);
+      } catch (_) {}
+
+      return res.status(200).json({
+        success: true,
+        status: 'connected',
+        message: 'Conexão com PostgreSQL estabelecida com sucesso!',
+        databaseName: row.db_name,
+        dbTime: row.current_time,
+        pgVersion: row.pg_version?.split(' ')?.[0] + ' ' + row.pg_version?.split(' ')?.[1],
+        productCount,
+        categoryCount,
+        envDetected,
+        responseTimeMs: Date.now() - startTime
+      });
+    } catch (err: any) {
+      return res.status(200).json({
+        success: false,
+        status: 'connection_error',
+        message: 'Falha ao conectar no servidor PostgreSQL.',
+        details: err?.message || String(err),
+        code: err?.code,
+        envDetected,
+        responseTimeMs: Date.now() - startTime
+      });
+    }
+  });
+
+  // Categories
+  app.get('/api/db/categories', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(memCategories);
+  });
+
+  app.post('/api/db/categories', async (req: Request, res: Response) => {
+    const data = req.body;
+    const newCat = { ...data, id: data.id || `cat_${Date.now()}` };
+    memCategories = [...memCategories.filter(c => c.id !== newCat.id), newCat];
+    persistCategoriesToDisk(memCategories);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.insert(categories).values(newCat).returning();
+        onUpdate?.('catalog');
+        return res.json(result[0] || newCat);
+      } catch (error: any) {
+        onUpdate?.('catalog');
+        return res.json(newCat);
+      }
+    }
+    onUpdate?.('catalog');
+    res.json(newCat);
+  });
+
+  app.put('/api/db/categories/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = req.body;
+    memCategories = memCategories.map(c => c.id === id ? { ...c, ...data } : c);
+    persistCategoriesToDisk(memCategories);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.update(categories).set(data).where(eq(categories.id, id)).returning();
+        onUpdate?.('catalog');
+        return res.json(result[0] || { id, ...data });
+      } catch (error: any) {
+        onUpdate?.('catalog');
+        return res.json({ id, ...data });
+      }
+    }
+    onUpdate?.('catalog');
+    res.json({ id, ...data });
+  });
+
+  app.delete('/api/db/categories/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memCategories = memCategories.filter(c => c.id !== id);
+    persistCategoriesToDisk(memCategories);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(categories).where(eq(categories.id, id));
+      } catch (error: any) {}
+    }
+    onUpdate?.('catalog');
+    res.json({ success: true, id });
+  });
+
+  // --- Totem Backups ---
+  app.get('/api/db/totem-backups', async (req: Request, res: Response) => {
+    if (isDatabaseConfigured()) {
+      try {
+        const list = await withDbRetry(() => db.select().from(totemBackups).orderBy(desc(totemBackups.createdAt)));
+        if (list && list.length > 0) {
+          memTotemBackups = list;
+          return res.json(list);
+        }
+      } catch (err: any) {
+        console.warn('[Totem Backups] GET erro:', err?.message);
+      }
+    }
+    res.json(memTotemBackups);
+  });
+
+  app.post('/api/db/totem-backups', async (req: Request, res: Response) => {
+    try {
+      const { name } = req.body || {};
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const backupName = name && String(name).trim() ? String(name).trim() : `Backup Totem - ${dateStr}`;
+
+      const activeCatList = memCategories.map(c => ({ ...c }));
+      const activeProdList = memProducts.map(p => ({ ...p }));
+
+      const newBackup = {
+        id: `totem_bkp_${Date.now()}`,
+        name: backupName,
+        createdAt: new Date().toISOString(),
+        activeCategoriesCount: activeCatList.filter(c => c.availableForKiosk !== false).length,
+        activeProductsCount: activeProdList.filter(p => p.isActive && p.availableForKiosk !== false).length,
+        categories: activeCatList,
+        products: activeProdList
+      };
+
+      memTotemBackups = [newBackup, ...memTotemBackups.slice(0, 49)];
+      persistTotemBackupsToDisk(memTotemBackups);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await withDbRetry(() => db.insert(totemBackups).values(newBackup).onConflictDoUpdate({
+            target: totemBackups.id,
+            set: newBackup
+          }));
+        } catch (dbTbErr) {
+          console.warn('[Totem Backup DB Error]:', dbTbErr);
+        }
+      }
+
+      onUpdate?.('catalog');
+
+      res.json({ success: true, backup: newBackup });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao criar backup' });
+    }
+  });
+
+  app.post('/api/db/totem-backups/restore', async (req: Request, res: Response) => {
+    try {
+      const { backupId, customBackup } = req.body || {};
+      let targetBackup = customBackup;
+      let restoredCatCount = 0;
+      let restoredProdCount = 0;
+
+      if (!targetBackup && backupId) {
+        targetBackup = memTotemBackups.find(b => b.id === backupId);
+      }
+
+      if (!targetBackup || (!Array.isArray(targetBackup.categories) && !Array.isArray(targetBackup.products))) {
+        return res.status(400).json({ error: 'Backup inválido ou não encontrado.' });
+      }
+
+      if (Array.isArray(targetBackup.categories)) {
+        memCategories = targetBackup.categories;
+        persistCategoriesToDisk(memCategories);
+        restoredCatCount = memCategories.length;
+      }
+
+      if (Array.isArray(targetBackup.products)) {
+        memProducts = targetBackup.products;
+        persistProductsToDisk(memProducts);
+        restoredProdCount = memProducts.length;
+      }
+
+      persistAllStateToMasterFile();
+
+      // Sincroniza com PostgreSQL se configurado
+      if (isDatabaseConfigured()) {
+        try {
+          if (Array.isArray(targetBackup.categories)) {
+            for (const c of targetBackup.categories) {
+              await db.insert(categories).values(c).onConflictDoUpdate({ target: categories.id, set: c });
+            }
+          }
+          if (Array.isArray(targetBackup.products)) {
+            for (const p of targetBackup.products) {
+              await db.insert(products).values(p).onConflictDoUpdate({ target: products.id, set: p });
+            }
+          }
+        } catch (dbErr) {
+          console.warn('[DB Restore] Aviso ao sincronizar com Postgres:', dbErr);
+        }
+      }
+
+      onUpdate?.('catalog');
+      res.json({
+        success: true,
+        restoredCatCount,
+        restoredProdCount,
+        backupName: targetBackup.name || 'Backup Restaurado'
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao restaurar backup do totem' });
+    }
+  });
+
+  app.delete('/api/db/totem-backups/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memTotemBackups = memTotemBackups.filter(b => b.id !== id);
+    persistTotemBackupsToDisk(memTotemBackups);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(totemBackups).where(eq(totemBackups.id, id));
+      } catch (dbDelErr) {}
+    }
+
+    onUpdate?.('catalog');
+    res.json({ success: true, id });
+  });
+
+  // Products
+  app.get('/api/db/products', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache');
+
+    const defaultCodeMap: Record<string, string> = {
+      'prod-1': '1001',
+      'prod-2': '1002',
+      'prod-3': '2001',
+      'prod-4': '2002',
+      'prod-5': '3001',
+      'prod-6': '3002',
+      'prod-7': '4001',
+      'prod-8': '4002',
+    };
+
+    const attachCodeIfMissing = (p: any, index: number) => {
+      let code = p.externalId;
+      if (!code || String(code).trim() === '') {
+        if (p.id && defaultCodeMap[p.id]) {
+          code = defaultCodeMap[p.id];
+        } else if (p.id && p.id.startsWith('prod-')) {
+          const num = parseInt(p.id.replace('prod-', ''), 10);
+          code = isNaN(num) ? String(1000 + index + 1) : String(1000 + num);
+        } else {
+          code = String(1000 + index + 1);
+        }
+      }
+      return {
+        ...p,
+        externalId: code,
+        description: cleanProductDescription(p.description, false)
+      };
+    };
+
+    const sanitized = memProducts.map((p, idx) => attachCodeIfMissing(p, idx));
+    res.json(sanitized);
+  });
+
+  app.post('/api/db/products', async (req: Request, res: Response) => {
+    const data = req.body;
+    const cleanDesc = cleanProductDescription(data.description, false);
+    const newProd = { ...data, description: cleanDesc, id: data.id || `prod_${Date.now()}` };
+    memProducts = [...memProducts.filter(p => p.id !== newProd.id), newProd];
+    persistProductsToDisk(memProducts);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.insert(products).values(newProd).returning();
+        onUpdate?.('catalog');
+        return res.json(result[0] || newProd);
+      } catch (error: any) {
+        onUpdate?.('catalog');
+        return res.json(newProd);
+      }
+    }
+    onUpdate?.('catalog');
+    res.json(newProd);
+  });
+
+  app.post('/api/db/products/batch', async (req: Request, res: Response) => {
+    try {
+      const items: any[] = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.json({ success: true, count: 0 });
+      }
+
+      const sanitizedItems = items.map(item => ({
+        ...item,
+        description: cleanProductDescription(item.description, false)
+      }));
+
+      // Update in-memory cache
+      const itemMap = new Map(memProducts.map(p => [p.id, p]));
+      for (const item of sanitizedItems) {
+        itemMap.set(item.id, { ...(itemMap.get(item.id) || {}), ...item });
+      }
+      memProducts = Array.from(itemMap.values());
+      persistProductsToDisk(memProducts);
+
+      if (isDatabaseConfigured()) {
+        const subChunkSize = 10;
+        for (let i = 0; i < sanitizedItems.length; i += subChunkSize) {
+          const subChunk = sanitizedItems.slice(i, i + subChunkSize);
+          await Promise.all(
+            subChunk.map(item =>
+              db.insert(products)
+                .values(item)
+                .onConflictDoUpdate({
+                  target: products.id,
+                  set: {
+                    name: item.name,
+                    description: item.description,
+                    price: item.price,
+                    imageUrl: item.imageUrl,
+                    isActive: item.isActive,
+                    categoryId: item.categoryId,
+                    externalId: item.externalId,
+                    availableForDelivery: item.availableForDelivery,
+                    availableInStore: item.availableInStore,
+                    availableForKiosk: item.availableForKiosk,
+                  }
+                })
+            )
+          );
+        }
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true, count: sanitizedItems.length });
+    } catch (error: any) {
+      onUpdate?.('catalog');
+      res.json({ success: true, count: (req.body || []).length });
+    }
+  });
+
+  app.put('/api/db/products/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = req.body;
+    if (data.description !== undefined) {
+      data.description = cleanProductDescription(data.description, false);
+    }
+    memProducts = memProducts.map(p => p.id === id ? { ...p, ...data } : p);
+    persistProductsToDisk(memProducts);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.update(products).set(data).where(eq(products.id, id)).returning();
+        onUpdate?.('catalog');
+        return res.json(result[0] || { id, ...data });
+      } catch (error: any) {
+        onUpdate?.('catalog');
+        return res.json({ id, ...data });
+      }
+    }
+    onUpdate?.('catalog');
+    res.json({ id, ...data });
+  });
+
+  // Purge/clean all barcodes from descriptions in DB & Memory
+  app.post('/api/db/products/clean-barcodes', async (req: Request, res: Response) => {
+    try {
+      let updatedCount = 0;
+      memProducts = memProducts.map(p => {
+        const cleaned = cleanProductDescription(p.description, false);
+        if (cleaned !== p.description) updatedCount++;
+        return { ...p, description: cleaned };
+      });
+      persistProductsToDisk(memProducts);
+
+      if (isDatabaseConfigured()) {
+        const allProds = await db.select().from(products);
+        for (const prod of allProds) {
+          const cleaned = cleanProductDescription(prod.description, false);
+          if (cleaned !== prod.description) {
+            await db.update(products).set({ description: cleaned }).where(eq(products.id, prod.id));
+            updatedCount++;
+          }
+        }
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true, updatedCount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/db/products/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memProducts = memProducts.filter(p => p.id !== id);
+    persistProductsToDisk(memProducts);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(products).where(eq(products.id, id));
+      } catch (error: any) {}
+    }
+    onUpdate?.();
+    res.json({ success: true, id });
+  });
+
+  // Orders
+  app.get('/api/db/orders', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    if (!isDatabaseConfigured()) {
+      return res.json(memOrders);
+    }
+    try {
+      const list = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
+      
+      const orderMap = new Map<string, any>();
+      (memOrders || []).forEach(o => {
+        if (o && o.id) orderMap.set(String(o.id), o);
+      });
+      list.forEach(o => {
+        if (o && o.id) {
+          const existing = orderMap.get(String(o.id));
+          orderMap.set(String(o.id), { ...existing, ...o });
+        }
+      });
+      const mergedOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+      memOrders = mergedOrders;
+      persistOrdersToDisk(memOrders);
+
+      return res.json(memOrders);
+    } catch (error: any) {
+      return res.json(memOrders);
+    }
+  });
+
+  app.post('/api/db/orders', async (req: Request, res: Response) => {
+    const data = req.body || {};
+    
+    // Obter lista atualizada de pedidos para calcular o próximo número sequencial garantido
+    let currentOrders = [...memOrders];
+    if (isDatabaseConfigured()) {
+      try {
+        const dbList = await db.select().from(orders);
+        if (Array.isArray(dbList) && dbList.length > 0) {
+          currentOrders = dbList;
+        }
+      } catch (err) {
+        console.warn('Erro ao consultar pedidos do banco para numeração:', err);
+      }
+    }
+
+    // Se o cliente forneceu um ID com 4 dígitos numéricos que ainda não está em uso, utiliza-o; senão calcula o menor número disponível
+    let finalId: string;
+    if (data.id && /^\d{4}$/.test(String(data.id)) && !currentOrders.some(o => o.id === String(data.id))) {
+      finalId = String(data.id);
+    } else {
+      finalId = calculateNextOrderNumber(currentOrders);
+    }
+
+    // Regra de Negócio:
+    // 1. Pedidos do Totem (type === 'kiosk' ou canal totem) e Consumo na Loja (Mesa / dine_in) chegam como 'completed' (Entregue).
+    //    Eles disparam impressão automática IMEDIATAMENTE (no servidor e no Caixa).
+    // 2. Pedidos de Delivery chegam estritamente como 'pending' (Pendente) e NÃO imprimem na chegada;
+    //    eles serão impressos automaticamente após 3 minutos pelo temporizador.
+    // 3. Pedidos online de Retirada/Balcão feitos pelo smartphone sem mesa chegam como 'pending'.
+    const isKiosk = data.type === 'kiosk' || data.mode === 'kiosk' || (data.customerName && String(data.customerName).toLowerCase().includes('totem'));
+    const isDineIn = Boolean(data.tableNumber) || data.type === 'dine_in' || data.deliveryType === 'dine_in';
+    const isTotemOrDineIn = isKiosk || isDineIn;
+
+    const isDeliveryOrder = !isTotemOrDineIn && (data.type === 'delivery' || data.deliveryType === 'delivery');
+
+    const initialStatus = isTotemOrDineIn ? (data.status || 'completed') : 'pending';
+    const initialDeliveryStatus = isTotemOrDineIn ? (data.deliveryStatus || 'delivered') : 'pending';
+
+    const newOrder = {
+      ...data,
+      id: finalId,
+      createdAt: data.createdAt || Date.now(),
+      status: initialStatus,
+      deliveryStatus: initialDeliveryStatus,
+      customerName: data.customerName || (isKiosk ? 'Cliente Totem' : 'Cliente')
+    };
+
+    memOrders = [newOrder, ...memOrders.filter(o => o.id !== newOrder.id)];
+    persistOrdersToDisk(memOrders);
+
+    // Auto-capture customer as lead / client for marketing
+    // REGRA DE NEGÓCIO: Apenas clientes de delivery e consumo na loja viram leads no sistema.
+    // Pedidos feitos pelo totem NÃO viram leads.
+    if (newOrder.type !== 'kiosk') {
+      const custName = (newOrder.customerName || '').trim();
+      const custPhone = (newOrder.customerPhone || '').trim();
+      if ((custName && custName.toLowerCase() !== 'cliente' && custName.toLowerCase() !== 'cliente totem') || custPhone) {
+        const isDelivery = newOrder.type === 'delivery' || newOrder.deliveryType === 'delivery';
+        upsertCustomerLead({
+          name: newOrder.customerName,
+          phone: newOrder.customerPhone,
+          address: newOrder.deliveryAddress || newOrder.address || '',
+          source: isDelivery ? 'pedido_delivery' : 'pedido_loja',
+          orderTotal: Number(newOrder.total) || 0,
+          isOrder: true,
+          tags: isDelivery ? ['Cliente', 'Delivery'] : ['Cliente', 'Consumo Loja']
+        }).catch(err => console.warn('Erro ao auto-cadastrar lead do pedido:', err));
+      }
+    }
+
+    // Regra de Negócio:
+    // Apenas pedidos que chegam com status 'completed' (Totem e Consumo na Loja/Mesa) disparam impressão automática imediata.
+    // Pedidos de Delivery chegam com status 'pending' (Pendente) e NÃO devem ser impressos imediatamente na chegada;
+    // eles serão impressos automaticamente após 3 minutos pelo temporizador da cozinha ou quando o operador aceitar/finalizar o pedido.
+    const shouldAutoPrintImmediately = (newOrder.status === 'completed' || isTotemOrDineIn) && !isDeliveryOrder;
+
+    if (shouldAutoPrintImmediately) {
+      // Enfileira automaticamente para o Agente Windows do Caixa
+      queueOrderForAgent(newOrder, memStoreInfo);
+
+      // Impressão automática na Impressora de Rede da Loja (Opção A)
+      // Envia diretamente para o IP da impressora térmica com o nome do cliente e número do pedido
+      const rawPrinterIp = (memStoreInfo?.networkPrinterIp || '').trim();
+      const targetPrinterIp = (rawPrinterIp === '192.168.1.200' || !rawPrinterIp) ? '192.168.0.90' : rawPrinterIp;
+      if (targetPrinterIp) {
+        printOrderToNetworkPrinter(newOrder, { ...memStoreInfo, networkPrinterIp: targetPrinterIp }).then(printRes => {
+          if (printRes.success) {
+            console.log(`[Auto-Print Servidor] Pedido #${newOrder.id} (${newOrder.type}) impresso na impressora de rede (${targetPrinterIp})!`);
+          } else {
+            console.log(`[Auto-Print Servidor] Envio para impressora de rede: ${printRes.message}`);
+          }
+        }).catch(err => {
+          console.warn(`[Auto-Print Servidor] Aviso na impressora de rede:`, err?.message || err);
+        });
+      }
+    } else {
+      console.log(`[Auto-Print Servidor] Pedido #${newOrder.id} recebido com status pendente (${newOrder.type || newOrder.deliveryType || 'delivery'}). Não imprime imediatamente; aguardando 3 minutos.`);
+    }
+
+    broadcastSSE({ type: 'sync', target: 'orders', orderId: newOrder.id, time: Date.now() });
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.insert(orders).values(newOrder).returning();
+        onUpdate?.('orders');
+        return res.json(result[0] || newOrder);
+      } catch (error: any) {
+        onUpdate?.();
+        return res.json(newOrder);
+      }
+    }
+    onUpdate?.();
+    res.json(newOrder);
+  });
+
+  app.post('/api/db/orders/batch', async (req: Request, res: Response) => {
+    try {
+      const items: any[] = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.json({ success: true, count: 0 });
+      }
+      const orderMap = new Map<string, any>();
+      (memOrders || []).forEach(o => { if (o && o.id) orderMap.set(String(o.id), o); });
+      items.forEach(item => {
+        if (item && item.id) {
+          orderMap.set(String(item.id), { ...(orderMap.get(String(item.id)) || {}), ...item });
+        }
+      });
+      memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+      persistOrdersToDisk(memOrders);
+
+      if (isDatabaseConfigured()) {
+        for (const item of items) {
+          try {
+            await db.insert(orders).values(item).onConflictDoNothing();
+          } catch (_) {}
+        }
+      }
+      onUpdate?.();
+      res.json({ success: true, count: items.length });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Erro ao sincronizar lote de pedidos' });
+    }
+  });
+
+  // TV Call Order endpoints
+  app.get('/api/db/tv-call-order', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json(latestTvCall || { calledAt: 0 });
+  });
+
+  app.post('/api/db/tv-call-order', (req: Request, res: Response) => {
+    try {
+      const data = req.body || {};
+      const orderNumber = data.orderNumber || (data.orderId ? String(data.orderId).slice(-4).padStart(4, '0') : '0001');
+      latestTvCall = {
+        id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        orderId: data.orderId || `ord_${Date.now()}`,
+        orderNumber: String(orderNumber).replace('#', ''),
+        customerName: data.customerName || 'Cliente',
+        type: data.type || 'balcao',
+        tableOrDesk: data.tableOrDesk || '',
+        calledAt: Date.now()
+      };
+      broadcastSSE({ type: 'sync', target: 'tv_call', call: latestTvCall, time: Date.now() });
+      onUpdate?.('tv_call');
+      res.json({ success: true, call: latestTvCall });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to broadcast TV call' });
+    }
+  });
+
+  app.put('/api/db/orders/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = { ...req.body };
+
+    // Sincronizar deliveryStatus automaticamente conforme o status do pedido para pedidos de delivery
+    if (data.status) {
+      if (data.status === 'out_for_delivery') {
+        data.deliveryStatus = data.deliveryStatus || 'in_transit';
+        if (!data.deliveryAcceptedAt) data.deliveryAcceptedAt = Date.now();
+      } else if (data.status === 'completed') {
+        data.deliveryStatus = data.deliveryStatus || 'delivered';
+        if (!data.deliveryCompletedAt) data.deliveryCompletedAt = Date.now();
+      } else if (data.status === 'ready_for_delivery') {
+        if (!data.deliveryStatus || data.deliveryStatus === 'pending') {
+          data.deliveryStatus = 'ready';
+        }
+      } else if (data.status === 'cancelled') {
+        data.deliveryStatus = 'cancelled';
+      }
+    }
+
+    memOrders = memOrders.map(o => o.id === id ? { ...o, ...data } : o);
+    persistOrdersToDisk(memOrders);
+
+    if (data.status === 'ready' || data.status === 'ready_for_pickup') {
+      const orderData = memOrders.find(o => o.id === id) || { id, ...data };
+      latestTvCall = {
+        id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        orderId: id,
+        orderNumber: String(id).slice(-4).padStart(4, '0'),
+        customerName: orderData.customerName || 'Cliente',
+        type: orderData.type || 'balcao',
+        tableOrDesk: orderData.table || '',
+        calledAt: Date.now()
+      };
+    }
+
+    broadcastSSE({
+      type: 'sync',
+      target: 'orders',
+      action: 'status_updated',
+      orderId: id,
+      status: data.status,
+      deliveryStatus: data.deliveryStatus,
+      time: Date.now()
+    });
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.update(orders).set(data).where(eq(orders.id, id)).returning();
+        onUpdate?.('orders');
+        return res.json(result[0] || { id, ...data });
+      } catch (error: any) {
+        onUpdate?.('orders');
+        return res.json({ id, ...data });
+      }
+    }
+    onUpdate?.('orders');
+    res.json({ id, ...data });
+  });
+
+  app.delete('/api/db/orders', async (req: Request, res: Response) => {
+    memOrders = [];
+    persistOrdersToDisk(memOrders);
+    broadcastSSE({ type: 'sync', target: 'orders', action: 'clear_all', time: Date.now() });
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(orders);
+      } catch (error: any) {
+        console.warn('Erro ao limpar todos os pedidos no DB:', error);
+      }
+    }
+    onUpdate?.('orders');
+    res.json({ success: true, message: 'Todos os pedidos foram zerados com sucesso.' });
+  });
+
+  app.delete('/api/db/orders/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const targetId = String(id).trim();
+      console.log(`[API] DELETE order requested: "${targetId}"`);
+      
+      const beforeCount = memOrders.length;
+      memOrders = memOrders.filter(o => String(o.id).trim() !== targetId);
+      const afterCount = memOrders.length;
+      
+      console.log(`[API] memOrders count: ${beforeCount} -> ${afterCount}`);
+      persistOrdersToDisk(memOrders);
+
+      broadcastSSE({ type: 'sync', target: 'orders', orderId: targetId, action: 'delete', time: Date.now() });
+
+      if (isDatabaseConfigured()) {
+        try {
+          const deleted = await db.delete(orders).where(eq(orders.id, targetId)).returning();
+          console.log(`[API] DB delete result:`, deleted);
+        } catch (error: any) {
+          console.error(`[API] DB delete error:`, error.message);
+        }
+      }
+      onUpdate?.('orders');
+      res.json({ success: true, id: targetId });
+    } catch (err: any) {
+      console.error(`[API] Global delete error:`, err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Store Info
+  app.get('/api/db/store-info', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(sanitizeStoreInfoPrinters(memStoreInfo));
+  });
+
+  app.put('/api/db/store-info', async (req: Request, res: Response) => {
+    try {
+      const body = req.body || {};
+      const sanitized: any = { id: 'default' };
+
+      if (body.name !== undefined) sanitized.name = String(body.name);
+      if (body.themeColor !== undefined) sanitized.themeColor = String(body.themeColor);
+      if (body.addButtonColor !== undefined) sanitized.addButtonColor = String(body.addButtonColor);
+      if (body.iconColor !== undefined) sanitized.iconColor = String(body.iconColor);
+      if (body.headerPhrase !== undefined) sanitized.headerPhrase = String(body.headerPhrase);
+      if (body.logoUrl !== undefined && body.logoUrl !== null) {
+        const strLogo = String(body.logoUrl).trim();
+        // Do not let empty string or default overwrite an already uploaded logo unless explicitly intended
+        if (strLogo && strLogo !== '') {
+          sanitized.logoUrl = strLogo;
+        } else if (memStoreInfo.logoUrl) {
+          sanitized.logoUrl = memStoreInfo.logoUrl;
+        }
+      }
+      if (body.address !== undefined) sanitized.address = String(body.address);
+      if (body.hours !== undefined) sanitized.hours = String(body.hours);
+      if (body.instagram !== undefined) sanitized.instagram = String(body.instagram);
+      if (body.whatsapp !== undefined) sanitized.whatsapp = String(body.whatsapp);
+      if (body.categoryTitleColor !== undefined) sanitized.categoryTitleColor = String(body.categoryTitleColor);
+      if (body.deliveryEnabled !== undefined) sanitized.deliveryEnabled = Boolean(body.deliveryEnabled);
+      if (body.deliveryScheduleEnabled !== undefined) sanitized.deliveryScheduleEnabled = Boolean(body.deliveryScheduleEnabled);
+      if (body.deliveryScheduleSlots !== undefined) {
+        sanitized.deliveryScheduleSlots = typeof body.deliveryScheduleSlots === 'string'
+          ? body.deliveryScheduleSlots
+          : JSON.stringify(body.deliveryScheduleSlots);
+      }
+      if (body.inStoreEnabled !== undefined) sanitized.inStoreEnabled = Boolean(body.inStoreEnabled);
+      if (body.kioskEnabled !== undefined) sanitized.kioskEnabled = Boolean(body.kioskEnabled);
+      if (body.requireQrCodeForOrdering !== undefined) sanitized.requireQrCodeForOrdering = Boolean(body.requireQrCodeForOrdering);
+      if (body.isOpen !== undefined) sanitized.isOpen = Boolean(body.isOpen);
+      if (body.ntfyTopic !== undefined) sanitized.ntfyTopic = String(body.ntfyTopic);
+      if (body.ntfyEnabled !== undefined) sanitized.ntfyEnabled = Boolean(body.ntfyEnabled);
+      if (body.tvTickerText !== undefined) sanitized.tvTickerText = String(body.tvTickerText);
+      if (body.tvMode !== undefined) sanitized.tvMode = String(body.tvMode);
+      if (body.tvSoundEnabled !== undefined) sanitized.tvSoundEnabled = Boolean(body.tvSoundEnabled);
+      if (body.tvShowClock !== undefined) sanitized.tvShowClock = Boolean(body.tvShowClock);
+      if (body.tvShowCaptions !== undefined) sanitized.tvShowCaptions = Boolean(body.tvShowCaptions);
+      if (body.isMaintenance !== undefined) sanitized.isMaintenance = Boolean(body.isMaintenance);
+      if (body.maintenanceMessage !== undefined) sanitized.maintenanceMessage = String(body.maintenanceMessage);
+      if (body.weeklySchedule !== undefined) {
+        sanitized.weeklySchedule = typeof body.weeklySchedule === 'string'
+          ? body.weeklySchedule
+          : JSON.stringify(body.weeklySchedule);
+      }
+      if (body.autoOpenClose !== undefined) sanitized.autoOpenClose = Boolean(body.autoOpenClose);
+      if (body.forceOpen !== undefined) sanitized.forceOpen = Boolean(body.forceOpen);
+      if (body.closedMessage !== undefined) sanitized.closedMessage = String(body.closedMessage);
+      if (body.aiAgentEnabled !== undefined) sanitized.aiAgentEnabled = Boolean(body.aiAgentEnabled);
+      if (body.aiAgentName !== undefined) sanitized.aiAgentName = String(body.aiAgentName);
+      if (body.aiAgentTone !== undefined) sanitized.aiAgentTone = String(body.aiAgentTone);
+      if (body.aiAgentCustomPrompt !== undefined) sanitized.aiAgentCustomPrompt = String(body.aiAgentCustomPrompt);
+      if (body.aiAgentWhatsAppPhone !== undefined) sanitized.aiAgentWhatsAppPhone = String(body.aiAgentWhatsAppPhone);
+      if (body.aiAgentWhatsAppDefaultMessage !== undefined) sanitized.aiAgentWhatsAppDefaultMessage = String(body.aiAgentWhatsAppDefaultMessage);
+      if (body.aiAgentTrainingExamples !== undefined) {
+        sanitized.aiAgentTrainingExamples = typeof body.aiAgentTrainingExamples === 'string'
+          ? body.aiAgentTrainingExamples
+          : JSON.stringify(body.aiAgentTrainingExamples);
+      }
+      if (body.aiAgentKnowledgeBase !== undefined) sanitized.aiAgentKnowledgeBase = String(body.aiAgentKnowledgeBase);
+      if (body.aiAgentForbiddenPhrases !== undefined) sanitized.aiAgentForbiddenPhrases = String(body.aiAgentForbiddenPhrases);
+      if (body.aiAgentCreativity !== undefined) sanitized.aiAgentCreativity = Number(body.aiAgentCreativity) || 0.65;
+      if (body.aiAgentAntiRepeat !== undefined) sanitized.aiAgentAntiRepeat = Boolean(body.aiAgentAntiRepeat);
+      if (body.preferredPrinterName !== undefined) sanitized.preferredPrinterName = String(body.preferredPrinterName);
+      if (body.caixaPrinterName !== undefined) sanitized.caixaPrinterName = String(body.caixaPrinterName);
+      if (body.autoPrintOrdersOnCaixa !== undefined) sanitized.autoPrintOrdersOnCaixa = Boolean(body.autoPrintOrdersOnCaixa);
+      if (body.printerConnectionType !== undefined) sanitized.printerConnectionType = String(body.printerConnectionType);
+      if (body.networkPrinterIp !== undefined) sanitized.networkPrinterIp = String(body.networkPrinterIp);
+      if (body.networkPrinterPort !== undefined) sanitized.networkPrinterPort = Number(body.networkPrinterPort) || 9100;
+      if (body.printerCutMode !== undefined) sanitized.printerCutMode = String(body.printerCutMode);
+      if (body.printerCopies !== undefined) sanitized.printerCopies = Number(body.printerCopies) || 2;
+      if (body.totemPrinterCutMode !== undefined) sanitized.totemPrinterCutMode = String(body.totemPrinterCutMode);
+      if (body.totemPrinterCopies !== undefined) sanitized.totemPrinterCopies = Number(body.totemPrinterCopies) || 2;
+      if (body.totemPrinterBottomSpaceCm !== undefined) sanitized.totemPrinterBottomSpaceCm = Number(body.totemPrinterBottomSpaceCm) || 2.5;
+      if (body.windowsPrinterCutMode !== undefined) sanitized.windowsPrinterCutMode = String(body.windowsPrinterCutMode);
+      if (body.windowsPrinterCopies !== undefined) sanitized.windowsPrinterCopies = Number(body.windowsPrinterCopies) || 2;
+      if (body.windowsPrinterBottomSpaceCm !== undefined) sanitized.windowsPrinterBottomSpaceCm = Number(body.windowsPrinterBottomSpaceCm) || 6.0;
+      if (body.configuredPrinters !== undefined) {
+        sanitized.configuredPrinters = typeof body.configuredPrinters === 'string'
+          ? body.configuredPrinters
+          : JSON.stringify(body.configuredPrinters);
+      }
+      if (body.tvSelectedCategories !== undefined) {
+        sanitized.tvSelectedCategories = typeof body.tvSelectedCategories === 'string'
+          ? body.tvSelectedCategories
+          : JSON.stringify(body.tvSelectedCategories);
+      }
+      if (body.mercadoPagoEnabled !== undefined) sanitized.mercadoPagoEnabled = Boolean(body.mercadoPagoEnabled);
+      if (body.mercadoPagoAccessToken !== undefined) sanitized.mercadoPagoAccessToken = String(body.mercadoPagoAccessToken);
+      if (body.mercadoPagoPublicKey !== undefined) sanitized.mercadoPagoPublicKey = String(body.mercadoPagoPublicKey);
+      if (body.mercadoPagoPixKey !== undefined) sanitized.mercadoPagoPixKey = String(body.mercadoPagoPixKey);
+      if (body.deliveryEstimatedTimeMin !== undefined) sanitized.deliveryEstimatedTimeMin = Number(body.deliveryEstimatedTimeMin) || 35;
+      if (body.deliveryEstimatedTimeMax !== undefined) sanitized.deliveryEstimatedTimeMax = Number(body.deliveryEstimatedTimeMax) || 50;
+
+      // Preserve existing memory properties if not explicitly provided
+      memStoreInfo = { ...memStoreInfo, ...sanitized };
+      persistStoreInfoToDisk(memStoreInfo);
+
+      if (isDatabaseConfigured()) {
+        try {
+          let currentDbRow = {};
+          try {
+            const list = await withDbRetry(() => db.select().from(storeInfo).where(eq(storeInfo.id, 'default')));
+            if (list.length > 0) currentDbRow = list[0];
+          } catch (e: any) {
+            console.warn('[DB] Select prévio em store_info:', e?.message);
+          }
+
+          const fullRecordToPersist = { ...DEFAULT_STORE_INFO, ...currentDbRow, ...memStoreInfo, ...sanitized, id: 'default' };
+          memStoreInfo = fullRecordToPersist;
+          persistStoreInfoToDisk(memStoreInfo);
+
+          try {
+            await withDbRetry(() => db.insert(storeInfo)
+              .values(fullRecordToPersist)
+              .onConflictDoUpdate({
+                target: storeInfo.id,
+                set: fullRecordToPersist
+              }));
+            console.log('[DB] store_info salvo com sucesso no PostgreSQL!');
+          } catch (dbErr: any) {
+            console.error('[DB Error] Falha ao gravar store_info no PostgreSQL, executando ensureTablesExist...', dbErr?.message || dbErr);
+            try {
+              await ensureTablesExist();
+              await withDbRetry(() => db.insert(storeInfo)
+                .values(fullRecordToPersist)
+                .onConflictDoUpdate({
+                  target: storeInfo.id,
+                  set: fullRecordToPersist
+                }));
+              console.log('[DB] store_info salvo com sucesso no PostgreSQL após atualizar colunas!');
+            } catch (retryErr: any) {
+              console.error('[DB Error] Falha persistente ao salvar store_info no PostgreSQL:', retryErr?.message || retryErr);
+            }
+          }
+
+          onUpdate?.('tv');
+          return res.json(memStoreInfo);
+        } catch (dbErr: any) {
+          console.error('Database update error for storeInfo:', dbErr);
+          onUpdate?.('tv');
+          return res.json(memStoreInfo);
+        }
+      }
+      onUpdate?.('tv');
+      return res.json(memStoreInfo);
+    } catch (error: any) {
+      console.error('Error in PUT /api/db/store-info:', error);
+      return res.status(500).json({ error: error.message || 'Erro ao atualizar dados' });
+    }
+  });
+
+  // Diagnostic DB connection endpoint
+  app.get('/api/db-status', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    const configured = isDatabaseConfigured();
+    let connected = false;
+    let dbHost = 'Nenhum (Modo Local/Memória)';
+    let error: string | null = null;
+
+    if (configured) {
+      try {
+        const testRes = await testDatabaseConnection();
+        connected = testRes.ok;
+        if (testRes.host) dbHost = testRes.host;
+        if (testRes.error) error = testRes.error;
+      } catch (err: any) {
+        connected = false;
+        error = err?.message || String(err);
+      }
+    }
+
+    res.json({
+      configured,
+      connected,
+      dbHost,
+      error,
+      mode: connected ? 'postgresql' : (configured ? 'postgresql_error' : 'memory_fallback'),
+      counts: {
+        products: memProducts.length,
+        categories: memCategories.length,
+        orders: memOrders.length,
+        customers: memCustomers.length,
+        tables: memTables.length,
+        tvMedia: memTvMedia.length,
+      },
+      storeName: memStoreInfo?.name || DEFAULT_STORE_INFO.name,
+      serverTime: new Date().toISOString()
+    });
+  });
+
+  // Dynamic App Icon endpoint (serves the exact store logo as real PNG/image for PWA and favicon)
+  app.get(['/api/app-icon.png', '/api/app-icon', '/app-icon.png'], (req: Request, res: Response) => {
+    try {
+      const currentLogo = memStoreInfo?.logoUrl || DEFAULT_STORE_INFO.logoUrl;
+      if (currentLogo && currentLogo.startsWith('data:image/')) {
+        const matches = currentLogo.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+        if (matches) {
+          const mimeType = matches[1] === 'svg+xml' ? 'image/svg+xml' : `image/${matches[1]}`;
+          const buffer = Buffer.from(matches[2], 'base64');
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+          return res.send(buffer);
+        }
+      }
+      
+      // External URL redirect or fallback
+      if (currentLogo && currentLogo.startsWith('http')) {
+        return res.redirect(currentLogo);
+      }
+      
+      const cleanPath = (currentLogo || 'logo.svg').replace(/^\//, '');
+      const localFile = path.join(process.cwd(), 'public', cleanPath);
+      if (fs.existsSync(localFile)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        if (cleanPath.endsWith('.svg')) res.setHeader('Content-Type', 'image/svg+xml');
+        if (cleanPath.endsWith('.png')) res.setHeader('Content-Type', 'image/png');
+        return res.sendFile(localFile);
+      }
+      return res.sendFile(path.join(process.cwd(), 'public', 'logo.svg'));
+    } catch (err) {
+      return res.sendFile(path.join(process.cwd(), 'public', 'logo.svg'));
+    }
+  });
+
+  // Auth
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
+
+      const emailClean = email.trim().toLowerCase();
+      let user = memUsers.find(u => u.email?.toLowerCase() === emailClean);
+
+      if (isDatabaseConfigured()) {
+        try {
+          const dbUsers = await db.select().from(users).where(eq(users.email, emailClean));
+          if (dbUsers.length > 0) {
+            user = dbUsers[0];
+          }
+        } catch (_) {}
+      }
+
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      if (user.password !== password) {
+        return res.status(401).json({ error: 'Invalid password' });
+      }
+
+      res.json({ 
+        success: true, 
+        user: {
+          id: user.id,
+          uid: user.uid,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Login failed', details: error.message });
+    }
+  });
+
+  // Users
+  app.get('/api/db/users', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    if (!isDatabaseConfigured()) {
+      return res.json(memUsers);
+    }
+    try {
+      let list = await db.select().from(users);
+      if (list.length === 0) {
+        for (const admin of DEFAULT_USERS) {
+          await db.insert(users).values(admin).onConflictDoNothing();
+        }
+        list = await db.select().from(users);
+      }
+      memUsers = list;
+      res.json(list);
+    } catch (error: any) {
+      res.json(memUsers);
+    }
+  });
+
+  app.post('/api/db/users', async (req: Request, res: Response) => {
+    const data = { ...req.body };
+    const emailClean = (data.email || '').trim().toLowerCase();
+    if (!emailClean) {
+      return res.status(400).json({ error: 'Email é obrigatório' });
+    }
+
+    const uid = data.uid || (data.id && isNaN(Number(data.id)) ? String(data.id) : null) || `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    const userData = {
+      uid,
+      email: emailClean,
+      name: data.name || emailClean.split('@')[0],
+      role: data.role || 'padrao',
+      password: data.password || '123456',
+    };
+
+    memUsers = [...memUsers.filter(u => (u.email || '').toLowerCase() !== emailClean && u.uid !== uid), userData];
+    persistUsersToDisk(memUsers);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const existing = await db.select().from(users).where(eq(users.email, emailClean));
+        if (existing.length > 0) {
+          const updatePayload: any = {
+            name: userData.name,
+            role: userData.role,
+          };
+          if (data.password) {
+            updatePayload.password = data.password;
+          }
+          const updated = await db.update(users).set(updatePayload).where(eq(users.email, emailClean)).returning();
+          return res.json(updated[0] || userData);
+        }
+        const result = await db.insert(users).values(userData).returning();
+        return res.json(result[0] || userData);
+      } catch (error: any) {
+        console.error('User DB insert error:', error);
+        return res.json(userData);
+      }
+    }
+    res.json(userData);
+  });
+
+  app.put('/api/db/users/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = { ...req.body };
+    delete data.id;
+
+    memUsers = memUsers.map(u => (String(u.id) === String(id) || u.uid === id) ? { ...u, ...data } : u);
+    persistUsersToDisk(memUsers);
+
+    if (isDatabaseConfigured()) {
+      try {
+        let result;
+        if (!isNaN(Number(id))) {
+          result = await db.update(users).set(data).where(eq(users.id, Number(id))).returning();
+        } else {
+          result = await db.update(users).set(data).where(eq(users.uid, id)).returning();
+        }
+        return res.json(result[0] || { id, ...data });
+      } catch (error: any) {
+        return res.json({ id, ...data });
+      }
+    }
+    res.json({ id, ...data });
+  });
+
+  app.delete('/api/db/users/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memUsers = memUsers.filter(u => String(u.id) !== String(id) && u.uid !== id);
+    persistUsersToDisk(memUsers);
+
+    if (isDatabaseConfigured()) {
+      try {
+        if (!isNaN(Number(id))) {
+          await db.delete(users).where(eq(users.id, Number(id)));
+        } else {
+          await db.delete(users).where(eq(users.uid, id));
+        }
+      } catch (error: any) {}
+    }
+    res.json({ success: true, id });
+  });
+
+  // Smart TV Media Playlist
+  app.get('/api/db/tv-media', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    if (!isDatabaseConfigured()) {
+      return res.json(memTvMedia);
+    }
+    try {
+      let list = await db.select().from(tvMedia).orderBy(asc(tvMedia.order));
+      if (list && list.length > 0) {
+        memTvMedia = list;
+      }
+      return res.json(list && list.length > 0 ? list : memTvMedia);
+    } catch (error: any) {
+      return res.json(memTvMedia);
+    }
+  });
+
+  app.post('/api/db/tv-media', async (req: Request, res: Response) => {
+    const data = { ...req.body };
+    const id = String(data.id || `tv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    
+    const url = String(data.url || '').trim();
+    let type = String(data.type || 'video');
+
+    if (url.startsWith('data:video') || url.startsWith('blob:') || /\.(mp4|webm|mov|m4v|ogg|avi|mkv)(\?.*)?$/i.test(url)) {
+      type = 'video';
+    } else if (url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url)) {
+      type = 'image';
+    } else if (type === 'youtube' || url.includes('youtube.com') || url.includes('youtu.be')) {
+      type = 'youtube';
+    }
+
+    const insertData = {
+      id,
+      title: String(data.title || 'Vídeo TV').trim(),
+      type,
+      url,
+      durationSeconds: Number(data.durationSeconds || data.duration_seconds || 15),
+      order: Number(data.order ?? memTvMedia.length + 1),
+      showCaptions: data.showCaptions !== undefined ? Boolean(data.showCaptions) : (data.show_captions !== undefined ? Boolean(data.show_captions) : false),
+      fitMode: String(data.fitMode || data.fit_mode || (url.includes('/shorts/') ? 'vertical_smartphone' : 'fit')),
+      isActive: data.isActive !== undefined ? Boolean(data.isActive) : true
+    };
+
+    memTvMedia = [...memTvMedia.filter(m => String(m.id) !== id), insertData];
+    persistTvMediaToDisk(memTvMedia);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.insert(tvMedia).values(insertData).onConflictDoUpdate({
+          target: tvMedia.id,
+          set: insertData
+        }).returning();
+        onUpdate?.('tv');
+        return res.json(result[0] || insertData);
+      } catch {
+        onUpdate?.('tv');
+        return res.json(insertData);
+      }
+    }
+    onUpdate?.('tv');
+    res.json(insertData);
+  });
+
+  app.put('/api/db/tv-media/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = { ...req.body };
+    delete data.id;
+
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = String(data.title).trim();
+    if (data.type !== undefined) updateData.type = String(data.type);
+    if (data.url !== undefined) {
+      updateData.url = String(data.url).trim();
+      if (updateData.url.startsWith('data:video') || updateData.url.startsWith('blob:') || /\.(mp4|webm|mov|m4v|ogg|avi|mkv)(\?.*)?$/i.test(updateData.url)) {
+        updateData.type = 'video';
+      } else if (updateData.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(updateData.url)) {
+        updateData.type = 'image';
+      } else if (updateData.url.includes('youtube.com') || updateData.url.includes('youtu.be')) {
+        updateData.type = 'youtube';
+      }
+    }
+    if (data.durationSeconds !== undefined || data.duration_seconds !== undefined) {
+      updateData.durationSeconds = Number(data.durationSeconds ?? data.duration_seconds);
+    }
+    if (data.order !== undefined) updateData.order = Number(data.order);
+    if (data.showCaptions !== undefined || data.show_captions !== undefined) {
+      updateData.showCaptions = Boolean(data.showCaptions ?? data.show_captions);
+    }
+    if (data.fitMode !== undefined || data.fit_mode !== undefined) {
+      updateData.fitMode = String(data.fitMode ?? data.fit_mode);
+    }
+    if (data.isActive !== undefined || data.is_active !== undefined) {
+      updateData.isActive = Boolean(data.isActive ?? data.is_active);
+    }
+
+    memTvMedia = memTvMedia.map(m => String(m.id) === String(id) ? { ...m, ...updateData } : m);
+    persistTvMediaToDisk(memTvMedia);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.update(tvMedia).set(updateData).where(eq(tvMedia.id, id)).returning();
+        onUpdate?.('tv');
+        return res.json(result[0] || { id, ...updateData });
+      } catch (updateErr: any) {
+        onUpdate?.('tv');
+        return res.json({ id, ...updateData });
+      }
+    }
+    onUpdate?.('tv');
+    res.json({ id, ...updateData });
+  });
+
+  app.delete('/api/db/tv-media/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memTvMedia = memTvMedia.filter(m => String(m.id) !== String(id));
+    persistTvMediaToDisk(memTvMedia);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(tvMedia).where(eq(tvMedia.id, id));
+      } catch (delErr: any) {}
+    }
+    onUpdate?.('tv');
+    res.json({ success: true, id });
+  });
+
+  // App Installations (PWA tracking)
+  app.get('/api/db/app-installs', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    if (!isDatabaseConfigured()) {
+      return res.json({
+        count: memAppInstalls.length,
+        installs: memAppInstalls
+      });
+    }
+    try {
+      const list = await db.select().from(appInstalls).orderBy(desc(appInstalls.installedAt));
+      memAppInstalls = list;
+      return res.json({
+        count: list.length,
+        installs: list
+      });
+    } catch (err: any) {
+      return res.json({
+        count: memAppInstalls.length,
+        installs: memAppInstalls
+      });
+    }
+  });
+
+  app.post('/api/db/app-installs', async (req: Request, res: Response) => {
+    const data = req.body || {};
+    const id = String(data.id || `install_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`);
+    const installedAt = Number(data.installedAt || Date.now());
+    const platform = String(data.platform || 'unknown');
+    const browser = String(data.browser || 'unknown');
+    const deviceType = String(data.deviceType || 'mobile');
+    const userAgent = String(data.userAgent || req.headers['user-agent'] || '');
+
+    const record = {
+      id,
+      platform,
+      browser,
+      deviceType,
+      installedAt,
+      userAgent
+    };
+
+    // Deduplicate in memory
+    const existingIndex = memAppInstalls.findIndex(i => i.id === id);
+    if (existingIndex >= 0) {
+      memAppInstalls[existingIndex] = record;
+    } else {
+      memAppInstalls = [record, ...memAppInstalls];
+    }
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.insert(appInstalls).values(record).onConflictDoUpdate({
+          target: appInstalls.id,
+          set: record
+        }).returning();
+        onUpdate?.('catalog');
+        return res.json({ success: true, install: result[0] || record, count: memAppInstalls.length });
+      } catch (err: any) {
+        onUpdate?.('catalog');
+        return res.json({ success: true, install: record, count: memAppInstalls.length });
+      }
+    }
+
+    onUpdate?.('catalog');
+    return res.json({ success: true, install: record, count: memAppInstalls.length });
+  });
+
+  // Customers & Leads Management Endpoints
+  app.get('/api/db/customers', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    if (!isDatabaseConfigured()) {
+      return res.json(memCustomers);
+    }
+    try {
+      const list = await db.select().from(customers).orderBy(desc(customers.createdAt));
+      // Sync memory with DB if DB returned items
+      if (list && list.length > 0) {
+        memCustomers = list.map(c => ({
+          ...c,
+          tags: typeof c.tags === 'string' ? c.tags : JSON.stringify(c.tags || [])
+        }));
+      }
+      return res.json(memCustomers);
+    } catch (err: any) {
+      return res.json(memCustomers);
+    }
+  });
+
+  app.post('/api/db/customers', async (req: Request, res: Response) => {
+    try {
+      const body = req.body || {};
+      const saved = await upsertCustomerLead({
+        name: body.name,
+        phone: body.phone,
+        email: body.email,
+        address: body.address,
+        source: body.source || 'cadastro_cardapio',
+        orderTotal: Number(body.orderTotal) || 0,
+        isOrder: !!body.isOrder,
+        tags: Array.isArray(body.tags) ? body.tags : typeof body.tags === 'string' ? JSON.parse(body.tags || '[]') : [],
+        notes: body.notes
+      });
+      onUpdate?.('catalog');
+      return res.json(saved || { success: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao salvar cliente' });
+    }
+  });
+
+  app.put('/api/db/customers/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = req.body || {};
+    const existingIndex = memCustomers.findIndex(c => c.id === id);
+    if (existingIndex >= 0) {
+      memCustomers[existingIndex] = {
+        ...memCustomers[existingIndex],
+        ...data,
+        tags: Array.isArray(data.tags) ? JSON.stringify(data.tags) : (data.tags || memCustomers[existingIndex].tags)
+      };
+      persistCustomersToDisk(memCustomers);
+    }
+
+    if (isDatabaseConfigured()) {
+      try {
+        const payload = {
+          ...data,
+          tags: Array.isArray(data.tags) ? JSON.stringify(data.tags) : data.tags
+        };
+        const result = await db.update(customers).set(payload).where(eq(customers.id, id)).returning();
+        onUpdate?.('catalog');
+        return res.json(result[0] || memCustomers[existingIndex] || { success: true });
+      } catch (err: any) {
+        onUpdate?.('catalog');
+        return res.json(memCustomers[existingIndex] || { success: true });
+      }
+    }
+    onUpdate?.('catalog');
+    res.json(memCustomers[existingIndex] || { success: true });
+  });
+
+  app.delete('/api/db/customers/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memCustomers = memCustomers.filter(c => c.id !== id);
+    persistCustomersToDisk(memCustomers);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(customers).where(eq(customers.id, id));
+      } catch (err: any) {}
+    }
+    onUpdate?.('catalog');
+    res.json({ success: true, id });
+  });
+
+    app.post('/api/db/customer-register', async (req: Request, res: Response) => {
+    try {
+      const { name, phone, email, cpf, password, address, cep, street, number, complement, neighborhood, status } = req.body;
+      if (!name || !phone || !password) {
+        return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (Nome, WhatsApp e Senha).' });
+      }
+
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
+      const existing = memCustomers.find(c => 
+        (cleanEmail && c.email && c.email.trim().toLowerCase() === cleanEmail) || 
+        (c.phone && String(c.phone).replace(/\D/g, '') === cleanPhone) ||
+        (cpf && c.cpf && c.cpf === cpf)
+      );
+
+      if (existing) {
+        return res.status(400).json({ error: 'E-mail, telefone ou CPF já cadastrados.' });
+      }
+
+      const finalAddress = address?.trim() || `${street || ''}, ${number || ''}${complement ? ` (${complement})` : ''} - ${neighborhood || ''}${cep ? ` - CEP: ${cep}` : ''}`.replace(/^, /, '').trim();
+
+      const newCustomer = {
+        id: `cust_${Date.now()}`,
+        name: name.trim(),
+        phone: phone.trim(),
+        email: cleanEmail,
+        cpf: cpf ? cpf.trim() : '',
+        password: password.trim(),
+        address: finalAddress,
+        street: street?.trim() || '',
+        number: number?.trim() || '',
+        complement: complement?.trim() || '',
+        neighborhood: neighborhood?.trim() || '',
+        cep: cep?.trim() || '',
+        source: 'cadastro_cliente',
+        totalOrders: 0,
+        totalSpent: 0,
+        createdAt: Date.now(),
+        status: 'approved',
+        tags: JSON.stringify(['cliente_cadastrado', 'aprovado']),
+        notes: cep ? `CEP Cadastrado: ${cep}` : ''
+      };
+
+      memCustomers = [newCustomer, ...memCustomers];
+      persistCustomersToDisk(memCustomers);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.insert(customers).values({
+            ...newCustomer,
+            status: 'approved',
+            tags: JSON.stringify(['cliente_cadastrado', 'aprovado'])
+          }).onConflictDoUpdate({
+            target: customers.id,
+            set: newCustomer
+          });
+        } catch (e) {}
+      }
+
+      res.json({ 
+        success: true, 
+        pendingApproval: false,
+        message: 'Cadastro realizado com sucesso! Você já pode realizar seus pedidos.',
+        customer: newCustomer 
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao cadastrar cliente' });
+    }
+  });
+
+  app.post('/api/db/customer-login', async (req: Request, res: Response) => {
+    try {
+      const { identifier, password } = req.body;
+      if (!identifier || !password) {
+        return res.status(400).json({ error: 'Informe o e-mail e a senha.' });
+      }
+
+      const cleanId = String(identifier).trim().toLowerCase();
+      const cleanPhone = String(identifier).replace(/\D/g, '');
+
+      const cust = memCustomers.find(c => {
+        const cEmail = (c.email || '').trim().toLowerCase();
+        const cPhone = String(c.phone || '').replace(/\D/g, '');
+        const matchId = (cEmail.length > 0 && cEmail === cleanId) || (cleanPhone.length >= 8 && cPhone === cleanPhone);
+        const matchPass = (c.password || '123456') === password.trim();
+        return matchId && matchPass;
+      });
+
+      if (!cust) {
+        return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+      }
+
+      // Se o cliente estava pendente em dados anteriores, aprova automaticamente
+      if (cust.status === 'pending') {
+        cust.status = 'approved';
+        persistCustomersToDisk(memCustomers);
+        if (isDatabaseConfigured()) {
+          try {
+            await db.update(customers).set({ status: 'approved' }).where(eq(customers.id, cust.id));
+          } catch (e) {}
+        }
+      }
+
+      res.json({ success: true, customer: cust });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao realizar login' });
+    }
+  });
+
+  app.post('/api/db/customer-forgot', async (req: Request, res: Response) => {
+    try {
+      const { identifier } = req.body;
+      if (!identifier) {
+        return res.status(400).json({ error: 'Informe o e-mail ou telefone cadastrado.' });
+      }
+      const cleanId = String(identifier).trim().toLowerCase();
+      const cust = memCustomers.find(c => (c.email || '').trim().toLowerCase() === cleanId || String(c.phone).replace(/\D/g, '') === String(identifier).replace(/\D/g, ''));
+
+      if (!cust) {
+        return res.status(404).json({ error: 'Cliente não encontrado com este e-mail ou telefone.' });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Senha recuperada com sucesso!',
+        password: cust.password || '123456'
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao recuperar senha' });
+    }
+  });
+
+  // Endereços do Cliente
+  app.get('/api/db/customers/:id/addresses', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (isDatabaseConfigured()) {
+        try {
+          const addr = await db.select().from(customerAddresses).where(eq(customerAddresses.customerId, id));
+          return res.json(addr || []);
+        } catch (dbErr) {
+          console.warn('[DB] Fallback addresses query:', dbErr);
+        }
+      }
+      res.json([]);
+    } catch (err: any) {
+      res.json([]);
+    }
+  });
+
+  app.post('/api/db/customers/:id/addresses', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const data = req.body;
+      const newAddr = {
+        id: `addr-${Date.now()}`,
+        customerId: id,
+        alias: data.alias || 'Endereço',
+        street: data.street,
+        number: data.number,
+        complement: data.complement || '',
+        neighborhood: data.neighborhood,
+        cep: data.cep,
+        reference: data.reference || '',
+        isDefault: data.isDefault || false,
+        createdAt: Date.now()
+      };
+
+      if (isDatabaseConfigured()) {
+        try {
+          if (newAddr.isDefault) {
+            await db.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.customerId, id));
+          }
+          await db.insert(customerAddresses).values(newAddr);
+        } catch (dbErr) {
+          console.warn('[DB] Fallback insert address:', dbErr);
+        }
+      }
+
+      res.json({ success: true, address: newAddr });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/db/customers/addresses/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (isDatabaseConfigured()) {
+        try {
+          await db.delete(customerAddresses).where(eq(customerAddresses.id, id));
+        } catch (dbErr) {
+          console.warn('[DB] Fallback delete address:', dbErr);
+        }
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Histórico de Pedidos do Cliente
+  app.get('/api/db/customers/:id/orders', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (isDatabaseConfigured()) {
+        try {
+          const customerOrders = await db.select().from(orders).where(eq(orders.customerId, id)).orderBy(desc(orders.createdAt));
+          if (Array.isArray(customerOrders) && customerOrders.length > 0) {
+            return res.json(customerOrders);
+          }
+        } catch (dbErr) {
+          console.warn('[DB] Fallback orders query:', dbErr);
+        }
+      }
+      // fallback in-memory
+      const filtered = memOrders.filter(o => 
+        (o.customerId && o.customerId === id) || 
+        (o.customerPhone && id && id.includes(o.customerPhone.replace(/\D/g, '')))
+      ).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      res.json(filtered);
+    } catch (err: any) {
+      res.json([]);
+    }
+  });
+
+  // Sync historical leads from orders table
+  app.post('/api/db/customers/sync-from-orders', async (req: Request, res: Response) => {
+    try {
+      let ordersToProcess = [...memOrders];
+      if (isDatabaseConfigured()) {
+        try {
+          const dbOrders = await db.select().from(orders);
+          if (dbOrders && dbOrders.length > 0) {
+            ordersToProcess = dbOrders;
+          }
+        } catch (dbErr) {
+          // fallback to memOrders
+        }
+      }
+
+      let count = 0;
+      for (const ord of ordersToProcess) {
+        // REGRA DE NEGÓCIO: Pedidos feitos pelo totem NÃO viram leads. Apenas delivery e consumo na loja.
+        if (ord.type === 'kiosk') continue;
+
+        const custName = (ord.customerName || '').trim();
+        const custPhone = (ord.customerPhone || '').trim();
+        if ((custName && custName.toLowerCase() !== 'cliente' && custName.toLowerCase() !== 'cliente totem') || custPhone) {
+          const isDelivery = ord.type === 'delivery' || ord.deliveryType === 'delivery';
+          await upsertCustomerLead({
+            name: ord.customerName,
+            phone: ord.customerPhone,
+            address: ord.deliveryAddress || ord.address || '',
+            source: isDelivery ? 'pedido_delivery' : 'pedido_loja',
+            orderTotal: Number(ord.total) || 0,
+            isOrder: true,
+            tags: isDelivery ? ['Cliente', 'Delivery'] : ['Cliente', 'Consumo Loja']
+          });
+          count++;
+        }
+      }
+
+      onUpdate?.();
+      return res.json({ success: true, synced: count, totalCustomers: memCustomers.length });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao sincronizar clientes dos pedidos' });
+    }
+  });
+
+  // Tables & QR Codes endpoints (Controle de Mesas)
+  app.get('/api/db/tables', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json(memTables);
+  });
+
+  app.post('/api/db/tables', async (req: Request, res: Response) => {
+    try {
+      const data = req.body || {};
+      const num = parseInt(data.number, 10) || (memTables.length > 0 ? Math.max(...memTables.map(t => t.number || 0)) + 1 : 1);
+      const newTable = {
+        id: data.id || `table-${num}-${Date.now()}`,
+        number: num,
+        name: data.name || `Mesa ${String(num).padStart(2, '0')}`,
+        section: data.section || 'Salão Principal',
+        capacity: parseInt(data.capacity, 10) || 4,
+        status: data.status || 'available',
+        isActive: data.isActive !== false,
+        createdAt: data.createdAt || Date.now(),
+      };
+
+      memTables = [...memTables.filter(t => t.id !== newTable.id), newTable].sort((a, b) => (a.number || 0) - (b.number || 0));
+      persistTablesToDisk(memTables);
+
+      if (isDatabaseConfigured()) {
+        try {
+          const result = await db.insert(restaurantTables).values(newTable).onConflictDoUpdate({
+            target: restaurantTables.id,
+            set: newTable,
+          }).returning();
+          onUpdate?.('catalog');
+          return res.json(result[0] || newTable);
+        } catch (dbErr) {
+          console.warn('Erro ao salvar mesa no Postgres:', dbErr);
+        }
+      }
+
+      onUpdate?.('catalog');
+      return res.json(newTable);
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao criar mesa' });
+    }
+  });
+
+  app.post('/api/db/tables/batch', async (req: Request, res: Response) => {
+    try {
+      const { tables: newTablesList } = req.body || {};
+      if (!Array.isArray(newTablesList) || newTablesList.length === 0) {
+        return res.status(400).json({ error: 'Nenhuma mesa enviada para criação em lote' });
+      }
+
+      const createdList: any[] = [];
+      for (const item of newTablesList) {
+        const num = parseInt(item.number, 10) || 1;
+        const record = {
+          id: item.id || `table-${num}-${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+          number: num,
+          name: item.name || `Mesa ${String(num).padStart(2, '0')}`,
+          section: item.section || 'Salão Principal',
+          capacity: parseInt(item.capacity, 10) || 4,
+          status: item.status || 'available',
+          isActive: item.isActive !== false,
+          createdAt: Date.now(),
+        };
+        createdList.push(record);
+      }
+
+      // Merge into memTables
+      for (const c of createdList) {
+        const idx = memTables.findIndex(t => t.number === c.number || t.id === c.id);
+        if (idx >= 0) {
+          memTables[idx] = c;
+        } else {
+          memTables.push(c);
+        }
+      }
+      memTables.sort((a, b) => (a.number || 0) - (b.number || 0));
+      persistTablesToDisk(memTables);
+
+      if (isDatabaseConfigured()) {
+        for (const c of createdList) {
+          try {
+            await db.insert(restaurantTables).values(c).onConflictDoUpdate({
+              target: restaurantTables.id,
+              set: c
+            });
+          } catch (err) {}
+        }
+      }
+
+      onUpdate?.('catalog');
+      return res.json({ success: true, count: createdList.length, tables: memTables });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao processar mesas em lote' });
+    }
+  });
+
+  app.put('/api/db/tables/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = req.body;
+    memTables = memTables.map(t => t.id === id ? { ...t, ...data } : t).sort((a, b) => (a.number || 0) - (b.number || 0));
+    persistTablesToDisk(memTables);
+
+    if (isDatabaseConfigured()) {
+      try {
+        const result = await db.update(restaurantTables).set(data).where(eq(restaurantTables.id, id)).returning();
+        onUpdate?.('catalog');
+        return res.json(result[0] || { id, ...data });
+      } catch (error: any) {
+        onUpdate?.('catalog');
+        return res.json({ id, ...data });
+      }
+    }
+    onUpdate?.('catalog');
+    res.json({ id, ...data });
+  });
+
+  app.delete('/api/db/tables/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    memTables = memTables.filter(t => t.id !== id);
+    persistTablesToDisk(memTables);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await db.delete(restaurantTables).where(eq(restaurantTables.id, id));
+      } catch (err: any) {}
+    }
+    onUpdate?.('catalog');
+    res.json({ success: true, id });
+  });
+
+  // Full System Data Backup & Restore endpoints
+  app.get('/api/db/backup', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Content-Disposition', `attachment; filename="balbec-backup-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.json({
+      storeInfo: memStoreInfo,
+      tvMedia: memTvMedia,
+      categories: memCategories,
+      products: memProducts,
+      users: memUsers,
+      tables: memTables,
+      customers: memCustomers,
+      orders: memOrders,
+      totemBackups: memTotemBackups,
+      drivers: memDrivers,
+      deliveryZones: memDeliveryZones,
+      exportedAt: new Date().toISOString(),
+      version: '2.0.0'
+    });
+  });
+
+  // Endpoint para ZERAR COMPLETAMENTE o banco de dados (para nova integração ERP)
+  app.post('/api/db/reset-all', async (req: Request, res: Response) => {
+    try {
+      memCategories = [];
+      memProducts = [];
+      memCustomers = [];
+      memOrders = [];
+      memTotemBackups = [];
+      memTvMedia = [];
+      memTables = [];
+      memDrivers = [];
+      memDeliveryZones = [];
+      memAppInstalls = [];
+      memStoreInfo = {
+        ...memStoreInfo,
+        tvSelectedCategories: '[]'
+      };
+
+      writeJsonFile(CATEGORIES_FILE, []);
+      writeJsonFile(PRODUCTS_FILE, []);
+      writeJsonFile(CUSTOMERS_FILE, []);
+      writeJsonFile(ORDERS_FILE, []);
+      writeJsonFile(ORDERS_BACKUP_FILE, []);
+      writeJsonFile(TOTEM_BACKUPS_FILE, []);
+      writeJsonFile(TV_MEDIA_FILE, []);
+      writeJsonFile(TABLES_FILE, []);
+      writeJsonFile(DRIVERS_FILE, []);
+      writeJsonFile(DELIVERY_ZONES_FILE, []);
+      writeJsonFile(APP_INSTALLS_FILE, []);
+      writeJsonFile(STORE_INFO_FILE, memStoreInfo);
+      persistAllStateToMasterFile();
+
+      if (isDatabaseConfigured()) {
+        const tablesToClear = [
+          'categories',
+          'products',
+          'customers',
+          'customer_addresses',
+          'orders',
+          'totem_backups',
+          'tv_media',
+          'restaurant_tables',
+          'drivers',
+          'delivery_zones',
+          'app_installs'
+        ];
+        for (const tbl of tablesToClear) {
+          try {
+            await pool.query(`DELETE FROM ${tbl}`);
+          } catch (e: any) {
+            console.warn(`[DB Reset] Aviso ao limpar tabela ${tbl}:`, e?.message);
+          }
+        }
+        try {
+          await db.update(storeInfo).set({ tvSelectedCategories: '[]' }).where(eq(storeInfo.id, 'default'));
+        } catch (_) {}
+      }
+
+      broadcastSSE({ type: 'sync', target: 'reset_all', time: Date.now() });
+      onUpdate?.('catalog');
+      return res.json({
+        success: true,
+        message: 'Banco de dados completamente zerado! Categorias, produtos, clientes, pedidos e backups foram limpos.'
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao zerar banco de dados' });
+    }
+  });
+
+  app.post('/api/db/restore', async (req: Request, res: Response) => {
+    try {
+      const data = req.body || {};
+      let restoredCount = 0;
+
+      if (data.storeInfo && typeof data.storeInfo === 'object') {
+        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo, id: 'default' };
+        persistStoreInfoToDisk(memStoreInfo);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.tvMedia)) {
+        memTvMedia = data.tvMedia;
+        persistTvMediaToDisk(memTvMedia);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.categories)) {
+        memCategories = data.categories;
+        persistCategoriesToDisk(memCategories);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.products)) {
+        memProducts = data.products;
+        persistProductsToDisk(memProducts);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.users)) {
+        memUsers = data.users;
+        persistUsersToDisk(memUsers);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.tables)) {
+        memTables = data.tables;
+        persistTablesToDisk(memTables);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.customers)) {
+        memCustomers = data.customers;
+        persistCustomersToDisk(memCustomers);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.orders)) {
+        memOrders = data.orders;
+        persistOrdersToDisk(memOrders);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.totemBackups)) {
+        memTotemBackups = data.totemBackups;
+        persistTotemBackupsToDisk(memTotemBackups);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.drivers)) {
+        memDrivers = data.drivers;
+        persistDriversToDisk(memDrivers);
+        restoredCount++;
+      }
+
+      if (Array.isArray(data.deliveryZones)) {
+        memDeliveryZones = data.deliveryZones;
+        persistDeliveryZonesToDisk(memDeliveryZones);
+        restoredCount++;
+      }
+
+      persistAllStateToMasterFile();
+
+      // If Postgres DB is configured, sync restored items to Postgres tables
+      if (isDatabaseConfigured()) {
+        try {
+          if (data.storeInfo) {
+            await db.insert(storeInfo).values(memStoreInfo).onConflictDoUpdate({
+              target: storeInfo.id,
+              set: memStoreInfo
+            });
+          }
+          if (Array.isArray(data.categories)) {
+            for (const c of data.categories) {
+              await db.insert(categories).values(c).onConflictDoUpdate({ target: categories.id, set: c });
+            }
+          }
+          if (Array.isArray(data.products)) {
+            await saveProductsToPostgresBatch(data.products);
+          }
+          if (Array.isArray(data.tvMedia)) {
+            for (const m of data.tvMedia) {
+              await db.insert(tvMedia).values(m).onConflictDoUpdate({ target: tvMedia.id, set: m });
+            }
+          }
+          if (Array.isArray(data.tables)) {
+            for (const t of data.tables) {
+              await db.insert(restaurantTables).values(t).onConflictDoUpdate({ target: restaurantTables.id, set: t });
+            }
+          }
+          if (Array.isArray(data.totemBackups)) {
+            for (const tb of data.totemBackups) {
+              await db.insert(totemBackups).values(tb).onConflictDoUpdate({ target: totemBackups.id, set: tb });
+            }
+          }
+          if (Array.isArray(data.drivers)) {
+            for (const d of data.drivers) {
+              await db.insert(drivers).values(d).onConflictDoUpdate({ target: drivers.id, set: d });
+            }
+          }
+          if (Array.isArray(data.deliveryZones)) {
+            for (const z of data.deliveryZones) {
+              await db.insert(deliveryZones).values(z).onConflictDoUpdate({ target: deliveryZones.id, set: z });
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Aviso: Falha parcial ao restaurar no PostgreSQL:', dbErr);
+        }
+      }
+
+      onUpdate?.();
+      return res.json({
+        success: true,
+        message: 'Backup restaurado com sucesso!',
+        restoredCategories: memCategories.length,
+        restoredProducts: memProducts.length,
+        restoredTvMedia: memTvMedia.length,
+        restoredTables: memTables.length
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao restaurar backup' });
+    }
+  });
+
+  // Snapshot de segurança automático (criado antes de qualquer sincronização ou deploy)
+  app.post('/api/db/backup-snapshot', async (req: Request, res: Response) => {
+    try {
+      const reason = req.body?.reason || 'Snapshot de Segurança';
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+      const filename = `balbec-backup-pre-sync-${dateStr}_${timeStr}.json`;
+      const filepath = path.join(AUTO_BACKUP_DIR, filename);
+
+      const payload = {
+        storeInfo: memStoreInfo,
+        tvMedia: memTvMedia,
+        categories: memCategories,
+        products: memProducts,
+        users: memUsers,
+        tables: memTables,
+        customers: memCustomers,
+        orders: memOrders,
+        totemBackups: memTotemBackups,
+        drivers: memDrivers,
+        deliveryZones: memDeliveryZones,
+        exportedAt: now.toISOString(),
+        reason,
+        version: '2.0.0'
+      };
+
+      if (!fs.existsSync(AUTO_BACKUP_DIR)) {
+        fs.mkdirSync(AUTO_BACKUP_DIR, { recursive: true });
+      }
+      fs.writeFileSync(filepath, JSON.stringify(payload, null, 2), 'utf8');
+
+      // Ponteiro para o snapshot mais recente
+      const latestPreSyncPath = path.join(AUTO_BACKUP_DIR, 'balbec-backup-latest-pre-sync.json');
+      fs.writeFileSync(latestPreSyncPath, JSON.stringify(payload, null, 2), 'utf8');
+
+      console.log(`[Backup Snapshot] Snapshot pré-sincronização salvo: ${filename} (${reason})`);
+      res.json({ success: true, filename, createdAt: now.toISOString() });
+    } catch (err: any) {
+      console.error('[Backup Snapshot] Erro ao salvar snapshot:', err);
+      res.status(500).json({ error: err?.message || 'Erro ao criar snapshot' });
+    }
+  });
+
+  // Restauração em 1 clique para o snapshot pré-sincronização
+  app.post('/api/db/restore-pre-sync', async (req: Request, res: Response) => {
+    try {
+      const latestPreSyncPath = path.join(AUTO_BACKUP_DIR, 'balbec-backup-latest-pre-sync.json');
+      if (!fs.existsSync(latestPreSyncPath)) {
+        return res.status(404).json({ error: 'Nenhum snapshot pré-sincronização recente foi encontrado.' });
+      }
+      const raw = fs.readFileSync(latestPreSyncPath, 'utf8');
+      const data = JSON.parse(raw);
+
+      if (data.categories && Array.isArray(data.categories)) {
+        memCategories = data.categories;
+        persistCategoriesToDisk(memCategories);
+      }
+      if (data.products && Array.isArray(data.products)) {
+        memProducts = data.products;
+        persistProductsToDisk(memProducts);
+      }
+      if (data.storeInfo) {
+        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo };
+        persistStoreInfoToDisk(memStoreInfo);
+      }
+      if (data.totemBackups && Array.isArray(data.totemBackups)) {
+        memTotemBackups = data.totemBackups;
+        persistTotemBackupsToDisk(memTotemBackups);
+      }
+      persistAllStateToMasterFile();
+
+      if (isDatabaseConfigured()) {
+        try {
+          if (Array.isArray(data.categories)) {
+            for (const c of data.categories) {
+              await db.insert(categories).values(c).onConflictDoUpdate({ target: categories.id, set: c });
+            }
+          }
+          if (Array.isArray(data.products)) {
+            await saveProductsToPostgresBatch(data.products);
+          }
+        } catch (_) {}
+      }
+
+      onUpdate?.();
+      return res.json({
+        success: true,
+        message: 'Snapshot pré-sincronização restaurado com sucesso!',
+        categoriesCount: memCategories.length,
+        productsCount: memProducts.length
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao restaurar snapshot' });
+    }
+  });
+
+  app.get('/api/db/storage-status', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json({
+      success: true,
+      hasPostgres: isDatabaseConfigured(),
+      diskFiles: {
+        storeInfo: fs.existsSync(STORE_INFO_FILE),
+        tvMedia: fs.existsSync(TV_MEDIA_FILE),
+        categories: fs.existsSync(CATEGORIES_FILE),
+        products: fs.existsSync(PRODUCTS_FILE),
+        orders: fs.existsSync(ORDERS_FILE),
+        users: fs.existsSync(USERS_FILE),
+        tables: fs.existsSync(TABLES_FILE),
+        customers: fs.existsSync(CUSTOMERS_FILE),
+        masterBackup: fs.existsSync(MASTER_STATE_FILE)
+      },
+      counts: {
+        categories: memCategories.length,
+        products: memProducts.length,
+        tvMedia: memTvMedia.length,
+        tables: memTables.length,
+        orders: memOrders.length,
+        users: memUsers.length,
+        customers: memCustomers.length
+      },
+      storeName: memStoreInfo.name,
+      isOpen: memStoreInfo.isOpen,
+      aiAgentEnabled: memStoreInfo.aiAgentEnabled,
+      hasCustomLogo: !!(memStoreInfo.logoUrl && memStoreInfo.logoUrl !== '/logo.svg')
+    });
+  });
+
+  // Automated Hourly Backup Setup & Endpoints
+  const AUTO_BACKUP_DIR = path.join(process.cwd(), 'backups');
+  try {
+    if (!fs.existsSync(AUTO_BACKUP_DIR)) {
+      fs.mkdirSync(AUTO_BACKUP_DIR, { recursive: true });
+    }
+  } catch (e) {}
+
+  function runHourlyBackup() {
+    try {
+      if (!fs.existsSync(AUTO_BACKUP_DIR)) {
+        fs.mkdirSync(AUTO_BACKUP_DIR, { recursive: true });
+      }
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const hourStr = String(now.getHours()).padStart(2, '0');
+      const filename = `balbec-backup-hourly-${dateStr}_${hourStr}-00.json`;
+      const filepath = path.join(AUTO_BACKUP_DIR, filename);
+
+      const payload = {
+        storeInfo: memStoreInfo,
+        tvMedia: memTvMedia,
+        categories: memCategories,
+        products: memProducts,
+        users: memUsers,
+        tables: memTables,
+        customers: memCustomers,
+        orders: memOrders,
+        totemBackups: memTotemBackups,
+        exportedAt: now.toISOString(),
+        isAutomatedHourly: true,
+        version: '2.0.0'
+      };
+
+      fs.writeFileSync(filepath, JSON.stringify(payload, null, 2), 'utf8');
+      console.log(`[Hourly Backup] Backup automático de hora em hora criado: ${filename}`);
+
+      // Retention: keep last 72 hourly backups (3 days)
+      const files = fs.readdirSync(AUTO_BACKUP_DIR)
+        .filter(f => f.startsWith('balbec-backup-hourly-') && f.endsWith('.json'))
+        .sort();
+      
+      if (files.length > 72) {
+        const filesToDelete = files.slice(0, files.length - 72);
+        for (const fileToDel of filesToDelete) {
+          try {
+            fs.unlinkSync(path.join(AUTO_BACKUP_DIR, fileToDel));
+          } catch (err) {}
+        }
+      }
+    } catch (err) {
+      console.error('[Hourly Backup] Erro ao gerar backup automático:', err);
+    }
+  }
+
+  // Run initial hourly backup after 15 seconds of server startup
+  setTimeout(() => {
+    runHourlyBackup();
+  }, 15000);
+
+  // Then run every 1 hour
+  setInterval(() => {
+    runHourlyBackup();
+  }, 60 * 60 * 1000);
+
+  app.get('/api/db/hourly-backups', (req: Request, res: Response) => {
+    try {
+      if (!fs.existsSync(AUTO_BACKUP_DIR)) {
+        return res.json({ success: true, backups: [] });
+      }
+      const files = fs.readdirSync(AUTO_BACKUP_DIR)
+        .filter(f => f.startsWith('balbec-backup-hourly-') && f.endsWith('.json'))
+        .sort()
+        .reverse();
+
+      const list = files.map(filename => {
+        const filepath = path.join(AUTO_BACKUP_DIR, filename);
+        const stats = fs.statSync(filepath);
+        return {
+          filename,
+          sizeKb: Math.round(stats.size / 1024),
+          createdAt: stats.mtime.toISOString()
+        };
+      });
+
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.json({ success: true, backups: list });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao listar backups automáticos' });
+    }
+  });
+
+  app.get('/api/db/hourly-backups/download/:filename', (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const safeName = path.basename(filename);
+      const filepath = path.join(AUTO_BACKUP_DIR, safeName);
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({ error: 'Arquivo de backup não encontrado' });
+      }
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+      res.setHeader('Content-Type', 'application/json');
+      const content = fs.readFileSync(filepath, 'utf8');
+      res.send(content);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao baixar backup' });
+    }
+  });
+
+  app.post('/api/db/hourly-backups/restore/:filename', async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const safeName = path.basename(filename);
+      const filepath = path.join(AUTO_BACKUP_DIR, safeName);
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({ error: 'Arquivo de backup não encontrado' });
+      }
+      const raw = fs.readFileSync(filepath, 'utf8');
+      const data = JSON.parse(raw);
+
+      if (data.storeInfo && typeof data.storeInfo === 'object') {
+        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo, id: 'default' };
+        persistStoreInfoToDisk(memStoreInfo);
+      }
+      if (Array.isArray(data.tvMedia)) {
+        memTvMedia = data.tvMedia;
+        persistTvMediaToDisk(memTvMedia);
+      }
+      if (Array.isArray(data.categories) && data.categories.length > 0) {
+        memCategories = data.categories;
+        persistCategoriesToDisk(memCategories);
+      }
+      if (Array.isArray(data.products) && data.products.length > 0) {
+        memProducts = data.products;
+        persistProductsToDisk(memProducts);
+      }
+      if (Array.isArray(data.users) && data.users.length > 0) {
+        memUsers = data.users;
+        persistUsersToDisk(memUsers);
+      }
+      if (Array.isArray(data.tables) && data.tables.length > 0) {
+        memTables = data.tables;
+        persistTablesToDisk(memTables);
+      }
+      if (Array.isArray(data.customers)) {
+        memCustomers = data.customers;
+        persistCustomersToDisk(memCustomers);
+      }
+      if (Array.isArray(data.orders)) {
+        memOrders = data.orders;
+        persistOrdersToDisk(memOrders);
+      }
+      persistAllStateToMasterFile();
+      onUpdate?.();
+
+      return res.json({ success: true, message: 'Backup horário restaurado com sucesso!' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao restaurar backup horário' });
+    }
+  });
+
+  // Drivers & Delivery API
+  app.get('/api/db/drivers', async (req: Request, res: Response) => {
+    try {
+      if (isDatabaseConfigured()) {
+        try {
+          const list = await db.select().from(drivers);
+          if (list.length > 0) {
+            memDrivers = list;
+            persistDriversToDisk(memDrivers);
+            return res.json(memDrivers);
+          }
+        } catch (e) {}
+      }
+      if (memDrivers.length === 0) {
+        if (fs.existsSync(DRIVERS_FILE)) {
+          try {
+            memDrivers = JSON.parse(fs.readFileSync(DRIVERS_FILE, 'utf8'));
+          } catch (e) {}
+        }
+        if (memDrivers.length === 0) {
+          memDrivers = DEFAULT_DRIVERS;
+          persistDriversToDisk(memDrivers);
+        }
+      }
+      res.setHeader('Cache-Control', 'no-cache');
+      res.json(memDrivers);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao listar motoboys' });
+    }
+  });
+
+  app.post('/api/db/drivers', async (req: Request, res: Response) => {
+    try {
+      const data = req.body;
+      const newDriver = {
+        id: data.id || `driver_${Date.now()}`,
+        name: data.name || 'Novo Motoboy',
+        phone: data.phone || '',
+        vehicle: data.vehicle || 'Moto (Honda Fan - Placa XXX-0000)',
+        pixKey: data.pixKey || '',
+        status: data.status || 'available',
+        pinCode: data.pinCode || '1234',
+        createdAt: data.createdAt || Date.now()
+      };
+      memDrivers = [...memDrivers.filter(d => d.id !== newDriver.id), newDriver];
+      persistDriversToDisk(memDrivers);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.insert(drivers).values(newDriver).onConflictDoUpdate({
+            target: drivers.id,
+            set: newDriver
+          });
+        } catch (e) {}
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true, driver: newDriver });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao salvar motoboy' });
+    }
+  });
+
+  app.put('/api/db/drivers/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const data = req.body;
+      const existing = memDrivers.find(d => d.id === id);
+      const updatedDriver = {
+        id,
+        name: data.name !== undefined ? data.name : (existing?.name || 'Motoboy'),
+        phone: data.phone !== undefined ? data.phone : (existing?.phone || ''),
+        vehicle: data.vehicle !== undefined ? data.vehicle : (existing?.vehicle || 'Moto'),
+        pixKey: data.pixKey !== undefined ? data.pixKey : (existing?.pixKey || ''),
+        status: data.status !== undefined ? data.status : (existing?.status || 'available'),
+        pinCode: data.pinCode !== undefined ? String(data.pinCode) : (existing?.pinCode || '1234'),
+        createdAt: existing?.createdAt || Date.now()
+      };
+      memDrivers = [...memDrivers.filter(d => d.id !== id), updatedDriver];
+      persistDriversToDisk(memDrivers);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.insert(drivers).values(updatedDriver).onConflictDoUpdate({
+            target: drivers.id,
+            set: updatedDriver
+          });
+        } catch (e) {}
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true, driver: updatedDriver });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao atualizar motoboy' });
+    }
+  });
+
+  app.delete('/api/db/drivers/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      memDrivers = memDrivers.filter(d => d.id !== id);
+      persistDriversToDisk(memDrivers);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.delete(drivers).where(eq(drivers.id, id));
+        } catch (e) {}
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao excluir motoboy' });
+    }
+  });
+
+  // Delivery Zones / CEP Validation API
+  app.get('/api/db/delivery-zones', async (req: Request, res: Response) => {
+    try {
+      if (isDatabaseConfigured()) {
+        try {
+          const list = await db.select().from(deliveryZones);
+          if (list.length > 0) {
+            memDeliveryZones = list;
+            persistDeliveryZonesToDisk(memDeliveryZones);
+            return res.json(memDeliveryZones);
+          }
+        } catch (e) {}
+      }
+      if (memDeliveryZones.length === 0) {
+        if (fs.existsSync(DELIVERY_ZONES_FILE)) {
+          try {
+            memDeliveryZones = JSON.parse(fs.readFileSync(DELIVERY_ZONES_FILE, 'utf8'));
+          } catch (e) {}
+        }
+        if (memDeliveryZones.length === 0) {
+          memDeliveryZones = DEFAULT_DELIVERY_ZONES;
+          persistDeliveryZonesToDisk(memDeliveryZones);
+        }
+      }
+      res.setHeader('Cache-Control', 'no-cache');
+      res.json(memDeliveryZones);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao listar zonas de entrega' });
+    }
+  });
+
+  app.post('/api/db/delivery-zones', async (req: Request, res: Response) => {
+    try {
+      const data = req.body;
+      const newZone = {
+        id: data.id || `zone_${Date.now()}`,
+        neighborhood: data.neighborhood || 'Novo Bairro',
+        cepStart: data.cepStart || data.cep || '38000000',
+        cepEnd: data.cepEnd || data.cep || '38099999',
+        fee: Number(data.fee) || 5.00,
+        isActive: data.isActive !== false,
+        createdAt: data.createdAt || Date.now()
+      };
+      memDeliveryZones = [...memDeliveryZones.filter(z => z.id !== newZone.id), newZone];
+      persistDeliveryZonesToDisk(memDeliveryZones);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.insert(deliveryZones).values(newZone).onConflictDoUpdate({
+            target: deliveryZones.id,
+            set: newZone
+          });
+        } catch (e) {}
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true, zone: newZone });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao salvar zona de entrega' });
+    }
+  });
+
+  app.delete('/api/db/delivery-zones/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      memDeliveryZones = memDeliveryZones.filter(z => z.id !== id);
+      persistDeliveryZonesToDisk(memDeliveryZones);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.delete(deliveryZones).where(eq(deliveryZones.id, id));
+        } catch (e) {}
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao excluir zona de entrega' });
+    }
+  });
+
+  app.post('/api/db/check-cep', async (req: Request, res: Response) => {
+    try {
+      const { cep } = req.body;
+      if (!cep) {
+        return res.status(400).json({ error: 'CEP não informado' });
+      }
+      const cleanCep = String(cep).replace(/\D/g, '');
+      if (cleanCep.length < 5) {
+        return res.status(400).json({ error: 'CEP inválido' });
+      }
+
+      const numCep = parseInt(cleanCep.padEnd(8, '0'), 10);
+
+      let matchedZone = memDeliveryZones.find(z => {
+        if (!z.isActive) return false;
+        const startClean = parseInt(String(z.cepStart || z.cep || '38000000').replace(/\D/g, '').padEnd(8, '0'), 10);
+        const endClean = parseInt(String(z.cepEnd || z.cep || '38099999').replace(/\D/g, '').padEnd(8, '0'), 10);
+        return numCep >= startClean && numCep <= endClean;
+      });
+
+      let viaStreet = '';
+      let viaBairro = '';
+
+      // Tenta enriquecer com ViaCEP se tiver 8 dígitos
+      if (cleanCep.length === 8) {
+        try {
+          const viaRes = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+          if (viaRes.ok) {
+            const viaData: any = await viaRes.json();
+            if (viaData && !viaData.erro) {
+              viaStreet = viaData.logradouro || '';
+              viaBairro = viaData.bairro || '';
+
+              // Se não bateu por faixa, tenta bater pelo bairro do ViaCEP
+              if (!matchedZone && viaBairro) {
+                const bNorm = viaBairro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                matchedZone = memDeliveryZones.find(z => {
+                  if (!z.isActive) return false;
+                  const zn = (z.neighborhood || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                  return zn && (zn === bNorm || bNorm.includes(zn) || zn.includes(bNorm));
+                });
+              }
+            }
+          }
+        } catch (vErr) {}
+      }
+
+      if (matchedZone) {
+        return res.json({
+          success: true,
+          valid: true,
+          neighborhood: viaBairro || matchedZone.neighborhood,
+          fee: Number(matchedZone.fee) || 0,
+          street: viaStreet
+        });
+      } else {
+        return res.json({
+          success: true,
+          valid: false,
+          message: 'INFELIZMENTE NÃO ATENDEMOS ESSA REGIÃO NO MOMENTO.'
+        });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao validar CEP' });
+    }
+  });
+
+  app.post('/api/db/orders/:id/accept-delivery', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { driverId, driverName } = req.body;
+
+      const orderIdx = memOrders.findIndex(o => String(o.id) === String(id));
+      if (orderIdx === -1) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+
+      const ord = memOrders[orderIdx];
+      if (ord.driverId && ord.driverId !== driverId && ord.deliveryStatus === 'in_transit') {
+        return res.status(400).json({ error: 'Este pedido já foi aceito por outro motoboy!' });
+      }
+
+      const matchedDriver = memDrivers.find(d => d.id === driverId);
+      const updatedOrder = {
+        ...ord,
+        driverId,
+        driverName: driverName || matchedDriver?.name || 'Motoboy',
+        driverPhone: matchedDriver?.phone || null,
+        driverVehicle: matchedDriver?.vehicle || null,
+        deliveryStatus: 'in_transit',
+        deliveryAcceptedAt: Date.now(),
+        status: 'out_for_delivery'
+      };
+
+      memOrders[orderIdx] = updatedOrder;
+      persistOrdersToDisk(memOrders);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.update(orders)
+            .set({
+              driverId,
+              driverName: updatedOrder.driverName,
+              deliveryStatus: 'in_transit',
+              deliveryAcceptedAt: updatedOrder.deliveryAcceptedAt,
+              status: 'out_for_delivery'
+            })
+            .where(eq(orders.id, id));
+        } catch (e) {}
+      }
+
+      broadcastSSE({ type: 'sync', target: 'orders', action: 'order_accepted', orderId: id, time: Date.now() });
+      res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao aceitar entrega' });
+    }
+  });
+
+  app.post('/api/db/orders/:id/complete-delivery', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const orderIdx = memOrders.findIndex(o => String(o.id) === String(id));
+      if (orderIdx === -1) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+
+      const ord = memOrders[orderIdx];
+      const updatedOrder = {
+        ...ord,
+        deliveryStatus: 'delivered',
+        deliveryCompletedAt: Date.now(),
+        status: 'completed'
+      };
+
+      memOrders[orderIdx] = updatedOrder;
+      persistOrdersToDisk(memOrders);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.update(orders)
+            .set({
+              deliveryStatus: 'delivered',
+              deliveryCompletedAt: updatedOrder.deliveryCompletedAt,
+              status: 'completed'
+            })
+            .where(eq(orders.id, id));
+        } catch (e) {}
+      }
+
+      broadcastSSE({ type: 'sync', target: 'orders', action: 'order_completed', orderId: id, time: Date.now() });
+      res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao concluir entrega' });
+    }
+  });
+
+  app.post('/api/db/orders/:id/assign-driver', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { driverId, driverName } = req.body;
+      const orderIdx = memOrders.findIndex(o => String(o.id) === String(id));
+      if (orderIdx === -1) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      const ord = memOrders[orderIdx];
+      const matchedDriver = driverId ? memDrivers.find(d => d.id === driverId) : null;
+      const updatedOrder = {
+        ...ord,
+        driverId: driverId || null,
+        driverName: driverName || matchedDriver?.name || null,
+        driverPhone: matchedDriver?.phone || null,
+        driverVehicle: matchedDriver?.vehicle || null,
+        deliveryStatus: driverId ? 'in_transit' : 'pending',
+        deliveryAcceptedAt: driverId ? (ord.deliveryAcceptedAt || Date.now()) : null,
+        status: driverId ? 'out_for_delivery' : ord.status
+      };
+      memOrders[orderIdx] = updatedOrder;
+      persistOrdersToDisk(memOrders);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.update(orders)
+            .set({
+              driverId: updatedOrder.driverId,
+              driverName: updatedOrder.driverName,
+              deliveryStatus: updatedOrder.deliveryStatus,
+              deliveryAcceptedAt: updatedOrder.deliveryAcceptedAt,
+              status: updatedOrder.status
+            })
+            .where(eq(orders.id, id));
+        } catch (e) {}
+      }
+
+      broadcastSSE({ type: 'sync', target: 'orders', action: 'driver_assigned', orderId: id, time: Date.now() });
+      res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao atribuir motoboy' });
+    }
+  });
+
+  // =========================================================================
+  // Live GPS Tracking Endpoints (Estilo iFood)
+  // =========================================================================
+
+  // Endpoint chamado periodicamente pelo App do Motoboy para enviar coordenadas
+  app.post('/api/db/drivers/:id/location', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { lat, lng, heading, speed } = req.body;
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        return res.status(400).json({ error: 'Coordenadas lat e lng inválidas' });
+      }
+
+      const coords = {
+        lat,
+        lng,
+        heading: typeof heading === 'number' ? heading : 0,
+        speed: typeof speed === 'number' ? speed : 0,
+        updatedAt: Date.now()
+      };
+
+      // Atualiza coordenadas no motoboy
+      const drvIdx = memDrivers.findIndex(d => d.id === id);
+      if (drvIdx !== -1) {
+        memDrivers[drvIdx] = { ...memDrivers[drvIdx], currentCoords: coords };
+      }
+
+      // Atualiza coordenadas nos pedidos em rota desse motoboy
+      let ordersUpdated = false;
+      memOrders = memOrders.map(o => {
+        if (o.driverId === id && (o.deliveryStatus === 'in_transit' || o.status === 'out_for_delivery')) {
+          ordersUpdated = true;
+          return { ...o, driverCoords: coords };
+        }
+        return o;
+      });
+
+      if (ordersUpdated) {
+        persistOrdersToDisk(memOrders);
+      }
+
+      // Notifica todos os clientes acompanhando em tempo real via SSE
+      broadcastSSE({
+        type: 'driver_location',
+        driverId: id,
+        coords,
+        time: Date.now()
+      });
+
+      res.json({ success: true, coords });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao registrar localização do motoboy' });
+    }
+  });
+
+  // Endpoint chamado pela tela do Cliente para obter dados completos de rastreamento
+  app.get('/api/db/orders/:id/tracking', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      let order = memOrders.find(o => String(o.id) === String(id));
+      if (!order && isDatabaseConfigured()) {
+        try {
+          const dbOrders = await db.select().from(orders).where(eq(orders.id, id));
+          if (dbOrders && dbOrders.length > 0) {
+            order = dbOrders[0] as any;
+          }
+        } catch (dbErr) {
+          console.warn('[DB] Tracking order query fallback error:', dbErr);
+        }
+      }
+      if (!order) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+
+      const driver = order.driverId ? memDrivers.find(d => d.id === order.driverId) : null;
+      const storeCoords = {
+        lat: Number(memStoreInfo.inStoreLatitude) || -19.7478,
+        lng: Number(memStoreInfo.inStoreLongitude) || -47.9392
+      };
+
+      res.json({
+        order,
+        store: {
+          name: memStoreInfo.name || 'BALBEC - REVENDA',
+          address: memStoreInfo.address || 'Av. Principal, 100 - Centro',
+          phone: memStoreInfo.phone || '',
+          coords: storeCoords
+        },
+        driver: driver ? {
+          id: driver.id,
+          name: driver.name,
+          phone: driver.phone,
+          vehicle: driver.vehicle,
+          coords: driver.currentCoords || order.driverCoords || null
+        } : null
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao buscar dados de rastreamento' });
+    }
+  });
+
+  // Endpoints para Módulo Pagamento Online (Mercado Pago)
+  app.post('/api/mercadopago/create-pix', async (req: Request, res: Response) => {
+    try {
+      const { orderId, amount, description, payer } = req.body;
+      if (!amount || Number(amount) <= 0) {
+        return res.status(400).json({ error: 'Valor inválido para cobrança Pix' });
+      }
+
+      const pixResult = await createPixPayment({
+        orderId: String(orderId || Date.now()),
+        amount: Number(amount),
+        description,
+        payer: payer || {},
+        storeInfo: memStoreInfo
+      });
+
+      res.json(pixResult);
+    } catch (err: any) {
+      console.error('[Mercado Pago API] Erro ao criar cobrança Pix:', err);
+      res.status(500).json({ error: err?.message || 'Erro ao gerar pagamento Pix' });
+    }
+  });
+
+  app.get('/api/mercadopago/check-status/:paymentId', async (req: Request, res: Response) => {
+    try {
+      const { paymentId } = req.params;
+      const statusResult = await checkPixStatus(paymentId, memStoreInfo);
+      res.json(statusResult);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao consultar status do pagamento' });
+    }
+  });
+
+  app.post('/api/mercadopago/confirm-pix/:paymentId', async (req: Request, res: Response) => {
+    try {
+      const { paymentId } = req.params;
+      const result = confirmPixPayment(paymentId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao confirmar Pix' });
+    }
+  });
+
+  app.post('/api/mercadopago/process-card', async (req: Request, res: Response) => {
+    try {
+      const { amount, cardType, card, payer, orderId } = req.body;
+      if (!amount || Number(amount) <= 0) {
+        return res.status(400).json({ success: false, message: 'Valor inválido para pagamento' });
+      }
+      if (!card || !card.number) {
+        return res.status(400).json({ success: false, message: 'Dados do cartão incompletos' });
+      }
+
+      const cardResult = await processCardPayment({
+        amount: Number(amount),
+        cardType: cardType === 'debit' ? 'debit' : 'credit',
+        card,
+        payer: payer || {},
+        orderId: String(orderId || Date.now()),
+        storeInfo: memStoreInfo
+      });
+
+      res.json(cardResult);
+    } catch (err: any) {
+      console.error('[Mercado Pago API] Erro ao processar cartão:', err);
+      res.status(500).json({ success: false, message: err?.message || 'Erro ao processar cartão' });
+    }
+  });
+
+  // Background Automation Loop for Delivery Orders (Auto-Print after 3 min, Auto-Status progression)
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      let updated = false;
+
+      memOrders = memOrders.map(order => {
+        if ((order.type === 'delivery' || order.deliveryType === 'delivery') && order.status !== 'completed' && order.status !== 'cancelled') {
+          const createdAt = order.createdAt ? new Date(order.createdAt).getTime() : now;
+          const elapsedMinutes = (now - createdAt) / 60000;
+
+          let newStatus = order.status;
+          let newDeliveryStatus = order.deliveryStatus;
+          let needsPrint = false;
+
+          // 1. Auto-Print imediatamente (independente de atendente, via socket de rede exatamente como o totem)
+          if (elapsedMinutes >= 0 && !(order as any).autoPrintedDelivery) {
+            (order as any).autoPrintedDelivery = true;
+            needsPrint = true;
+            updated = true;
+          }
+
+          // 2. Progressão de Status:
+          // 5 min -> preparing
+          // 10 min -> ready_for_delivery
+          if (elapsedMinutes >= 10 && order.status === 'preparing') {
+            newStatus = 'ready_for_delivery';
+            newDeliveryStatus = 'ready_for_delivery';
+            updated = true;
+          } else if (elapsedMinutes >= 5 && order.status === 'pending') {
+            newStatus = 'preparing';
+            newDeliveryStatus = 'preparing';
+            updated = true;
+          }
+
+          if (needsPrint) {
+            queueOrderForAgent(order, memStoreInfo);
+            printOrderToNetworkPrinter(order, memStoreInfo).then(res => {
+              console.log(`[Auto-Print Delivery] Pedido #${order.id} impresso automaticamente após 3 min:`, res.success);
+            }).catch(err => {
+              console.warn('[Auto-Print Delivery] Erro na impressão automática:', err);
+            });
+          }
+
+          if (newStatus !== order.status || newDeliveryStatus !== order.deliveryStatus || needsPrint) {
+            const updatedOrd = { ...order, status: newStatus, deliveryStatus: newDeliveryStatus };
+            if (isDatabaseConfigured()) {
+              db.update(orders)
+                .set({ status: newStatus, deliveryStatus: newDeliveryStatus })
+                .where(eq(orders.id, order.id))
+                .catch(() => {});
+            }
+            return updatedOrd;
+          }
+        }
+        return order;
+      });
+
+      if (updated) {
+        persistOrdersToDisk(memOrders);
+        broadcastSSE({ type: 'sync', target: 'orders', action: 'delivery_automation', time: Date.now() });
+      }
+    } catch (err) {
+      console.warn('[Delivery Automation] Erro no loop de automação:', err);
+    }
+  }, 30000);
+
+  // Mount AI Virtual Agent endpoints
+  registerAiRoutes(app, () => ({
+    categories: memCategories,
+    products: memProducts,
+    storeInfo: memStoreInfo
+  }));
+}
+
