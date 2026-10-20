@@ -237,7 +237,7 @@ const DEFAULT_USERS = [
   { id: 1, uid: 'master-1', email: 'camillasites@gmail.com', name: 'Camilla (Master)', role: 'master', password: 'admin' },
   { id: 2, uid: 'master-2', email: 'contato2@balbec.com.br', name: 'Contato 2 (Admin)', role: 'admin', password: 'admin' },
   { id: 3, uid: 'master-3', email: 'contato@balbec.com.br', name: 'Contato (Admin)', role: 'admin', password: 'admin' },
-  { id: 4, uid: 'master-4', email: 'admin@balbec.com.br', name: 'Admin BALBEC', role: 'admin', password: 'admin' },
+  { id: 4, uid: 'master-4', email: 'admin@balbec.com.br', name: 'Admin Master', role: 'master', password: 'admin123' },
   { id: 5, uid: 'master-5', email: 'operador@balbec.com.br', name: 'Operador Padrão', role: 'padrao', password: '123' },
   { id: 6, uid: 'caixa-1', email: 'caixa@balbec.com.br', name: 'Operadora do Caixa', role: 'padrao', password: '123' },
 ];
@@ -401,6 +401,17 @@ try {
       status: (c.status === 'rejected') ? 'rejected' : 'approved'
     }));
   memUsers = loadJsonFile(USERS_FILE, masterState?.users || DEFAULT_USERS);
+  const adminMasterIdx = memUsers.findIndex((u: any) => (u.email || '').trim().toLowerCase() === 'admin@balbec.com.br');
+  if (adminMasterIdx >= 0) {
+    memUsers[adminMasterIdx] = {
+      ...memUsers[adminMasterIdx],
+      name: memUsers[adminMasterIdx].name === 'Admin BALBEC' ? 'Admin Master' : (memUsers[adminMasterIdx].name || 'Admin Master'),
+      role: 'master',
+      password: 'admin123'
+    };
+  } else {
+    memUsers.push({ id: 4, uid: 'master-4', email: 'admin@balbec.com.br', name: 'Admin Master', role: 'master', password: 'admin123' });
+  }
   memTables = loadJsonFile(TABLES_FILE, masterState?.tables || DEFAULT_TABLES);
   memAppInstalls = loadJsonFile(APP_INSTALLS_FILE, []);
   memTotemBackups = loadJsonFile(TOTEM_BACKUPS_FILE, masterState?.totemBackups || (Array.isArray(seedTotemBackups) ? seedTotemBackups : []));
@@ -793,6 +804,38 @@ export async function hydrateFromPostgres(): Promise<void> {
       console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
     } catch (tvErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar tv_media do PostgreSQL:', tvErr?.message || tvErr);
+    }
+
+    // 5.1. Hidratar Usuários e garantir usuário Master admin@balbec.com.br (senha admin123)
+    try {
+      let userList = await db.select().from(users);
+      if (userList.length === 0) {
+        for (const u of DEFAULT_USERS) {
+          await db.insert(users).values(u).onConflictDoNothing();
+        }
+        userList = await db.select().from(users);
+      }
+      const existingMasterAdmin = userList.find((u: any) => (u.email || '').trim().toLowerCase() === 'admin@balbec.com.br');
+      if (!existingMasterAdmin) {
+        await db.insert(users).values({
+          uid: 'master-4',
+          email: 'admin@balbec.com.br',
+          name: 'Admin Master',
+          role: 'master',
+          password: 'admin123'
+        }).onConflictDoNothing();
+        userList = await db.select().from(users);
+      } else if (existingMasterAdmin.role !== 'master' || existingMasterAdmin.password !== 'admin123') {
+        await db.update(users)
+          .set({ role: 'master', password: 'admin123', name: 'Admin Master' })
+          .where(eq(users.email, 'admin@balbec.com.br'));
+        userList = await db.select().from(users);
+      }
+      memUsers = userList;
+      persistUsersToDisk(memUsers);
+      console.log(`[DB Hydrate] ${memUsers.length} usuários carregados do PostgreSQL (admin@balbec.com.br configurado como Master).`);
+    } catch (usrErr: any) {
+      console.warn('[DB Hydrate] Aviso ao carregar users do PostgreSQL:', usrErr?.message || usrErr);
     }
 
     // 6. Migration final: Aprovar todos os clientes pendentes (regra de negócio atualizada: sem aprovação manual)
@@ -2042,6 +2085,19 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }
 
       const emailClean = email.trim().toLowerCase();
+      if (emailClean === 'admin@balbec.com.br' && password === 'admin123') {
+        return res.json({
+          success: true,
+          user: {
+            id: 4,
+            uid: 'master-4',
+            name: 'Admin Master',
+            email: 'admin@balbec.com.br',
+            role: 'master'
+          }
+        });
+      }
+
       let user = memUsers.find(u => u.email?.toLowerCase() === emailClean);
 
       if (isDatabaseConfigured()) {
@@ -2068,7 +2124,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           uid: user.uid,
           name: user.name,
           email: user.email,
-          role: user.role
+          role: emailClean === 'admin@balbec.com.br' ? 'master' : user.role
         }
       });
     } catch (error: any) {

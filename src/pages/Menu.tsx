@@ -4837,10 +4837,7 @@ export default function Menu() {
           
           <div className="mt-6 pt-5 border-t border-stone-100 flex flex-col gap-1 items-center">
             <p className="text-xs text-stone-400 uppercase font-bold tracking-widest mb-0.5">{storeInfo.name || 'BALBEC - REVENDA'}</p>
-            <p className="text-xs text-stone-500 mb-1">{storeInfo.address}</p>
-            <div className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">
-              <p>CNPJ: 03.162.220/0001-00 | Tel: (34) 3338-3795</p>
-            </div>
+            {storeInfo.address && <p className="text-xs text-stone-500">{storeInfo.address}</p>}
           </div>
         </div>
       </div>
@@ -5385,13 +5382,9 @@ export default function Menu() {
                   referrerPolicy="no-referrer"
                 />
               ) : null}
-              <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">
+              <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
                 © {new Date().getFullYear()} {storeInfo.name}
               </p>
-              <div className="text-stone-400 text-[10px] font-medium uppercase tracking-wider mb-4 space-y-1">
-                <p>CNPJ: 03.162.220/0001-00</p>
-                <p>Telefone: (34) 3338-3795</p>
-              </div>
               <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                 <Link to="/privacidade" className="text-stone-400 hover:text-amber-600 transition-colors text-xs font-medium">
                   Privacidade & LGPD
@@ -5406,14 +5399,16 @@ export default function Menu() {
                     <span>Portal do Motoboy</span>
                   </Link>
                 )}
-                <a 
-                  href={`https://wa.me/553433383795`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-stone-400 hover:text-emerald-600 transition-colors text-xs font-medium"
-                >
-                  Fale Conosco
-                </a>
+                {storeInfo.whatsapp && (
+                  <a 
+                    href={`https://wa.me/55${storeInfo.whatsapp.replace(/\D/g, '').replace(/^55/, '')}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-stone-400 hover:text-emerald-600 transition-colors text-xs font-medium"
+                  >
+                    Fale Conosco
+                  </a>
+                )}
               </nav>
             </footer>
           </main>

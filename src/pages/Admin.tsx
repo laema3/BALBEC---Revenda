@@ -165,7 +165,7 @@ export default function Admin() {
   const isVanderluce = userEmail.includes('vanderluce') || userName.includes('vanderluce');
 
   // Apenas usuário MASTER tem acesso a todas as funcionalidades do menu
-  const isMaster = !isVanderluce && (currentUser?.role === 'master' || userEmail === 'camillasites@gmail.com');
+  const isMaster = !isVanderluce && (currentUser?.role === 'master' || userEmail === 'camillasites@gmail.com' || userEmail === 'admin@balbec.com.br');
 
   // Grupo Administrador: role === 'admin', ou Vanderluce, ou e-mails autorizados que não sejam master
   const isAdmin = !isMaster && (isVanderluce || currentUser?.role === 'admin' || isAuthorizedAdminEmail(currentUser?.email));
@@ -1755,7 +1755,7 @@ export default function Admin() {
       }
 
       const emailClean = (user.email || '').trim().toLowerCase();
-      const isMasterEmail = emailClean === 'camillasites@gmail.com';
+      const isMasterEmail = emailClean === 'camillasites@gmail.com' || emailClean === 'admin@balbec.com.br';
       const isAuthorizedAdmin = isAuthorizedAdminEmail(user.email);
 
       let activeUser = users.find(u => (u.email || '').trim().toLowerCase() === emailClean);
@@ -7684,7 +7684,22 @@ export default function Admin() {
         }
       }
 
-      // 2. Check local/store users list as secondary direct fallback
+      // 2. Check local/store users list or hardcoded master account as secondary direct fallback
+      if (emailClean === 'admin@balbec.com.br' && passClean === 'admin123') {
+        setIsAuthenticated(true);
+        const userObj: User = {
+          id: 'master-4',
+          uid: 'master-4',
+          name: 'Admin Master',
+          email: 'admin@balbec.com.br',
+          role: 'master'
+        };
+        setCurrentUser(userObj);
+        localStorage.setItem('balbec_admin_session', JSON.stringify(userObj));
+        setLoginError('');
+        return;
+      }
+
       const matchingUser = users.find(u => (u.email || '').trim().toLowerCase() === emailClean);
       if (matchingUser && (!matchingUser.password || matchingUser.password === passClean)) {
         setIsAuthenticated(true);
@@ -7693,7 +7708,7 @@ export default function Admin() {
           uid: matchingUser.uid || String(matchingUser.id),
           name: matchingUser.name || emailClean.split('@')[0],
           email: emailClean,
-          role: matchingUser.role || 'padrao'
+          role: (emailClean === 'admin@balbec.com.br' || emailClean === 'camillasites@gmail.com') ? 'master' : (matchingUser.role || 'padrao')
         };
         setCurrentUser(userObj);
         localStorage.setItem('balbec_admin_session', JSON.stringify(userObj));
@@ -7716,7 +7731,7 @@ export default function Admin() {
             uid: result.user.uid,
             name: result.user.displayName || found?.name || result.user.email?.split('@')[0] || 'Admin',
             email: result.user.email || '',
-            role: found?.role || (fbEmail === 'camillasites@gmail.com' ? 'master' : 'admin')
+            role: (fbEmail === 'camillasites@gmail.com' || fbEmail === 'admin@balbec.com.br') ? 'master' : (found?.role || 'admin')
           };
           setCurrentUser(userObj);
           localStorage.setItem('balbec_admin_session', JSON.stringify(userObj));
@@ -7786,7 +7801,7 @@ export default function Admin() {
           </button>
 
           <div className="mt-4 p-3 bg-stone-50 border border-stone-200 rounded-xl text-center text-xs text-stone-600">
-            <span className="font-semibold text-stone-800">Acesso Administrativo:</span> Utilize <code className="bg-stone-200/70 px-1.5 py-0.5 rounded font-mono text-stone-900">admin@balbec.com.br</code> com senha <code className="bg-stone-200/70 px-1.5 py-0.5 rounded font-mono text-stone-900">admin</code> ou seu e-mail cadastrado.
+            <span className="font-semibold text-stone-800">Acesso Administrativo:</span> Utilize <code className="bg-stone-200/70 px-1.5 py-0.5 rounded font-mono text-stone-900">admin@balbec.com.br</code> com senha <code className="bg-stone-200/70 px-1.5 py-0.5 rounded font-mono text-stone-900">admin123</code> ou seu e-mail cadastrado.
           </div>
 
           <div className="mt-5 text-center">
