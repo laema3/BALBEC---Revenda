@@ -808,13 +808,6 @@ ${itemsXml}
       });
     }
 
-    // Inicia o servidor IMEDIATAMENTE sem bloquear por requisições de banco de dados
-    const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-    server.keepAliveTimeout = 120000;
-    server.headersTimeout = 120000;
-
     // Inicialização do banco e hidratação executadas de forma bloqueante para garantir integridade dos dados
     try {
       console.log("[DB] Inicializando tabelas e hidratando dados do PostgreSQL...");
@@ -825,6 +818,13 @@ ${itemsXml}
       console.error("[DB] ERRO FATAL na inicialização do banco de dados:", dbInitErr);
       // Opcional: process.exit(1); se o banco for essencial
     }
+
+    // Inicia o servidor APÓS a hidratação bem-sucedida do banco de dados
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+    server.keepAliveTimeout = 120000;
+    server.headersTimeout = 120000;
   }
 
   startServer().catch(err => {
