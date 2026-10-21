@@ -1806,32 +1806,24 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                       </div>
                     </label>
 
-                    {/* Exigir Leitura de QR Code para Pedidos */}
-                    <label className="flex items-center justify-between p-3 bg-amber-50/70 hover:bg-amber-50 rounded-xl border border-amber-200 cursor-pointer transition-colors">
+                    {/* Exigir Leitura de QR Code para Pedidos (Desativado) */}
+                    <label className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-200 opacity-60">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-stone-800">Exigir QR Code da Mesa para Fazer Pedidos</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            requireQrCodeForOrderingState 
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                              : 'bg-stone-200 text-stone-700'
-                          }`}>
-                            {requireQrCodeForOrderingState ? 'Exigência Ativa (Protegido)' : 'Acesso Livre por Link'}
-                          </span>
+                          <span className="text-xs font-bold text-stone-800">Exigir QR Code da Mesa para Fazer Pedidos (Desativado)</span>
                         </div>
                         <span className="text-[11px] text-stone-600 block mt-0.5">
-                          Evita pedidos falsos ou de curiosos de fora do local. Quem acessar apenas digitando o link verá o cardápio em <strong>Modo Apenas Visualização</strong>. Para comprar, o cliente deve escanear o QR Code de uma mesa.
+                          Função desativada neste projeto.
                         </span>
                       </div>
                       <div className="relative shrink-0 ml-3">
                         <input 
                           type="checkbox" 
-                          name="requireQrCodeForOrdering" 
-                          checked={requireQrCodeForOrderingState}
-                          onChange={(e) => setRequireQrCodeForOrderingState && setRequireQrCodeForOrderingState(e.target.checked)}
-                          className="sr-only peer"
+                          checked={false}
+                          disabled={true}
+                          className="sr-only"
                         />
-                        <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        <div className="w-11 h-6 bg-stone-200 rounded-full"></div>
                       </div>
                     </label>
 

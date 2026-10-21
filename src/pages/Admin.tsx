@@ -5983,14 +5983,14 @@ export default function Admin() {
                 <label className="block text-sm font-bold text-stone-700">Logo da Loja</label>
                 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-200">
-                  <div className="w-24 h-24 bg-stone-200/60 rounded-2xl border-2 border-dashed border-stone-300 flex items-center justify-center overflow-hidden shadow-inner group relative shrink-0">
+                  <div className="w-24 h-24 bg-stone-200/60 rounded-full border-2 border-dashed border-stone-300 flex items-center justify-center overflow-hidden shadow-inner group relative shrink-0">
                     {logoPreview ? (
                       <>
-                        <img src={logoPreview} alt="Logo" className="w-full h-full object-contain p-2" />
+                        <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
                         <button 
                           type="button"
                           onClick={() => setLogoPreview('')}
-                          className="absolute inset-0 bg-red-600/85 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] font-bold uppercase cursor-pointer"
+                          className="absolute inset-0 bg-red-600/85 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] font-bold uppercase cursor-pointer rounded-full"
                         >
                           Limpar
                         </button>
@@ -6168,35 +6168,21 @@ export default function Admin() {
               </label>
 
               {/* Totem */}
-              <label className="flex items-center justify-between p-3.5 bg-stone-50 hover:bg-stone-100/80 rounded-2xl border border-stone-200 cursor-pointer transition-colors">
+              <label className="flex items-center justify-between p-3.5 bg-stone-50 rounded-2xl border border-stone-200 opacity-60">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-stone-800">Totem de Autoatendimento</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      !kioskEnabledState 
-                        ? 'bg-stone-200 text-stone-600'
-                        : getStoreCurrentStatus(weeklyScheduleState, isOpenState, true).isWithinSchedule
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {!kioskEnabledState 
-                        ? 'Desativado' 
-                        : getStoreCurrentStatus(weeklyScheduleState, isOpenState, true).isWithinSchedule
-                          ? 'Aberto Automático'
-                          : 'Fechado Fora do Horário'}
-                    </span>
+                    <span className="text-sm font-bold text-stone-800">Totem de Autoatendimento (Desativado)</span>
                   </div>
-                  <span className="text-xs text-stone-500">Abre e fecha automaticamente durante o horário de atendimento para totens e tablets na loja.</span>
+                  <span className="text-xs text-stone-500">Função de totem desativada.</span>
                 </div>
                 <div className="relative">
                   <input 
                     type="checkbox" 
-                    name="kioskEnabled" 
-                    checked={kioskEnabledState}
-                    onChange={(e) => setKioskEnabledState(e.target.checked)}
-                    className="sr-only peer"
+                    checked={false}
+                    disabled={true}
+                    className="sr-only"
                   />
-                  <div className="w-12 h-7 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-12 h-7 bg-stone-200 rounded-full"></div>
                 </div>
               </label>
 
@@ -7978,7 +7964,7 @@ export default function Admin() {
               )}
             </button>
           )}
-          {(isAdminOrMaster || isCaixaUser) && (
+          {/* {(isAdminOrMaster || isCaixaUser) && (
             <button type="button" 
               onClick={() => {
                 setActiveTab('customers');
@@ -7987,14 +7973,9 @@ export default function Admin() {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'customers' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
             >
               <UserCheck className="w-5 h-5" /> Clientes & Leads
-              {customers.length > 0 && (
-                <span className="ml-auto bg-stone-700 text-stone-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {customers.length}
-                </span>
-              )}
             </button>
-          )}
-          {(isAdminOrMaster || isCaixaUser) && (
+          )} */}
+          {/* {(isAdminOrMaster || isCaixaUser) && (
             <button type="button" 
               onClick={() => {
                 setActiveTab('tables');
@@ -8003,14 +7984,10 @@ export default function Admin() {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'tables' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
             >
               <UtensilsCrossed className="w-5 h-5" /> Mesas & QR Codes
-              {tables.length > 0 && (
-                <span className="ml-auto bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  {tables.length}
-                </span>
-              )}
             </button>
-          )}
-          {(isAdminOrMaster || isCaixaUser) && (
+          )} */}
+          {/* ... (comment out Customers, Drivers tabs similarly) */}
+          {/* {(isAdminOrMaster || isCaixaUser) && (
             <button type="button" 
               onClick={() => {
                 setActiveTab('drivers');
@@ -8019,11 +7996,6 @@ export default function Admin() {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'drivers' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
             >
               <Bike className="w-5 h-5" /> Entregas & Motoboys
-              {orders.filter(o => o.deliveryType === 'delivery' && (o.deliveryStatus === 'in_transit' || o.status === 'out_for_delivery')).length > 0 && (
-                <span className="ml-auto bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  {orders.filter(o => o.deliveryType === 'delivery' && (o.deliveryStatus === 'in_transit' || o.status === 'out_for_delivery')).length}
-                </span>
-              )}
             </button>
           )}
           {(isAdminOrMaster || isCaixaUser) && (
@@ -8036,7 +8008,7 @@ export default function Admin() {
             >
               <MapPin className="w-5 h-5" /> Bairros & Taxas (CEP)
             </button>
-          )}
+          )} */}
           {!isCaixaUser && (
             <button type="button" 
               onClick={() => {
