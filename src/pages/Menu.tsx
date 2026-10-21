@@ -3163,7 +3163,7 @@ export default function Menu() {
                             {/* Pix Online */}
                             <label 
                               className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
-                                paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)'
+                                paymentMethod === 'Pix (Online)' 
                                   ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.01]' 
                                   : 'border-stone-200 bg-white hover:bg-stone-50'
                               }`}
@@ -3172,7 +3172,7 @@ export default function Menu() {
                                 type="radio" 
                                 name="payment" 
                                 value="Pix (Online)"
-                                checked={paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)'}
+                                checked={paymentMethod === 'Pix (Online)'}
                                 onChange={(e) => {
                                   setPaymentMode('online');
                                   setPaymentMethod(e.target.value);
@@ -3183,49 +3183,14 @@ export default function Menu() {
                                 <div className="flex items-center justify-between">
                                   <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
                                     <QrCode className="w-4 h-4 text-emerald-600" />
-                                    Pix Online
+                                    Pix
                                   </span>
                                   <span className="bg-emerald-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
                                     Aprovação Imediata
                                   </span>
                                 </div>
                                 <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
-                                  QR Code e Copia e Cola. O pedido só é enviado após a confirmação do pagamento.
-                                </span>
-                              </div>
-                            </label>
-
-                            {/* Cartão de Crédito Online */}
-                            <label 
-                              className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
-                                paymentMethod === 'Cartão de Crédito (Online)'
-                                  ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.01]' 
-                                  : 'border-stone-200 bg-white hover:bg-stone-50'
-                              }`}
-                            >
-                              <input 
-                                type="radio" 
-                                name="payment" 
-                                value="Cartão de Crédito (Online)"
-                                checked={paymentMethod === 'Cartão de Crédito (Online)'}
-                                onChange={(e) => {
-                                  setPaymentMode('online');
-                                  setPaymentMethod(e.target.value);
-                                }}
-                                className="w-5 h-5 text-blue-600 focus:ring-blue-500 mt-0.5"
-                              />
-                              <div className="ml-3 flex flex-col flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
-                                    <CreditCard className="w-4 h-4 text-blue-600" />
-                                    Cartão de Crédito Online
-                                  </span>
-                                  <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
-                                    Até 3x ou à vista
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
-                                  Pague direto pelo app com segurança. Pedido enviado após aprovação do cartão.
+                                  QR Code e Copia e Cola.
                                 </span>
                               </div>
                             </label>
@@ -3253,14 +3218,14 @@ export default function Menu() {
                                 <div className="flex items-center justify-between">
                                   <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
                                     <CreditCard className="w-4 h-4 text-purple-600" />
-                                    Cartão de Débito Online
+                                    Cartão de Débito
                                   </span>
                                   <span className="bg-purple-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
                                     Débito Imediato
                                   </span>
                                 </div>
                                 <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
-                                  Débito virtual seguro pelo app. Pedido enviado após confirmação da operadora.
+                                  Débito virtual seguro.
                                 </span>
                               </div>
                             </label>
@@ -3323,7 +3288,7 @@ export default function Menu() {
                           </div>
 
                           <div className="grid grid-cols-1 gap-2.5">
-                            {['Pix (Na Entrega)', 'Cartão (Na Entrega)', 'Dinheiro'].map(method => (
+                            {['Pix', 'Dinheiro', 'Débito'].map(method => (
                               <label 
                                 key={method} 
                                 className={`flex items-center p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
