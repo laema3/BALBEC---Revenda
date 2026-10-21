@@ -5986,7 +5986,7 @@ export default function Admin() {
                   <div className="w-24 h-24 bg-stone-200/60 rounded-full border-2 border-dashed border-stone-300 flex items-center justify-center overflow-hidden shadow-inner group relative shrink-0">
                     {logoPreview ? (
                       <>
-                        <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                        <img src={logoPreview} alt="Logo" className="w-full h-full object-cover rounded-full" />
                         <button 
                           type="button"
                           onClick={() => setLogoPreview('')}
