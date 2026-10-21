@@ -815,17 +815,16 @@ ${itemsXml}
     server.keepAliveTimeout = 120000;
     server.headersTimeout = 120000;
 
-    // Inicialização do banco e hidratação executadas em segundo plano para máxima velocidade de abertura
-    (async () => {
-      try {
-        console.log("[DB] Inicializando tabelas e hidratando dados do PostgreSQL em segundo plano...");
-        await ensureTablesExist();
-        await hydrateFromPostgres();
-        console.log("[DB] Estado da loja, catálogo e cadastros hidratados com sucesso do PostgreSQL.");
-      } catch (dbInitErr) {
-        console.warn("[DB] Aviso na inicialização do banco de dados (usando fallback persistente):", dbInitErr);
-      }
-    })();
+    // Inicialização do banco e hidratação executadas de forma bloqueante para garantir integridade dos dados
+    try {
+      console.log("[DB] Inicializando tabelas e hidratando dados do PostgreSQL...");
+      await ensureTablesExist();
+      await hydrateFromPostgres();
+      console.log("[DB] Estado da loja, catálogo e cadastros hidratados com sucesso do PostgreSQL.");
+    } catch (dbInitErr) {
+      console.error("[DB] ERRO FATAL na inicialização do banco de dados:", dbInitErr);
+      // Opcional: process.exit(1); se o banco for essencial
+    }
   }
 
   startServer().catch(err => {
