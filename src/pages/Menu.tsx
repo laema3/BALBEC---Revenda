@@ -4191,7 +4191,7 @@ export default function Menu() {
             <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
             
             {storeInfo.logoUrl ? (
-              <img src={storeInfo.logoUrl} alt="Logo" className="h-36 sm:h-[173px] w-auto mx-auto mb-6 object-contain" />
+              <img src={storeInfo.logoUrl} alt="Logo" className="h-36 sm:h-[173px] w-auto mx-auto mb-6 object-cover rounded-full" />
             ) : (
               <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-2xl flex items-center justify-center text-3xl shadow-xs border border-orange-200">🥖</div>
             )}
@@ -4259,7 +4259,7 @@ export default function Menu() {
           <div className="flex justify-between items-center mb-6">
             <button onClick={() => setInitialEntryChoice(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400"><ArrowLeft className="w-5 h-5" /></button>
             {storeInfo.logoUrl ? (
-              <img src={storeInfo.logoUrl} alt="Logo" className="h-[86px] w-auto object-contain" />
+              <img src={storeInfo.logoUrl} alt="Logo" className="h-[86px] w-auto object-cover rounded-full" />
             ) : (
               <span className="text-2xl">🥖</span>
             )}
@@ -4607,7 +4607,7 @@ export default function Menu() {
             <img 
               src={storeInfo.logoUrl} 
               alt="Logo" 
-              className="h-36 sm:h-[173px] w-auto mx-auto mb-4 object-contain"
+              className="h-36 sm:h-[173px] w-auto mx-auto mb-4 object-cover rounded-full"
               referrerPolicy="no-referrer"
             />
           ) : (
@@ -4832,7 +4832,7 @@ export default function Menu() {
                 <img 
                   src={storeInfo.logoUrl} 
                   alt="Logo" 
-                  className="h-16 sm:h-[86px] md:h-[115px] w-auto object-contain shrink-0"
+                  className="h-16 sm:h-[86px] md:h-[115px] w-auto object-cover rounded-full shrink-0"
                   referrerPolicy="no-referrer"
                 />
               ) : null}
@@ -5343,7 +5343,7 @@ export default function Menu() {
                 <img 
                   src={storeInfo.logoUrl} 
                   alt="Logo" 
-                  className="h-10 w-auto object-contain opacity-20 mb-6"
+                  className="h-10 w-auto object-cover rounded-full opacity-20 mb-6"
                   referrerPolicy="no-referrer"
                 />
               ) : null}
