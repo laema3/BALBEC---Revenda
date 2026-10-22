@@ -29,12 +29,12 @@ const DEFAULT_STORE_INFO = {
   instagram: '@balbecrevenda',
   whatsapp: '(34) 3338-3795',
   categoryTitleColor: '#e6a800',
-  deliveryEnabled: true,
+  deliveryEnabled: false,
   deliveryScheduleEnabled: false,
   deliveryScheduleSlots: '["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"]',
   inStoreEnabled: true,
-  kioskEnabled: true,
-  requireQrCodeForOrdering: true,
+  kioskEnabled: false,
+  requireQrCodeForOrdering: false,
   isOpen: true,
   ntfyTopic: 'balbecrevenda_pedidos',
   ntfyEnabled: true,
@@ -666,75 +666,104 @@ export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promis
  * configurações cruciais (horários, status de loja, totem, delivery e agente IA)
  * NUNCA sejam perdidas ao subir novas versões.
  */
-export async function hydrateFromPostgres(): Promise<void> {
-  if (!isDatabaseConfigured()) {
-    console.log('[DB Hydrate] Banco de dados não configurado, mantendo estado do disco/memória.');
-    return;
-  }
+let hydrationPromise: Promise<void> | null = null;
+let isHydrated = false;
 
+export async function waitForHydration(maxWaitMs = 12000): Promise<void> {
+  if (isHydrated || !hydrationPromise) return;
   try {
-    console.log('[DB Hydrate] Hidratando estado da loja e cadastros diretamente do PostgreSQL...');
-    
-    // 1. Hidratar Store Info
+    await Promise.race([
+      hydrationPromise,
+      new Promise<void>((resolve) => setTimeout(resolve, maxWaitMs))
+    ]);
+  } catch {}
+}
+
+export async function hydrateFromPostgres(): Promise<void> {
+  if (hydrationPromise) {
+    return hydrationPromise;
+  }
+  hydrationPromise = (async () => {
+    if (!isDatabaseConfigured()) {
+      console.log('[DB Hydrate] Banco de dados não configurado, mantendo estado do disco/memória.');
+      isHydrated = true;
+      return;
+    }
+
     try {
-      const storeList = await withDbRetry(() => db.select().from(storeInfo).where(eq(storeInfo.id, 'default')));
-      if (storeList.length > 0) {
-        const dbRow = storeList[0];
-        // Merge: Base defaults -> Local seed/memory -> PostgreSQL row
-        const merged: any = { ...DEFAULT_STORE_INFO, ...memStoreInfo };
-        for (const [key, val] of Object.entries(dbRow)) {
-          if (val !== null && val !== undefined) {
-            // Protect valid defaults against accidental empty strings or empty arrays
-            if (typeof val === 'string' && val.trim() === '' && merged[key] && merged[key] !== '') {
-              // keep existing
-            } else if (val === '[]' && merged[key] && merged[key] !== '[]') {
-              // keep existing
-            } else {
-              merged[key] = val;
+      console.log('[DB Hydrate] Hidratando estado da loja e cadastros diretamente do PostgreSQL / Supabase...');
+      
+      // 1. Hidratar Store Info
+      try {
+        const storeList = await withDbRetry(() => db.select().from(storeInfo).where(eq(storeInfo.id, 'default')));
+        if (storeList.length > 0) {
+          const dbRow = storeList[0];
+          const merged: any = { ...DEFAULT_STORE_INFO, ...memStoreInfo };
+          for (const [key, val] of Object.entries(dbRow)) {
+            if (val !== null && val !== undefined) {
+              if (typeof val === 'string' && val.trim() === '' && merged[key] && merged[key] !== '') {
+                // keep existing
+              } else if (val === '[]' && merged[key] && merged[key] !== '[]') {
+                // keep existing
+              } else {
+                merged[key] = val;
+              }
             }
           }
-        }
-        memStoreInfo = sanitizeStoreInfoPrinters(merged);
-        persistStoreInfoToDisk(memStoreInfo);
-        console.log(`[DB Hydrate] StoreInfo carregada com sucesso do PostgreSQL: "${memStoreInfo.name}" (Aberta: ${memStoreInfo.isOpen}, Agente IA: ${memStoreInfo.aiAgentEnabled})`);
-      } else {
-        // Se a linha 'default' ainda não existe no Postgres, salva o estado atual
-        await withDbRetry(() => db.insert(storeInfo).values({ ...DEFAULT_STORE_INFO, ...memStoreInfo, id: 'default' }).onConflictDoNothing());
-        console.log('[DB Hydrate] Criada linha default em store_info no PostgreSQL.');
-      }
-    } catch (storeErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
-    }
-
-    // 2. Hidratar Categorias
-    try {
-      const catList = await withDbRetry(() => db.select().from(categories));
-      memCategories = (catList || []).sort((a, b) => (a.order || 0) - (b.order || 0));
-      persistCategoriesToDisk(memCategories);
-      console.log(`[DB Hydrate] ${memCategories.length} categorias carregadas do PostgreSQL.`);
-    } catch (catErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar categories do PostgreSQL:', catErr?.message || catErr);
-    }
-
-    // 3. Hidratar Produtos
-    try {
-      let prodList;
-      try {
-        prodList = await withDbRetry(() => db.select().from(products));
-      } catch (err: any) {
-        if (err?.message && (err.message.includes('column') || err.message.includes('does not exist'))) {
-          await ensureTablesExist();
-          prodList = await withDbRetry(() => db.select().from(products));
+          // Regras fixas deste projeto: apenas retirada (delivery, totem e QR Code de mesa desabilitados)
+          merged.deliveryEnabled = false;
+          merged.kioskEnabled = false;
+          merged.requireQrCodeForOrdering = false;
+          memStoreInfo = sanitizeStoreInfoPrinters(merged);
+          persistStoreInfoToDisk(memStoreInfo);
+          console.log(`[DB Hydrate] StoreInfo carregada com sucesso do PostgreSQL: "${memStoreInfo.name}"`);
         } else {
-          throw err;
+          await withDbRetry(() => db.insert(storeInfo).values({ ...DEFAULT_STORE_INFO, ...memStoreInfo, deliveryEnabled: false, kioskEnabled: false, requireQrCodeForOrdering: false, id: 'default' }).onConflictDoNothing());
+          console.log('[DB Hydrate] Criada linha default em store_info no PostgreSQL.');
         }
+      } catch (storeErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
       }
-      memProducts = prodList || [];
-      persistProductsToDisk(memProducts);
-      console.log(`[DB Hydrate] ${memProducts.length} produtos carregados do PostgreSQL.`);
-    } catch (prodErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar products do PostgreSQL:', prodErr?.message || prodErr);
-    }
+
+      // 2. Hidratar Categorias
+      try {
+        const catList = await withDbRetry(() => db.select().from(categories));
+        if (catList && catList.length > 0) {
+          memCategories = catList.sort((a, b) => (a.order || 0) - (b.order || 0));
+          persistCategoriesToDisk(memCategories);
+          console.log(`[DB Hydrate] ${memCategories.length} categorias carregadas do PostgreSQL.`);
+        } else if (memCategories.length > 0) {
+          const saved = await saveCategoriesToPostgresBatch(memCategories);
+          console.log(`[DB Hydrate] Banco sem categorias; ${saved} categorias restauradas do backup local para o PostgreSQL.`);
+        }
+      } catch (catErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar categories do PostgreSQL:', catErr?.message || catErr);
+      }
+
+      // 3. Hidratar Produtos
+      try {
+        let prodList;
+        try {
+          prodList = await withDbRetry(() => db.select().from(products));
+        } catch (err: any) {
+          if (err?.message && (err.message.includes('column') || err.message.includes('does not exist'))) {
+            await ensureTablesExist();
+            prodList = await withDbRetry(() => db.select().from(products));
+          } else {
+            throw err;
+          }
+        }
+        if (prodList && prodList.length > 0) {
+          memProducts = prodList;
+          persistProductsToDisk(memProducts);
+          console.log(`[DB Hydrate] ${memProducts.length} produtos carregados do PostgreSQL.`);
+        } else if (memProducts.length > 0) {
+          const saved = await saveProductsToPostgresBatch(memProducts);
+          console.log(`[DB Hydrate] Banco sem produtos; ${saved} produtos restauradas do backup local para o PostgreSQL.`);
+        }
+      } catch (prodErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar products do PostgreSQL:', prodErr?.message || prodErr);
+      }
 
     // 3.0. Hidratar Totem Backups
     try {
@@ -862,12 +891,16 @@ export async function hydrateFromPostgres(): Promise<void> {
       console.warn('[Migration] Erro ao auto-aprovar clientes:', migErr.message);
     }
 
-    // Persiste o snapshot mestre atualizado em disco
-    persistAllStateToMasterFile();
-    console.log('[DB Hydrate] Hidratação do PostgreSQL concluída com sucesso!');
-  } catch (globalHydrateErr: any) {
-    console.error('[DB Hydrate] Erro durante hidratação inicial do PostgreSQL:', globalHydrateErr);
-  }
+      // Persiste o snapshot mestre atualizado em disco
+      persistAllStateToMasterFile();
+      console.log('[DB Hydrate] Hidratação do PostgreSQL concluída com sucesso!');
+    } catch (globalHydrateErr: any) {
+      console.error('[DB Hydrate] Erro durante hidratação inicial do PostgreSQL:', globalHydrateErr);
+    } finally {
+      isHydrated = true;
+    }
+  })();
+  return hydrationPromise;
 }
 
 export function cleanPhoneDigits(phone?: string | null): string {
@@ -1044,6 +1077,14 @@ setInterval(() => {
 }, 15000);
 
 export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) => void) {
+  // Middleware que garante que nenhuma rota /api/db leia ou sobrescreva dados antes da hidratação do Supabase/PostgreSQL concluir
+  app.use('/api/db', async (req: Request, res: Response, next) => {
+    if (!isHydrated && hydrationPromise) {
+      await waitForHydration(12000);
+    }
+    next();
+  });
+
   // SSE Real-Time Sync Endpoint
   app.get('/api/events', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -1168,18 +1209,15 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.post('/api/db/categories', async (req: Request, res: Response) => {
     const data = req.body;
-    const newCat = { ...data, id: data.id || `cat_${Date.now()}` };
+    const newCat = formatCategoryForDb({ ...data, id: data.id || `cat_${Date.now()}` });
     memCategories = [...memCategories.filter(c => c.id !== newCat.id), newCat];
     persistCategoriesToDisk(memCategories);
 
     if (isDatabaseConfigured()) {
       try {
-        const result = await db.insert(categories).values(newCat).returning();
-        onUpdate?.('catalog');
-        return res.json(result[0] || newCat);
+        await saveCategoriesToPostgresBatch([newCat]);
       } catch (error: any) {
-        onUpdate?.('catalog');
-        return res.json(newCat);
+        console.warn('[DB Category Insert Error]:', error?.message || error);
       }
     }
     onUpdate?.('catalog');
@@ -1189,21 +1227,25 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.put('/api/db/categories/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const data = req.body;
-    memCategories = memCategories.map(c => c.id === id ? { ...c, ...data } : c);
+    let updatedCat: any = { id, ...data };
+    memCategories = memCategories.map(c => {
+      if (c.id === id) {
+        updatedCat = formatCategoryForDb({ ...c, ...data, id });
+        return updatedCat;
+      }
+      return c;
+    });
     persistCategoriesToDisk(memCategories);
 
     if (isDatabaseConfigured()) {
       try {
-        const result = await db.update(categories).set(data).where(eq(categories.id, id)).returning();
-        onUpdate?.('catalog');
-        return res.json(result[0] || { id, ...data });
+        await saveCategoriesToPostgresBatch([updatedCat]);
       } catch (error: any) {
-        onUpdate?.('catalog');
-        return res.json({ id, ...data });
+        console.warn('[DB Category Update Error]:', error?.message || error);
       }
     }
     onUpdate?.('catalog');
-    res.json({ id, ...data });
+    res.json(updatedCat);
   });
 
   app.delete('/api/db/categories/:id', async (req: Request, res: Response) => {
@@ -1392,19 +1434,15 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.post('/api/db/products', async (req: Request, res: Response) => {
     const data = req.body;
-    const cleanDesc = cleanProductDescription(data.description, false);
-    const newProd = { ...data, description: cleanDesc, id: data.id || `prod_${Date.now()}` };
+    const newProd = formatProductForDb({ ...data, id: data.id || `prod_${Date.now()}` });
     memProducts = [...memProducts.filter(p => p.id !== newProd.id), newProd];
     persistProductsToDisk(memProducts);
 
     if (isDatabaseConfigured()) {
       try {
-        const result = await db.insert(products).values(newProd).returning();
-        onUpdate?.('catalog');
-        return res.json(result[0] || newProd);
+        await saveProductsToPostgresBatch([newProd]);
       } catch (error: any) {
-        onUpdate?.('catalog');
-        return res.json(newProd);
+        console.warn('[DB Product Insert Error]:', error?.message || error);
       }
     }
     onUpdate?.('catalog');
@@ -1418,49 +1456,23 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         return res.json({ success: true, count: 0 });
       }
 
-      const sanitizedItems = items.map(item => ({
-        ...item,
-        description: cleanProductDescription(item.description, false)
-      }));
-
-      // Update in-memory cache
       const itemMap = new Map(memProducts.map(p => [p.id, p]));
-      for (const item of sanitizedItems) {
-        itemMap.set(item.id, { ...(itemMap.get(item.id) || {}), ...item });
+      const mergedItems: any[] = [];
+      for (const item of items) {
+        const merged = formatProductForDb({ ...(itemMap.get(item.id) || {}), ...item });
+        itemMap.set(merged.id, merged);
+        mergedItems.push(merged);
       }
       memProducts = Array.from(itemMap.values());
       persistProductsToDisk(memProducts);
 
       if (isDatabaseConfigured()) {
-        const subChunkSize = 10;
-        for (let i = 0; i < sanitizedItems.length; i += subChunkSize) {
-          const subChunk = sanitizedItems.slice(i, i + subChunkSize);
-          await Promise.all(
-            subChunk.map(item =>
-              db.insert(products)
-                .values(item)
-                .onConflictDoUpdate({
-                  target: products.id,
-                  set: {
-                    name: item.name,
-                    description: item.description,
-                    price: item.price,
-                    imageUrl: item.imageUrl,
-                    isActive: item.isActive,
-                    categoryId: item.categoryId,
-                    externalId: item.externalId,
-                    availableForDelivery: item.availableForDelivery,
-                    availableInStore: item.availableInStore,
-                    availableForKiosk: item.availableForKiosk,
-                  }
-                })
-            )
-          );
-        }
+        await saveProductsToPostgresBatch(mergedItems);
       }
       onUpdate?.('catalog');
-      res.json({ success: true, count: sanitizedItems.length });
+      res.json({ success: true, count: mergedItems.length });
     } catch (error: any) {
+      console.warn('[DB Products Batch Error]:', error?.message || error);
       onUpdate?.('catalog');
       res.json({ success: true, count: (req.body || []).length });
     }
@@ -1469,24 +1481,25 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.put('/api/db/products/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const data = req.body;
-    if (data.description !== undefined) {
-      data.description = cleanProductDescription(data.description, false);
-    }
-    memProducts = memProducts.map(p => p.id === id ? { ...p, ...data } : p);
+    let updatedProd: any = { id, ...data };
+    memProducts = memProducts.map(p => {
+      if (p.id === id) {
+        updatedProd = formatProductForDb({ ...p, ...data, id });
+        return updatedProd;
+      }
+      return p;
+    });
     persistProductsToDisk(memProducts);
 
     if (isDatabaseConfigured()) {
       try {
-        const result = await db.update(products).set(data).where(eq(products.id, id)).returning();
-        onUpdate?.('catalog');
-        return res.json(result[0] || { id, ...data });
+        await saveProductsToPostgresBatch([updatedProd]);
       } catch (error: any) {
-        onUpdate?.('catalog');
-        return res.json({ id, ...data });
+        console.warn('[DB Product Update Error]:', error?.message || error);
       }
     }
     onUpdate?.('catalog');
-    res.json({ id, ...data });
+    res.json(updatedProd);
   });
 
   // Purge/clean all barcodes from descriptions in DB & Memory

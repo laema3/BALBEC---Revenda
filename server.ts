@@ -412,11 +412,17 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
               const rawDesc = getVal(item, "ProdutoDescricao") || "";
               const finalDesc = cleanProductDescription(rawDesc, true);
 
-              // Base URL derivation for static mercadoria images
+              // Base URL derivation for static mercadoria images (supports BlueFocus Cloud & Local Server)
               const baseUrl = syncUrl 
                 ? String(syncUrl).split('?')[0].replace(/\/(servlet|ws|bluefocus|aintegracao).*$/i, '').replace(/\/+$/, '') 
                 : '';
-              const standardMercadoriaUrl = (baseUrl && pId) ? `${baseUrl}/static/mercadoria/${pId}.jpg` : "";
+              const activeAuthToken = headers["autentica"] || "";
+              const isBlueFocusCloud = String(syncUrl).toLowerCase().includes('bluefocuscloud') || String(syncUrl).toLowerCase().includes('app.bluefocus.com.br');
+              const standardMercadoriaUrl = (isBlueFocusCloud && activeAuthToken && pId)
+                ? `https://www.app.bluefocus.com.br/BlueFocusCloud/${activeAuthToken}/mercadoria/${pId}.jpg`
+                : (baseUrl && pId)
+                  ? `${baseUrl}/static/mercadoria/${pId}.jpg`
+                  : "";
               const rawImgUrl = getVal(item, "ProdutoUrlImagem") || getVal(item, "UrlImagem") || getVal(item, "ProdutoImagemUrl") || getVal(item, "ImagemUrl") || getVal(item, "ProdutoImagem") || getVal(item, "Imagem") || getVal(item, "ProdutoFoto") || getVal(item, "Foto") || getVal(item, "UrlFoto") || getVal(item, "FotoUrl") || getVal(item, "ProdutoFotoUrl") || getVal(item, "ProdutoCaminhoImagem") || getVal(item, "CaminhoImagem") || getVal(item, "ProdutoLinkImagem") || getVal(item, "LinkImagem") || "";
 
               let finalImgUrl = rawImgUrl;
@@ -808,23 +814,24 @@ ${itemsXml}
       });
     }
 
-    // Inicialização do banco e hidratação executadas de forma bloqueante para garantir integridade dos dados
-    try {
-      console.log("[DB] Inicializando tabelas e hidratando dados do PostgreSQL...");
-      await ensureTablesExist();
-      await hydrateFromPostgres();
-      console.log("[DB] Estado da loja, catálogo e cadastros hidratados com sucesso do PostgreSQL.");
-    } catch (dbInitErr) {
-      console.error("[DB] ERRO FATAL na inicialização do banco de dados:", dbInitErr);
-      // Opcional: process.exit(1); se o banco for essencial
-    }
-
-    // Inicia o servidor APÓS a hidratação bem-sucedida do banco de dados
+    // Inicia a porta HTTP imediatamente para passar no health check do Google Cloud Run,
+    // enquanto o middleware waitForHydration em /api/db garante que nenhuma rota de dados responda antes do Supabase hidratar.
     const server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
     server.keepAliveTimeout = 120000;
     server.headersTimeout = 120000;
+
+    (async () => {
+      try {
+        console.log("[DB] Inicializando tabelas e hidratando dados do PostgreSQL / Supabase...");
+        await ensureTablesExist();
+        await hydrateFromPostgres();
+        console.log("[DB] Estado da loja, catálogo e cadastros hidratados com sucesso do PostgreSQL / Supabase.");
+      } catch (dbInitErr) {
+        console.error("[DB] Aviso na inicialização do banco de dados:", dbInitErr);
+      }
+    })();
   }
 
   startServer().catch(err => {

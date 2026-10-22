@@ -100,26 +100,11 @@ export default function Menu() {
       const params = new URLSearchParams(window.location.search);
       const mode = params.get('mode') || params.get('channel') || params.get('tipo');
       if (mode === 'kiosk' || mode === 'totem' || mode === 'autoatendimento') return 'kiosk';
-      if (mode === 'delivery' || mode === 'entrega') return 'delivery';
       if (mode === 'instore' || mode === 'loja' || mode === 'presencial') return 'instore';
     } catch {}
-    return 'delivery';
+    return 'instore';
   });
-  const [initialEntryChoice, setInitialEntryChoice] = useState<'view' | 'delivery' | null>(() => {
-    // Só pré-define se já tiver um canal escolhido (via URL ou Sessão)
-    // Caso contrário, inicia como null para forçar a escolha na primeira tentativa de compra
-    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    const mode = params.get('mode') || params.get('channel') || params.get('tipo');
-    const hasModeInUrl = mode === 'instore' || mode === 'loja' || mode === 'presencial' || mode === 'delivery' || mode === 'entrega' || mode === 'kiosk' || mode === 'totem';
-    const saved = typeof window !== 'undefined' ? safeStorage.getSession('selected_sales_channel') : null;
-    const hasSaved = saved === 'delivery' || saved === 'instore' || saved === 'kiosk';
-
-    if (hasModeInUrl || hasSaved) {
-      if (salesChannel === 'delivery') return 'delivery';
-      if (salesChannel === 'instore') return 'view';
-    }
-    return null;
-  });
+  const [initialEntryChoice, setInitialEntryChoice] = useState<'view' | 'delivery' | null>('view');
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isCheckout, setIsCheckout] = useState(false);
@@ -507,36 +492,14 @@ export default function Menu() {
       setDeliveryType('pickup');
       setHasChosenChannel(true);
       safeStorage.setSession('selected_sales_channel', 'kiosk');
-    } else if ((mode === 'delivery' || mode === 'entrega') && hasDeliveryCategories) {
+    } else if ((mode === 'delivery' || mode === 'entrega') && storeInfo.deliveryEnabled && hasDeliveryCategories) {
       setSalesChannel('delivery');
       setDeliveryType('delivery');
-    } else if ((mode === 'instore' || mode === 'loja' || mode === 'presencial') && hasInStoreCategories) {
+    } else {
       setSalesChannel('instore');
       setDeliveryType('pickup');
-    } else {
-      const saved = safeStorage.getSession('selected_sales_channel') as 'delivery' | 'instore' | 'kiosk';
-      if (saved === 'delivery' && hasDeliveryCategories) {
-        setSalesChannel('delivery');
-        setDeliveryType('delivery');
-        setHasChosenChannel(true);
-      } else if (saved === 'instore' && hasInStoreCategories) {
-        setSalesChannel('instore');
-        setDeliveryType('pickup');
-        setHasChosenChannel(true);
-      } else {
-        // Se ambos ou apenas Delivery possuir categorias, prioriza Delivery para permitir navegação inicial
-        if (hasDeliveryCategories) {
-          setSalesChannel('delivery');
-          setDeliveryType('delivery');
-          setHasChosenChannel(true);
-          safeStorage.setSession('selected_sales_channel', 'delivery');
-        } else if (hasInStoreCategories) {
-          setSalesChannel('instore');
-          setDeliveryType('pickup');
-          setHasChosenChannel(true);
-          safeStorage.setSession('selected_sales_channel', 'instore');
-        }
-      }
+      setHasChosenChannel(true);
+      safeStorage.setSession('selected_sales_channel', 'instore');
     }
   }, [storeInfo.deliveryEnabled, storeInfo.inStoreEnabled, storeInfo.kioskEnabled, hasDeliveryCategories, hasInStoreCategories]);
 
@@ -633,7 +596,7 @@ export default function Menu() {
   }, [cart]);
   const [paymentMode, setPaymentMode] = useState<'online' | 'delivery' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
+  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedScheduleTime, setSelectedScheduleTime] = useState<string>('');
   const [showScheduleSelectionStep, setShowScheduleSelectionStep] = useState<boolean>(false);
@@ -4191,9 +4154,9 @@ export default function Menu() {
             <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
             
             {storeInfo.logoUrl ? (
-              <img src={storeInfo.logoUrl} alt="Logo" className="h-36 sm:h-[173px] w-auto mx-auto mb-6 object-cover rounded-full" />
+              <img src={storeInfo.logoUrl} alt="Logo" className="w-32 h-32 sm:w-40 sm:h-40 aspect-square mx-auto mb-6 object-cover rounded-full shadow-md border-2 border-stone-100" />
             ) : (
-              <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-2xl flex items-center justify-center text-3xl shadow-xs border border-orange-200">🥖</div>
+              <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-3xl shadow-xs border border-orange-200">🥖</div>
             )}
 
             <h2 className="text-2xl sm:text-3xl font-black text-stone-900 mb-2 uppercase tracking-tight">Bem-vindo(a)!</h2>
@@ -4259,7 +4222,7 @@ export default function Menu() {
           <div className="flex justify-between items-center mb-6">
             <button onClick={() => setInitialEntryChoice(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400"><ArrowLeft className="w-5 h-5" /></button>
             {storeInfo.logoUrl ? (
-              <img src={storeInfo.logoUrl} alt="Logo" className="h-[86px] w-auto object-cover rounded-full" />
+              <img src={storeInfo.logoUrl} alt="Logo" className="w-20 h-20 aspect-square object-cover rounded-full shadow-sm border border-stone-200" />
             ) : (
               <span className="text-2xl">🥖</span>
             )}
@@ -4607,11 +4570,11 @@ export default function Menu() {
             <img 
               src={storeInfo.logoUrl} 
               alt="Logo" 
-              className="h-36 sm:h-[173px] w-auto mx-auto mb-4 object-cover rounded-full"
+              className="w-32 h-32 sm:w-40 sm:h-40 aspect-square mx-auto mb-4 object-cover rounded-full shadow-md border-2 border-stone-100"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-2xl flex items-center justify-center text-3xl shadow-xs border border-orange-200">
+            <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-3xl shadow-xs border border-orange-200">
               🥖
             </div>
           )}
@@ -4832,7 +4795,7 @@ export default function Menu() {
                 <img 
                   src={storeInfo.logoUrl} 
                   alt="Logo" 
-                  className="h-16 sm:h-[86px] md:h-[115px] w-auto object-cover rounded-full shrink-0"
+                  className="w-16 h-16 sm:w-[86px] sm:h-[86px] md:w-[110px] md:h-[110px] aspect-square object-cover rounded-full shrink-0 shadow-sm border border-stone-200"
                   referrerPolicy="no-referrer"
                 />
               ) : null}
@@ -5343,7 +5306,7 @@ export default function Menu() {
                 <img 
                   src={storeInfo.logoUrl} 
                   alt="Logo" 
-                  className="h-10 w-auto object-cover rounded-full opacity-20 mb-6"
+                  className="w-12 h-12 aspect-square object-cover rounded-full opacity-20 mb-6"
                   referrerPolicy="no-referrer"
                 />
               ) : null}

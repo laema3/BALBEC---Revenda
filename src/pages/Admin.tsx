@@ -1454,23 +1454,16 @@ export default function Admin() {
         }
 
         if (existingProduct) {
-          // PRODUTO JÁ EXISTE NO SISTEMA:
-          // REGRA DE OURO: Atualiza estritamente o PREÇO vindo do ERP.
-          // Preserva 100% de todas as configurações feitas no sistema:
-          // - Categoria manual (NUNCA resetar para a categoria bruta do ERP!)
-          // - Nome customizado
-          // - Descrição / ingredientes customizados
-          // - Imagem customizada
-          // - Visibilidade no Totem (availableForKiosk)
-          // - Visibilidade no Delivery (availableForDelivery)
-          // - Visibilidade na Loja (availableInStore)
-          // - Status ativo (isActive)
-          // - Sabores e adicionais (isAddon, isFlavor, addonIds, flavorIds)
           productsUpdated++;
           const newPrice = Number(bp.price);
+          const hasCustomUploadedImage = existingProduct.imageUrl && String(existingProduct.imageUrl).startsWith('data:');
+          const updatedImageUrl = hasCustomUploadedImage
+            ? existingProduct.imageUrl
+            : (bp.imageUrl || existingProduct.imageUrl || '');
           productsToSave.push({
             ...existingProduct,
             price: (!isNaN(newPrice) && newPrice >= 0) ? newPrice : existingProduct.price,
+            imageUrl: updatedImageUrl,
             externalId: (bpExt && bpExt !== '0') ? bpExt : existingProduct.externalId
           });
         } else {
