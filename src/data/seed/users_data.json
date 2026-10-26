@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1,
+    "uid": "master-1",
+    "email": "camillasites@gmail.com",
+    "password": "admin",
+    "name": "Camilla (Master)",
+    "role": "master",
+    "createdAt": "2026-10-20T11:12:43.140Z"
+  },
+  {
+    "id": 2,
+    "uid": "master-2",
+    "email": "contato2@balbec.com.br",
+    "password": "admin",
+    "name": "Contato 2 (Admin)",
+    "role": "admin",
+    "createdAt": "2026-10-20T11:12:43.204Z"
+  },
+  {
+    "id": 3,
+    "uid": "master-3",
+    "email": "contato@balbec.com.br",
+    "password": "admin",
+    "name": "Contato (Admin)",
+    "role": "admin",
+    "createdAt": "2026-10-20T11:12:43.265Z"
+  },
+  {
+    "id": 5,
+    "uid": "master-5",
+    "email": "operador@balbec.com.br",
+    "password": "123",
+    "name": "Operador Padrão",
+    "role": "padrao",
+    "createdAt": "2026-10-20T11:12:43.388Z"
+  },
+  {
+    "id": 6,
+    "uid": "caixa-1",
+    "email": "caixa@balbec.com.br",
+    "password": "123",
+    "name": "Operadora do Caixa",
+    "role": "padrao",
+    "createdAt": "2026-10-20T11:12:43.451Z"
+  },
+  {
+    "id": 4,
+    "uid": "master-4",
+    "email": "admin@balbec.com.br",
+    "password": "admin123",
+    "name": "Admin Master",
+    "role": "master",
+    "createdAt": "2026-10-20T11:12:43.326Z"
+  }
+]

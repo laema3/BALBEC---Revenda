@@ -9,9 +9,6 @@ import Menu from './pages/Menu';
 
 const Admin = lazy(() => import('./pages/Admin'));
 const TvDisplay = lazy(() => import('./pages/TvDisplay'));
-const Proposal = lazy(() => import('./pages/Proposal'));
-const HardwareQuote = lazy(() => import('./pages/HardwareQuote'));
-const DocumentoEntrega = lazy(() => import('./pages/DocumentoEntrega'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const MotoboyPortal = lazy(() => import('./components/MotoboyPortal').then(m => ({ default: m.MotoboyPortal })));
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
@@ -173,7 +170,7 @@ function AutoUpdater() {
       window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
-
+  
   return null;
 }
 
@@ -211,12 +208,6 @@ export default function App() {
               <Route path="/privacidade" element={<PrivacyPolicy />} />
               <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
               <Route path="/cookies" element={<PrivacyPolicy />} />
-              <Route path="/proposta" element={<Proposal />} />
-              <Route path="/orcamento" element={<Proposal />} />
-              <Route path="/orcamento-ti" element={<HardwareQuote />} />
-              <Route path="/orcamento-hardware" element={<HardwareQuote />} />
-              <Route path="/documento-entrega" element={<DocumentoEntrega />} />
-              <Route path="/termo-entrega" element={<DocumentoEntrega />} />
               <Route path="*" element={<Menu />} />
             </Routes>
           </Suspense>
