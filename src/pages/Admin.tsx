@@ -7957,7 +7957,7 @@ export default function Admin() {
               )}
             </button>
           )}
-          {/* {(isAdminOrMaster || isCaixaUser) && (
+          {(isAdminOrMaster || isCaixaUser) && (
             <button type="button" 
               onClick={() => {
                 setActiveTab('customers');
@@ -7967,7 +7967,7 @@ export default function Admin() {
             >
               <UserCheck className="w-5 h-5" /> Clientes & Leads
             </button>
-          )} */}
+          )}
           {/* {(isAdminOrMaster || isCaixaUser) && (
             <button type="button" 
               onClick={() => {
