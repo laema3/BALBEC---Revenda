@@ -8097,43 +8097,7 @@ export default function Admin() {
           {/* Proposta, Orçamento TI e Termo de Entrega: APENAS USUÁRIO MASTER! Removido para Administradores e Padrão */}
           {isMaster && (
             <>
-              <Link
-                to="/proposta"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-amber-300 hover:bg-stone-800 hover:text-amber-200 border border-amber-500/20 bg-amber-500/5 mt-2 text-xs font-semibold"
-              >
-                <FileText className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>Proposta do Sistema</span>
-              </Link>
 
-              <Link
-                to="/orcamento-ti"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-colors text-emerald-300 hover:bg-stone-800 hover:text-emerald-200 border border-emerald-500/20 bg-emerald-500/5 mt-1 text-xs font-semibold"
-              >
-                <div className="flex items-center gap-3">
-                  <HardDrive className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <div className="text-left">
-                    <div>Orçamentos TI & Propostas</div>
-                    <div className="text-[10px] text-emerald-400/80 font-normal">Editar orçamentos • Criar novos</div>
-                  </div>
-                </div>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
-                  Editar / +Novo
-                </span>
-              </Link>
-
-              <Link
-                to="/documento-entrega"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-orange-300 hover:bg-stone-800 hover:text-orange-200 border border-orange-500/20 bg-orange-500/10 mt-1 text-xs font-bold"
-              >
-                <FileText className="w-4 h-4 text-orange-400 shrink-0" />
-                <span>📄 Termo de Entrega (PDF)</span>
-              </Link>
             </>
           )}
         </nav>
