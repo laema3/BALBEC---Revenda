@@ -5321,12 +5321,12 @@ export default function Menu() {
                   <Settings className="w-4 h-4" />
                   <span>Painel de Controle</span>
                 </Link>
-                {showDeliveryFeatures && (
+                {/* {showDeliveryFeatures && (
                   <Link to="/motoboy" className="text-stone-400 hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-xs font-medium">
                     <MotorcycleIcon className="w-4 h-4 text-emerald-500" />
                     <span>Portal do Motoboy</span>
                   </Link>
-                )}
+                )} */}
                 {storeInfo.whatsapp && (
                   <a 
                     href={`https://wa.me/55${storeInfo.whatsapp.replace(/\D/g, '').replace(/^55/, '')}`} 
