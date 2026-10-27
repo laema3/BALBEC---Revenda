@@ -68,30 +68,30 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'spent' | 'orders' | 'name'>('recent');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Pending customers counts
-  const approvedCount = useMemo(() => customers.filter(c => c.status === 'approved' || (!c.status && c.source !== 'cadastro_cliente')).length, [customers]);
+  // Pending, approved, rejected customers counts
+  const pendingCount = useMemo(() => customers.filter(c => c.status === 'pending').length, [customers]);
+  const approvedCount = useMemo(() => customers.filter(c => c.status === 'approved' || !c.status).length, [customers]);
   const rejectedCount = useMemo(() => customers.filter(c => c.status === 'rejected').length, [customers]);
 
   const handleApproveCustomer = async (customer: Customer) => {
     try {
       await updateCustomer(customer.id, { status: 'approved' });
-      alert(`Cliente "${customer.name}" APROVADO com sucesso! O login com e-mail e senha está liberado.`);
     } catch (err) {
-      alert('Erro ao aprovar cliente.');
+      console.error('Erro ao aprovar cliente:', err);
     }
   };
 
   const handleRejectCustomer = async (customer: Customer) => {
-    if (window.confirm(`Deseja realmente REJEITAR o cadastro do cliente "${customer.name}"?`)) {
+    if (window.confirm(`Deseja realmente REPROVAR o cadastro do cliente "${customer.name}"?`)) {
       try {
         await updateCustomer(customer.id, { status: 'rejected' });
       } catch (err) {
-        alert('Erro ao rejeitar cliente.');
+        console.error('Erro ao reprovar cliente:', err);
       }
     }
   };
@@ -123,10 +123,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
   // Form states
   const [formName, setFormName] = useState('');
+  const [formCpf, setFormCpf] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formSource, setFormSource] = useState('manual');
+  const [formStatus, setFormStatus] = useState<'approved' | 'pending' | 'rejected'>('approved');
+  const [formMonthlyGoal, setFormMonthlyGoal] = useState<string>('');
   const [formTags, setFormTags] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
@@ -136,10 +139,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   // Calculate customer consumption profile
   const getCustomerConsumption = (customer: Customer) => {
     const cDigits = cleanDigits(customer.phone);
+    const cCpfDigits = cleanDigits(customer.cpf);
     const cNameNorm = (customer.name || '').trim().toLowerCase();
 
-    // Match orders
+    // Match orders (non-cancelled)
     const matchedOrders = orders.filter(o => {
+      if (o.status === 'cancelled' || (o as any).status === 'canceled') return false;
+      if (customer.id && o.customerId && String(customer.id) === String(o.customerId)) {
+        return true;
+      }
+      const oCpfDigits = cleanDigits(o.customerCpf);
+      if (cCpfDigits.length >= 11 && oCpfDigits.length >= 11 && cCpfDigits === oCpfDigits) {
+        return true;
+      }
       const oDigits = cleanDigits(o.customerPhone);
       if (cDigits && oDigits && (cDigits === oDigits || cDigits.endsWith(oDigits) || oDigits.endsWith(cDigits))) {
         return true;
@@ -149,6 +161,17 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       }
       return false;
     });
+
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+    const currentMonthSpent = matchedOrders.reduce((sum, o) => {
+      const oDate = new Date(Number(o.createdAt) || 0);
+      if (oDate.getMonth() === curMonth && oDate.getFullYear() === curYear) {
+        return sum + (Number(o.total) || 0);
+      }
+      return sum;
+    }, 0);
 
     // Aggregate products
     const productMap = new Map<string, ProductConsumptionItem>();
@@ -202,6 +225,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       matchedOrders,
       totalOrders: matchedOrders.length || customer.totalOrders || 0,
       totalSpent: matchedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0) || customer.totalSpent || 0,
+      currentMonthSpent,
       totalItemsOrdered,
       topProducts,
       favoriteProduct,
@@ -250,10 +274,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     if (customer) {
       setEditingCustomer(customer);
       setFormName(customer.name || '');
+      setFormCpf(customer.cpf || '');
       setFormPhone(customer.phone || '');
       setFormEmail(customer.email || '');
       setFormAddress(customer.address || '');
       setFormSource(customer.source || 'manual');
+      setFormStatus((customer.status as any) || 'approved');
+      setFormMonthlyGoal(customer.monthlyGoal && customer.monthlyGoal > 0 ? String(customer.monthlyGoal) : '');
       const tagsList = Array.isArray(customer.tags) 
         ? customer.tags.join(', ') 
         : typeof customer.tags === 'string' ? customer.tags : '';
@@ -262,11 +289,14 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     } else {
       setEditingCustomer(null);
       setFormName('');
+      setFormCpf('');
       setFormPhone('');
       setFormEmail('');
       setFormAddress('');
       setFormSource('manual');
-      setFormTags('Lead, Marketing');
+      setFormStatus('approved');
+      setFormMonthlyGoal('');
+      setFormTags('Cliente, Revenda');
       setFormNotes('');
     }
     setIsModalOpen(true);
@@ -286,12 +316,20 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
         .map(t => t.trim())
         .filter(Boolean);
 
+      const parsedGoal = formMonthlyGoal.trim() !== '' ? (parseFloat(formMonthlyGoal.replace(',', '.')) || 0) : 0;
+      const cleanDoc = formCpf.replace(/\D/g, '');
+      const defaultPass = cleanDoc.length >= 5 ? cleanDoc.slice(0, 5) : undefined;
+
       const customerPayload: Partial<Customer> = {
         name: formName.trim(),
+        cpf: formCpf.trim() || undefined,
+        password: defaultPass,
         phone: formPhone.trim(),
         email: formEmail.trim() || undefined,
         address: formAddress.trim() || undefined,
         source: formSource,
+        status: formStatus,
+        monthlyGoal: parsedGoal,
         tags: parsedTags,
         notes: formNotes.trim() || undefined
       };
@@ -372,7 +410,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
         c.source === selectedSource;
 
       const matchesStatus = statusFilter === 'all' || 
-        (statusFilter === 'approved' && (c.status === 'approved' || (!c.status && c.source !== 'cadastro_cliente'))) ||
+        (statusFilter === 'pending' && c.status === 'pending') ||
+        (statusFilter === 'approved' && (c.status === 'approved' || !c.status)) ||
         (statusFilter === 'rejected' && c.status === 'rejected');
 
       return matchesSearch && matchesTag && matchesSource && matchesStatus;
@@ -595,6 +634,31 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
         </div>
       )}
 
+      {pendingCount > 0 && (
+        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-amber-950 uppercase tracking-tight">
+                {pendingCount} {pendingCount === 1 ? 'Novo Cadastro Pendente de Aprovação' : 'Novos Cadastros Pendentes de Aprovação'}
+              </h3>
+              <p className="text-xs text-amber-800 font-medium">
+                Revise os cadastros solicitados na tela de login e clique em Aprovar ou Reprovar para liberar o acesso.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 shadow-xs"
+          >
+            {statusFilter === 'pending' ? 'Mostrar Todos' : `Ver Pendentes (${pendingCount})`}
+          </button>
+        </div>
+      )}
+
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-xs border border-stone-100 flex items-center justify-between">
@@ -650,7 +714,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
               type="text"
-              placeholder="Buscar por nome, WhatsApp, email, produto consumido ou tags..."
+              placeholder="Buscar por nome, CPF/CNPJ, WhatsApp, email, produto consumido ou tags..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all"
@@ -674,8 +738,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               className={`px-3 py-2 border rounded-xl text-xs font-black transition-all cursor-pointer bg-stone-50 text-stone-700 border-stone-200`}
             >
               <option value="all">Todos os Status ({customers.length})</option>
-              <option value="approved">🟢 Ativos ({approvedCount})</option>
-              <option value="rejected">🔴 Inativos ({rejectedCount})</option>
+              <option value="pending">🟡 Pendentes de Aprovação ({pendingCount})</option>
+              <option value="approved">🟢 Aprovados / Ativos ({approvedCount})</option>
+              <option value="rejected">🔴 Reprovados / Inativos ({rejectedCount})</option>
             </select>
 
             <select
@@ -797,12 +862,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                  <th className="py-3.5 px-4">Cliente / Lead</th>
+                  <th className="py-3.5 px-4">Cliente / CNPJ-CPF</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">Data Registro</th>
                   <th className="py-3.5 px-4">Contato (WhatsApp)</th>
-                  <th className="py-3.5 px-4">Consumo & Preferências (Mais Pedidos)</th>
-                  <th className="py-3.5 px-4">Origem & Tags</th>
-                  <th className="py-3.5 px-4 text-right">Ações & Ofertas</th>
+                  <th className="py-3.5 px-4">Meta Mensal (META) & Consumo</th>
+                  <th className="py-3.5 px-4">Origem & Status</th>
+                  <th className="py-3.5 px-4 text-right">Ações & Aprovação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-sm">
@@ -815,14 +880,23 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
                   const consumption = getCustomerConsumption(customer);
                   const topItems = consumption.topProducts.slice(0, 2);
+                  const goalValue = Number(customer.monthlyGoal) || 0;
+                  const monthlySpent = consumption.currentMonthSpent || 0;
+                  const goalPercent = goalValue > 0 ? Math.min(100, Math.round((monthlySpent / goalValue) * 100)) : 0;
+                  const cleanDocDigits = String(customer.cpf || '').replace(/\D/g, '');
+                  const loginPassPreview = cleanDocDigits.length >= 5 ? cleanDocDigits.slice(0, 5) : (customer.password || '---');
 
                   return (
-                    <tr key={customer.id} className="hover:bg-stone-50/70 transition-colors group">
+                    <tr key={customer.id} className={`hover:bg-stone-50/70 transition-colors group ${customer.status === 'pending' ? 'bg-amber-50/40' : ''}`}>
                       {/* Name & Avatar */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                            hasOrders ? 'bg-orange-500 text-white shadow-xs' : 'bg-stone-200 text-stone-700'
+                            customer.status === 'pending'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : hasOrders
+                              ? 'bg-orange-500 text-white shadow-xs'
+                              : 'bg-stone-200 text-stone-700'
                           }`}>
                             {customer.name ? customer.name.charAt(0).toUpperCase() : '?'}
                           </div>
@@ -834,9 +908,14 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                                   ERP #{customer.externalId}
                                 </span>
                               )}
+                              {customer.status === 'pending' && (
+                                <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-black px-2 py-0.5 rounded-md">
+                                  🟡 Pendente de Aprovação
+                                </span>
+                              )}
                               {customer.status === 'rejected' && (
                                 <span className="text-[10px] bg-red-100 text-red-800 border border-red-300 font-bold px-1.5 py-0.2 rounded-md">
-                                  🔴 Inativo
+                                  🔴 Reprovado
                                 </span>
                               )}
                               {hasOrders && (
@@ -845,9 +924,18 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                                 </span>
                               )}
                             </div>
-                            {customer.cpf && (
-                              <p className="text-[11px] text-stone-500 font-mono mt-0.5">
-                                Doc: {customer.cpf}
+                            {customer.cpf ? (
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[11px] text-stone-600 font-mono font-bold">
+                                  CNPJ/CPF: {customer.cpf}
+                                </span>
+                                <span className="text-[10px] bg-stone-100 text-stone-700 px-1.5 py-0.2 rounded font-mono border border-stone-200">
+                                  Senha: {loginPassPreview}
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-amber-600 font-semibold mt-0.5">
+                                Sem CNPJ/CPF cadastrado
                               </p>
                             )}
                             {customer.address && (
@@ -899,12 +987,63 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                         </div>
                       </td>
 
-                      {/* Customer Consumption & Top Products */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-1.5">
+                      {/* Customer Monthly Goal (META) & Consumption */}
+                      <td className="py-3.5 px-4 min-w-[230px]">
+                        <div className="space-y-2">
+                          {/* Monthly Goal Progress Block */}
+                          {goalValue > 0 ? (
+                            <div className="bg-stone-50 border border-stone-200 rounded-xl p-2.5 space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-black text-stone-700 uppercase tracking-tight">
+                                  🎯 Meta do Mês: {formatCurrency(goalValue)}
+                                </span>
+                                <span className={`font-black px-1.5 py-0.2 rounded ${
+                                  goalPercent >= 100
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-orange-100 text-orange-800'
+                                }`}>
+                                  {goalPercent}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    goalPercent >= 100
+                                      ? 'bg-emerald-500'
+                                      : 'bg-gradient-to-r from-orange-500 to-amber-500'
+                                  }`}
+                                  style={{ width: `${Math.min(100, goalPercent)}%` }}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] text-stone-500 font-semibold">
+                                <span>Comprado no mês: <strong className="text-stone-800">{formatCurrency(monthlySpent)}</strong></span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenModal(customer)}
+                                  className="text-orange-600 hover:underline font-bold cursor-pointer"
+                                >
+                                  Alterar Meta
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between bg-stone-50 border border-dashed border-stone-200 rounded-xl px-2.5 py-1.5 text-[11px]">
+                              <span className="text-stone-500 font-medium">
+                                Meta em branco (Compra livre) • Mês: <strong className="text-stone-700">{formatCurrency(monthlySpent)}</strong>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenModal(customer)}
+                                className="ml-2 text-[10px] font-black text-orange-600 hover:text-orange-700 hover:underline cursor-pointer shrink-0"
+                              >
+                                + Definir Meta
+                              </button>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-stone-800">
-                              {consumption.totalOrders} {consumption.totalOrders === 1 ? 'pedido' : 'pedidos'}
+                              Total: {consumption.totalOrders} {consumption.totalOrders === 1 ? 'pedido' : 'pedidos'}
                             </span>
                             <span className="text-xs text-stone-300">•</span>
                             <span className="text-xs font-black text-emerald-600">
@@ -913,7 +1052,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                           </div>
 
                           {/* Top Consumed Products Badges */}
-                          {topItems.length > 0 ? (
+                          {topItems.length > 0 && (
                             <div className="flex flex-wrap items-center gap-1.5">
                               {topItems.map((item, idx) => (
                                 <span 
@@ -937,11 +1076,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                                 <ChevronRight className="w-3 h-3" />
                               </button>
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 text-[11px] text-stone-400">
-                              <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
-                              <span>Lead sem compras ainda • Oferecer boas-vindas</span>
-                            </div>
                           )}
                         </div>
                       </td>
@@ -953,21 +1087,16 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                             <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                               customer.source === 'bluefocus_erp'
                                 ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                : customer.source === 'popup_novidades'
-                                ? 'bg-amber-100 text-amber-800'
-                                : (customer.source === 'delivery' || customer.source === 'pedido_delivery')
-                                ? 'bg-blue-100 text-blue-800'
+                                : customer.source === 'cadastro_cliente'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
                                 : (customer.source === 'instore' || customer.source === 'pedido_loja' || customer.source === 'dine_in')
                                 ? 'bg-emerald-100 text-emerald-800'
-                                : customer.source === 'order'
-                                ? 'bg-purple-100 text-purple-800'
                                 : 'bg-stone-100 text-stone-700'
                             }`}>
                               {customer.source === 'bluefocus_erp' ? 'BlueFocus ERP' :
-                               customer.source === 'popup_novidades' ? 'Popup Novidades' : 
-                               (customer.source === 'delivery' || customer.source === 'pedido_delivery') ? 'Delivery' :
-                               (customer.source === 'instore' || customer.source === 'pedido_loja' || customer.source === 'dine_in') ? 'Retirada/Mesa' :
-                               customer.source === 'order' ? 'Pedido Online' : 'Manual / Lead'}
+                               customer.source === 'cadastro_cliente' ? 'Novo Cadastro App' :
+                               (customer.source === 'instore' || customer.source === 'pedido_loja' || customer.source === 'dine_in') ? 'Retirada' :
+                               'Manual / Sistema'}
                             </span>
                           </div>
                           {tagsList.length > 0 && (
@@ -985,7 +1114,28 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
-
+                          {customer.status === 'pending' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveCustomer(customer)}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                                title="Aprovar cadastro e liberar login"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Aprovar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectCustomer(customer)}
+                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                                title="Reprovar cadastro"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Reprovar</span>
+                              </button>
+                            </>
+                          )}
 
                           {customer.status === 'rejected' && (
                             <button
@@ -994,7 +1144,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                               className="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl font-bold text-xs transition-colors cursor-pointer"
                               title="Reconsiderar e aprovar cliente"
                             >
-                              Reaprovar
+                              Aprovar
                             </button>
                           )}
 
@@ -1013,7 +1163,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                             type="button"
                             onClick={() => handleOpenModal(customer)}
                             className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors cursor-pointer"
-                            title="Editar Dados do Cliente"
+                            title="Editar Dados e Meta Mensal do Cliente"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -1520,16 +1670,67 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             <form onSubmit={handleSaveCustomer} className="p-6 overflow-y-auto space-y-4 flex-1">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
-                  Nome Completo *
+                  Nome Completo / Razão Social *
                 </label>
                 <input
                   type="text"
                   required
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Ex: João da Silva"
-                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  placeholder="Ex: João da Silva / Padaria Central"
+                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none font-bold"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                  CNPJ ou CPF (Usuário de Login) *
+                </label>
+                <input
+                  type="text"
+                  value={formCpf}
+                  onChange={(e) => setFormCpf(e.target.value)}
+                  placeholder="Ex: 12.345.678/0001-90 ou 123.456.789-00"
+                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-mono focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+                {formCpf.replace(/\D/g, '').length >= 5 && (
+                  <p className="text-[11px] text-emerald-700 font-bold mt-1">
+                    🔑 Senha de acesso do cliente (5 primeiros dígitos): <span className="font-mono bg-emerald-100 px-1.5 py-0.5 rounded">{formCpf.replace(/\D/g, '').slice(0, 5)}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-2xl space-y-1.5">
+                <label className="block text-xs font-black uppercase tracking-wider text-orange-900">
+                  🎯 META Mensal de Compras (R$)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formMonthlyGoal}
+                  onChange={(e) => setFormMonthlyGoal(e.target.value)}
+                  placeholder="Deixe em branco para compra livre sem meta (Ex: 1500.00)"
+                  className="w-full p-2.5 bg-white border border-orange-300 rounded-xl text-sm font-bold text-stone-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-orange-800 leading-relaxed">
+                  Conforme o cliente for comprando no mês, o percentual crescerá até atingir <strong>100%</strong>. Se deixar em branco, o cliente comprará normalmente sem meta.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                  Status de Acesso do Cliente
+                </label>
+                <select
+                  value={formStatus}
+                  onChange={(e) => setFormStatus(e.target.value as any)}
+                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                >
+                  <option value="approved">🟢 Aprovado (Liberado para Login e Pedidos)</option>
+                  <option value="pending">🟡 Pendente (Aguardando Aprovação do Administrador)</option>
+                  <option value="rejected">🔴 Reprovado (Acesso Bloqueado)</option>
+                </select>
               </div>
 
               <div>
@@ -1541,7 +1742,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   required
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
-                  placeholder="Ex: (11) 98765-4321"
+                  placeholder="Ex: (34) 98765-4321"
                   className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
@@ -1561,32 +1762,15 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
-                  Endereço de Entrega (Opcional)
+                  Endereço (Opcional)
                 </label>
                 <input
                   type="text"
                   value={formAddress}
                   onChange={(e) => setFormAddress(e.target.value)}
-                  placeholder="Ex: Rua das Flores, 123 - Apto 4B"
+                  placeholder="Ex: Rua das Flores, 123 - Centro"
                   className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
-                  Origem do Contato
-                </label>
-                <select
-                  value={formSource}
-                  onChange={(e) => setFormSource(e.target.value)}
-                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none font-medium"
-                >
-                  <option value="manual">Cadastro Manual</option>
-                  <option value="lead">Lead de Marketing</option>
-                  <option value="popup_novidades">Popup de Novidades</option>
-                  <option value="delivery">Delivery</option>
-                  <option value="order">Pedido Online</option>
-                </select>
               </div>
 
               <div>
@@ -1597,11 +1781,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   type="text"
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
-                  placeholder="Ex: VIP, Café da Manhã, Delivery, Frequente"
+                  placeholder="Ex: Revenda, Atacado, Frequente"
                   className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
-
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
@@ -1611,7 +1794,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   rows={2}
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Ex: Gosta de pão bem quentinho, prefere entrega aos sábados..."
+                  placeholder="Observações sobre o cliente..."
                   className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
@@ -1630,7 +1813,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   disabled={isSaving}
                   className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
                 >
-                  {isSaving ? 'Salvando...' : editingCustomer ? 'Atualizar Lead' : 'Cadastrar Lead'}
+                  {isSaving ? 'Salvando...' : editingCustomer ? 'Salvar Alterações' : 'Cadastrar Cliente'}
                 </button>
               </div>
             </form>

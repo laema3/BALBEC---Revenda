@@ -309,6 +309,10 @@ function writeJsonFile(filePath: string, data: any) {
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
     // Also keep permanent seed folder synchronized so repo always has latest backup
+    // Never overwrite non-empty seed files with an empty array
+    if (Array.isArray(data) && data.length === 0) {
+      return;
+    }
     const baseName = path.basename(filePath).replace(/^\./, '');
     const altBaseName = baseName.includes('_data.json') 
       ? baseName.replace('_data.json', '.json') 
@@ -682,14 +686,20 @@ export function formatCustomerForDb(c: any) {
     }
   }
   const extId = c.externalId ? String(c.externalId).trim() : (c.external_id ? String(c.external_id).trim() : null);
+  const rawCpf = String(c.cpf ?? '').trim();
+  const cleanCpfDigits = rawCpf.replace(/\D/g, '');
+  const defaultPassFromCpf = cleanCpfDigits.length >= 5 ? cleanCpfDigits.slice(0, 5) : '12345';
+  const rawPass = String(c.password ?? '').trim();
+  const finalPassword = (rawPass && rawPass !== '123456') ? rawPass : defaultPassFromCpf;
+
   return {
     id: String(c.id || (extId ? `bf_cust_${extId}` : `cust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)),
     externalId: extId,
     name: String(c.name || 'Cliente').trim(),
     phone: String(c.phone ?? '').trim(),
     email: String(c.email ?? '').trim(),
-    cpf: String(c.cpf ?? '').trim(),
-    password: String(c.password || '123456'),
+    cpf: rawCpf,
+    password: finalPassword,
     address: String(c.address ?? '').trim(),
     street: String(c.street ?? '').trim(),
     number: String(c.number ?? '').trim(),
@@ -704,8 +714,9 @@ export function formatCustomerForDb(c: any) {
     tags: tagsStr,
     notes: String(c.notes ?? '').trim(),
     defaultAddressId: c.defaultAddressId || c.default_address_id || null,
-    status: c.status === 'rejected' ? 'rejected' : 'approved',
+    status: c.status === 'rejected' ? 'rejected' : (c.status === 'pending' ? 'pending' : 'approved'),
     minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : (parseFloat(c.min_order_value) || 0),
+    monthlyGoal: typeof c.monthlyGoal === 'number' ? c.monthlyGoal : (parseFloat(c.monthly_goal ?? c.monthlyGoal) || 0),
   };
 }
 
@@ -746,6 +757,7 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
                 defaultAddressId: item.defaultAddressId,
                 status: item.status,
                 minOrderValue: item.minOrderValue,
+                monthlyGoal: item.monthlyGoal,
               }
             });
         }
@@ -763,6 +775,7 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
               phone: item.phone,
               email: item.email,
               cpf: item.cpf,
+              password: item.password,
               address: item.address,
               street: item.street,
               number: item.number,
@@ -773,6 +786,7 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
               tags: item.tags,
               notes: item.notes,
               status: item.status,
+              monthlyGoal: item.monthlyGoal,
             }
           });
           savedCount++;
@@ -794,8 +808,12 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
 let hydrationPromise: Promise<void> | null = null;
 let isHydrated = false;
 
-export async function waitForHydration(maxWaitMs = 12000): Promise<void> {
-  if (isHydrated || !hydrationPromise) return;
+export async function waitForHydration(maxWaitMs = 15000): Promise<void> {
+  if (isHydrated) return;
+  if (!hydrationPromise) {
+    hydrateFromPostgres().catch(() => {});
+  }
+  if (!hydrationPromise) return;
   try {
     await Promise.race([
       hydrationPromise,
@@ -809,6 +827,8 @@ export async function hydrateFromPostgres(): Promise<void> {
     return hydrationPromise;
   }
   hydrationPromise = (async () => {
+    await ensureTablesExist();
+
     if (!isDatabaseConfigured()) {
       console.log('[DB Hydrate] Banco de dados não configurado, mantendo estado do disco/memória.');
       isHydrated = true;
@@ -816,7 +836,7 @@ export async function hydrateFromPostgres(): Promise<void> {
     }
 
     try {
-      console.log('[DB Hydrate] Hidratando estado da loja e cadastros diretamente do PostgreSQL / Supabase...');
+      console.log('[DB Hydrate] Hidratando estado da loja e cadastros diretamente do PostgreSQL / Railway...');
       
       // 1. Hidratar Store Info
       try {
@@ -928,9 +948,11 @@ export async function hydrateFromPostgres(): Promise<void> {
     // 3.2. Hidratar Pedidos
     try {
       const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(1000);
-      memOrders = ordList || [];
-      persistOrdersToDisk(memOrders);
-      console.log(`[DB Hydrate] ${memOrders.length} pedidos carregados do PostgreSQL.`);
+      if (ordList && ordList.length > 0) {
+        memOrders = ordList;
+        persistOrdersToDisk(memOrders);
+        console.log(`[DB Hydrate] ${memOrders.length} pedidos carregados do PostgreSQL.`);
+      }
     } catch (ordHydrateErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar orders do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
     }
@@ -938,9 +960,11 @@ export async function hydrateFromPostgres(): Promise<void> {
     // 4. Hidratar Mesas
     try {
       const tableList = await db.select().from(restaurantTables);
-      memTables = tableList || [];
-      persistTablesToDisk(memTables);
-      console.log(`[DB Hydrate] ${memTables.length} mesas carregadas do PostgreSQL.`);
+      if (tableList && tableList.length > 0) {
+        memTables = tableList;
+        persistTablesToDisk(memTables);
+        console.log(`[DB Hydrate] ${memTables.length} mesas carregadas do PostgreSQL.`);
+      }
     } catch (tblErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar restaurant_tables do PostgreSQL:', tblErr?.message || tblErr);
     }
@@ -948,9 +972,11 @@ export async function hydrateFromPostgres(): Promise<void> {
     // 4.1. Hidratar Motoboys
     try {
       const drvList = await db.select().from(drivers);
-      memDrivers = drvList || [];
-      persistDriversToDisk(memDrivers);
-      console.log(`[DB Hydrate] ${memDrivers.length} motoboys carregados do PostgreSQL.`);
+      if (drvList && drvList.length > 0) {
+        memDrivers = drvList;
+        persistDriversToDisk(memDrivers);
+        console.log(`[DB Hydrate] ${memDrivers.length} motoboys carregados do PostgreSQL.`);
+      }
     } catch (drvErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar drivers do PostgreSQL:', drvErr?.message || drvErr);
     }
@@ -958,9 +984,11 @@ export async function hydrateFromPostgres(): Promise<void> {
     // 4.2. Hidratar Zonas de Entrega
     try {
       const zoneList = await db.select().from(deliveryZones);
-      memDeliveryZones = zoneList || [];
-      persistDeliveryZonesToDisk(memDeliveryZones);
-      console.log(`[DB Hydrate] ${memDeliveryZones.length} zonas de entrega carregadas do PostgreSQL.`);
+      if (zoneList && zoneList.length > 0) {
+        memDeliveryZones = zoneList;
+        persistDeliveryZonesToDisk(memDeliveryZones);
+        console.log(`[DB Hydrate] ${memDeliveryZones.length} zonas de entrega carregadas do PostgreSQL.`);
+      }
     } catch (zoneErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar delivery_zones do PostgreSQL:', zoneErr?.message || zoneErr);
     }
@@ -968,9 +996,17 @@ export async function hydrateFromPostgres(): Promise<void> {
     // 5. Hidratar TV Media
     try {
       const tvList = await db.select().from(tvMedia);
-      memTvMedia = (tvList || []).sort((a, b) => (a.order || 0) - (b.order || 0));
-      persistTvMediaToDisk(memTvMedia);
-      console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
+      if (tvList && tvList.length > 0) {
+        memTvMedia = tvList.sort((a, b) => (a.order || 0) - (b.order || 0));
+        persistTvMediaToDisk(memTvMedia);
+        console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
+      } else if (memTvMedia.length > 0) {
+        for (const item of memTvMedia) {
+          try {
+            await db.insert(tvMedia).values(item).onConflictDoNothing();
+          } catch {}
+        }
+      }
     } catch (tvErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar tv_media do PostgreSQL:', tvErr?.message || tvErr);
     }
@@ -1007,28 +1043,28 @@ export async function hydrateFromPostgres(): Promise<void> {
       console.warn('[DB Hydrate] Aviso ao carregar users do PostgreSQL:', usrErr?.message || usrErr);
     }
 
-    // 6. Migration final: Aprovar todos os clientes pendentes (regra de negócio atualizada: sem aprovação manual)
+    // 6. Garantir status padrão 'approved' apenas para clientes sem status ou vindos do ERP (preservando 'pending' para novos cadastros aguardando aprovação)
     try {
       let migrationCount = 0;
       memCustomers = memCustomers.map(c => {
-        if (c.status === 'pending' || !c.status) {
+        const cleanCpf = String(c.cpf || '').replace(/\D/g, '');
+        const defaultPass = cleanCpf.length >= 5 ? cleanCpf.slice(0, 5) : (c.password || '12345');
+        const updatedPass = (!c.password || c.password === '123456') ? defaultPass : c.password;
+        if (!c.status || (c.status === 'pending' && c.source === 'bluefocus_erp')) {
           migrationCount++;
-          return { ...c, status: 'approved' };
+          return { ...c, status: 'approved', password: updatedPass };
+        }
+        if (updatedPass !== c.password) {
+          migrationCount++;
+          return { ...c, password: updatedPass };
         }
         return c;
       });
       if (migrationCount > 0) {
         persistCustomersToDisk(memCustomers);
-        console.log(`[Migration] Auto-aprovados ${migrationCount} clientes em memória.`);
-        if (isDatabaseConfigured()) {
-          try {
-            await db.update(customers).set({ status: 'approved' }).where(eq(customers.status, 'pending'));
-            console.log('[Migration] Auto-aprovados clientes pendentes no PostgreSQL.');
-          } catch (migDbErr) {}
-        }
       }
     } catch (migErr: any) {
-      console.warn('[Migration] Erro ao auto-aprovar clientes:', migErr.message);
+      console.warn('[Migration] Aviso ao normalizar clientes:', migErr.message);
     }
 
       // Persiste o snapshot mestre atualizado em disco
@@ -1052,12 +1088,16 @@ export async function upsertCustomerLead(leadData: {
   name?: string;
   phone?: string;
   email?: string;
+  cpf?: string;
+  password?: string;
   address?: string;
   source?: string;
   orderTotal?: number;
   isOrder?: boolean;
   tags?: string[];
   notes?: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  monthlyGoal?: number;
 }) {
   // REGRA DE NEGÓCIO: Pedidos feitos pelo totem NÃO viram leads no sistema
   if (leadData.source === 'pedido_totem' || leadData.source === 'totem' || leadData.source === 'kiosk') {
@@ -1067,16 +1107,21 @@ export async function upsertCustomerLead(leadData: {
   const rawName = (leadData.name || '').trim();
   const phone = (leadData.phone || '').trim();
   const digits = cleanPhoneDigits(phone);
+  const rawCpf = (leadData.cpf || '').trim();
+  const cpfDigits = rawCpf.replace(/\D/g, '');
   
-  if (!rawName && !digits) return null;
+  if (!rawName && !digits && !cpfDigits) return null;
   if (rawName.toLowerCase() === 'cliente totem') return null;
 
   const now = Date.now();
   const cleanName = rawName || (digits ? `Cliente (${digits.slice(-4)})` : 'Cliente');
 
-  // Buscar cliente existente por telefone ou nome
+  // Buscar cliente existente por CPF/CNPJ, telefone ou nome
   let existingIndex = -1;
-  if (digits && digits.length >= 8) {
+  if (cpfDigits && cpfDigits.length >= 11) {
+    existingIndex = memCustomers.findIndex(c => String(c.cpf || '').replace(/\D/g, '') === cpfDigits);
+  }
+  if (existingIndex === -1 && digits && digits.length >= 8) {
     existingIndex = memCustomers.findIndex(c => {
       const cDigits = cleanPhoneDigits(c.phone || '');
       return cDigits && (cDigits === digits || cDigits.endsWith(digits) || digits.endsWith(cDigits));
@@ -1123,17 +1168,24 @@ export async function upsertCustomerLead(leadData: {
       parsedTags.push('Recorrente');
     }
 
+    const finalCpf = rawCpf || existing.cpf || '';
+    const finalCpfDigits = finalCpf.replace(/\D/g, '');
+    const defaultPass = finalCpfDigits.length >= 5 ? finalCpfDigits.slice(0, 5) : '12345';
+
     customerRecord = {
       ...existing,
       name: (cleanName && cleanName.toLowerCase() !== 'cliente') ? cleanName : existing.name,
       phone: phone || existing.phone,
       email: leadData.email || existing.email || '',
+      cpf: finalCpf,
+      password: leadData.password || ((existing.password && existing.password !== '123456') ? existing.password : defaultPass),
       address: leadData.address || existing.address || '',
       source: existing.source || leadData.source || 'cadastro_cardapio',
       totalOrders: updatedTotalOrders,
       totalSpent: Number(existing.totalSpent || 0) + (Number(leadData.orderTotal) || 0),
       lastOrderAt: leadData.isOrder ? now : (existing.lastOrderAt || null),
-      status: existing.status === 'rejected' ? 'rejected' : 'approved',
+      status: leadData.status || existing.status || 'approved',
+      monthlyGoal: leadData.monthlyGoal !== undefined ? Number(leadData.monthlyGoal) || 0 : (Number(existing.monthlyGoal) || 0),
       tags: JSON.stringify(parsedTags),
       notes: leadData.notes !== undefined ? leadData.notes : (existing.notes || ''),
     };
@@ -1148,18 +1200,23 @@ export async function upsertCustomerLead(leadData: {
       initialTags.push('Lead');
     }
 
+    const defaultPass = cpfDigits.length >= 5 ? cpfDigits.slice(0, 5) : '12345';
+
     customerRecord = {
       id: `cust_${now}_${Math.random().toString(36).substring(2, 7)}`,
       name: cleanName,
       phone: phone || '',
       email: leadData.email || '',
+      cpf: rawCpf,
+      password: leadData.password || defaultPass,
       address: leadData.address || '',
       source: leadData.source || 'cadastro_cardapio',
       totalOrders: leadData.isOrder ? 1 : 0,
       totalSpent: Number(leadData.orderTotal) || 0,
       lastOrderAt: leadData.isOrder ? now : null,
       createdAt: now,
-      status: 'approved',
+      status: leadData.status || 'approved',
+      monthlyGoal: Number(leadData.monthlyGoal) || 0,
       tags: JSON.stringify(initialTags),
       notes: leadData.notes || '',
     };
@@ -2614,12 +2671,16 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         name: body.name,
         phone: body.phone,
         email: body.email,
+        cpf: body.cpf,
+        password: body.password,
         address: body.address,
         source: body.source || 'cadastro_cardapio',
         orderTotal: Number(body.orderTotal) || 0,
         isOrder: !!body.isOrder,
         tags: Array.isArray(body.tags) ? body.tags : typeof body.tags === 'string' ? JSON.parse(body.tags || '[]') : [],
-        notes: body.notes
+        notes: body.notes,
+        status: body.status,
+        monthlyGoal: body.monthlyGoal !== undefined ? Number(body.monthlyGoal) || 0 : undefined
       });
       onUpdate?.('catalog');
       return res.json(saved || { success: true });
@@ -2630,7 +2691,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.post('/api/db/customers/batch', async (req: Request, res: Response) => {
     try {
-      const items: any[] = req.body;
+      const items: any[] = Array.isArray(req.body) ? req.body : (Array.isArray(req.body?.customers) ? req.body.customers : []);
       if (!Array.isArray(items) || items.length === 0) {
         return res.json({ success: true, count: 0 });
       }
@@ -2663,6 +2724,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                        (phoneDigits.length >= 8 && itemByPhone.get(phoneDigits)) ||
                        null;
 
+        const finalCpf = (raw.cpf && String(raw.cpf).trim()) ? String(raw.cpf).trim() : (existing?.cpf || '');
+        const finalCpfDigits = finalCpf.replace(/\D/g, '');
+        const defaultPass = finalCpfDigits.length >= 5 ? finalCpfDigits.slice(0, 5) : '12345';
+
         const formatted = formatCustomerForDb({
           ...(existing || {}),
           ...raw,
@@ -2670,7 +2735,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           externalId: extId || existing?.externalId || null,
           phone: (raw.phone && String(raw.phone).trim()) ? String(raw.phone).trim() : (existing?.phone || ''),
           email: (raw.email && String(raw.email).trim()) ? String(raw.email).trim() : (existing?.email || ''),
-          cpf: (raw.cpf && String(raw.cpf).trim()) ? String(raw.cpf).trim() : (existing?.cpf || ''),
+          cpf: finalCpf,
           address: (raw.address && String(raw.address).trim()) ? String(raw.address).trim() : (existing?.address || ''),
           street: (raw.street && String(raw.street).trim()) ? String(raw.street).trim() : (existing?.street || ''),
           number: (raw.number && String(raw.number).trim()) ? String(raw.number).trim() : (existing?.number || ''),
@@ -2681,8 +2746,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           totalSpent: existing?.totalSpent ?? raw.totalSpent ?? 0,
           lastOrderAt: existing?.lastOrderAt ?? raw.lastOrderAt ?? null,
           createdAt: existing?.createdAt ?? raw.createdAt ?? Date.now(),
-          password: existing?.password || raw.password || '123456',
-          status: existing?.status === 'rejected' ? 'rejected' : (raw.status || 'approved'),
+          password: (existing?.password && existing.password !== '123456') ? existing.password : ((raw.password && raw.password !== '123456') ? raw.password : defaultPass),
+          status: existing?.status === 'rejected' ? 'rejected' : (existing?.status === 'pending' && raw.source !== 'bluefocus_erp' ? 'pending' : (raw.status || 'approved')),
+          monthlyGoal: raw.monthlyGoal !== undefined ? Number(raw.monthlyGoal) || 0 : (Number(existing?.monthlyGoal) || 0),
         });
 
         itemById.set(formatted.id, formatted);
@@ -2710,9 +2776,15 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     const data = req.body || {};
     const existingIndex = memCustomers.findIndex(c => c.id === id);
     if (existingIndex >= 0) {
+      const updatedCpf = data.cpf !== undefined ? String(data.cpf).trim() : (memCustomers[existingIndex].cpf || '');
+      const updatedCpfDigits = updatedCpf.replace(/\D/g, '');
+      const updatedDefaultPass = updatedCpfDigits.length >= 5 ? updatedCpfDigits.slice(0, 5) : (memCustomers[existingIndex].password || '12345');
       memCustomers[existingIndex] = {
         ...memCustomers[existingIndex],
         ...data,
+        cpf: updatedCpf,
+        password: data.password || (data.cpf !== undefined && updatedCpfDigits.length >= 5 ? updatedDefaultPass : memCustomers[existingIndex].password),
+        monthlyGoal: data.monthlyGoal !== undefined ? Number(data.monthlyGoal) || 0 : (Number(memCustomers[existingIndex].monthlyGoal) || 0),
         tags: Array.isArray(data.tags) ? JSON.stringify(data.tags) : (data.tags || memCustomers[existingIndex].tags)
       };
       persistCustomersToDisk(memCustomers);
@@ -2720,10 +2792,13 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     if (isDatabaseConfigured()) {
       try {
-        const payload = {
+        const payload: any = {
           ...data,
           tags: Array.isArray(data.tags) ? JSON.stringify(data.tags) : data.tags
         };
+        if (data.monthlyGoal !== undefined) {
+          payload.monthlyGoal = Number(data.monthlyGoal) || 0;
+        }
         const result = await db.update(customers).set(payload).where(eq(customers.id, id)).returning();
         onUpdate?.('catalog');
         return res.json(result[0] || memCustomers[existingIndex] || { success: true });
@@ -2750,35 +2825,105 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     res.json({ success: true, id });
   });
 
-    app.post('/api/db/customer-register', async (req: Request, res: Response) => {
+  // Helper para calcular total comprado pelo cliente no mês atual
+  const calculateCustomerCurrentMonthSpent = (cust: any): number => {
+    if (!cust) return 0;
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+    const cId = String(cust.id || '');
+    const cCpf = String(cust.cpf || '').replace(/\D/g, '');
+    const cPhone = cleanPhoneDigits(cust.phone);
+    const cName = String(cust.name || '').trim().toLowerCase();
+
+    let sum = 0;
+    for (const o of memOrders) {
+      if (!o || o.status === 'cancelled' || (o as any).status === 'canceled') continue;
+      const oDate = new Date(Number(o.createdAt) || 0);
+      if (oDate.getMonth() !== curMonth || oDate.getFullYear() !== curYear) continue;
+
+      const oCustId = String(o.customerId || '');
+      const oCpf = String(o.customerCpf || '').replace(/\D/g, '');
+      const oPhone = cleanPhoneDigits(o.customerPhone);
+      const oName = String(o.customerName || '').trim().toLowerCase();
+
+      const matched =
+        (cId && oCustId && cId === oCustId) ||
+        (cCpf.length >= 11 && oCpf.length >= 11 && cCpf === oCpf) ||
+        (cPhone.length >= 8 && oPhone.length >= 8 && (cPhone === oPhone || cPhone.endsWith(oPhone) || oPhone.endsWith(cPhone))) ||
+        (cName && oName && cName === oName);
+
+      if (matched) {
+        sum += Number(o.total) || 0;
+      }
+    }
+    return sum;
+  };
+
+  app.get('/api/db/customer-profile/:id', async (req: Request, res: Response) => {
     try {
-      const { name, phone, email, cpf, password, address, cep, street, number, complement, neighborhood, status } = req.body;
-      if (!name || !phone || !password) {
-        return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (Nome, WhatsApp e Senha).' });
+      const { id } = req.params;
+      const cleanDigits = String(id || '').replace(/\D/g, '');
+      const cust = memCustomers.find(c =>
+        c.id === id ||
+        (cleanDigits.length >= 11 && String(c.cpf || '').replace(/\D/g, '') === cleanDigits)
+      );
+      if (!cust) {
+        return res.status(404).json({ error: 'Cliente não encontrado.' });
+      }
+      const currentMonthSpent = calculateCustomerCurrentMonthSpent(cust);
+      return res.json({
+        success: true,
+        customer: cust,
+        currentMonthSpent
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao consultar perfil do cliente.' });
+    }
+  });
+
+  app.post('/api/db/customer-register', async (req: Request, res: Response) => {
+    try {
+      const { name, phone, email, cpf, password, address, cep, street, number, complement, neighborhood, status, monthlyGoal } = req.body;
+      const cleanCpf = String(cpf || '').replace(/\D/g, '');
+      if (!name || !cleanCpf || cleanCpf.length < 5) {
+        return res.status(400).json({ error: 'Preencha o Nome/Razão Social e um CNPJ ou CPF válido.' });
+      }
+      if (!phone) {
+        return res.status(400).json({ error: 'Informe o WhatsApp / Telefone para contato.' });
       }
 
       const cleanPhone = String(phone).replace(/\D/g, '');
       const cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
-      const existing = memCustomers.find(c => 
-        (cleanEmail && c.email && c.email.trim().toLowerCase() === cleanEmail) || 
-        (c.phone && String(c.phone).replace(/\D/g, '') === cleanPhone) ||
-        (cpf && c.cpf && c.cpf === cpf)
-      );
+      const existingByCpf = memCustomers.find(c => {
+        const cCpf = String(c.cpf || '').replace(/\D/g, '');
+        return cCpf.length >= 5 && (cCpf === cleanCpf || cCpf.replace(/^0+/, '') === cleanCpf.replace(/^0+/, ''));
+      });
 
-      if (existing) {
-        return res.status(400).json({ error: 'E-mail, telefone ou CPF já cadastrados.' });
+      if (existingByCpf) {
+        if (existingByCpf.status === 'pending') {
+          return res.status(400).json({ error: 'Este CNPJ/CPF já possui um cadastro aguardando aprovação do administrador.' });
+        }
+        if (existingByCpf.status === 'rejected') {
+          return res.status(400).json({ error: 'Este CNPJ/CPF possui cadastro reprovado. Entre em contato com o administrador.' });
+        }
+        return res.status(400).json({ error: 'Este CNPJ/CPF já está cadastrado! Volte para a tela de Login e acesse usando os 5 primeiros dígitos do CNPJ/CPF como senha.' });
       }
 
-      const finalAddress = address?.trim() || `${street || ''}, ${number || ''}${complement ? ` (${complement})` : ''} - ${neighborhood || ''}${cep ? ` - CEP: ${cep}` : ''}`.replace(/^, /, '').trim();
+      const defaultPassword = cleanCpf.slice(0, 5);
+      const finalPassword = (password && String(password).trim().length >= 4) ? String(password).trim() : defaultPassword;
+      const finalAddress = address?.trim() || `${street || ''}, ${number || ''}${complement ? ` (${complement})` : ''} - ${neighborhood || ''}${cep ? ` - CEP: ${cep}` : ''}`.replace(/^, /, '').replace(/ - $/, '').trim();
+      const finalStatus = status === 'approved' ? 'approved' : 'pending';
 
       const newCustomer = {
         id: `cust_${Date.now()}`,
+        externalId: null,
         name: name.trim(),
         phone: phone.trim(),
         email: cleanEmail,
-        cpf: cpf ? cpf.trim() : '',
-        password: password.trim(),
+        cpf: cpf.trim(),
+        password: finalPassword,
         address: finalAddress,
         street: street?.trim() || '',
         number: number?.trim() || '',
@@ -2788,10 +2933,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         source: 'cadastro_cliente',
         totalOrders: 0,
         totalSpent: 0,
+        lastOrderAt: null,
         createdAt: Date.now(),
-        status: 'approved',
-        tags: JSON.stringify(['cliente_cadastrado', 'aprovado']),
-        notes: cep ? `CEP Cadastrado: ${cep}` : ''
+        status: finalStatus,
+        minOrderValue: 0,
+        monthlyGoal: Number(monthlyGoal) || 0,
+        tags: JSON.stringify(['novo_cadastro', finalStatus === 'pending' ? 'pendente_aprovacao' : 'aprovado']),
+        notes: cep ? `CEP Cadastrado: ${cep}` : '',
+        defaultAddressId: null
       };
 
       memCustomers = [newCustomer, ...memCustomers];
@@ -2799,21 +2948,24 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
       if (isDatabaseConfigured()) {
         try {
-          await db.insert(customers).values({
-            ...newCustomer,
-            status: 'approved',
-            tags: JSON.stringify(['cliente_cadastrado', 'aprovado'])
-          }).onConflictDoUpdate({
+          await db.insert(customers).values(newCustomer).onConflictDoUpdate({
             target: customers.id,
             set: newCustomer
           });
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[DB Customer Register Error]:', e);
+        }
       }
+
+      onUpdate?.('catalog');
 
       res.json({ 
         success: true, 
-        pendingApproval: false,
-        message: 'Cadastro realizado com sucesso! Você já pode realizar seus pedidos.',
+        pendingApproval: finalStatus === 'pending',
+        password: finalPassword,
+        message: finalStatus === 'pending'
+          ? 'Solicitação de cadastro enviada! Seu acesso ficará pendente até o administrador aprovar.'
+          : 'Cadastro realizado com sucesso!',
         customer: newCustomer 
       });
     } catch (err: any) {
@@ -2825,44 +2977,70 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     try {
       const { identifier, password } = req.body;
       if (!identifier || !password) {
-        return res.status(400).json({ error: 'Informe o e-mail/telefone/CPF e a senha.' });
+        return res.status(400).json({ error: 'Informe o seu CNPJ ou CPF e a senha (5 primeiros dígitos).' });
       }
 
       const cleanId = String(identifier).trim().toLowerCase();
       const cleanDigits = String(identifier).replace(/\D/g, '');
       const cleanPass = String(password).trim();
+      const cleanPassDigits = cleanPass.replace(/\D/g, '');
 
-      const cust = memCustomers.find(c => {
+      // Localizar o cliente pelo CNPJ/CPF (ou código/email/telefone como fallback)
+      const custByIdentifier = memCustomers.find(c => {
+        const cCpf = String(c.cpf || '').replace(/\D/g, '');
         const cEmail = (c.email || '').trim().toLowerCase();
         const cPhone = String(c.phone || '').replace(/\D/g, '');
-        const cCpf = String(c.cpf || '').replace(/\D/g, '');
         const cExt = String(c.externalId || '').trim().toLowerCase();
-        const matchId =
-          (cEmail.length > 0 && cEmail === cleanId) ||
-          (cleanDigits.length >= 8 && cPhone === cleanDigits) ||
-          (cleanDigits.length >= 11 && cCpf === cleanDigits) ||
-          (cExt.length > 0 && cExt === cleanId);
-        const storedPass = (c.password || '123456').trim();
-        const matchPass = storedPass === cleanPass || (storedPass === '123456' && cCpf.length >= 6 && cleanPass === cCpf.slice(0, 6));
-        return matchId && matchPass;
+
+        if (cleanDigits.length >= 5 && cCpf.length >= 5) {
+          if (cCpf === cleanDigits) return true;
+          if (cCpf.replace(/^0+/, '') === cleanDigits.replace(/^0+/, '') && cleanDigits.replace(/^0+/, '').length >= 5) return true;
+        }
+        if (cEmail.length > 0 && cEmail === cleanId) return true;
+        if (cleanDigits.length >= 10 && cPhone === cleanDigits) return true;
+        if (cExt.length > 0 && cExt === cleanId) return true;
+        return false;
       });
 
-      if (!cust) {
-        return res.status(401).json({ error: 'E-mail/CPF/Telefone ou senha incorretos.' });
+      if (!custByIdentifier) {
+        return res.status(401).json({ error: 'CNPJ ou CPF não encontrado no cadastro de clientes.' });
       }
 
-      // Se o cliente estava pendente em dados anteriores, aprova automaticamente
-      if (cust.status === 'pending') {
-        cust.status = 'approved';
-        persistCustomersToDisk(memCustomers);
-        if (isDatabaseConfigured()) {
-          try {
-            await db.update(customers).set({ status: 'approved' }).where(eq(customers.id, cust.id));
-          } catch (e) {}
-        }
+      const cCpf = String(custByIdentifier.cpf || '').replace(/\D/g, '');
+      const first5Cpf = cCpf.slice(0, 5);
+      const first5Input = cleanDigits.slice(0, 5);
+      const storedPass = String(custByIdentifier.password || '').trim();
+
+      const isPassValid =
+        (first5Cpf.length >= 5 && (cleanPass === first5Cpf || cleanPassDigits === first5Cpf)) ||
+        (first5Input.length >= 5 && (cleanPass === first5Input || cleanPassDigits === first5Input)) ||
+        (storedPass.length > 0 && storedPass !== '123456' && storedPass === cleanPass);
+
+      if (!isPassValid) {
+        return res.status(401).json({ error: 'Senha incorreta. A senha padrão são os 5 primeiros dígitos do seu CNPJ ou CPF.' });
       }
 
-      res.json({ success: true, customer: cust });
+      if (custByIdentifier.status === 'pending') {
+        return res.status(403).json({
+          error: 'Seu cadastro está PENDENTE DE APROVAÇÃO pelo administrador. Assim que aprovado, seu acesso será liberado.',
+          status: 'pending'
+        });
+      }
+
+      if (custByIdentifier.status === 'rejected') {
+        return res.status(403).json({
+          error: 'Seu cadastro não foi aprovado pelo administrador. Entre em contato com a loja.',
+          status: 'rejected'
+        });
+      }
+
+      const currentMonthSpent = calculateCustomerCurrentMonthSpent(custByIdentifier);
+
+      res.json({
+        success: true,
+        customer: custByIdentifier,
+        currentMonthSpent
+      });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao realizar login' });
     }
@@ -2872,19 +3050,45 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     try {
       const { identifier } = req.body;
       if (!identifier) {
-        return res.status(400).json({ error: 'Informe o e-mail ou telefone cadastrado.' });
+        return res.status(400).json({ error: 'Informe o seu CNPJ ou CPF cadastrado para recuperar a senha.' });
       }
       const cleanId = String(identifier).trim().toLowerCase();
-      const cust = memCustomers.find(c => (c.email || '').trim().toLowerCase() === cleanId || String(c.phone).replace(/\D/g, '') === String(identifier).replace(/\D/g, ''));
+      const cleanDigits = String(identifier).replace(/\D/g, '');
+
+      const cust = memCustomers.find(c => {
+        const cCpf = String(c.cpf || '').replace(/\D/g, '');
+        if (cleanDigits.length >= 5 && cCpf.length >= 5) {
+          if (cCpf === cleanDigits) return true;
+          if (cCpf.replace(/^0+/, '') === cleanDigits.replace(/^0+/, '') && cleanDigits.replace(/^0+/, '').length >= 5) return true;
+        }
+        const cEmail = (c.email || '').trim().toLowerCase();
+        const cPhone = String(c.phone || '').replace(/\D/g, '');
+        return (cEmail.length > 0 && cEmail === cleanId) || (cleanDigits.length >= 10 && cPhone === cleanDigits);
+      });
 
       if (!cust) {
-        return res.status(404).json({ error: 'Cliente não encontrado com este e-mail ou telefone.' });
+        return res.status(404).json({ error: 'Nenhum cliente encontrado com este CNPJ ou CPF.' });
+      }
+
+      const cCpf = String(cust.cpf || '').replace(/\D/g, '');
+      const recoveredPassword = cCpf.length >= 5 ? cCpf.slice(0, 5) : (cust.password && cust.password !== '123456' ? cust.password : '12345');
+
+      // Garantir que a senha do cliente seja os 5 primeiros dígitos do CNPJ/CPF
+      cust.password = recoveredPassword;
+      persistCustomersToDisk(memCustomers);
+      if (isDatabaseConfigured()) {
+        try {
+          await db.update(customers).set({ password: recoveredPassword }).where(eq(customers.id, cust.id));
+        } catch (e) {}
       }
 
       res.json({ 
         success: true, 
+        customerName: cust.name,
+        cpf: cust.cpf,
+        status: cust.status || 'approved',
         message: 'Senha recuperada com sucesso!',
-        password: cust.password || '123456'
+        password: recoveredPassword
       });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao recuperar senha' });

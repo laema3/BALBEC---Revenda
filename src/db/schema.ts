@@ -240,6 +240,7 @@ export const customers = pgTable('customers', {
   defaultAddressId: text('default_address_id'),
   status: text('status').default('approved'),
   minOrderValue: doublePrecision('min_order_value').default(0),
+  monthlyGoal: doublePrecision('monthly_goal').default(0),
 });
 
 // Customer Addresses table

@@ -29,7 +29,7 @@ function detectCardBrand(num: string): string {
 }
 
 export default function Menu() {
-  const { categories, products, tables, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData } = useStore();
+  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData } = useStore();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -172,8 +172,8 @@ export default function Menu() {
   const isInStoreActive = isPhysicalStoreOpen && storeInfo.inStoreEnabled !== false;
   const isKioskActive = isPhysicalStoreOpen && storeInfo.kioskEnabled !== false;
 
-  // Delivery fica ativo se estiver habilitado e a loja estiver aberta
-  const isDeliveryActive = storeInfo.deliveryEnabled !== false && isPhysicalStoreOpen;
+  // Delivery desativado neste projeto (apenas Retirada)
+  const isDeliveryActive = false;
 
   // Carregar dados do localStorage apenas para pedidos online normais (no Totem, não pede identificação prévia)
   useEffect(() => {
@@ -259,8 +259,10 @@ export default function Menu() {
     setDeliveryCep('');
     setDeliveryNeighborhood('');
     setHasName(false);
-    setHasChosenChannel(false);
-    setInitialEntryChoice(null);
+    setHasChosenChannel(true);
+    setInitialEntryChoice('view');
+    setSalesChannel('instore');
+    setDeliveryType('pickup');
     setIsProfileModalOpen(false);
     setIsAuthModalOpen(false);
   }, []);
@@ -376,19 +378,13 @@ export default function Menu() {
     }
   };
 
-  // Opções de canais visíveis na seleção pública ao iniciar (só aparecem se tiverem pelo menos 1 categoria ativa)
+  // Opções de canais visíveis na seleção pública ao iniciar (neste projeto, apenas Retirada / instore)
   type ChannelOption = 'delivery' | 'kiosk' | 'instore';
   const visibleChannels: ChannelOption[] = useMemo(() => {
-    const list: ChannelOption[] = [];
-    if (hasDeliveryCategories || storeInfo.deliveryEnabled !== false) list.push('delivery');
-    if (hasKioskCategories || storeInfo.kioskEnabled !== false) list.push('kiosk');
-    if (hasInStoreCategories || storeInfo.inStoreEnabled !== false) list.push('instore');
-    return list.length > 0 ? list : ['delivery', 'kiosk', 'instore'];
-  }, [hasDeliveryCategories, hasKioskCategories, hasInStoreCategories, storeInfo.deliveryEnabled, storeInfo.kioskEnabled, storeInfo.inStoreEnabled]);
+    return ['instore'];
+  }, []);
 
   const activeAvailableChannels: ChannelOption[] = [];
-  if (isDeliveryActive) activeAvailableChannels.push('delivery');
-  if (isKioskActive) activeAvailableChannels.push('kiosk');
   if (isInStoreActive) activeAvailableChannels.push('instore');
 
   const [hasChosenChannel, setHasChosenChannel] = useState<boolean>(() => {
@@ -459,8 +455,10 @@ export default function Menu() {
       if (pathname.startsWith('/delivery') || pathname.startsWith('/entrega')) {
         setIsQrValidated(true);
         safeStorage.setSession('balbec_qr_validated', 'true');
-        setSalesChannel('delivery');
-        setDeliveryType('delivery');
+        setSalesChannel('instore');
+        setDeliveryType('pickup');
+        setHasChosenChannel(true);
+        safeStorage.setSession('selected_sales_channel', 'instore');
         return;
       }
       const params = new URLSearchParams(window.location.search);
@@ -492,9 +490,6 @@ export default function Menu() {
       setDeliveryType('pickup');
       setHasChosenChannel(true);
       safeStorage.setSession('selected_sales_channel', 'kiosk');
-    } else if ((mode === 'delivery' || mode === 'entrega') && storeInfo.deliveryEnabled && hasDeliveryCategories) {
-      setSalesChannel('delivery');
-      setDeliveryType('delivery');
     } else {
       setSalesChannel('instore');
       setDeliveryType('pickup');
@@ -515,20 +510,15 @@ export default function Menu() {
     }
   }, [salesChannel, isTotemPath]);
 
-  // Se a modalidade selecionada não possuir mais categorias ativas, alternar automaticamente
+  // Garantir que sempre fique em Retirada (instore), exceto no Totem
   useEffect(() => {
     if (isTotemPath || salesChannel === 'kiosk') return;
-
-    if (salesChannel === 'delivery' && !hasDeliveryCategories && hasInStoreCategories) {
+    if (salesChannel === 'delivery') {
       setSalesChannel('instore');
       setDeliveryType('pickup');
       safeStorage.setSession('selected_sales_channel', 'instore');
-    } else if (salesChannel === 'instore' && !hasInStoreCategories && hasDeliveryCategories) {
-      setSalesChannel('delivery');
-      setDeliveryType('delivery');
-      safeStorage.setSession('selected_sales_channel', 'delivery');
     }
-  }, [salesChannel, hasDeliveryCategories, hasInStoreCategories, isTotemPath]);
+  }, [salesChannel, isTotemPath]);
 
   // Se houver apenas 1 opção disponível para o cliente, auto-selecionar sem obrigar modal
   useEffect(() => {
@@ -539,32 +529,24 @@ export default function Menu() {
   }, [visibleChannels, hasChosenChannel, isTotemPath]);
 
   const handleSelectChannel = (channel: 'delivery' | 'instore' | 'kiosk') => {
-    setSalesChannel(channel);
+    const resolvedChannel = channel === 'delivery' ? 'instore' : channel;
+    setSalesChannel(resolvedChannel);
     setHasChosenChannel(true);
-    setInitialEntryChoice(channel === 'delivery' ? 'delivery' : 'view');
+    setInitialEntryChoice('view');
     setShowChannelSelection(false);
-    safeStorage.setSession('selected_sales_channel', channel);
+    safeStorage.setSession('selected_sales_channel', resolvedChannel);
 
     // If there was a product waiting to be added, add it now
     if (pendingAddToCart) {
-      // Use a timeout to ensure state updates have propagated if needed, 
-      // although since we use the direct product object it should be fine.
       initiateAddToCart(pendingAddToCart);
       setPendingAddToCart(null);
     }
-    if (channel === 'delivery') {
-      setDeliveryType('delivery');
-      setIsQrValidated(true);
-      safeStorage.setSession('balbec_qr_validated', 'true');
-    } else {
-      setDeliveryType('pickup');
-      // Limpar mesa se estiver trocando manualmente para Retirada ou Totem
-      setSelectedTableNumber(null);
-      safeStorage.removeSession('balbec_selected_table');
-    }
+    setDeliveryType('pickup');
+    setSelectedTableNumber(null);
+    safeStorage.removeSession('balbec_selected_table');
     try {
       const url = new URL(window.location.href);
-      url.searchParams.set('mode', channel);
+      url.searchParams.set('mode', resolvedChannel);
       window.history.replaceState({}, '', url.toString());
     } catch {}
   };
@@ -690,20 +672,20 @@ export default function Menu() {
     isDefault: false
   });
 
-  // Efeito para carregar dados do cliente logado
+  // Efeito para carregar dados do cliente logado e sincronizar META / Status
   useEffect(() => {
     if (activeCustomer?.id) {
       const fetchCustomerData = async () => {
         setIsLoadingCustomerData(true);
         try {
-          const [addrRes, ordRes] = await Promise.all([
+          const [addrRes, ordRes, profRes] = await Promise.all([
             fetch(`/api/db/customers/${activeCustomer.id}/addresses`),
-            fetch(`/api/db/customers/${activeCustomer.id}/orders`)
+            fetch(`/api/db/customers/${activeCustomer.id}/orders`),
+            fetch(`/api/db/customer-profile/${activeCustomer.id}`)
           ]);
           if (addrRes.ok) {
             const addrs = await addrRes.json();
             setCustomerAddresses(addrs);
-            // Se tiver endereços salvos, auto-preenche o primeiro ou default no checkout
             if (addrs.length > 0) {
               const def = addrs.find((a: any) => a.isDefault) || addrs[0];
               setDeliveryStreet(def.street);
@@ -715,6 +697,29 @@ export default function Menu() {
             }
           }
           if (ordRes.ok) setCustomerOrders(await ordRes.json());
+          if (profRes.ok) {
+            const profData = await profRes.json();
+            if (profData.success && profData.customer) {
+              if (profData.customer.status === 'pending' || profData.customer.status === 'rejected') {
+                handleCustomerLogout();
+                return;
+              }
+              const updatedCust = {
+                ...activeCustomer,
+                ...profData.customer,
+                currentMonthSpent: profData.currentMonthSpent ?? profData.customer.currentMonthSpent ?? activeCustomer.currentMonthSpent
+              };
+              if (
+                updatedCust.monthlyGoal !== activeCustomer.monthlyGoal ||
+                updatedCust.currentMonthSpent !== activeCustomer.currentMonthSpent ||
+                updatedCust.status !== activeCustomer.status ||
+                updatedCust.name !== activeCustomer.name
+              ) {
+                setActiveCustomer(updatedCust);
+                safeStorage.setItem('balbec_logged_customer', JSON.stringify(updatedCust));
+              }
+            }
+          }
         } catch (err) {
           console.error('Erro ao carregar dados do cliente:', err);
         } finally {
@@ -726,13 +731,70 @@ export default function Menu() {
       setCustomerAddresses([]);
       setCustomerOrders([]);
     }
-  }, [activeCustomer]);
+  }, [activeCustomer?.id]);
+
+  // Cálculo em tempo real da META mensal do cliente logado
+  const customerMonthlyGoalInfo = useMemo(() => {
+    if (!activeCustomer) return { goal: 0, spent: 0, pct: 0, rawPct: 0, remaining: 0 };
+    const cleanActiveCpf = String(activeCustomer.cpf || '').replace(/\D/g, '');
+    const storeCustomer = (customers || []).find((c: any) =>
+      c.id === activeCustomer.id ||
+      (cleanActiveCpf && String(c.cpf || '').replace(/\D/g, '') === cleanActiveCpf)
+    );
+    const goal = Number(storeCustomer?.monthlyGoal ?? activeCustomer.monthlyGoal ?? 0) || 0;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const cleanActivePhone = String(activeCustomer.phone || '').replace(/\D/g, '');
+
+    // Somar pedidos do mês atual na store + customerOrders (sem duplicar IDs)
+    const seenOrderIds = new Set<string>();
+    let calculatedSpent = 0;
+    const allOrdersToScan = [...(orders || []), ...(customerOrders || [])];
+    for (const o of allOrdersToScan) {
+      if (!o || !o.id || seenOrderIds.has(o.id)) continue;
+      if (o.status === 'cancelled') continue;
+      const d = new Date(o.createdAt);
+      if (isNaN(d.getTime()) || d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) continue;
+      const oCpf = String((o as any).customerCpf || '').replace(/\D/g, '');
+      const oPhone = String(o.customerPhone || '').replace(/\D/g, '');
+      const matchesCustomer =
+        (o as any).customerId === activeCustomer.id ||
+        (cleanActiveCpf && oCpf === cleanActiveCpf) ||
+        (cleanActivePhone.length >= 8 && oPhone === cleanActivePhone);
+      if (matchesCustomer) {
+        seenOrderIds.add(o.id);
+        calculatedSpent += Number(o.total) || 0;
+      }
+    }
+
+    const spent = Math.max(calculatedSpent, Number(activeCustomer.currentMonthSpent || 0));
+    const rawPct = goal > 0 ? (spent / goal) * 100 : 0;
+    const pct = Math.min(100, Math.round(rawPct));
+    const remaining = Math.max(0, goal - spent);
+    return { goal, spent, pct, rawPct, remaining };
+  }, [activeCustomer, customers, orders, customerOrders]);
+
+  const formatCpfCnpj = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 14);
+    if (digits.length <= 11) {
+      return digits
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    }
+    return digits
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  };
 
   const handleReorder = (order: any) => {
     if (order.items && order.items.length > 0) {
       setCart(order.items);
       setIsProfileModalOpen(false);
-      alert('Pedido repetido com sucesso! Itens adicionados ao seu carrinho.');
     }
   };
 
@@ -760,11 +822,8 @@ export default function Menu() {
           reference: '',
           isDefault: false
         });
-        alert('Endereço salvo com sucesso!');
       }
-    } catch (err) {
-      alert('Erro ao salvar endereço.');
-    }
+    } catch (err) {}
   };
 
   const handleDeleteAddress = async (id: string) => {
@@ -809,6 +868,7 @@ export default function Menu() {
     }
     setAuthLoading(true);
     setAuthError('');
+    setAuthSuccessMsg('');
     try {
       const res = await fetch('/api/db/customer-login', {
         method: 'POST',
@@ -819,11 +879,20 @@ export default function Menu() {
       if (res.ok && data.success) {
         setActiveCustomer(data.customer);
         safeStorage.setItem('balbec_logged_customer', JSON.stringify(data.customer));
+        safeStorage.setItem('balbec_customer_name', data.customer.name || '');
+        safeStorage.setItem('balbec_customer_phone', data.customer.phone || '');
+        safeStorage.setItem('balbec_customer_cpf', data.customer.cpf || '');
+        safeStorage.setSession('selected_sales_channel', 'instore');
+        setCustomerName(data.customer.name || '');
+        setCustomerPhone(data.customer.phone || '');
+        setCustomerCpf(data.customer.cpf || '');
+        setHasName(true);
+        setHasChosenChannel(true);
         setIsAuthModalOpen(false);
         setAuthIdentifier('');
         setAuthPassword('');
       } else {
-        setAuthError(data.error || 'Credenciais inválidas.');
+        setAuthError(data.error || 'CNPJ/CPF ou senha inválidos.');
       }
     } catch (e) {
       setAuthError('Erro de conexão ao realizar login.');
@@ -840,7 +909,15 @@ export default function Menu() {
     }
     setAuthLoading(true);
     setAuthError('');
+    setAuthSuccessMsg('');
     try {
+      const cleanCpf = authRegCpf.replace(/\D/g, '');
+      if (cleanCpf.length < 11) {
+        setAuthError('Informe um CNPJ ou CPF válido (mínimo 11 dígitos).');
+        setAuthLoading(false);
+        return;
+      }
+      const autoPassword = cleanCpf.slice(0, 5);
       const res = await fetch('/api/db/customer-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -849,16 +926,25 @@ export default function Menu() {
           phone: authPhone,
           email: authRegEmail,
           cpf: authRegCpf,
-          password: authRegPassword,
+          password: autoPassword,
           address: authAddress,
-          cep: authCep
+          cep: authCep,
+          source: 'self_registration'
         })
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setActiveCustomer(data.customer);
-        safeStorage.setItem('balbec_logged_customer', JSON.stringify(data.customer));
-        setIsAuthModalOpen(false);
+        setAuthSuccessMsg(
+          data.message ||
+          `Cadastro enviado com sucesso! Seu cadastro está PENDENTE de aprovação pelo Administrador. Sua senha de acesso será os 5 primeiros dígitos do seu CNPJ/CPF (${autoPassword}).`
+        );
+        setAuthName('');
+        setAuthPhone('');
+        setAuthRegEmail('');
+        setAuthRegCpf('');
+        setAuthAddress('');
+        setAuthCep('');
+        await fetchData();
       } else {
         setAuthError(data.error || 'Erro ao realizar cadastro.');
       }
@@ -882,9 +968,12 @@ export default function Menu() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setAuthSuccessMsg(data.message || 'Instruções enviadas.');
+        setAuthSuccessMsg(`✅ ${data.message || `Sua senha é: ${data.password}`}`);
+        if (data.password) {
+          setAuthPassword(data.password);
+        }
       } else {
-        setAuthError(data.error || 'Cliente não encontrado.');
+        setAuthError(data.error || 'Nenhum cadastro encontrado para este CNPJ ou CPF.');
       }
     } catch (e) {
       setAuthError('Erro de conexão.');
@@ -1687,8 +1776,8 @@ export default function Menu() {
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone,
         customerId: activeCustomer?.id,
-        customerEmail: isDeliveryOrder ? customerEmail.trim() : '',
-        customerCpf: isDeliveryOrder ? customerCpf.trim() : '',
+        customerEmail: activeCustomer?.email || customerEmail.trim(),
+        customerCpf: activeCustomer?.cpf || customerCpf.trim(),
         deliveryType: isKioskMode ? 'dine_in' : (isTableOrder ? 'dine_in' : deliveryType),
         deliveryAddress: fullAddress,
         deliveryCep: isDeliveryOrder ? deliveryCep.trim() : undefined,
@@ -1701,6 +1790,7 @@ export default function Menu() {
 
       if (createdOrder) {
         setLastPlacedOrder(createdOrder);
+        setCustomerOrders(prev => [createdOrder, ...prev]);
         setCart([]);
         safeStorage.removeItem('balbec_active_cart');
 
@@ -3848,7 +3938,9 @@ export default function Menu() {
               </div>
               <div>
                 <h2 className="text-lg font-black text-stone-900 uppercase tracking-tight leading-tight">{activeCustomer.name}</h2>
-                <p className="text-xs text-stone-500 font-medium">{activeCustomer.phone}</p>
+                <p className="text-xs text-stone-500 font-medium">
+                  {activeCustomer.cpf ? `CNPJ/CPF: ${activeCustomer.cpf}` : activeCustomer.phone}
+                </p>
               </div>
             </div>
             <button 
@@ -3885,6 +3977,43 @@ export default function Menu() {
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white">
             {profileView === 'menu' && (
               <div className="space-y-4">
+                {customerMonthlyGoalInfo.goal > 0 && (
+                  <div className={`p-4 rounded-2xl border-2 space-y-2.5 ${
+                    customerMonthlyGoalInfo.pct >= 100
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-orange-50/70 border-orange-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-wider text-stone-700">🎯 Sua Meta de Compras no Mês</p>
+                        <p className="text-xs font-bold text-stone-600 mt-0.5">
+                          Comprado: <strong className="text-stone-900">{formatCurrency(customerMonthlyGoalInfo.spent)}</strong> de <strong className="text-stone-900">{formatCurrency(customerMonthlyGoalInfo.goal)}</strong>
+                        </p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-sm font-black ${
+                        customerMonthlyGoalInfo.pct >= 100
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-orange-600 text-white'
+                      }`}>
+                        {customerMonthlyGoalInfo.pct}%
+                      </span>
+                    </div>
+                    <div className="w-full h-3 bg-white rounded-full overflow-hidden border border-stone-200">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          customerMonthlyGoalInfo.pct >= 100 ? 'bg-emerald-500' : 'bg-orange-500'
+                        }`}
+                        style={{ width: `${Math.min(100, customerMonthlyGoalInfo.pct)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] font-bold text-stone-600">
+                      {customerMonthlyGoalInfo.pct >= 100
+                        ? '🎉 Parabéns! Você atingiu 100% da sua meta mensal!'
+                        : `Faltam ${formatCurrency(customerMonthlyGoalInfo.remaining)} para atingir 100% da sua meta do mês.`}
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <button 
                     onClick={() => setProfileView('addresses')}
@@ -3908,7 +4037,7 @@ export default function Menu() {
                 
                 <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl space-y-1">
                   <p className="text-xs font-bold text-orange-900">Total de Pedidos Realizados</p>
-                  <p className="text-2xl font-black text-orange-600">{activeCustomer.totalOrders || 0}</p>
+                  <p className="text-2xl font-black text-orange-600">{activeCustomer.totalOrders || customerOrders.length || 0}</p>
                 </div>
 
                 <button 
@@ -4131,410 +4260,343 @@ export default function Menu() {
     return <MaintenancePage />;
   }
 
-  // FLUXO DE ENTRADA E IDENTIFICAÇÃO (Regras de Negócio):
-  // 1. Totem: navegação livre de autoatendimento (!isTotemPath && salesChannel !== 'kiosk').
-  // 2. Consumo na Loja (Mesa com QR Code): exige identificação imediata para a comanda da mesa.
-  // 3. Online / Delivery / Retirada (smartphone/desktop navegando no cardápio sem mesa):
-  //    Entra DIRETO no cardápio sem nenhum bloqueio ou tela inicial.
-  //    A tela de escolha (Delivery ou Retirada) e identificação só aparece quando o cliente
-  //    tenta adicionar algum produto ao carrinho ou tenta finalizar compra.
-  const isTableCustomer = Boolean(selectedTableNumber) || isTableOrder;
+  // FLUXO DE ENTRADA OBRIGATÓRIO:
+  // Ao acessar o sistema (exceto Totem), a primeira tela exibida é a tela de Login (CNPJ/CPF + 5 primeiros dígitos),
+  // com opção de Recuperar Senha (pelo CNPJ/CPF) e Novo Cadastro (que fica Pendente até aprovação do Administrador).
   const isTotemCustomer = isTotemPath || salesChannel === 'kiosk';
-  const hasCartOrPurchaseIntent = cart.length > 0 || isCheckout || Boolean(pendingAddToCart);
+  const requireAuthStep = !activeCustomer && !isTotemCustomer;
 
-  const requireAuthStep = !activeCustomer && !hasName && !isTotemCustomer && (
-    isTableCustomer ? true : hasCartOrPurchaseIntent
-  );
   if (requireAuthStep) {
-    // ETAPA 0: Escolha entre Delivery ou Apenas Ver Cardápio
-    if (!initialEntryChoice) {
-      return (
-        <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-4 sm:p-6">
-          <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-stone-200 relative overflow-hidden animate-fadeIn">
-            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
-            
-            {storeInfo.logoUrl ? (
-              <img src={storeInfo.logoUrl} alt="Logo" className="w-32 h-32 sm:w-40 sm:h-40 aspect-square mx-auto mb-6 object-cover rounded-full shadow-md border-2 border-stone-100" />
-            ) : (
-              <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-3xl shadow-xs border border-orange-200">🥖</div>
-            )}
+    const cleanRegCpfPreview = authRegCpf.replace(/\D/g, '');
+    const previewAutoPass = cleanRegCpfPreview.length >= 5 ? cleanRegCpfPreview.slice(0, 5) : '';
 
-            <h2 className="text-2xl sm:text-3xl font-black text-stone-900 mb-2 uppercase tracking-tight">Bem-vindo(a)!</h2>
-            <p className="text-stone-600 mb-8 font-medium text-sm">Como deseja ser atendido hoje?</p>
-
-            <div className="grid gap-4">
-              <button 
-                onClick={() => {
-                  setInitialEntryChoice('delivery');
-                  setSalesChannel('delivery');
-                  setAuthMode('login');
-                }}
-                className="group flex flex-col items-center p-6 bg-orange-50 hover:bg-orange-600 border-2 border-orange-200 hover:border-orange-500 rounded-2xl transition-all cursor-pointer shadow-sm hover:shadow-orange-500/20"
-              >
-                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-3xl mb-3 shadow-sm group-hover:scale-110 transition-transform">🛵</div>
-                <span className="font-black text-orange-900 group-hover:text-white text-lg">DELIVERY / ENTREGA</span>
-                <span className="text-[10px] text-orange-700 group-hover:text-white font-bold opacity-80 uppercase tracking-wider">Pedir em casa com motoboy</span>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setInitialEntryChoice('view');
-                  setSalesChannel('instore');
-                  setDeliveryType('pickup');
-                  setSelectedTableNumber(null);
-                  safeStorage.removeItem('balbec_selected_table');
-                }}
-                className="group flex flex-col items-center p-6 bg-stone-50 hover:bg-stone-800 border-2 border-stone-200 hover:border-stone-700 rounded-2xl transition-all cursor-pointer shadow-sm hover:shadow-stone-900/20"
-              >
-                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-3xl mb-3 shadow-sm group-hover:scale-110 transition-transform">🛍️</div>
-                <span className="font-black text-stone-700 group-hover:text-white text-lg tracking-tight">RETIRADA</span>
-                <span className="text-[10px] text-stone-500 group-hover:text-white font-bold opacity-80 uppercase tracking-wider">Para retirar no balcão ou ver cardápio</span>
-              </button>
-            </div>
-            
-            <div className="mt-8 pt-6 border-t border-stone-100 flex flex-col gap-4">
-              <button 
-                onClick={() => {
-                  setHasChosenChannel(false);
-                  setInitialEntryChoice(null);
-                  setPendingAddToCart(null);
-                  setCart([]); // Limpa o carrinho para poder voltar a navegar normalmente
-                  safeStorage.removeSession('selected_sales_channel');
-                }}
-                className="text-stone-400 hover:text-stone-600 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 mx-auto"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Voltar para o Cardápio (Apenas Ver)</span>
-              </button>
-              <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">{storeInfo.name} • {storeInfo.headerPhrase}</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ETAPA 1: Identificação baseada na escolha anterior
     return (
       <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-4 sm:p-6">
         <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-stone-200 relative overflow-hidden animate-fadeIn">
           <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
-          
-          <div className="flex justify-between items-center mb-6">
-            <button onClick={() => setInitialEntryChoice(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400"><ArrowLeft className="w-5 h-5" /></button>
+
+          <div className="flex flex-col items-center mb-5">
             {storeInfo.logoUrl ? (
-              <img src={storeInfo.logoUrl} alt="Logo" className="w-20 h-20 aspect-square object-cover rounded-full shadow-sm border border-stone-200" />
+              <img
+                src={storeInfo.logoUrl}
+                alt="Logo"
+                className="w-24 h-24 sm:w-28 sm:h-28 aspect-square object-cover rounded-full shadow-md border-2 border-stone-100 mb-3"
+                referrerPolicy="no-referrer"
+              />
             ) : (
-              <span className="text-2xl">🥖</span>
+              <div className="w-16 h-16 mb-3 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-3xl shadow-xs border border-orange-200">
+                🥖
+              </div>
             )}
-            <div className="w-9 h-9"></div> {/* spacer */}
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight">
+              {authMode === 'login'
+                ? 'Acesso do Cliente'
+                : authMode === 'register'
+                ? 'Novo Cadastro'
+                : 'Recuperar Senha'}
+            </h2>
+            <p className="text-stone-500 font-medium text-xs mt-1">
+              {authMode === 'login'
+                ? 'Informe seu CNPJ ou CPF e os 5 primeiros dígitos como senha'
+                : authMode === 'register'
+                ? 'Solicite seu cadastro (sujeito à aprovação do administrador)'
+                : 'Informe seu CNPJ ou CPF para recuperar sua senha'}
+            </p>
           </div>
 
-          <h2 className="text-2xl font-black text-stone-900 mb-1 uppercase tracking-tight">
-            {initialEntryChoice === 'view' ? 'Identificação' : (authMode === 'login' ? 'Identificação' : 'Novo Cadastro')}
-          </h2>
-          <p className="text-stone-500 mb-6 font-medium text-xs">
-            {initialEntryChoice === 'view' 
-              ? 'Informe seu nome e WhatsApp para acessar' 
-              : (authMode === 'login' ? 'Entre com seu WhatsApp e senha cadastrada' : 'Crie sua conta para realizar pedidos')}
-          </p>
-
-          {/* SE JÁ ESTIVER LOGADO (SEJA RETIRADA OU DELIVERY) */}
-          {(initialEntryChoice === 'view' || initialEntryChoice === 'delivery') && activeCustomer && (
-            <div className="space-y-4 py-2">
-              <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
-                <UserCheck className="w-7 h-7" />
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-black text-stone-900">Você já está conectado</h3>
-                <p className="text-base font-bold text-orange-600 mt-1">{activeCustomer.name}</p>
-                <p className="text-xs text-stone-500">{activeCustomer.phone || activeCustomer.email}</p>
-              </div>
-              <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 text-xs text-amber-900 leading-relaxed font-medium text-left">
-                Para entrar com outro usuário, você precisa <strong>desconectar</strong> da conta atual de <strong>{activeCustomer.name}</strong> primeiro.
-              </div>
-              <div className="pt-2 space-y-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHasName(true);
-                    setHasChosenChannel(true);
-                    setCustomerName(activeCustomer.name || '');
-                    setCustomerPhone(activeCustomer.phone || '');
-                    if (initialEntryChoice === 'view') {
-                      setSalesChannel('instore');
-                      setDeliveryType('pickup');
-                    } else {
-                      setSalesChannel('delivery');
-                      setDeliveryType('delivery');
-                    }
-                  }}
-                  className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 active:scale-[0.98] text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>Continuar como {activeCustomer.name.split(' ')[0]}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`Deseja realmente desconectar da conta de ${activeCustomer.name}?`)) {
-                      handleCustomerLogout();
-                    }
-                  }}
-                  className="w-full py-3 bg-red-50 hover:bg-red-100 active:scale-[0.98] text-red-700 border border-red-200 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <X className="w-4 h-4" />
-                  <span>Desconectar para Trocar de Usuário</span>
-                </button>
-              </div>
+          {/* Abas Login / Novo Cadastro */}
+          {authMode !== 'forgot' && (
+            <div className="flex bg-stone-100 p-1.5 rounded-2xl border border-stone-200 mb-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setAuthError('');
+                  setAuthSuccessMsg('');
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  authMode === 'login'
+                    ? 'bg-orange-600 text-white shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Fazer Login</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('register');
+                  setAuthError('');
+                  setAuthSuccessMsg('');
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  authMode === 'register'
+                    ? 'bg-orange-600 text-white shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Novo Cadastro</span>
+              </button>
             </div>
           )}
 
-          {/* FORMULÁRIO: APENAS VER CARDÁPIO / RETIRADA (Sem conta prévia logada) */}
-          {initialEntryChoice === 'view' && !activeCustomer && (
-            <form 
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setAuthLoading(true);
-                try {
-                  // Se informou senha, tentamos registrar como cliente oficial
-                  if (authPassword && authPassword.trim().length > 0) {
-                    const res = await fetch('/api/db/customer-register', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ 
-                        name: authName.trim(), 
-                        phone: authPhone.trim(), 
-                        password: authPassword.trim(),
-                        source: 'pickup_flow_register' 
-                      })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                      setActiveCustomer(data.customer);
-                      safeStorage.setItem('balbec_logged_customer', JSON.stringify(data.customer));
-                    } else {
-                      // Fallback para Lead se der erro (ex: já existe ou erro na API)
-                      await saveCustomer({
-                        name: authName.trim(),
-                        phone: authPhone.trim(),
-                        source: 'view_menu_fallback',
-                        tags: ['Lead', 'ViewMenu']
-                      });
-                    }
-                  } else {
-                    // Sem senha: apenas salva como lead (convidado)
-                    await saveCustomer({
-                      name: authName.trim(),
-                      phone: authPhone.trim(),
-                      source: 'view_menu',
-                      tags: ['Lead', 'ViewMenu']
-                    });
-                  }
+          {authError && (
+            <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-700 text-left flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+          )}
 
-                  safeStorage.setItem('balbec_customer_name', authName.trim());
-                  safeStorage.setItem('balbec_customer_phone', authPhone.trim());
-                  safeStorage.setSession('selected_sales_channel', 'instore');
-                  setCustomerName(authName.trim());
-                  setCustomerPhone(authPhone.trim());
+          {authSuccessMsg && (
+            <div className="mb-4 p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 text-left space-y-2.5">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{authSuccessMsg}</span>
+              </div>
+              {authMode !== 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthError('');
+                    setAuthSuccessMsg('');
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Ir para Tela de Login
+                </button>
+              )}
+            </div>
+          )}
 
-                  if (storeInfo.deliveryScheduleEnabled) {
-                    setScheduleStepMode('pickup');
-                    setShowScheduleSelectionStep(true);
-                  } else {
-                    setHasName(true);
-                    setHasChosenChannel(true);
-                  }
-                } catch (err) {
-                  setAuthError('Erro ao registrar seus dados.');
-                } finally {
-                  setAuthLoading(false);
-                }
-              }}
-              className="space-y-4 text-left"
-            >
+          {/* MODO LOGIN */}
+          {authMode === 'login' && (
+            <form onSubmit={handleCustomerLogin} className="space-y-4 text-left">
               <div>
-                <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">Qual é o seu nome?</label>
-                <input type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="Seu Nome Completo" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-bold" required />
+                <label className="block text-[11px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">
+                  Usuário (CNPJ ou CPF) *
+                </label>
+                <input
+                  type="text"
+                  value={authIdentifier}
+                  onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
+                  placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                  required
+                />
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">WhatsApp</label>
-                <input type="tel" value={authPhone} onChange={(e) => setAuthPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold" required />
-              </div>
+
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-[10px] font-black text-stone-700 uppercase tracking-wider">Criar Senha (Opcional)</label>
+                  <label className="block text-[11px] font-black text-stone-700 uppercase tracking-wider">
+                    Senha (5 primeiros dígitos do CNPJ/CPF) *
+                  </label>
                 </div>
-                <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="Crie uma senha para pedidos futuros" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-bold" />
-                <p className="text-[10px] text-stone-400 mt-1 font-medium italic leading-tight">Se definir uma senha, sua conta será criada para facilitar futuras entregas.</p>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="5 primeiros dígitos do CNPJ ou CPF"
+                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                  required
+                />
               </div>
 
-              <button type="submit" disabled={authLoading} className="w-full py-4 bg-orange-600 text-white rounded-2xl font-black text-base transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:bg-orange-700">
-                {authLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <span>PROSSEGUIR PARA O CARDÁPIO</span>}
-                <ArrowRight className="w-5 h-5" />
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full py-4 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}
+              >
+                {authLoading ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>ENTRAR NO SISTEMA</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+
+              <div className="pt-3 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('forgot');
+                    setAuthError('');
+                    setAuthSuccessMsg('');
+                  }}
+                  className="w-full sm:w-auto py-2 px-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Recuperar Senha</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('register');
+                    setAuthError('');
+                    setAuthSuccessMsg('');
+                  }}
+                  className="w-full sm:w-auto py-2 px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Novo Cadastro</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* MODO NOVO CADASTRO (FICA PENDENTE ATÉ APROVAÇÃO DO ADMIN) */}
+          {authMode === 'register' && (
+            <form onSubmit={handleCustomerRegister} className="space-y-3.5 text-left">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] text-amber-900 font-medium leading-relaxed">
+                🔒 <strong>Atenção:</strong> Após o envio, seu cadastro ficará <strong>Pendente</strong> até que o Administrador aprove seu acesso.
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-stone-700 mb-1 uppercase tracking-wider">
+                  Nome Completo ou Razão Social *
+                </label>
+                <input
+                  type="text"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  placeholder="Nome da Empresa ou Cliente"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all font-bold text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-stone-700 mb-1 uppercase tracking-wider">
+                  CNPJ ou CPF (Será seu Usuário de Login) *
+                </label>
+                <input
+                  type="text"
+                  value={authRegCpf}
+                  onChange={(e) => setAuthRegCpf(formatCpfCnpj(e.target.value))}
+                  placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold text-sm"
+                  required
+                />
+                {previewAutoPass && (
+                  <p className="text-[11px] text-orange-700 font-bold mt-1">
+                    🔑 Sua senha automática será os 5 primeiros dígitos: <span className="font-mono bg-orange-100 px-1.5 py-0.5 rounded">{previewAutoPass}</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-stone-700 mb-1 uppercase tracking-wider">
+                  WhatsApp / Telefone (com DDD) *
+                </label>
+                <input
+                  type="tel"
+                  value={authPhone}
+                  onChange={(e) => setAuthPhone(formatPhone(e.target.value))}
+                  placeholder="(00) 00000-0000"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-stone-700 mb-1 uppercase tracking-wider">
+                  E-mail (Opcional)
+                </label>
+                <input
+                  type="email"
+                  value={authRegEmail}
+                  onChange={(e) => setAuthRegEmail(e.target.value)}
+                  placeholder="contato@empresa.com.br"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-stone-700 mb-1 uppercase tracking-wider">
+                  Endereço (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={authAddress}
+                  onChange={(e) => setAuthAddress(e.target.value)}
+                  placeholder="Rua, Número, Bairro, Cidade"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all text-sm font-medium"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}
+              >
+                {authLoading ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>SOLICITAR CADASTRO</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
           )}
 
-          {initialEntryChoice === 'delivery' && !activeCustomer && (
-            <div className="space-y-6">
-              {/* Toggles de Modo - Mais proeminente para o cliente escolher entre Entrar ou Cadastrar */}
-              <div className="flex bg-orange-100/50 p-1.5 rounded-2xl border border-orange-200">
-                <button 
-                  onClick={() => { setAuthMode('login'); setAuthError(''); }} 
-                  className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${authMode === 'login' ? 'bg-orange-600 text-white shadow-md' : 'text-orange-900 hover:bg-orange-200/50'}`}
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  Já sou cliente
-                </button>
-                <button 
-                  onClick={() => { setAuthMode('register'); setAuthError(''); }} 
-                  className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${authMode === 'register' ? 'bg-orange-600 text-white shadow-md' : 'text-orange-900 hover:bg-orange-200/50'}`}
-                >
-                  <UserIcon className="w-3.5 h-3.5" />
-                  Ainda não tenho cadastro
-                </button>
-              </div>
-
-              <form 
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setAuthLoading(true);
-                  setAuthError('');
-                  try {
-                    if (authMode === 'login') {
-                      const res = await fetch('/api/db/customer-login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ identifier: authRegEmail || authIdentifier, password: authPassword })
-                      });
-                      const data = await res.json();
-                      if (res.ok && data.success) {
-                        setActiveCustomer(data.customer);
-                        safeStorage.setItem('balbec_logged_customer', JSON.stringify(data.customer));
-                        safeStorage.setSession('selected_sales_channel', 'delivery');
-                        setHasName(true);
-                        setHasChosenChannel(true);
-                      } else {
-                        setAuthError(data.error || 'E-mail ou senha incorretos.');
-                      }
-                    } else if (authMode === 'register') {
-                      const res = await fetch('/api/db/customer-register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: authName, phone: authPhone, email: authRegEmail, password: authPassword, source: 'delivery_flow' })
-                      });
-                      const data = await res.json();
-                      if (res.ok && data.success) {
-                        setActiveCustomer(data.customer);
-                        safeStorage.setItem('balbec_logged_customer', JSON.stringify(data.customer));
-                        safeStorage.setSession('selected_sales_channel', 'delivery');
-                        setHasName(true);
-                        setHasChosenChannel(true);
-                      } else {
-                        setAuthError(data.error || 'Erro ao criar conta.');
-                      }
-                    }
-                  } catch (err) {
-                    setAuthError('Erro de conexão.');
-                  } finally {
-                    setAuthLoading(false);
-                  }
-                }}
-                className="space-y-4 text-left"
-              >
-                {authMode === 'login' && (
-                  <div>
-                    <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">Seu E-mail Cadastrado</label>
-                    <input 
-                      type="email" 
-                      value={authRegEmail || authIdentifier} 
-                      onChange={(e) => { setAuthRegEmail(e.target.value); setAuthIdentifier(e.target.value); }} 
-                      placeholder="seu@email.com" 
-                      className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-bold" 
-                      required 
-                    />
-                  </div>
-                )}
-
-                {authMode === 'register' && (
-                  <>
-                    <div>
-                      <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">Como podemos te chamar?</label>
-                      <input type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="Nome Completo" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-bold" required />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">Seu E-mail (Necessário para Login) *</label>
-                      <input type="email" value={authRegEmail} onChange={(e) => setAuthRegEmail(e.target.value)} placeholder="seu@email.com" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-bold" required />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">WhatsApp (com DDD)</label>
-                      <input type="tel" value={authPhone} onChange={(e) => setAuthPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold" required />
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-[10px] font-black text-stone-700 uppercase tracking-wider">Sua Senha</label>
-                    {authMode === 'login' && (
-                      <button type="button" onClick={() => setAuthMode('forgot')} className="text-[10px] text-orange-600 font-bold hover:underline">Esqueceu?</button>
-                    )}
-                  </div>
-                  <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder={authMode === 'login' ? 'Sua senha cadastrada' : 'Crie uma senha forte'} className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-bold" required />
-                </div>
-
-                {authError && <p className="text-red-600 text-xs font-bold bg-red-50 p-3 rounded-xl border border-red-100">{authError}</p>}
-
-                <button type="submit" disabled={authLoading} className="w-full py-4 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50" style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}>
-                  {authLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <span>{authMode === 'login' ? 'ENTRAR E CONTINUAR' : 'CRIAR CONTA E PEDIR'}</span>}
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* RECUPERAÇÃO DE SENHA */}
+          {/* MODO RECUPERAÇÃO DE SENHA PELO CNPJ OU CPF */}
           {authMode === 'forgot' && (
-             <form 
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setAuthLoading(true);
-                setAuthError('');
-                try {
-                  const res = await fetch('/api/db/customer-forgot', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier: authPhone })
-                  });
-                  const data = await res.json();
-                  if (res.ok && data.success) {
-                    alert(`✅ Recuperação realizada!\n\nSua senha é: ${data.password}\n\nAnote em um lugar seguro!`);
-                    setAuthMode('login');
-                    setAuthPassword(data.password);
-                  } else {
-                    setAuthError(data.error || 'Erro ao recuperar senha.');
-                  }
-                } catch (err) {
-                  setAuthError('Erro de conexão.');
-                } finally {
-                  setAuthLoading(false);
-                }
-              }}
-              className="space-y-4 text-left"
-            >
+            <form onSubmit={handleCustomerForgot} className="space-y-4 text-left">
               <div>
-                <label className="block text-[10px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">WhatsApp Cadastrado</label>
-                <input type="tel" value={authPhone} onChange={(e) => setAuthPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold" required />
+                <label className="block text-[11px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">
+                  CNPJ ou CPF Cadastrado *
+                </label>
+                <input
+                  type="text"
+                  value={authIdentifier}
+                  onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
+                  placeholder="Digite seu CNPJ ou CPF"
+                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold text-stone-900"
+                  required
+                />
+                <p className="text-[11px] text-stone-500 mt-1">
+                  A recuperação utiliza o próprio CNPJ ou CPF cadastrado (sua senha padrão corresponde aos 5 primeiros dígitos).
+                </p>
               </div>
-              {authError && <p className="text-red-600 text-xs font-bold bg-red-50 p-3 rounded-xl">{authError}</p>}
+
               <div className="flex flex-col gap-3">
-                <button type="submit" disabled={authLoading} className="w-full py-4 text-white rounded-2xl font-black text-base transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50" style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}>
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full py-4 text-white rounded-2xl font-black text-base transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}
+                >
                   {authLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <span>RECUPERAR SENHA</span>}
                 </button>
-                <button type="button" onClick={() => setAuthMode('login')} className="w-full py-2 text-stone-500 hover:text-stone-800 text-[10px] font-black uppercase transition-colors cursor-pointer">← Voltar para o Login</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthError('');
+                    setAuthSuccessMsg('');
+                  }}
+                  className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-black uppercase transition-colors cursor-pointer"
+                >
+                  ← Voltar para o Login
+                </button>
               </div>
             </form>
           )}
+
+          <div className="mt-6 pt-4 border-t border-stone-100">
+            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">
+              {storeInfo.name || 'BALBEC - REVENDA'}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -4966,6 +5028,48 @@ export default function Menu() {
           </div>
         </header>
 
+        {/* Barra de Progresso da META Mensal do Cliente (exibida apenas quando o cliente possui META definida > 0) */}
+        {activeCustomer && customerMonthlyGoalInfo.goal > 0 && (
+          <div className={`px-4 py-2.5 shrink-0 z-25 border-b transition-colors ${
+            customerMonthlyGoalInfo.pct >= 100
+              ? 'bg-emerald-950 text-emerald-50 border-emerald-800'
+              : 'bg-gradient-to-r from-amber-950 via-stone-900 to-orange-950 text-amber-50 border-orange-900/60'
+          }`}>
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                  customerMonthlyGoalInfo.pct >= 100
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-orange-500 text-white'
+                }`}>
+                  🎯 Meta do Mês: {customerMonthlyGoalInfo.pct}%
+                </span>
+                <span className="text-xs font-bold text-stone-200">
+                  Comprado: <strong className="text-white">{formatCurrency(customerMonthlyGoalInfo.spent)}</strong> / Meta: <strong className="text-amber-300">{formatCurrency(customerMonthlyGoalInfo.goal)}</strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 flex-1 sm:max-w-xs md:max-w-md">
+                <div className="flex-1 h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/15">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      customerMonthlyGoalInfo.pct >= 100
+                        ? 'bg-emerald-400'
+                        : 'bg-gradient-to-r from-orange-500 to-amber-400'
+                    }`}
+                    style={{ width: `${Math.min(100, customerMonthlyGoalInfo.pct)}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-black whitespace-nowrap text-amber-200">
+                  {customerMonthlyGoalInfo.pct >= 100
+                    ? '🎉 Meta Atingida!'
+                    : `Faltam ${formatCurrency(customerMonthlyGoalInfo.remaining)}`}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Channel Info Bar (when selected) */}
         {hasChosenChannel && (
           <div className="bg-stone-900 text-stone-100 py-2.5 px-4 shrink-0 z-20 border-b border-stone-800 text-xs font-medium">
@@ -5025,8 +5129,8 @@ export default function Menu() {
                 )}
               </div>
 
-              {/* Botão Trocar Modalidade: visível APENAS em Delivery e Retirada (oculto no Totem e no Consumo na Loja) */}
-              {!isTotemPath && salesChannel !== 'kiosk' && !selectedTableNumber && (
+              {/* Botão Trocar Modalidade: oculto quando Delivery está desativado */}
+              {isDeliveryActive && !isTotemPath && salesChannel !== 'kiosk' && !selectedTableNumber && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -5074,7 +5178,7 @@ export default function Menu() {
         )}
 
         {/* Modal Obrigatório de Seleção de Canal de Venda (Only shows when requested or forced) */}
-        {!hasChosenChannel && showChannelSelection && (
+        {isDeliveryActive && !hasChosenChannel && showChannelSelection && (
           <div className="fixed inset-0 z-[100] bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
             <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-8 shadow-2xl border border-stone-100 space-y-4 sm:space-y-6 text-center transform transition-all animate-fadeIn my-auto max-h-[95vh] overflow-y-auto relative">
               
@@ -5101,42 +5205,7 @@ export default function Menu() {
                 </p>
               </div>
 
-                            <div className="grid gap-4 pt-2 grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto">
-                {/* 1. Delivery Option */}
-                <button
-                  type="button"
-                  onClick={() => handleSelectChannel('delivery')}
-                  className="group relative flex flex-col items-center p-5 sm:p-6 bg-stone-50 hover:bg-orange-50/80 border-2 border-stone-200 hover:border-orange-500 rounded-2xl transition-all duration-200 text-left cursor-pointer hover:shadow-lg active:scale-98"
-                >
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-3 transition-colors shadow-sm ${
-                    isDeliveryActive && currentStatus.isOpenNow
-                      ? 'bg-orange-100 group-hover:bg-orange-600 group-hover:text-white text-orange-700'
-                      : 'bg-stone-200 text-stone-600'
-                  }`}>
-                    🛵
-                  </div>
-                  <span className="font-extrabold text-stone-900 group-hover:text-orange-700 text-lg mb-1 text-center">
-                    Entrega / Delivery
-                  </span>
-                  <span className="text-xs text-stone-600 group-hover:text-stone-800 text-center leading-relaxed">
-                    {isDeliveryActive && currentStatus.isOpenNow 
-                      ? 'Peça pelo celular e receba quentinho no conforto da sua casa com motoboy.' 
-                      : 'Apenas visualização do cardápio online para entrega.'}
-                  </span>
-                  
-                  {isDeliveryActive && currentStatus.isOpenNow ? (
-                    <div className="mt-4 text-[11px] uppercase font-extrabold tracking-wider px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300/80 rounded-full flex items-center gap-1.5">
-                      <span>⚡</span>
-                      <span>Delivery Ativo</span>
-                    </div>
-                  ) : (
-                    <div className="mt-4 text-[11px] uppercase font-extrabold tracking-wider px-3 py-1 bg-amber-100 text-amber-900 border border-amber-200/80 rounded-full flex items-center gap-1.5">
-                      <span>👁️</span>
-                      <span>Apenas Visualização</span>
-                    </div>
-                  )}
-                </button>
-
+              <div className="grid gap-4 pt-2 grid-cols-1 max-w-md mx-auto">
                 {/* 2. Pickup Option (Retirada no Balcão) */}
                 <button
                   type="button"
@@ -6021,10 +6090,14 @@ export default function Menu() {
                     <UserIcon className="w-6 h-6" />
                   </div>
                   <h2 className="text-2xl font-black text-stone-900">
-                    {authMode === 'login' ? 'Entrar na sua Conta' : authMode === 'register' ? 'Criar Novo Cadastro' : 'Recuperar Senha'}
+                    {authMode === 'login' ? 'Entrar na sua Conta' : authMode === 'register' ? 'Novo Cadastro' : 'Recuperar Senha'}
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
-                    {authMode === 'login' ? 'Acesse seus pedidos e dados salvos' : authMode === 'register' ? 'Cadastre-se para agilizar seus pedidos' : 'Enviaremos instruções para redefinir sua senha'}
+                    {authMode === 'login'
+                      ? 'Informe seu CNPJ ou CPF e os 5 primeiros dígitos como senha'
+                      : authMode === 'register'
+                      ? 'Solicite seu cadastro (sujeito à aprovação do administrador)'
+                      : 'Informe seu CNPJ ou CPF para recuperar sua senha'}
                   </p>
                 </div>
 
@@ -6035,42 +6108,51 @@ export default function Menu() {
             )}
 
             {authSuccessMsg && (
-              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 text-center">
-                {authSuccessMsg}
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 text-center space-y-2">
+                <p>{authSuccessMsg}</p>
+                {authMode !== 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setAuthError(''); setAuthSuccessMsg(''); }}
+                    className="w-full py-2 bg-emerald-600 text-white rounded-lg font-black text-xs uppercase cursor-pointer"
+                  >
+                    Ir para Login
+                  </button>
+                )}
               </div>
             )}
 
             {authMode === 'login' && (
               <form onSubmit={handleCustomerLogin} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">E-mail Cadastrado</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">Usuário (CNPJ ou CPF)</label>
                   <input
-                    type="email"
+                    type="text"
                     value={authIdentifier}
-                    onChange={(e) => setAuthIdentifier(e.target.value)}
-                    placeholder="seu@email.com"
-                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
+                    placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-stone-700">Senha</label>
+                    <label className="text-xs font-bold text-stone-700">Senha (5 primeiros dígitos do CNPJ/CPF)</label>
                     <button
                       type="button"
                       onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthSuccessMsg(''); }}
                       className="text-xs text-orange-600 font-bold hover:underline cursor-pointer"
                     >
-                      Esqueceu a senha?
+                      Recuperar senha
                     </button>
                   </div>
                   <input
                     type="password"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    placeholder="5 primeiros dígitos do CNPJ ou CPF"
+                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -6090,7 +6172,7 @@ export default function Menu() {
                     onClick={() => { setAuthMode('register'); setAuthError(''); setAuthSuccessMsg(''); }}
                     className="text-xs font-black text-orange-600 hover:underline cursor-pointer"
                   >
-                    Cadastre-se agora
+                    Novo Cadastro
                   </button>
                 </div>
               </form>
@@ -6098,87 +6180,70 @@ export default function Menu() {
 
             {authMode === 'register' && (
               <form onSubmit={handleCustomerRegister} className="space-y-3.5">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-medium">
+                  🔒 Seu cadastro ficará <strong>Pendente</strong> até aprovação do Administrador.
+                </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Nome Completo *</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">Nome Completo ou Razão Social *</label>
                   <input
                     type="text"
                     value={authName}
                     onChange={(e) => setAuthName(e.target.value)}
-                    placeholder="Seu nome"
+                    placeholder="Nome da Empresa ou Cliente"
                     className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">WhatsApp (com DDD) *</label>
-                  <input
-                    type="tel"
-                    value={authPhone}
-                    onChange={(e) => setAuthPhone(e.target.value)}
-                    placeholder="(34) 99999-9999"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">E-mail *</label>
-                  <input
-                    type="email"
-                    value={authRegEmail}
-                    onChange={(e) => setAuthRegEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">CPF *</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">CNPJ ou CPF *</label>
                   <input
                     type="text"
                     value={authRegCpf}
-                    onChange={(e) => setAuthRegCpf(e.target.value)}
-                    placeholder="000.000.000-00"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    onChange={(e) => setAuthRegCpf(formatCpfCnpj(e.target.value))}
+                    placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
+                  {authRegCpf.replace(/\D/g, '').length >= 5 && (
+                    <p className="text-[11px] text-orange-700 font-bold mt-1">
+                      🔑 Sua senha automática será os 5 primeiros dígitos: <strong>{authRegCpf.replace(/\D/g, '').slice(0, 5)}</strong>
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">CEP *</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">WhatsApp / Telefone (com DDD) *</label>
                   <input
-                    type="text"
-                    value={authCep}
-                    onChange={(e) => setAuthCep(e.target.value)}
-                    placeholder="00000-000"
+                    type="tel"
+                    value={authPhone}
+                    onChange={(e) => setAuthPhone(formatPhone(e.target.value))}
+                    placeholder="(00) 00000-0000"
                     className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Endereço Completo (Rua, Número, Bairro) *</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">E-mail (Opcional)</label>
+                  <input
+                    type="email"
+                    value={authRegEmail}
+                    onChange={(e) => setAuthRegEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">Endereço (Opcional)</label>
                   <input
                     type="text"
                     value={authAddress}
                     onChange={(e) => setAuthAddress(e.target.value)}
                     placeholder="Rua Exemplo, 123, Bairro"
                     className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Senha (mín. 6 dígitos) *</label>
-                  <input
-                    type="password"
-                    value={authRegPassword}
-                    onChange={(e) => setAuthRegPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
-                    required
                   />
                 </div>
 
@@ -6187,7 +6252,7 @@ export default function Menu() {
                   disabled={authLoading}
                   className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white rounded-xl font-black text-base shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
                 >
-                  <span>{authLoading ? 'Cadastrando...' : 'Concluir Cadastro'}</span>
+                  <span>{authLoading ? 'Enviando...' : 'Solicitar Cadastro'}</span>
                 </button>
 
                 <div className="text-center pt-2">
@@ -6206,13 +6271,13 @@ export default function Menu() {
             {authMode === 'forgot' && (
               <form onSubmit={handleCustomerForgot} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">E-mail ou Telefone Cadastrado</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">CNPJ ou CPF Cadastrado</label>
                   <input
                     type="text"
                     value={authIdentifier}
-                    onChange={(e) => setAuthIdentifier(e.target.value)}
-                    placeholder="seu@email.com ou telefone"
-                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
+                    placeholder="Digite seu CNPJ ou CPF"
+                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -6222,7 +6287,7 @@ export default function Menu() {
                   disabled={authLoading}
                   className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white rounded-xl font-black text-base shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>{authLoading ? 'Enviando...' : 'Recuperar Senha'}</span>
+                  <span>{authLoading ? 'Recuperando...' : 'Recuperar Senha'}</span>
                 </button>
 
                 <div className="text-center pt-2">

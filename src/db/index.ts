@@ -1,10 +1,28 @@
+import dotenv from 'dotenv';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
 
+dotenv.config();
+
 declare global {
   var _postgresPool: Pool | undefined;
 }
+
+let railwayInternalUnreachable = false;
+
+export const isRailwayEnvironment = (): boolean => {
+  return Boolean(
+    process.env.RAILWAY_DEPLOYMENT_ID ||
+    process.env.RAILWAY_ENVIRONMENT ||
+    process.env.RAILWAY_ENVIRONMENT_NAME ||
+    process.env.RAILWAY_PROJECT_ID ||
+    process.env.RAILWAY_SERVICE_ID ||
+    process.env.RAILWAY_REPLICA_ID ||
+    process.env.RAILWAY_PUBLIC_DOMAIN ||
+    process.env.RAILWAY_STATIC_URL
+  );
+};
 
 export const getDatabaseUrl = (): string | undefined => {
   const rawUrl =
@@ -28,71 +46,98 @@ export const getDatabaseUrl = (): string | undefined => {
     process.env.BALBEC_POSTGRES_URL ||
     process.env.balbec;
 
-  if (!rawUrl || !rawUrl.trim()) return undefined;
-
-  // Clean pgbouncer=true or connection_limit params that may interfere with node-postgres (pg) on Supabase Supavisor
-  try {
-    const trimmed = rawUrl.trim();
-    if (trimmed.includes('pgbouncer=') || trimmed.includes('connection_limit=')) {
-      const urlObj = new URL(trimmed);
-      urlObj.searchParams.delete('pgbouncer');
-      urlObj.searchParams.delete('connection_limit');
-      return urlObj.toString();
+  if (rawUrl && rawUrl.trim()) {
+    try {
+      const trimmed = rawUrl.trim();
+      if (trimmed.includes('pgbouncer=') || trimmed.includes('connection_limit=')) {
+        const urlObj = new URL(trimmed);
+        urlObj.searchParams.delete('pgbouncer');
+        urlObj.searchParams.delete('connection_limit');
+        return urlObj.toString();
+      }
+      return trimmed;
+    } catch {
+      return rawUrl.trim();
     }
-    return trimmed;
-  } catch {
-    return rawUrl.trim();
   }
+
+  const host = process.env.PGHOST || process.env.SQL_HOST || (isRailwayEnvironment() ? 'postgres.railway.internal' : undefined);
+  if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    const user = process.env.PGUSER || process.env.SQL_ADMIN_USER || process.env.SQL_USER || process.env.POSTGRES_USER || 'postgres';
+    const password = process.env.PGPASSWORD || process.env.SQL_ADMIN_PASSWORD || process.env.SQL_PASSWORD || process.env.POSTGRES_PASSWORD || 'BtAxfEbKUqAEUhgOosZGQojEekrKcMl';
+    const database = process.env.PGDATABASE || process.env.SQL_DB_NAME || process.env.POSTGRES_DB || 'railway';
+    const port = process.env.PGPORT || process.env.SQL_PORT || '5432';
+    if (host.startsWith('/')) {
+      return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@localhost/${database}?host=${encodeURIComponent(host)}`;
+    }
+    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+  }
+
+  return undefined;
 };
 
 export const isDatabaseConfigured = (): boolean => {
+  if (railwayInternalUnreachable) return false;
   const dbUrl = getDatabaseUrl();
-  if (dbUrl && dbUrl.trim() !== '') return true;
-  if (process.env.PGHOST && process.env.PGHOST !== 'localhost') return true;
-  if (process.env.SQL_HOST && process.env.SQL_HOST !== 'localhost' && process.env.SQL_HOST !== '127.0.0.1') return true;
+  if (dbUrl && dbUrl.trim() !== '') {
+    // Se o host for postgres.railway.internal e NÃO estivermos no ambiente Railway, evita bloquear o preview local
+    if (dbUrl.includes('.railway.internal') && !isRailwayEnvironment()) {
+      return false;
+    }
+    return true;
+  }
   return false;
 };
 
-export const createPool = () => {
-  if (!global._postgresPool) {
+export const createPool = (forceSsl?: boolean) => {
+  if (!global._postgresPool || forceSsl !== undefined) {
+    if (global._postgresPool && forceSsl !== undefined) {
+      try { global._postgresPool.end().catch(() => {}); } catch {}
+    }
+
     const dbUrl = getDatabaseUrl();
+    const rawHost = process.env.PGHOST || process.env.SQL_HOST;
+    const hasExplicitUrl = Boolean(
+      process.env.DATABASE_URL ||
+      process.env.SUPABASE_DB_URL ||
+      process.env.SUPABASE_DATABASE_URL ||
+      process.env.DIRECT_URL ||
+      process.env.DATABASE_PUBLIC_URL ||
+      process.env.DATABASE_PRIVATE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.POSTGRESQL_URL ||
+      process.env.RAILWAY_DATABASE_URL
+    );
 
-    if (dbUrl) {
-      const isUnixSocket = dbUrl.includes('/cloudsql') || dbUrl.includes('/app/cloudsql');
-      const isLocal = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
-      const useSSL = !isUnixSocket && !isLocal && !dbUrl.includes('sslmode=disable');
-
-      const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
-
-      console.log(`[DB] Criando Pool PostgreSQL/Supabase (SSL: ${useSSL}, UnixSocket: ${isUnixSocket})`);
+    if (!hasExplicitUrl && rawHost && rawHost.startsWith('/')) {
+      const user = process.env.PGUSER || process.env.SQL_ADMIN_USER || process.env.SQL_USER || process.env.POSTGRES_USER || 'postgres';
+      const password = process.env.PGPASSWORD || process.env.SQL_ADMIN_PASSWORD || process.env.SQL_PASSWORD || process.env.POSTGRES_PASSWORD || '';
+      const database = process.env.PGDATABASE || process.env.SQL_DB_NAME || process.env.POSTGRES_DB || 'postgres';
+      console.log(`[DB] Criando Pool PostgreSQL via Unix Socket (${rawHost}, DB: ${database})`);
       global._postgresPool = new Pool({
-        connectionString: dbUrl,
-        max: 10,
-        connectionTimeoutMillis: 15000,
-        idleTimeoutMillis: 30000,
-        keepAlive: true,
-        ssl: sslConfig
-      });
-    } else if (process.env.PGHOST || (process.env.SQL_HOST && process.env.SQL_HOST !== 'localhost')) {
-      const host = process.env.PGHOST || process.env.SQL_HOST;
-      const user = process.env.PGUSER || process.env.SQL_USER;
-      const password = process.env.PGPASSWORD || process.env.SQL_PASSWORD;
-      const database = process.env.PGDATABASE || process.env.SQL_DB_NAME;
-      const port = process.env.PGPORT ? parseInt(process.env.PGPORT) : (process.env.SQL_PORT ? parseInt(process.env.SQL_PORT) : 5432);
-
-      const isUnixSocket = !!host && (host.startsWith('/') || host.startsWith('/app/cloudsql') || host.startsWith('/cloudsql'));
-      const useSSL = !isUnixSocket && (process.env.SQL_SSL === 'true' || (!host?.includes('localhost') && !host?.includes('127.0.0.1')));
-      const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
-
-      console.log(`[DB] Criando Pool PG para ${host} (User: ${user}, DB: ${database}, SSL: ${useSSL}, UnixSocket: ${isUnixSocket})`);
-      global._postgresPool = new Pool({
-        host,
+        host: rawHost,
         user,
         password,
         database,
-        port,
         max: 10,
-        connectionTimeoutMillis: 15000,
+        connectionTimeoutMillis: 10000,
+        idleTimeoutMillis: 30000,
+      });
+    } else if (dbUrl) {
+      const isUnixSocket = dbUrl.includes('/cloudsql') || dbUrl.includes('/app/cloudsql') || dbUrl.includes('host=%2F');
+      const isLocal = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
+      const isRailwayInternal = dbUrl.includes('.railway.internal');
+      const useSSL = forceSsl !== undefined
+        ? forceSsl
+        : (!isUnixSocket && !isLocal && !isRailwayInternal && !dbUrl.includes('sslmode=disable'));
+
+      const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
+
+      console.log(`[DB] Criando Pool PostgreSQL (SSL: ${useSSL}, RailwayInternal: ${isRailwayInternal}, UnixSocket: ${isUnixSocket})`);
+      global._postgresPool = new Pool({
+        connectionString: dbUrl,
+        max: 10,
+        connectionTimeoutMillis: 10000,
         idleTimeoutMillis: 30000,
         keepAlive: true,
         ssl: sslConfig
@@ -119,9 +164,9 @@ export const createPool = () => {
   return global._postgresPool;
 };
 
-export const pool = createPool();
+export let pool = createPool();
 
-export const db = drizzle(pool, { schema });
+export let db = drizzle(pool, { schema });
 
 /**
  * Executa uma operação no banco de dados com auto-recuperação transparente em caso de socket fechado ou queda transitória.
@@ -155,14 +200,14 @@ export async function withDbRetry<T>(fn: () => Promise<T>, retries = 3): Promise
 
 export async function testDatabaseConnection(): Promise<{ ok: boolean; host?: string; error?: string }> {
   if (!isDatabaseConfigured()) {
-    return { ok: false, error: 'Variável de conexão (DATABASE_URL) não configurada.' };
+    return { ok: false, error: 'Variável de conexão (DATABASE_URL) não configurada ou host interno Railway fora do ambiente Railway.' };
   }
   try {
     const pingPromise = pool.query('SELECT 1 as ping');
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout (15s)')), 15000));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout (10s)')), 10000));
     const res: any = await Promise.race([pingPromise, timeoutPromise]);
     const dbUrl = getDatabaseUrl() || '';
-    let host = 'PostgreSQL / Supabase';
+    let host = 'PostgreSQL / Railway';
     try {
       if (dbUrl.includes('@')) {
         host = dbUrl.split('@')[1].split('/')[0].split(':')[0];
@@ -180,23 +225,39 @@ export async function ensureTablesExist() {
   }
 
   let isConnected = false;
+  const dbUrl = getDatabaseUrl() || '';
+  const initialSsl = !dbUrl.includes('.railway.internal') && !dbUrl.includes('localhost') && !dbUrl.includes('sslmode=disable');
+
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const pingPromise = pool.query('SELECT 1 as ping');
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('PostgreSQL indisponível ou tempo limite atingido (15s)')), 15000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('PostgreSQL indisponível ou tempo limite atingido (10s)')), 10000));
       await Promise.race([pingPromise, timeoutPromise]);
       isConnected = true;
       break;
     } catch (pingErr: any) {
+      const errMsg = String(pingErr?.message || pingErr || '');
+      if (errMsg.includes('ENOTFOUND') && dbUrl.includes('.railway.internal')) {
+        console.warn('[DB] Host interno postgres.railway.internal inacessível fora da rede Railway. Usando armazenamento local.');
+        railwayInternalUnreachable = true;
+        return;
+      }
+      if (attempt === 1 && (errMsg.includes('SSL') || errMsg.includes('pg_hba.conf') || errMsg.includes('ECONNRESET') || errMsg.includes('Connection terminated'))) {
+        console.log(`[DB] Alternando modo SSL para ${!initialSsl} e reconectando ao PostgreSQL...`);
+        pool = createPool(!initialSsl);
+        db = drizzle(pool, { schema });
+        continue;
+      }
       if (attempt < 3) {
-        console.warn(`[DB] Tentativa ${attempt} aguardando conexão com Supabase/PostgreSQL, tentando novamente em 1.5s...`);
+        console.warn(`[DB] Tentativa ${attempt} aguardando conexão com PostgreSQL (${errMsg}), tentando novamente em 1.5s...`);
         await new Promise(r => setTimeout(r, 1500));
       } else {
-        console.warn('[DB] PostgreSQL não respondeu ao teste inicial, migrações ignoradas:', pingErr?.message || pingErr);
+        console.warn('[DB] PostgreSQL não respondeu ao teste inicial, migrações ignoradas:', errMsg);
       }
     }
   }
   if (!isConnected) {
+    railwayInternalUnreachable = true;
     return;
   }
 
@@ -273,7 +334,8 @@ export async function ensureTablesExist() {
       notes TEXT DEFAULT '',
       default_address_id TEXT,
       status TEXT DEFAULT 'approved',
-      min_order_value DOUBLE PRECISION DEFAULT 0
+      min_order_value DOUBLE PRECISION DEFAULT 0,
+      monthly_goal DOUBLE PRECISION DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS customer_addresses (
@@ -512,6 +574,7 @@ export async function ensureTablesExist() {
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS default_address_id TEXT;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'approved';
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS min_order_value DOUBLE PRECISION DEFAULT 0;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS monthly_goal DOUBLE PRECISION DEFAULT 0;
 
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS min_order_value DOUBLE PRECISION DEFAULT 0;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS delivery_schedule_enabled BOOLEAN DEFAULT FALSE;

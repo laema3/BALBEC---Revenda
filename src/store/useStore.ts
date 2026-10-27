@@ -376,6 +376,7 @@ export interface Customer {
   defaultAddressId?: string;
   status?: 'pending' | 'approved' | 'rejected';
   minOrderValue?: number;
+  monthlyGoal?: number;
 }
 
 export interface CustomerAddress {
@@ -480,9 +481,10 @@ export const defaultStoreInfo: StoreInfo = {
   instagram: '@balbecrevenda',
   whatsapp: '(34) 3338-3795',
   categoryTitleColor: '#dc2626',
-  deliveryEnabled: true,
+  deliveryEnabled: false,
   inStoreEnabled: true,
-  kioskEnabled: true,
+  kioskEnabled: false,
+  requireQrCodeForOrdering: false,
   isOpen: true,
   ntfyTopic: 'balbecrevenda_pedidos',
   ntfyEnabled: true,
@@ -559,6 +561,9 @@ const getInitialStoreInfo = (): StoreInfo => {
         };
       }
     }
+    info.deliveryEnabled = false;
+    info.kioskEnabled = false;
+    info.requireQrCodeForOrdering = false;
 
     // Garantir que a impressora padrão oficial seja a EPSON com IP 192.168.0.90 e que a Elgin i9 seja ignorada
     if (!info.networkPrinterIp || info.networkPrinterIp === '192.168.1.200') {
@@ -769,10 +774,23 @@ export const useStore = create<StoreState>((set, get) => ({
         // 1. Fetch Categories
         const pCat = fetchWithTimeout('/api/db/categories', 6000)
           .then(safeParseResponse)
-          .then(categories => {
+          .then(async (categories) => {
             if (Array.isArray(categories)) {
-              saveCategoriesToStorage(categories);
-              set({ categories });
+              if (categories.length > 0) {
+                saveCategoriesToStorage(categories);
+                set({ categories });
+              } else {
+                const localCats = get().categories;
+                if (Array.isArray(localCats) && localCats.length > 0) {
+                  for (const cat of localCats) {
+                    fetch('/api/db/categories', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(cat)
+                    }).catch(() => {});
+                  }
+                }
+              }
             }
           })
           .catch(() => {});
@@ -780,33 +798,48 @@ export const useStore = create<StoreState>((set, get) => ({
         // 2. Fetch Products
         const pProd = fetchWithTimeout('/api/db/products', 6000)
           .then(safeParseResponse)
-          .then(rawProducts => {
+          .then(async (rawProducts) => {
             if (Array.isArray(rawProducts)) {
-              const products = rawProducts.map((p: any) => {
-                let availableForDelivery = p.availableForDelivery !== undefined ? Boolean(p.availableForDelivery) : true;
-                let availableInStore = p.availableInStore !== undefined ? Boolean(p.availableInStore) : true;
-                let availableForKiosk = p.availableForKiosk !== undefined ? Boolean(p.availableForKiosk) : true;
+              if (rawProducts.length > 0) {
+                const products = rawProducts.map((p: any) => {
+                  let availableForDelivery = p.availableForDelivery !== undefined ? Boolean(p.availableForDelivery) : true;
+                  let availableInStore = p.availableInStore !== undefined ? Boolean(p.availableInStore) : true;
+                  let availableForKiosk = p.availableForKiosk !== undefined ? Boolean(p.availableForKiosk) : true;
 
-                if (p.description && typeof p.description === 'string' && p.description.includes('[channels:')) {
-                  const match = p.description.match(/\[channels:(.*?)\]/);
-                  if (match) {
-                    const channels = match[1].split(',');
-                    availableForDelivery = channels.includes('delivery');
-                    availableInStore = channels.includes('in_store');
-                    availableForKiosk = channels.includes('kiosk');
+                  if (p.description && typeof p.description === 'string' && p.description.includes('[channels:')) {
+                    const match = p.description.match(/\[channels:(.*?)\]/);
+                    if (match) {
+                      const channels = match[1].split(',');
+                      availableForDelivery = channels.includes('delivery');
+                      availableInStore = channels.includes('in_store');
+                      availableForKiosk = channels.includes('kiosk');
+                    }
+                  }
+
+                  return {
+                    ...p,
+                    description: getEnrichedProductDescription(p.name, p.externalId, p.description),
+                    availableForDelivery,
+                    availableInStore,
+                    availableForKiosk,
+                  };
+                });
+                saveProductsToStorage(products);
+                set({ products, isInitialized: true });
+              } else {
+                const localProds = get().products;
+                if (Array.isArray(localProds) && localProds.length > 0) {
+                  for (let i = 0; i < localProds.length; i += 50) {
+                    const chunk = localProds.slice(i, i + 50);
+                    fetch('/api/db/products/batch', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(chunk)
+                    }).catch(() => {});
                   }
                 }
-
-                return {
-                  ...p,
-                  description: getEnrichedProductDescription(p.name, p.externalId, p.description),
-                  availableForDelivery,
-                  availableInStore,
-                  availableForKiosk,
-                };
-              });
-              saveProductsToStorage(products);
-              set({ products, isInitialized: true });
+                set({ isInitialized: true });
+              }
             } else {
               set({ isInitialized: true });
             }
@@ -826,6 +859,9 @@ export const useStore = create<StoreState>((set, get) => ({
                   ...defaultStoreInfo,
                   ...local,
                   ...storeInfo,
+                  deliveryEnabled: false,
+                  kioskEnabled: false,
+                  requireQrCodeForOrdering: false,
                 };
 
                 if (!storeInfo.whatsapp && local.whatsapp) merged.whatsapp = local.whatsapp;
@@ -929,8 +965,24 @@ export const useStore = create<StoreState>((set, get) => ({
                   ...c,
                   tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
                 }));
-                saveCustomersToStorage(customers);
-                set({ customers });
+                const currentCusts = get().customers || getInitialCustomers();
+                if (customers.length > 0 || currentCusts.length === 0) {
+                  saveCustomersToStorage(customers);
+                  set({ customers });
+                } else if (currentCusts.length > 0) {
+                  // Auto-restaurar clientes em cache para o servidor/banco caso tenha zerado no deploy
+                  (async () => {
+                    const chunkSize = 50;
+                    for (let i = 0; i < currentCusts.length; i += chunkSize) {
+                      const chunk = currentCusts.slice(i, i + chunkSize);
+                      await fetch('/api/db/customers/batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ customers: chunk })
+                      }).catch(() => {});
+                    }
+                  })();
+                }
               }
             })
             .catch(() => {});
@@ -1562,9 +1614,10 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   
   updateStoreInfo: async (info) => {
+    const normalizedInfo = { ...info, deliveryEnabled: false };
     // Optimistic update
     set(state => {
-      const merged = { ...state.storeInfo, ...info };
+      const merged = { ...state.storeInfo, ...normalizedInfo, deliveryEnabled: false };
       saveStoreInfoToStorage(merged);
       return { storeInfo: merged };
     });
@@ -1572,13 +1625,13 @@ export const useStore = create<StoreState>((set, get) => ({
       const res = await fetch('/api/db/store-info', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(info)
+        body: JSON.stringify(normalizedInfo)
       });
       if (res.ok) {
         const updated = await res.json();
         set(state => {
           const local = state.storeInfo;
-          const merged = { ...local, ...updated };
+          const merged = { ...local, ...updated, deliveryEnabled: false };
 
           const customLogo = localStorage.getItem('balbec_custom_logo_url') || local.logoUrl;
           if (customLogo && customLogo !== '/logo.svg' && customLogo.trim() !== '') {
@@ -1638,8 +1691,11 @@ export const useStore = create<StoreState>((set, get) => ({
           ...c,
           tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
         }));
-        saveCustomersToStorage(customers);
-        set({ customers });
+        const currentCusts = get().customers || getInitialCustomers();
+        if (customers.length > 0 || currentCusts.length === 0) {
+          saveCustomersToStorage(customers);
+          set({ customers });
+        }
       }
     } catch (err) {
       console.warn('Erro ao buscar clientes:', err);
