@@ -218,6 +218,7 @@ export const appInstalls = pgTable('app_installs', {
 // Customers & Marketing Leads table
 export const customers = pgTable('customers', {
   id: text('id').primaryKey(),
+  externalId: text('external_id'),
   name: text('name').notNull(),
   phone: text('phone').notNull(),
   email: text('email').default(''),
@@ -229,7 +230,7 @@ export const customers = pgTable('customers', {
   complement: text('complement').default(''),
   neighborhood: text('neighborhood').default(''),
   cep: text('cep').default(''),
-  source: text('source').default('cadastro_cardapio'), // 'cadastro_cardapio' | 'pedido_delivery' | 'pedido_loja' | 'pedido_totem' | 'assistente_ia' | 'popup_novidades' | 'manual'
+  source: text('source').default('cadastro_cardapio'), // 'cadastro_cardapio' | 'pedido_delivery' | 'pedido_loja' | 'pedido_totem' | 'assistente_ia' | 'popup_novidades' | 'manual' | 'bluefocus_erp'
   totalOrders: integer('total_orders').default(0),
   totalSpent: doublePrecision('total_spent').default(0),
   lastOrderAt: bigint('last_order_at', { mode: 'number' }),

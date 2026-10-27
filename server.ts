@@ -564,6 +564,453 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     }
   });
 
+  // API Route for BlueFocus Customer (Pessoa/Cliente) Sync
+  app.post("/api/bluefocus/sync-customers", async (req, res) => {
+    console.log(`[Sync Customers] Recebida requisição de sincronização de clientes: ${req.method} ${req.url}`);
+    try {
+      const {
+        empresaId: reqEmpresaId,
+        usuarioId: reqUsuarioId,
+        pdvCodigo: reqPdvCodigo,
+        syncUrl: reqSyncUrl,
+        tipoAtualizacao: reqTipoAtualizacao,
+        tipo: reqTipo,
+        tipoCliente: reqTipoCliente,
+        dataInicial: reqDataInicial,
+        startCargaNumero = 0,
+        startCargaSequencia = 0,
+        startPessoaId = 0,
+        authToken,
+        batchSize = 20
+      } = req.body;
+
+      const authKey = process.env.BLUE_FOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_TOKEN;
+      const empresaId = reqEmpresaId || process.env.BLUEFOCUS_EMPRESA_ID || process.env.BLUEFOCUS_EMPRESA || 'BALBEC';
+      const usuarioId = reqUsuarioId || process.env.BLUEFOCUS_USUARIO_ID || process.env.BLUEFOCUS_USUARIO || 'CONSULTA';
+      const pdvCodigo = reqPdvCodigo || process.env.BLUEFOCUS_PDV_CODIGO || '1000';
+      const syncUrl = reqSyncUrl || process.env.BLUEFOCUS_SYNC_URL || "http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat";
+      const tipoAtualizacao = reqTipoAtualizacao || 'A';
+      const dataInicial = reqDataInicial || '30/12/1899';
+
+      const isValidToken = (t?: string) => {
+        if (!t) return false;
+        const clean = String(t).trim();
+        return clean.length > 5 && !clean.includes('XXXX') && clean !== 'AGUARDANDO_CHAVE' && clean !== 'undefined' && clean !== 'null';
+      };
+
+      const headers: any = {
+        "Content-Type": "text/xml; charset=utf-8"
+      };
+      if (isValidToken(authToken)) {
+        headers["autentica"] = authToken.trim();
+      } else if (isValidToken(authKey)) {
+        headers["autentica"] = authKey.trim();
+      }
+
+      let allMappedCustomers: any[] = [];
+      let currentCargaNumero = parseInt(String(startCargaNumero)) || 0;
+      let currentCargaSequencia = parseInt(String(startCargaSequencia)) || 0;
+      let lastPessoaId = parseInt(String(startPessoaId)) || 0;
+      let hasMore = true;
+      let iterations = 0;
+      let lastXml = "";
+      let snFim = 'N';
+      let ignoredCount = 0;
+      let ignoredBreakdown: Record<string, number> = { suspended: 0, withoutName: 0 };
+      let lastBatchPeople: any[] = [];
+
+      const visitedMarkers = new Set<string>();
+
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: "@_",
+        isArray: (name) => [
+          "PessoaItem", "pessoaitem", "Pessoa", "PessoasItem", "ClienteItem", "clienteitem", "Cliente",
+          "ParticipanteItem", "CadastroPessoaItem", "EnderecoItem", "PessoaEnderecoItem",
+          "TelefoneItem", "PessoaTelefoneItem", "FoneItem", "EmailItem", "PessoaEmailItem"
+        ].includes(name)
+      });
+
+      const getVal = (obj: any, key: string) => {
+        if (!obj || typeof obj !== 'object') return undefined;
+        const lowerKey = key.toLowerCase();
+        for (const k in obj) {
+          const cleanK = k.toLowerCase().split(':').pop();
+          if (cleanK === lowerKey) {
+            const val = obj[k];
+            if (val && typeof val === 'object' && val['#text'] !== undefined) return val['#text'];
+            return val;
+          }
+        }
+        return undefined;
+      };
+
+      const getFirstVal = (obj: any, keys: string[]): string => {
+        if (!obj || typeof obj !== 'object') return "";
+        for (const k of keys) {
+          const v = getVal(obj, k);
+          if (v !== undefined && v !== null && typeof v !== 'object' && String(v).trim() !== "") {
+            return String(v).trim();
+          }
+        }
+        return "";
+      };
+
+      const extractPeopleArray = (saiaExp: any): any[] => {
+        if (!saiaExp || typeof saiaExp !== 'object') return [];
+        const directKeys = [
+          "PessoaItem", "Pessoa", "PessoasItem", "Pessoas",
+          "ClienteItem", "Cliente", "ClientesItem", "Clientes",
+          "ParticipanteItem", "CadastroPessoaItem"
+        ];
+        for (const key of directKeys) {
+          const found = getVal(saiaExp, key);
+          if (found) {
+            return Array.isArray(found) ? found : [found];
+          }
+        }
+        // Fallback: inspect any key in saiaExp that looks like a person/customer collection (excluding Produto)
+        for (const rawKey of Object.keys(saiaExp)) {
+          const cleanK = (rawKey.toLowerCase().split(':').pop() || '');
+          if (
+            (cleanK.includes('pessoa') || cleanK.includes('cliente') || cleanK.includes('parceiro') || cleanK.includes('consumidor')) &&
+            !cleanK.includes('produto')
+          ) {
+            const val = saiaExp[rawKey];
+            if (val && typeof val === 'object') {
+              return Array.isArray(val) ? val : [val];
+            }
+          }
+        }
+        return [];
+      };
+
+      const buildCustomerSoap = (t: string, tAtu: string, pId: number, cNum: number, cSeq: number) => `<?xml version="1.0"?>
+<SOAP-ENV:Envelope 
+xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<SOAP-ENV:Body>
+<IntegracaoFcxExportaCadSAT.Execute xmlns="Valim">
+<Sdtwebserviceentradaexpcadastro>
+<EmpresaId>${empresaId}</EmpresaId>
+<UsuarioId>${usuarioId}</UsuarioId>
+<PDVCodigo>${pdvCodigo}</PDVCodigo>
+<TipoAtualizacao>${tAtu}</TipoAtualizacao>
+<Tipo>${t}</Tipo>
+<PessoaId>${pId}</PessoaId>
+<CargaPDVNumero>${cNum}</CargaPDVNumero>
+<CargaPDVSequencia>${cSeq}</CargaPDVSequencia>
+<ProdutoId>0</ProdutoId>
+<DataHoraInicio>${dataInicial || "30/12/1899"}</DataHoraInicio>
+</Sdtwebserviceentradaexpcadastro>
+</IntegracaoFcxExportaCadSAT.Execute>
+</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>`;
+
+      // Default Tipo for Pessoas/Clientes in BlueFocus Valim (probes '2', '3', '1', '5' if not locked)
+      const requestedTipo = reqTipoCliente || (reqTipo && String(reqTipo) !== '4' ? String(reqTipo) : '2');
+      let activeTipo = String(requestedTipo);
+      let activeTipoAtualizacao = String(tipoAtualizacao || 'A');
+      const maxIterationsPerCall = Math.min(Number(batchSize) || 10, 20);
+
+      while (iterations < maxIterationsPerCall && hasMore) {
+        const soapCargaNumero = currentCargaNumero;
+        const soapCargaSequencia = currentCargaSequencia;
+        const soapPessoaId = lastPessoaId;
+
+        const markerKey = `${activeTipo}-${activeTipoAtualizacao}-${soapCargaNumero}-${soapCargaSequencia}-${soapPessoaId}`;
+        if (visitedMarkers.has(markerKey)) {
+          console.log(`[Sync Customers] Marker ${markerKey} already visited. Stopping.`);
+          hasMore = false;
+          break;
+        }
+        visitedMarkers.add(markerKey);
+
+        if (iterations > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        iterations++;
+
+        console.log(`[BlueFocus Customers] Requisitando: Tipo=${activeTipo}, Atualizacao=${activeTipoAtualizacao}, Carga=${soapCargaNumero}/${soapCargaSequencia}, PessoaId=${soapPessoaId}, Iteração=${iterations}`);
+
+        try {
+          const executeRequest = async (t: string, tAtu: string) => {
+            const envXml = buildCustomerSoap(t, tAtu, soapPessoaId, soapCargaNumero, soapCargaSequencia);
+            const resp = await axios.post(syncUrl, envXml, { headers, timeout: 25000 });
+            const rawXml = resp.data;
+            const parsed = parser.parse(rawXml);
+            const env = getVal(parsed, "Envelope");
+            const bdy = getVal(env, "Body");
+            const execResp = getVal(bdy, "IntegracaoFcxExportaCadSAT.ExecuteResponse") || getVal(bdy, "ExecuteResponse");
+            const out = getVal(execResp, "Sdtwebservicesaidaexpcadastrosat") || getVal(execResp, "Sdtwebserviceout") || execResp;
+            return { rawXml, saiaExp: out };
+          };
+
+          let { rawXml, saiaExp } = await executeRequest(activeTipo, activeTipoAtualizacao);
+          lastXml = rawXml;
+
+          // Auto-discover the right Tipo for Pessoas/Clientes on the very first call if initial response has no people
+          if (iterations === 1 && extractPeopleArray(saiaExp).length === 0) {
+            const candidateTipos = Array.from(new Set([activeTipo, '2', '3', '1', '5']));
+            const candidateAtus = activeTipoAtualizacao === 'C' ? ['C', 'A'] : [activeTipoAtualizacao];
+            let foundMatch = false;
+
+            for (const cAtu of candidateAtus) {
+              for (const cTipo of candidateTipos) {
+                if (cTipo === activeTipo && cAtu === activeTipoAtualizacao) {
+                  const hasNextMarkers = getVal(saiaExp, "SNFim") === 'N' && !getVal(saiaExp, "ProdutoItem");
+                  if (hasNextMarkers) {
+                    foundMatch = true;
+                    break;
+                  }
+                  continue;
+                }
+                try {
+                  console.log(`[BlueFocus Customers] Sondando Tipo=${cTipo}, TipoAtualizacao=${cAtu} para localizar cadastro de clientes...`);
+                  const probe = await executeRequest(cTipo, cAtu);
+                  const probePeople = extractPeopleArray(probe.saiaExp);
+                  const probeSnFim = getVal(probe.saiaExp, "SNFim");
+                  const hasOnlyProducts = Boolean(getVal(probe.saiaExp, "ProdutoItem")) && probePeople.length === 0;
+                  if (probePeople.length > 0 || (probeSnFim === 'N' && !hasOnlyProducts)) {
+                    activeTipo = cTipo;
+                    activeTipoAtualizacao = cAtu;
+                    rawXml = probe.rawXml;
+                    saiaExp = probe.saiaExp;
+                    lastXml = rawXml;
+                    foundMatch = true;
+                    console.log(`[BlueFocus Customers] Tipo localizado com sucesso: Tipo=${activeTipo}, Atualizacao=${activeTipoAtualizacao} (${probePeople.length} itens no lote inicial)`);
+                    break;
+                  }
+                } catch (_) {}
+              }
+              if (foundMatch) break;
+            }
+          }
+
+          if (!saiaExp) {
+            console.log("[Sync Customers] Resposta vazia ou estrutura desconhecida.");
+            hasMore = false;
+            break;
+          }
+
+          const msgErro = getVal(saiaExp, "MsgErro");
+          if (msgErro && msgErro !== "" && msgErro !== "OK") {
+            return res.status(400).json({ error: msgErro, debugXml: lastXml.substring(0, 2000) });
+          }
+
+          const peopleArray = extractPeopleArray(saiaExp);
+          if (peopleArray.length > 0) {
+            lastBatchPeople = peopleArray;
+            console.log(`[Sync Customers] Iteração ${iterations}: Encontrados ${peopleArray.length} clientes no XML.`);
+
+            for (const item of peopleArray) {
+              const pId = getFirstVal(item, ["PessoaId", "ClienteId", "PessoaCodigo", "ClienteCodigo", "Codigo", "Id"]);
+              if (!pId) continue;
+
+              const currentId = parseInt(pId, 10);
+              if (!isNaN(currentId)) {
+                lastPessoaId = currentId;
+              }
+
+              const isSuspended =
+                getVal(item, "PessoaSNSuspenso") === 'S' ||
+                getVal(item, "PessoaSNBloqueado") === 'S' ||
+                getVal(item, "PessoaSNInativo") === 'S' ||
+                getVal(item, "PessoaSNAtivo") === 'N' ||
+                getVal(item, "ClienteSNSuspenso") === 'S' ||
+                getVal(item, "TipoAtualizacao") === 'E';
+
+              if (isSuspended) {
+                ignoredCount++;
+                ignoredBreakdown.suspended++;
+                continue;
+              }
+
+              const pName = getFirstVal(item, [
+                "PessoaNome", "PessoaRazaoSocial", "PessoaNomeFantasia", "PessoaFantasia",
+                "PessoaDescricao", "ClienteNome", "ClienteRazaoSocial", "Nome", "RazaoSocial", "NomeFantasia"
+              ]);
+
+              if (!pName) {
+                ignoredCount++;
+                ignoredBreakdown.withoutName++;
+                continue;
+              }
+
+              const cpf = getFirstVal(item, [
+                "PessoaCPF", "PessoaCNPJ", "PessoaCPFCNPJ", "PessoaCpfCnpj", "PessoaCnpjCpf",
+                "PessoaDocumento", "PessoaInscricaoFederal", "ClienteCPF", "ClienteCNPJ",
+                "CPF", "CNPJ", "CPFCNPJ", "CpfCnpj", "Documento"
+              ]);
+
+              // Extract phone from direct fields or nested TelefoneItem / PessoaTelefoneItem
+              let phone = getFirstVal(item, [
+                "PessoaCelular", "PessoaFoneCelular", "PessoaWhatsApp", "PessoaFone",
+                "PessoaTelefone", "PessoaFone1", "PessoaTelefone1", "PessoaFone2", "PessoaTelefone2",
+                "ClienteCelular", "ClienteTelefone", "ClienteFone", "Celular", "Telefone", "Fone"
+              ]);
+              const ddd = getFirstVal(item, ["PessoaDDD", "PessoaFoneDDD", "ClienteDDD", "DDD"]);
+
+              if (!phone) {
+                const telItems = getVal(item, "TelefoneItem") || getVal(item, "PessoaTelefoneItem") || getVal(item, "FoneItem");
+                if (telItems) {
+                  const telArr = Array.isArray(telItems) ? telItems : [telItems];
+                  for (const tObj of telArr) {
+                    const candidatePhone = getFirstVal(tObj, ["PessoaFone", "PessoaTelefone", "Telefone", "Fone", "Numero", "Celular"]);
+                    const candidateDdd = getFirstVal(tObj, ["PessoaDDD", "PessoaFoneDDD", "DDD"]);
+                    if (candidatePhone) {
+                      phone = candidateDdd && !candidatePhone.startsWith(candidateDdd) ? `${candidateDdd}${candidatePhone}` : candidatePhone;
+                      break;
+                    }
+                  }
+                }
+              } else if (ddd && !phone.replace(/\D/g, '').startsWith(ddd.replace(/\D/g, ''))) {
+                phone = `(${ddd.replace(/\D/g, '')}) ${phone}`;
+              }
+
+              // Extract email from direct fields or nested EmailItem / PessoaEmailItem
+              let email = getFirstVal(item, [
+                "PessoaEmail", "PessoaEMail", "PessoaEmailNfe", "PessoaEmailComercial",
+                "ClienteEmail", "Email", "EMail"
+              ]).toLowerCase();
+              if (!email) {
+                const emailItems = getVal(item, "EmailItem") || getVal(item, "PessoaEmailItem");
+                if (emailItems) {
+                  const emailArr = Array.isArray(emailItems) ? emailItems : [emailItems];
+                  email = getFirstVal(emailArr[0], ["PessoaEmail", "Email", "EMail", "EnderecoEmail"]).toLowerCase();
+                }
+              }
+
+              // Extract address from direct fields or nested EnderecoItem / PessoaEnderecoItem
+              const endItems = getVal(item, "EnderecoItem") || getVal(item, "PessoaEnderecoItem");
+              const primaryEnd = endItems ? (Array.isArray(endItems) ? endItems[0] : endItems) : null;
+
+              const street = getFirstVal(item, ["PessoaLogradouro", "PessoaEndereco", "ClienteEndereco", "Logradouro", "Endereco", "Rua"]) ||
+                             getFirstVal(primaryEnd, ["PessoaLogradouro", "PessoaEndereco", "EnderecoLogradouro", "Logradouro", "Endereco", "Rua"]);
+              const number = getFirstVal(item, ["PessoaNumero", "PessoaEndNumero", "PessoaEnderecoNumero", "ClienteNumero", "Numero"]) ||
+                             getFirstVal(primaryEnd, ["PessoaNumero", "PessoaEndNumero", "PessoaEnderecoNumero", "EnderecoNumero", "Numero"]);
+              const complement = getFirstVal(item, ["PessoaComplemento", "PessoaEndComplemento", "PessoaEnderecoComplemento", "Complemento"]) ||
+                                 getFirstVal(primaryEnd, ["PessoaComplemento", "PessoaEndComplemento", "EnderecoComplemento", "Complemento"]);
+              const neighborhood = getFirstVal(item, ["PessoaBairro", "PessoaEndBairro", "PessoaEnderecoBairro", "ClienteBairro", "Bairro"]) ||
+                                   getFirstVal(primaryEnd, ["PessoaBairro", "PessoaEndBairro", "EnderecoBairro", "Bairro"]);
+              const cep = getFirstVal(item, ["PessoaCEP", "PessoaCep", "PessoaEndCEP", "PessoaEnderecoCEP", "ClienteCEP", "CEP", "Cep"]) ||
+                          getFirstVal(primaryEnd, ["PessoaCEP", "PessoaCep", "PessoaEndCEP", "EnderecoCEP", "CEP", "Cep"]);
+              const city = getFirstVal(item, ["PessoaCidade", "PessoaMunicipio", "PessoaMunicipioDescricao", "ClienteCidade", "Cidade", "Municipio"]) ||
+                           getFirstVal(primaryEnd, ["PessoaCidade", "PessoaMunicipio", "PessoaMunicipioDescricao", "EnderecoCidade", "Cidade", "Municipio"]);
+              const uf = getFirstVal(item, ["PessoaUF", "PessoaEstado", "ClienteUF", "UF"]) ||
+                         getFirstVal(primaryEnd, ["PessoaUF", "PessoaEstado", "EnderecoUF", "UF"]);
+
+              const obs = getFirstVal(item, ["PessoaObservacao", "PessoaObs", "ClienteObservacao", "Observacao", "Obs"]);
+
+              const addressParts: string[] = [];
+              if (street) addressParts.push(`${street}${number ? `, ${number}` : ''}`);
+              if (complement) addressParts.push(`(${complement})`);
+              if (neighborhood) addressParts.push(`- ${neighborhood}`);
+              if (city) addressParts.push(`- ${city}${uf ? `/${uf}` : ''}`);
+              if (cep) addressParts.push(`- CEP: ${cep}`);
+              const fullAddress = addressParts.join(' ').replace(/\s+/g, ' ').trim();
+
+              const notesParts: string[] = [`Código ERP: ${pId}`];
+              if (cpf) notesParts.push(`CPF/CNPJ: ${cpf}`);
+              if (obs) notesParts.push(obs);
+
+              allMappedCustomers.push({
+                externalId: pId,
+                name: pName,
+                phone: phone || '',
+                email: email || '',
+                cpf: cpf || '',
+                street: street || '',
+                number: number || '',
+                complement: complement || '',
+                neighborhood: neighborhood || '',
+                cep: cep || '',
+                address: fullAddress,
+                notes: notesParts.join(' | '),
+                source: 'bluefocus_erp',
+                status: 'approved',
+                tags: ['Cliente', 'BlueFocus ERP']
+              });
+            }
+          }
+
+          snFim = getVal(saiaExp, "SNFim") || (activeTipo === '1' ? 'S' : 'N');
+
+          if (snFim === 'S') {
+            hasMore = false;
+          } else {
+            const rootNextNumero = getVal(saiaExp, "CargaPDVNumero");
+            const rootNextSequencia = getVal(saiaExp, "CargaPDVSequencia");
+
+            if (rootNextNumero !== undefined && rootNextSequencia !== undefined) {
+              const nNum = parseInt(String(rootNextNumero), 10);
+              const nSeq = parseInt(String(rootNextSequencia), 10);
+              if (nNum === currentCargaNumero && nSeq === currentCargaSequencia) {
+                currentCargaSequencia++;
+              } else {
+                currentCargaNumero = nNum;
+                currentCargaSequencia = nSeq;
+              }
+            } else if (peopleArray.length > 0) {
+              const lastPerson = peopleArray[peopleArray.length - 1];
+              const pNextNumero = parseInt(String(getVal(lastPerson, "CargaPDVNumero") || currentCargaNumero), 10);
+              const pNextSequencia = parseInt(String(getVal(lastPerson, "CargaPDVSequencia") || currentCargaSequencia), 10);
+
+              if (pNextNumero === currentCargaNumero && pNextSequencia === currentCargaSequencia) {
+                currentCargaSequencia++;
+              } else {
+                currentCargaNumero = pNextNumero;
+                currentCargaSequencia = pNextSequencia;
+              }
+            } else {
+              currentCargaSequencia++;
+              if (iterations > 8) {
+                hasMore = false;
+              }
+            }
+          }
+        } catch (error: any) {
+          console.error("[Sync Customers] Batch Error:", error.message);
+          const { message: friendlyMsg, details: det } = formatBlueFocusError(error);
+          return res.status(500).json({
+            error: friendlyMsg,
+            details: det,
+            debugXml: error.response?.data ? String(error.response.data).substring(0, 2000) : undefined
+          });
+        }
+      }
+
+      const lastRawPerson = lastBatchPeople.length > 0 ? lastBatchPeople[lastBatchPeople.length - 1] : null;
+      const lastProcessedName = lastRawPerson
+        ? getFirstVal(lastRawPerson, ["PessoaNome", "PessoaRazaoSocial", "PessoaNomeFantasia", "ClienteNome", "Nome"]) || "Cliente ERP"
+        : null;
+
+      res.json({
+        customers: allMappedCustomers,
+        nextCargaNumero: currentCargaNumero,
+        nextCargaSequencia: currentCargaSequencia,
+        nextPessoaId: lastPessoaId,
+        detectedTipo: activeTipo,
+        snFim: snFim,
+        iterations: iterations,
+        ignoredCount: ignoredCount,
+        ignoredBreakdown: ignoredBreakdown,
+        lastProcessedName,
+        lastCustomerName: allMappedCustomers.length > 0 ? allMappedCustomers[allMappedCustomers.length - 1].name : null,
+        lastCustomerId: allMappedCustomers.length > 0 ? allMappedCustomers[allMappedCustomers.length - 1].externalId : (lastPessoaId ? String(lastPessoaId) : null),
+        debugXml: lastXml.substring(0, 5000)
+      });
+    } catch (error: any) {
+      console.error("BlueFocus Customer Sync Error!", error?.message || error);
+      const { message: friendlyMessage, details: errorDetail } = formatBlueFocusError(error);
+      res.status(500).json({
+        error: friendlyMessage,
+        details: errorDetail
+      });
+    }
+  });
+
   // API Route for BlueFocus Order Export (Pre-Sale)
   app.post("/api/bluefocus/export-order", async (req, res) => {
     console.log(`[Order] Recebida exportação de pedido: ${req.url}`);
@@ -600,6 +1047,10 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <SaidaItemTipoTributacao>T</SaidaItemTipoTributacao>
         </ProdutoItem>`).join('');
 
+      const resolvedClienteId = order.customerExternalId ||
+        (order.customerId && String(order.customerId).startsWith('bf_cust_') ? String(order.customerId).replace('bf_cust_', '') : null) ||
+        '100';
+
       const soapEnvelope = `<?xml version="1.0"?>
 <SOAP-ENV:Envelope 
 xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
@@ -615,7 +1066,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <PDVCodigo>${pdvCodigo}</PDVCodigo>
 <SaidaSNCancela>N</SaidaSNCancela>
 <SaidaDataEmissao>${dateStr}</SaidaDataEmissao>
-<SaidaClienteId>100</SaidaClienteId>
+<SaidaClienteId>${resolvedClienteId}</SaidaClienteId>
 <SaidaDataHoraInclusao>${dateTimeStr}</SaidaDataHoraInclusao>
 <SaidaUsuarioInclusao>${usuarioId}</SaidaUsuarioInclusao>
 <SaidaNumeroVendaFCX>${order.id.replace(/\D/g, '').substring(0, 9) || Math.floor(Math.random() * 100000)}</SaidaNumeroVendaFCX>

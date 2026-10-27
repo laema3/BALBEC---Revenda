@@ -43,7 +43,15 @@ interface ProductConsumptionItem {
   categoryId?: string;
 }
 
-export const CustomersTab: React.FC = () => {
+export interface CustomersTabProps {
+  onSyncBlueFocusCustomers?: (overrideConfig?: any) => void;
+  isSyncingERP?: boolean;
+}
+
+export const CustomersTab: React.FC<CustomersTabProps> = ({
+  onSyncBlueFocusCustomers,
+  isSyncingERP = false
+}) => {
   const { 
     customers, 
     orders,
@@ -346,6 +354,8 @@ export const CustomersTab: React.FC = () => {
       const matchesSearch = !query || 
         c.name.toLowerCase().includes(query) ||
         c.phone.toLowerCase().includes(query) ||
+        (c.externalId && String(c.externalId).toLowerCase().includes(query)) ||
+        (c.cpf && String(c.cpf).toLowerCase().includes(query)) ||
         (c.email && c.email.toLowerCase().includes(query)) ||
         (c.address && c.address.toLowerCase().includes(query)) ||
         (c.notes && c.notes.toLowerCase().includes(query));
@@ -358,6 +368,7 @@ export const CustomersTab: React.FC = () => {
         (selectedSource === 'leads' && (c.source !== 'order' && c.totalOrders === 0)) ||
         (selectedSource === 'delivery' && (c.source === 'delivery' || c.source === 'pedido_delivery')) ||
         (selectedSource === 'instore' && (c.source === 'instore' || c.source === 'pedido_loja' || c.source === 'dine_in')) ||
+        (selectedSource === 'bluefocus_erp' && (c.source === 'bluefocus_erp' || Boolean(c.externalId))) ||
         c.source === selectedSource;
 
       const matchesStatus = statusFilter === 'all' || 
@@ -456,9 +467,11 @@ export const CustomersTab: React.FC = () => {
       return;
     }
 
-    const headers = ['Nome', 'WhatsApp / Telefone', 'Email', 'Endereço', 'Origem', 'Data de Registro', 'Total Pedidos', 'Total Gasto (R$)', 'Data Último Pedido', 'Tags', 'Observações'];
+    const headers = ['Cód. ERP', 'Nome', 'CPF/CNPJ', 'WhatsApp / Telefone', 'Email', 'Endereço', 'Origem', 'Data de Registro', 'Total Pedidos', 'Total Gasto (R$)', 'Data Último Pedido', 'Tags', 'Observações'];
     const rows = filteredCustomers.map(c => [
+      `"${(c.externalId || '').replace(/"/g, '""')}"`,
       `"${(c.name || '').replace(/"/g, '""')}"`,
+      `"${(c.cpf || '').replace(/"/g, '""')}"`,
       `"${(c.phone || '').replace(/"/g, '""')}"`,
       `"${(c.email || '').replace(/"/g, '""')}"`,
       `"${(c.address || '').replace(/"/g, '""')}"`,
@@ -507,10 +520,47 @@ export const CustomersTab: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onSyncBlueFocusCustomers && (
+            <>
+              <button
+                type="button"
+                onClick={() => onSyncBlueFocusCustomers()}
+                disabled={isSyncingERP || isSyncing}
+                className="flex items-center gap-2 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                title="Sincronizar novos clientes ou alterações cadastrais do ERP BlueFocus"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncingERP ? 'animate-spin' : ''}`} />
+                <span>{isSyncingERP ? 'Sincronizando ERP...' : 'Sincronizar Alterações (ERP)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('bluefocus_cliente_carga_numero', '0');
+                  localStorage.setItem('bluefocus_cliente_carga_sequencia', '0');
+                  localStorage.setItem('bluefocus_start_pessoa_id', '0');
+                  localStorage.setItem('bluefocus_tipo_atualizacao_cliente', 'C');
+                  onSyncBlueFocusCustomers({
+                    cargaNumero: 0,
+                    cargaSequencia: 0,
+                    startPessoaId: 0,
+                    tipoAtualizacao: 'C'
+                  });
+                }}
+                disabled={isSyncingERP || isSyncing}
+                className="flex items-center gap-2 px-3.5 py-2.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                title="Zera marcadores e faz uma Carga Total de todos os clientes do ERP BlueFocus"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncingERP ? 'animate-spin' : ''}`} />
+                <span>Zerar & Sincronizar Tudo (Carga Total)</span>
+              </button>
+            </>
+          )}
+
           <button
             type="button"
             onClick={handleSyncFromOrders}
-            disabled={isSyncing}
+            disabled={isSyncing || isSyncingERP}
             className="flex items-center gap-2 px-3.5 py-2.5 bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 font-bold rounded-xl text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             title="Importar e atualizar clientes com base em todos os pedidos realizados"
           >
@@ -634,6 +684,7 @@ export const CustomersTab: React.FC = () => {
               className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
               <option value="all">Todas as Origens</option>
+              <option value="bluefocus_erp">BlueFocus ERP</option>
               <option value="orders">Com Pedidos Realizados</option>
               <option value="leads">Apenas Leads (Sem compras)</option>
               <option value="delivery">Delivery</option>
@@ -702,7 +753,29 @@ export const CustomersTab: React.FC = () => {
                 ? 'Tente remover os filtros de busca para visualizar os registros.'
                 : 'Quando clientes realizarem pedidos ou preencherem o cadastro de novidades, eles aparecerão aqui automaticamente.'}
             </p>
-            <div className="pt-2 flex justify-center gap-2">
+            <div className="pt-2 flex flex-wrap justify-center gap-2">
+              {onSyncBlueFocusCustomers && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('bluefocus_cliente_carga_numero', '0');
+                    localStorage.setItem('bluefocus_cliente_carga_sequencia', '0');
+                    localStorage.setItem('bluefocus_start_pessoa_id', '0');
+                    localStorage.setItem('bluefocus_tipo_atualizacao_cliente', 'C');
+                    onSyncBlueFocusCustomers({
+                      cargaNumero: 0,
+                      cargaSequencia: 0,
+                      startPessoaId: 0,
+                      tipoAtualizacao: 'C'
+                    });
+                  }}
+                  disabled={isSyncingERP}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingERP ? 'animate-spin' : ''}`} />
+                  <span>Sincronizar Clientes do BlueFocus ERP</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSyncFromOrders}
@@ -756,6 +829,11 @@ export const CustomersTab: React.FC = () => {
                           <div>
                             <div className="font-bold text-stone-800 flex items-center gap-1.5 flex-wrap">
                               <span>{customer.name || 'Sem Nome'}</span>
+                              {customer.externalId && (
+                                <span className="text-[10px] bg-blue-100 text-blue-800 font-black px-1.5 py-0.2 rounded-md">
+                                  ERP #{customer.externalId}
+                                </span>
+                              )}
                               {customer.status === 'rejected' && (
                                 <span className="text-[10px] bg-red-100 text-red-800 border border-red-300 font-bold px-1.5 py-0.2 rounded-md">
                                   🔴 Inativo
@@ -767,6 +845,11 @@ export const CustomersTab: React.FC = () => {
                                 </span>
                               )}
                             </div>
+                            {customer.cpf && (
+                              <p className="text-[11px] text-stone-500 font-mono mt-0.5">
+                                Doc: {customer.cpf}
+                              </p>
+                            )}
                             {customer.address && (
                               <p className="text-xs text-stone-400 flex items-center gap-1 mt-0.5 max-w-xs truncate" title={customer.address}>
                                 <MapPin className="w-3 h-3 shrink-0 text-stone-400" />
@@ -868,7 +951,9 @@ export const CustomersTab: React.FC = () => {
                         <div className="space-y-1.5">
                           <div>
                             <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              customer.source === 'popup_novidades'
+                              customer.source === 'bluefocus_erp'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : customer.source === 'popup_novidades'
                                 ? 'bg-amber-100 text-amber-800'
                                 : (customer.source === 'delivery' || customer.source === 'pedido_delivery')
                                 ? 'bg-blue-100 text-blue-800'
@@ -878,7 +963,8 @@ export const CustomersTab: React.FC = () => {
                                 ? 'bg-purple-100 text-purple-800'
                                 : 'bg-stone-100 text-stone-700'
                             }`}>
-                              {customer.source === 'popup_novidades' ? 'Popup Novidades' : 
+                              {customer.source === 'bluefocus_erp' ? 'BlueFocus ERP' :
+                               customer.source === 'popup_novidades' ? 'Popup Novidades' : 
                                (customer.source === 'delivery' || customer.source === 'pedido_delivery') ? 'Delivery' :
                                (customer.source === 'instore' || customer.source === 'pedido_loja' || customer.source === 'dine_in') ? 'Retirada/Mesa' :
                                customer.source === 'order' ? 'Pedido Online' : 'Manual / Lead'}

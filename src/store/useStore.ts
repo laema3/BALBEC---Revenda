@@ -5,6 +5,7 @@ import { safeStorage } from '../utils/storage';
 const CATALOG_CATEGORIES_CACHE_KEY = 'balbec_cached_categories_v3';
 const CATALOG_PRODUCTS_CACHE_KEY = 'balbec_cached_products_v3';
 const ORDERS_CACHE_KEY = 'balbec_cached_orders_v3';
+const CUSTOMERS_CACHE_KEY = 'balbec_cached_customers_v3';
 
 // Purge legacy caches once so old company data never resurfaces from browser storage
 try {
@@ -88,6 +89,25 @@ const saveOrdersToStorage = (list: Order[]): void => {
   try {
     if (Array.isArray(list)) {
       safeStorage.setItem(ORDERS_CACHE_KEY, JSON.stringify(list));
+    }
+  } catch {}
+};
+
+const getInitialCustomers = (): Customer[] => {
+  try {
+    const raw = safeStorage.getItem(CUSTOMERS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
+const saveCustomersToStorage = (list: Customer[]): void => {
+  try {
+    if (Array.isArray(list)) {
+      safeStorage.setItem(CUSTOMERS_CACHE_KEY, JSON.stringify(list));
     }
   } catch {}
 };
@@ -334,6 +354,7 @@ export interface AppInstall {
 
 export interface Customer {
   id: string;
+  externalId?: string;
   name: string;
   phone: string;
   email?: string;
@@ -692,7 +713,7 @@ export const useStore = create<StoreState>((set, get) => ({
   products: getInitialProducts(),
   orders: getInitialOrders(),
   tables: [],
-  customers: [],
+  customers: getInitialCustomers(),
   users: [],
   tvMediaList: getInitialTvMedia(),
   storeInfo: getInitialStoreInfo(),
@@ -709,7 +730,10 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ orders, ordersError: null });
   },
   setTables: (tables) => set({ tables }),
-  setCustomers: (customers) => set({ customers }),
+  setCustomers: (customers) => {
+    saveCustomersToStorage(customers);
+    set({ customers });
+  },
   setOrdersError: (error) => set({ ordersError: error }),
   setUsers: (users) => set({ users }),
   setTvMediaList: (tvMediaList) => {
@@ -905,6 +929,7 @@ export const useStore = create<StoreState>((set, get) => ({
                   ...c,
                   tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
                 }));
+                saveCustomersToStorage(customers);
                 set({ customers });
               }
             })
@@ -1613,6 +1638,7 @@ export const useStore = create<StoreState>((set, get) => ({
           ...c,
           tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
         }));
+        saveCustomersToStorage(customers);
         set({ customers });
       }
     } catch (err) {

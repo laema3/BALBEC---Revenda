@@ -358,6 +358,7 @@ function persistAllStateToMasterFile() {
 // Permanent bundled seed files (ensures full catalog survives container rebuilds)
 const seedProducts: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'products_data.json'), []);
 const seedCategories: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'categories_data.json'), []);
+const seedCustomers: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'customers_data.json'), []);
 const seedStoreInfo: any = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'store_info_data.json'), {});
 const seedTvMedia: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'tv_media_data.json'), []);
 const seedTotemBackups: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'totem_backups_data.json'), []);
@@ -368,6 +369,7 @@ try {
 
   const diskCategories = loadJsonFile(CATEGORIES_FILE, []);
   const diskProducts = loadJsonFile(PRODUCTS_FILE, []);
+  const diskCustomers = loadJsonFile(CUSTOMERS_FILE, []);
 
   memCategories = (Array.isArray(diskCategories) && diskCategories.length > 0)
     ? diskCategories
@@ -394,7 +396,14 @@ try {
     if (o && o.id) initOrderMap.set(String(o.id), { ...(initOrderMap.get(String(o.id)) || {}), ...o });
   });
   memOrders = Array.from(initOrderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-  memCustomers = loadJsonFile(CUSTOMERS_FILE, masterState?.customers || [])
+  const rawCustomers = (Array.isArray(diskCustomers) && diskCustomers.length > 0)
+    ? diskCustomers
+    : (Array.isArray(masterState?.customers) && masterState.customers.length > 0)
+      ? masterState.customers
+      : (Array.isArray(seedCustomers) && seedCustomers.length > 0)
+        ? seedCustomers
+        : [];
+  memCustomers = rawCustomers
     .filter((c: any) => c.source !== 'pedido_totem' && c.source !== 'totem' && (c.name || '').toLowerCase() !== 'cliente totem')
     .map((c: any) => ({
       ...c,
@@ -660,6 +669,122 @@ export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promis
   return saved;
 }
 
+export function formatCustomerForDb(c: any) {
+  let tagsStr = '[]';
+  if (Array.isArray(c.tags)) {
+    tagsStr = JSON.stringify(c.tags);
+  } else if (typeof c.tags === 'string' && c.tags.trim()) {
+    try {
+      const parsed = JSON.parse(c.tags.trim());
+      tagsStr = Array.isArray(parsed) ? JSON.stringify(parsed) : JSON.stringify([String(parsed)]);
+    } catch {
+      tagsStr = JSON.stringify(c.tags.split(',').map((t: string) => t.trim()).filter(Boolean));
+    }
+  }
+  const extId = c.externalId ? String(c.externalId).trim() : (c.external_id ? String(c.external_id).trim() : null);
+  return {
+    id: String(c.id || (extId ? `bf_cust_${extId}` : `cust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)),
+    externalId: extId,
+    name: String(c.name || 'Cliente').trim(),
+    phone: String(c.phone ?? '').trim(),
+    email: String(c.email ?? '').trim(),
+    cpf: String(c.cpf ?? '').trim(),
+    password: String(c.password || '123456'),
+    address: String(c.address ?? '').trim(),
+    street: String(c.street ?? '').trim(),
+    number: String(c.number ?? '').trim(),
+    complement: String(c.complement ?? '').trim(),
+    neighborhood: String(c.neighborhood ?? '').trim(),
+    cep: String(c.cep ?? '').trim(),
+    source: String(c.source || 'cadastro_cardapio'),
+    totalOrders: typeof c.totalOrders === 'number' ? c.totalOrders : (parseInt(c.total_orders, 10) || 0),
+    totalSpent: typeof c.totalSpent === 'number' ? (isNaN(c.totalSpent) ? 0 : c.totalSpent) : (parseFloat(c.total_spent) || 0),
+    lastOrderAt: (c.lastOrderAt || c.last_order_at) ? Number(c.lastOrderAt || c.last_order_at) : null,
+    createdAt: Number(c.createdAt || c.created_at || Date.now()),
+    tags: tagsStr,
+    notes: String(c.notes ?? '').trim(),
+    defaultAddressId: c.defaultAddressId || c.default_address_id || null,
+    status: c.status === 'rejected' ? 'rejected' : 'approved',
+    minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : (parseFloat(c.min_order_value) || 0),
+  };
+}
+
+export async function saveCustomersToPostgresBatch(customerList: any[]): Promise<number> {
+  if (!isDatabaseConfigured() || !Array.isArray(customerList) || customerList.length === 0) return 0;
+  const sanitized = customerList.map(formatCustomerForDb);
+  const CHUNK_SIZE = 50;
+  let savedCount = 0;
+
+  for (let i = 0; i < sanitized.length; i += CHUNK_SIZE) {
+    const chunk = sanitized.slice(i, i + CHUNK_SIZE);
+    try {
+      await withDbRetry(async () => {
+        for (const item of chunk) {
+          await db.insert(customers)
+            .values(item)
+            .onConflictDoUpdate({
+              target: customers.id,
+              set: {
+                externalId: item.externalId,
+                name: item.name,
+                phone: item.phone,
+                email: item.email,
+                cpf: item.cpf,
+                password: item.password,
+                address: item.address,
+                street: item.street,
+                number: item.number,
+                complement: item.complement,
+                neighborhood: item.neighborhood,
+                cep: item.cep,
+                source: item.source,
+                totalOrders: item.totalOrders,
+                totalSpent: item.totalSpent,
+                lastOrderAt: item.lastOrderAt,
+                tags: item.tags,
+                notes: item.notes,
+                defaultAddressId: item.defaultAddressId,
+                status: item.status,
+                minOrderValue: item.minOrderValue,
+              }
+            });
+        }
+      });
+      savedCount += chunk.length;
+    } catch (chunkErr) {
+      console.warn(`[DB Customers Batch Insert] Aviso no bloco ${i}-${i + chunk.length}:`, chunkErr);
+      for (const item of chunk) {
+        try {
+          await db.insert(customers).values(item).onConflictDoUpdate({
+            target: customers.id,
+            set: {
+              externalId: item.externalId,
+              name: item.name,
+              phone: item.phone,
+              email: item.email,
+              cpf: item.cpf,
+              address: item.address,
+              street: item.street,
+              number: item.number,
+              complement: item.complement,
+              neighborhood: item.neighborhood,
+              cep: item.cep,
+              source: item.source,
+              tags: item.tags,
+              notes: item.notes,
+              status: item.status,
+            }
+          });
+          savedCount++;
+        } catch (itemErr) {
+          console.warn(`[DB Customer Item Error] Item ${item.id} pulado:`, itemErr);
+        }
+      }
+    }
+  }
+  return savedCount;
+}
+
 /**
  * Hidrata o estado em memória diretamente do PostgreSQL ao inicializar o servidor.
  * Garante que em ambientes com disco efêmero (como Render e contêineres),
@@ -777,10 +902,25 @@ export async function hydrateFromPostgres(): Promise<void> {
 
     // 3.1. Hidratar Clientes
     try {
-      const custList = await withDbRetry(() => db.select().from(customers));
-      memCustomers = custList || [];
-      persistCustomersToDisk(memCustomers);
-      console.log(`[DB Hydrate] ${memCustomers.length} clientes carregados do PostgreSQL.`);
+      let custList;
+      try {
+        custList = await withDbRetry(() => db.select().from(customers));
+      } catch (err: any) {
+        if (err?.message && (err.message.includes('column') || err.message.includes('does not exist'))) {
+          await ensureTablesExist();
+          custList = await withDbRetry(() => db.select().from(customers));
+        } else {
+          throw err;
+        }
+      }
+      if (custList && custList.length > 0) {
+        memCustomers = custList;
+        persistCustomersToDisk(memCustomers);
+        console.log(`[DB Hydrate] ${memCustomers.length} clientes carregados do PostgreSQL.`);
+      } else if (memCustomers.length > 0) {
+        const saved = await saveCustomersToPostgresBatch(memCustomers);
+        console.log(`[DB Hydrate] Banco sem clientes; ${saved} clientes restaurados do backup local para o PostgreSQL.`);
+      }
     } catch (custErr: any) {
       console.warn('[DB Hydrate] Aviso ao carregar customers do PostgreSQL:', custErr?.message || custErr);
     }
@@ -2488,6 +2628,83 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   });
 
+  app.post('/api/db/customers/batch', async (req: Request, res: Response) => {
+    try {
+      const items: any[] = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.json({ success: true, count: 0 });
+      }
+
+      const itemById = new Map<string, any>();
+      const itemByExtId = new Map<string, any>();
+      const itemByCpf = new Map<string, any>();
+      const itemByPhone = new Map<string, any>();
+
+      for (const c of memCustomers) {
+        if (c.id) itemById.set(String(c.id), c);
+        if (c.externalId && String(c.externalId).trim() !== '' && String(c.externalId).trim() !== '0') {
+          itemByExtId.set(String(c.externalId).trim(), c);
+        }
+        const cpfDigits = String(c.cpf || '').replace(/\D/g, '');
+        if (cpfDigits.length >= 11) itemByCpf.set(cpfDigits, c);
+        const phoneDigits = cleanPhoneDigits(c.phone);
+        if (phoneDigits.length >= 8) itemByPhone.set(phoneDigits, c);
+      }
+
+      const mergedItems: any[] = [];
+      for (const raw of items) {
+        const extId = raw.externalId ? String(raw.externalId).trim() : (raw.external_id ? String(raw.external_id).trim() : '');
+        const cpfDigits = String(raw.cpf || '').replace(/\D/g, '');
+        const phoneDigits = cleanPhoneDigits(raw.phone);
+
+        let existing = (raw.id && itemById.get(String(raw.id))) ||
+                       (extId && extId !== '0' && (itemByExtId.get(extId) || itemById.get(`bf_cust_${extId}`))) ||
+                       (cpfDigits.length >= 11 && itemByCpf.get(cpfDigits)) ||
+                       (phoneDigits.length >= 8 && itemByPhone.get(phoneDigits)) ||
+                       null;
+
+        const formatted = formatCustomerForDb({
+          ...(existing || {}),
+          ...raw,
+          id: existing?.id || raw.id || (extId && extId !== '0' ? `bf_cust_${extId}` : `cust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
+          externalId: extId || existing?.externalId || null,
+          phone: (raw.phone && String(raw.phone).trim()) ? String(raw.phone).trim() : (existing?.phone || ''),
+          email: (raw.email && String(raw.email).trim()) ? String(raw.email).trim() : (existing?.email || ''),
+          cpf: (raw.cpf && String(raw.cpf).trim()) ? String(raw.cpf).trim() : (existing?.cpf || ''),
+          address: (raw.address && String(raw.address).trim()) ? String(raw.address).trim() : (existing?.address || ''),
+          street: (raw.street && String(raw.street).trim()) ? String(raw.street).trim() : (existing?.street || ''),
+          number: (raw.number && String(raw.number).trim()) ? String(raw.number).trim() : (existing?.number || ''),
+          complement: (raw.complement && String(raw.complement).trim()) ? String(raw.complement).trim() : (existing?.complement || ''),
+          neighborhood: (raw.neighborhood && String(raw.neighborhood).trim()) ? String(raw.neighborhood).trim() : (existing?.neighborhood || ''),
+          cep: (raw.cep && String(raw.cep).trim()) ? String(raw.cep).trim() : (existing?.cep || ''),
+          totalOrders: existing?.totalOrders ?? raw.totalOrders ?? 0,
+          totalSpent: existing?.totalSpent ?? raw.totalSpent ?? 0,
+          lastOrderAt: existing?.lastOrderAt ?? raw.lastOrderAt ?? null,
+          createdAt: existing?.createdAt ?? raw.createdAt ?? Date.now(),
+          password: existing?.password || raw.password || '123456',
+          status: existing?.status === 'rejected' ? 'rejected' : (raw.status || 'approved'),
+        });
+
+        itemById.set(formatted.id, formatted);
+        if (formatted.externalId) itemByExtId.set(formatted.externalId, formatted);
+        mergedItems.push(formatted);
+      }
+
+      memCustomers = Array.from(itemById.values());
+      persistCustomersToDisk(memCustomers);
+
+      if (isDatabaseConfigured()) {
+        await saveCustomersToPostgresBatch(mergedItems);
+      }
+      onUpdate?.('catalog');
+      res.json({ success: true, count: mergedItems.length });
+    } catch (error: any) {
+      console.warn('[DB Customers Batch Error]:', error?.message || error);
+      onUpdate?.('catalog');
+      res.json({ success: true, count: (req.body || []).length });
+    }
+  });
+
   app.put('/api/db/customers/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const data = req.body || {};
@@ -2608,22 +2825,30 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     try {
       const { identifier, password } = req.body;
       if (!identifier || !password) {
-        return res.status(400).json({ error: 'Informe o e-mail e a senha.' });
+        return res.status(400).json({ error: 'Informe o e-mail/telefone/CPF e a senha.' });
       }
 
       const cleanId = String(identifier).trim().toLowerCase();
-      const cleanPhone = String(identifier).replace(/\D/g, '');
+      const cleanDigits = String(identifier).replace(/\D/g, '');
+      const cleanPass = String(password).trim();
 
       const cust = memCustomers.find(c => {
         const cEmail = (c.email || '').trim().toLowerCase();
         const cPhone = String(c.phone || '').replace(/\D/g, '');
-        const matchId = (cEmail.length > 0 && cEmail === cleanId) || (cleanPhone.length >= 8 && cPhone === cleanPhone);
-        const matchPass = (c.password || '123456') === password.trim();
+        const cCpf = String(c.cpf || '').replace(/\D/g, '');
+        const cExt = String(c.externalId || '').trim().toLowerCase();
+        const matchId =
+          (cEmail.length > 0 && cEmail === cleanId) ||
+          (cleanDigits.length >= 8 && cPhone === cleanDigits) ||
+          (cleanDigits.length >= 11 && cCpf === cleanDigits) ||
+          (cExt.length > 0 && cExt === cleanId);
+        const storedPass = (c.password || '123456').trim();
+        const matchPass = storedPass === cleanPass || (storedPass === '123456' && cCpf.length >= 6 && cleanPass === cCpf.slice(0, 6));
         return matchId && matchPass;
       });
 
       if (!cust) {
-        return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+        return res.status(401).json({ error: 'E-mail/CPF/Telefone ou senha incorretos.' });
       }
 
       // Se o cliente estava pendente em dados anteriores, aprova automaticamente
@@ -3114,6 +3339,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           }
           if (Array.isArray(data.products)) {
             await saveProductsToPostgresBatch(data.products);
+          }
+          if (Array.isArray(data.customers)) {
+            await saveCustomersToPostgresBatch(data.customers);
           }
           if (Array.isArray(data.tvMedia)) {
             for (const m of data.tvMedia) {

@@ -252,6 +252,7 @@ export async function ensureTablesExist() {
 
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
+      external_id TEXT,
       name TEXT NOT NULL,
       phone TEXT NOT NULL,
       email TEXT DEFAULT '',
@@ -492,6 +493,7 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_completed_at BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_time TEXT;
 
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS external_id TEXT;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS cpf TEXT DEFAULT '';
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS password TEXT DEFAULT '123456';

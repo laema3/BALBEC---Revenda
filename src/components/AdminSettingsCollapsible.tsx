@@ -139,6 +139,7 @@ interface AdminSettingsCollapsibleProps {
   blueFocusConfig: any;
   setBlueFocusConfig: React.Dispatch<React.SetStateAction<any>>;
   handleSyncBlueFocus: (override?: any) => Promise<void>;
+  handleSyncCustomersBlueFocus?: (override?: any) => Promise<void>;
   handleTestBlueFocus: () => Promise<void>;
   isTestingBlueFocus: boolean;
   isSyncing: boolean;
@@ -271,6 +272,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     blueFocusConfig,
     setBlueFocusConfig,
     handleSyncBlueFocus,
+    handleSyncCustomersBlueFocus,
     handleTestBlueFocus,
     isTestingBlueFocus,
     isSyncing,
@@ -3125,8 +3127,23 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                       }`}
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                      {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
+                      {isSyncing ? 'Sincronizando...' : 'Sincronizar Produtos Agora'}
                     </button>
+                    {handleSyncCustomersBlueFocus && (
+                      <button
+                        type="button"
+                        onClick={() => handleSyncCustomersBlueFocus()}
+                        disabled={isSyncing}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                          isSyncing 
+                            ? 'bg-blue-100 text-blue-700 cursor-not-allowed' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        {isSyncing ? 'Sincronizando...' : 'Sincronizar Clientes Agora'}
+                      </button>
+                    )}
                   </div>
 
                   <p className="text-[11px] text-stone-500">

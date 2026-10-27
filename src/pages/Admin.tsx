@@ -114,7 +114,7 @@ export default function Admin() {
     addProduct, updateProduct, deleteProduct,
     addUser, updateUser, deleteUser,
     updateOrderStatus, deleteOrder, clearAllOrders, updateStoreInfo, exportOrderToBlueFocus,
-    fetchData
+    fetchData, fetchCustomers
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -1034,6 +1034,7 @@ export default function Admin() {
       try {
         // Tenta sincronizar primeiro, apenas marca como concluído SE não der erro
         await handleSyncBlueFocus({ tipoAtualizacao: 'A' }, true);
+        await handleSyncCustomersBlueFocus({ tipoAtualizacao: 'A' }, true);
         
         localStorage.setItem('bluefocus_last_auto_sync_slot', todayKey);
         localStorage.setItem('bluefocus_last_auto_sync_timestamp', String(now.getTime()));
@@ -1591,6 +1592,259 @@ export default function Admin() {
         onConfirm: () => setConfirmModal(null),
         debugXml: lastDebugXml || error.debugXml
       });
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+    }
+  };
+
+  const handleSyncCustomersBlueFocus = async (overrideConfig?: any, isAutoSync = false) => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+
+    const activeConfig = { ...blueFocusConfig, ...overrideConfig };
+    let currentCargaNumero = overrideConfig?.cargaNumero !== undefined
+      ? Number(overrideConfig.cargaNumero)
+      : (parseInt(localStorage.getItem('bluefocus_cliente_carga_numero') || '0', 10) || 0);
+    let currentCargaSequencia = overrideConfig?.cargaSequencia !== undefined
+      ? Number(overrideConfig.cargaSequencia)
+      : (parseInt(localStorage.getItem('bluefocus_cliente_carga_sequencia') || '0', 10) || 0);
+    let currentPessoaId = overrideConfig?.startPessoaId !== undefined
+      ? Number(overrideConfig.startPessoaId)
+      : (parseInt(localStorage.getItem('bluefocus_start_pessoa_id') || '0', 10) || 0);
+    const tipoCliente = overrideConfig?.tipoCliente || localStorage.getItem('bluefocus_tipo_cliente') || '2';
+    const tipoAtualizacao = overrideConfig?.tipoAtualizacao || localStorage.getItem('bluefocus_tipo_atualizacao_cliente') || activeConfig.tipoAtualizacao || 'A';
+
+    setSyncProgress({
+      current: 0,
+      total: 0,
+      ignored: 0,
+      status: `Sincronizando Clientes ERP... (Início: ${currentCargaNumero}/${currentCargaSequencia}, Pessoa: ${currentPessoaId})`
+    });
+
+    let allErpCustomers: any[] = [];
+    let hasMore = true;
+    let totalIterations = 0;
+    let totalIgnored = 0;
+    let lastDebugXml = '';
+
+    try {
+      let lastProgressUpdate = Date.now();
+
+      while (hasMore && totalIterations < 50000) {
+        if (Date.now() - lastProgressUpdate > 800) {
+          setSyncProgress(prev => ({
+            ...prev!,
+            current: totalIterations,
+            total: allErpCustomers.length,
+            ignored: totalIgnored,
+            status: `Sincronizando Clientes ERP... (Lote ${Math.floor(totalIterations / 4) + 1})`
+          }));
+          lastProgressUpdate = Date.now();
+        }
+
+        let retryCount = 0;
+        const maxRetries = 3;
+        let response: Response | null = null;
+
+        while (retryCount < maxRetries) {
+          try {
+            response = await fetch('/api/bluefocus/sync-customers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...activeConfig,
+                tipo: tipoCliente,
+                tipoCliente,
+                tipoAtualizacao,
+                startCargaNumero: currentCargaNumero,
+                startCargaSequencia: currentCargaSequencia,
+                startPessoaId: currentPessoaId,
+                batchSize: Number(activeConfig.batchSize) || 4
+              })
+            });
+            if (response.ok) break;
+
+            let serverErrMsg = `Erro no servidor (Status ${response.status})`;
+            try {
+              const text = await response.text();
+              const errPayload = JSON.parse(text);
+              if (errPayload?.error) serverErrMsg = errPayload.error;
+            } catch (_) {}
+            throw new Error(serverErrMsg);
+          } catch (e: any) {
+            retryCount++;
+            if (retryCount >= maxRetries) throw e;
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+
+        if (!response) throw new Error('Falha na comunicação com o servidor ao sincronizar clientes.');
+        const data = await response.json();
+        if (!response.ok) {
+          const err: any = new Error(data.error || 'Erro na API de Clientes BlueFocus');
+          err.debugXml = data.debugXml;
+          throw err;
+        }
+
+        const batchCustomers = data.customers || [];
+        const batchIgnored = data.ignoredCount || 0;
+
+        allErpCustomers = [...allErpCustomers, ...batchCustomers];
+        currentCargaNumero = data.nextCargaNumero ?? currentCargaNumero;
+        currentCargaSequencia = data.nextCargaSequencia ?? currentCargaSequencia;
+        currentPessoaId = data.nextPessoaId ? parseInt(String(data.nextPessoaId), 10) : currentPessoaId;
+        hasMore = data.snFim === 'N';
+        totalIterations += data.iterations || 1;
+        totalIgnored += batchIgnored;
+        lastDebugXml = data.debugXml || lastDebugXml;
+
+        setSyncProgress(prev => ({
+          ...prev!,
+          current: totalIterations,
+          total: allErpCustomers.length,
+          ignored: totalIgnored,
+          lastProcessedName: data.lastProcessedName,
+          lastProductName: data.lastCustomerName,
+          lastProductId: data.lastCustomerId
+        }));
+
+        await new Promise(resolve => setTimeout(resolve, 800));
+        if (!hasMore) break;
+      }
+
+      const uniqueMap = new Map<string, any>();
+      allErpCustomers.forEach(c => {
+        const key = String(c.externalId || c.cpf || c.phone || c.id || Math.random());
+        uniqueMap.set(key, c);
+      });
+      const deduplicatedCustomers = Array.from(uniqueMap.values());
+
+      if (deduplicatedCustomers.length === 0) {
+        const isIncremental = tipoAtualizacao === 'A';
+        addSyncLog({
+          type: isIncremental ? 'Sincronização Clientes Incremental (BlueFocus)' : 'Carga Total Clientes (BlueFocus)',
+          status: 'warning',
+          productsUpdated: 0,
+          productsCreated: 0,
+          categoriesCreated: 0,
+          ignoredCount: totalIgnored,
+          totalRead: totalIterations,
+          details: isIncremental
+            ? `Nenhuma nova alteração de clientes no ERP desde o marcador ${currentCargaNumero}/${currentCargaSequencia}.`
+            : 'Nenhum cliente retornado em modo Carga Total.',
+          user: currentUser?.name || 'Sistema'
+        });
+
+        if (!isAutoSync) {
+          if (isIncremental) {
+            setConfirmModal({
+              isOpen: true,
+              title: 'Sincronização de Clientes ERP',
+              message: `Sincronização concluída.\n\nNão foram encontradas novas alterações de clientes no ERP desde a última carga (${currentCargaNumero}/${currentCargaSequencia}).\n\nSe desejar recarregar todos os clientes do zero, clique em "Zerar e Importar Tudo".`,
+              confirmText: 'Zerar e Importar Tudo (Carga Total)',
+              cancelText: 'Fechar',
+              onConfirm: () => {
+                setConfirmModal(null);
+                localStorage.setItem('bluefocus_cliente_carga_numero', '0');
+                localStorage.setItem('bluefocus_cliente_carga_sequencia', '0');
+                localStorage.setItem('bluefocus_start_pessoa_id', '0');
+                localStorage.setItem('bluefocus_tipo_atualizacao_cliente', 'C');
+                handleSyncCustomersBlueFocus({
+                  cargaNumero: 0,
+                  cargaSequencia: 0,
+                  startPessoaId: 0,
+                  tipoAtualizacao: 'C'
+                });
+              }
+            });
+          } else {
+            setConfirmModal({
+              isOpen: true,
+              title: 'Carga Total de Clientes BlueFocus',
+              message: 'Nenhum registro de cliente foi retornado pelo ERP BlueFocus.\n\nVerifique se há clientes exportáveis para o SAT/PDV configurado.',
+              onConfirm: () => setConfirmModal(null),
+              debugXml: lastDebugXml
+            });
+          }
+        }
+        return;
+      }
+
+      let totalCreated = 0;
+      let totalUpdated = 0;
+
+      for (let i = 0; i < deduplicatedCustomers.length; i += 50) {
+        const chunk = deduplicatedCustomers.slice(i, i + 50);
+        setSyncProgress(prev => ({
+          ...prev!,
+          status: `Salvando Clientes no PostgreSQL... (${Math.min(i + chunk.length, deduplicatedCustomers.length)}/${deduplicatedCustomers.length})`
+        }));
+        const batchRes = await fetch('/api/db/customers/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chunk)
+        });
+        if (batchRes.ok) {
+          const batchStats = await batchRes.json();
+          totalCreated += Number(batchStats.created || 0);
+          totalUpdated += Number(batchStats.updated || 0);
+        }
+      }
+
+      await fetchCustomers();
+
+      localStorage.setItem('bluefocus_cliente_carga_numero', String(currentCargaNumero));
+      localStorage.setItem('bluefocus_cliente_carga_sequencia', String(currentCargaSequencia));
+      localStorage.setItem('bluefocus_start_pessoa_id', String(currentPessoaId));
+      localStorage.setItem('bluefocus_tipo_atualizacao_cliente', 'A');
+
+      addSyncLog({
+        type: tipoAtualizacao === 'C' ? 'Carga Total Clientes (BlueFocus)' : 'Sincronização Clientes (BlueFocus)',
+        status: 'success',
+        productsUpdated: totalUpdated,
+        productsCreated: totalCreated,
+        categoriesCreated: 0,
+        ignoredCount: totalIgnored,
+        totalRead: totalIterations,
+        details: `Clientes sincronizados com sucesso! Lotes lidos: ${totalIterations} | Clientes válidos: ${deduplicatedCustomers.length} | Novos: ${totalCreated} | Atualizados: ${totalUpdated} | Marcador final: ${currentCargaNumero}/${currentCargaSequencia}`,
+        user: currentUser?.name || 'Sistema'
+      });
+
+      if (!isAutoSync) {
+        setConfirmModal({
+          isOpen: true,
+          title: 'Sincronização de Clientes Concluída',
+          message: `Sincronização de clientes finalizada com sucesso!\n\n🔹 Estatísticas:\nLotes lidos no ERP: ${totalIterations}\nClientes válidos encontrados: ${deduplicatedCustomers.length}\nRegistros ignorados (inativos): ${totalIgnored}\n\n🏠 Mudanças no Banco PostgreSQL:\nClientes novos: ${totalCreated}\nClientes atualizados: ${totalUpdated}\n\nMarcador atualizado para: ${currentCargaNumero}/${currentCargaSequencia}`,
+          onConfirm: () => setConfirmModal(null),
+          debugXml: lastDebugXml
+        });
+      }
+    } catch (error: any) {
+      console.error('Customer Sync Error:', error);
+      const detailedError = error.message || 'Ocorreu um erro ao tentar sincronizar os clientes.';
+
+      addSyncLog({
+        type: 'Sincronização Clientes (BlueFocus)',
+        status: 'error',
+        productsUpdated: 0,
+        productsCreated: 0,
+        categoriesCreated: 0,
+        ignoredCount: 0,
+        totalRead: 0,
+        details: detailedError,
+        user: currentUser?.name || 'Sistema'
+      });
+
+      if (!isAutoSync) {
+        setConfirmModal({
+          isOpen: true,
+          title: 'Erro na Sincronização de Clientes',
+          message: detailedError,
+          onConfirm: () => setConfirmModal(null),
+          debugXml: lastDebugXml || error.debugXml
+        });
+      }
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
@@ -5725,6 +5979,7 @@ export default function Admin() {
       blueFocusConfig={blueFocusConfig}
       setBlueFocusConfig={setBlueFocusConfig}
       handleSyncBlueFocus={handleSyncBlueFocus}
+      handleSyncCustomersBlueFocus={handleSyncCustomersBlueFocus}
       handleTestBlueFocus={handleTestBlueFocus}
       isTestingBlueFocus={isTestingBlueFocus}
       isSyncing={isSyncing}
@@ -8189,7 +8444,12 @@ export default function Admin() {
 
         {activeTab === 'dashboard' && !isCaixaUser && renderDashboard()}
         {activeTab === 'orders' && !isPadrao && renderOrders()}
-        {activeTab === 'customers' && (isAdminOrMaster || isCaixaUser) && <CustomersTab />}
+        {activeTab === 'customers' && (isAdminOrMaster || isCaixaUser) && (
+          <CustomersTab
+            onSyncBlueFocusCustomers={handleSyncCustomersBlueFocus}
+            isSyncingERP={isSyncing}
+          />
+        )}
         {activeTab === 'tables' && (isAdminOrMaster || isCaixaUser) && <TableManagerTab orders={orders} />}
         {activeTab === 'drivers' && (isAdminOrMaster || isCaixaUser) && <DriversTab orders={orders} />}
         {activeTab === 'delivery_zones' && (isAdminOrMaster || isCaixaUser) && <DeliveryZonesTab />}
@@ -8201,6 +8461,93 @@ export default function Admin() {
         {activeTab === 'settings' && !isCaixaUser && isMaster && renderSettings()}
         {activeTab === 'users' && !isCaixaUser && isMaster && renderUsers()}
       </main>
+
+      {/* Global ERP Sync Progress Modal when not on products tab */}
+      {syncProgress && activeTab !== 'products' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-lg w-full p-6 space-y-5 relative overflow-hidden">
+            <div className="flex items-center gap-4 border-b border-stone-100 pb-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 shadow-inner">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+                  Sincronização ERP BlueFocus
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Evolução da importação e atualização no banco de dados PostgreSQL em tempo real
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs font-semibold">
+                <span className="text-blue-600 flex items-center gap-1.5 truncate max-w-[280px]">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping shrink-0"></span>
+                  <span className="truncate">{syncProgress.status}</span>
+                </span>
+                <span className="text-stone-500 font-mono text-[11px] shrink-0">
+                  {syncProgress.total > 0 ? `${syncProgress.total} válidos` : `${syncProgress.current} lidos`}
+                </span>
+              </div>
+              <div className="w-full bg-stone-100 h-3 rounded-full overflow-hidden p-0.5 border border-stone-200">
+                <div
+                  className="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-300 relative overflow-hidden"
+                  style={{ width: '100%' }}
+                >
+                  <div className="absolute inset-0 bg-white/25 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 text-center">
+                <div className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">Lotes Lidos</div>
+                <div className="text-xl font-extrabold text-stone-800 mt-0.5 font-mono">
+                  {syncProgress.current}
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200/80 text-center">
+                <div className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Registros Válidos</div>
+                <div className="text-xl font-extrabold text-emerald-700 mt-0.5 font-mono">
+                  {syncProgress.total}
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200/80 text-center">
+                <div className="text-[10px] uppercase font-bold text-amber-600 tracking-wider">Itens Ignorados</div>
+                <div className="text-xl font-extrabold text-amber-700 mt-0.5 font-mono">
+                  {syncProgress.ignored}
+                </div>
+              </div>
+            </div>
+
+            {syncProgress.lastProcessedName && (
+              <div className="bg-stone-50 rounded-xl p-3.5 border border-stone-200/80 space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-between">
+                  <span>Evolução da Leitura</span>
+                  <span className="text-blue-500 font-normal italic">Processando...</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-xs font-semibold text-stone-700 truncate flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0"></span>
+                    <span className="text-stone-400 text-[10px] shrink-0">Último Lido:</span>
+                    <span className="truncate italic font-normal text-stone-600">{syncProgress.lastProcessedName}</span>
+                  </div>
+                  {syncProgress.lastProductName && (
+                    <div className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1.5 bg-emerald-100/70 p-2 rounded-lg border border-emerald-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="text-[10px] text-emerald-700 uppercase tracking-wide shrink-0">Último Válido:</span>
+                      <span className="truncate">{syncProgress.lastProductName}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {confirmModal && (
