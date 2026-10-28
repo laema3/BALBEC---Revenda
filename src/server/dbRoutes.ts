@@ -27,7 +27,7 @@ const DEFAULT_STORE_INFO = {
   address: 'Praça Dr. Jorge Frange, 72 - São Benedito, Uberaba - MG',
   hours: 'De segunda à sábado das 06:00h às 20:00h.\nDomingo das 07:00h às 13:00h.',
   instagram: '@balbecrevenda',
-  whatsapp: '(34) 3338-3795',
+  whatsapp: '(34) 99632-0500',
   categoryTitleColor: '#e6a800',
   deliveryEnabled: false,
   deliveryScheduleEnabled: false,

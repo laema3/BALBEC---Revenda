@@ -6293,16 +6293,14 @@ export default function Menu() {
                 </button>
               )}
 
-              {storeInfo.whatsapp && (
-                <a
-                  href={`https://wa.me/55${storeInfo.whatsapp.replace(/\D/g, '').replace(/^55/, '')}?text=${encodeURIComponent('Olá! Gostaria de tirar dúvidas sobre o sistema e produtos da Balbec.')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                >
-                  <span>💬 Falar no WhatsApp</span>
-                </a>
-              )}
+              <a
+                href={`https://wa.me/5534996320500?text=${encodeURIComponent('Olá! Gostaria de tirar dúvidas sobre o sistema e produtos da Balbec.')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              >
+                <span>💬 Falar no WhatsApp (34 99632-0500)</span>
+              </a>
 
               <button
                 type="button"
