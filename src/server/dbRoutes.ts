@@ -98,7 +98,8 @@ const DEFAULT_STORE_INFO = {
   mercadoPagoPublicKey: '',
   mercadoPagoPixKey: '3433383795',
   deliveryEstimatedTimeMin: 35,
-  deliveryEstimatedTimeMax: 50
+  deliveryEstimatedTimeMax: 50,
+  showSystemIntroButton: true
 };
 
 export function sanitizeStoreInfoPrinters(info: any) {

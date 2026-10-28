@@ -625,6 +625,7 @@ export default function Admin() {
   const [kioskEnabledState, setKioskEnabledState] = useState<boolean>(storeInfo.kioskEnabled !== false);
   const [requireQrCodeForOrderingState, setRequireQrCodeForOrderingState] = useState<boolean>(storeInfo.requireQrCodeForOrdering !== false);
   const [isMaintenanceState, setIsMaintenanceState] = useState<boolean>(storeInfo.isMaintenance || false);
+  const [showSystemIntroButtonState, setShowSystemIntroButtonState] = useState<boolean>(storeInfo.showSystemIntroButton !== false);
 
   // Weekly Schedule & Auto Open/Close State
   const [weeklyScheduleState, setWeeklyScheduleState] = useState<DaySchedule[]>(() => parseWeeklySchedule(storeInfo.weeklySchedule));
@@ -902,8 +903,10 @@ export default function Admin() {
     if (storeInfo.mercadoPagoPixKey !== undefined) setMercadoPagoPixKeyState(storeInfo.mercadoPagoPixKey);
     if (storeInfo.deliveryEstimatedTimeMin !== undefined) setDeliveryEstimatedTimeMinState(Number(storeInfo.deliveryEstimatedTimeMin) || 35);
     if (storeInfo.deliveryEstimatedTimeMax !== undefined) setDeliveryEstimatedTimeMaxState(Number(storeInfo.deliveryEstimatedTimeMax) || 50);
+    if (storeInfo.showSystemIntroButton !== undefined) setShowSystemIntroButtonState(storeInfo.showSystemIntroButton !== false);
   }, [
     storeInfo.logoUrl,
+    storeInfo.showSystemIntroButton,
     storeInfo.themeColor,
     storeInfo.addButtonColor,
     storeInfo.iconColor,
@@ -2610,6 +2613,7 @@ export default function Admin() {
       tvSoundEnabled: storeInfo.tvSoundEnabled ?? false,
       tvShowClock: storeInfo.tvShowClock ?? true,
       tvShowCaptions: storeInfo.tvShowCaptions ?? false,
+      showSystemIntroButton: showSystemIntroButtonState,
     };
     try {
       await updateStoreInfo(data);
@@ -5843,6 +5847,15 @@ export default function Admin() {
     }
   };
 
+  const handleToggleShowSystemIntroButton = async (val: boolean) => {
+    setShowSystemIntroButtonState(val);
+    try {
+      await updateStoreInfo({ showSystemIntroButton: val });
+    } catch (err) {
+      console.error('Erro ao atualizar exibição do botão flutuante:', err);
+    }
+  };
+
   const handleSetOperationMode = (mode: 'auto' | 'open' | 'closed') => {
     if (mode === 'auto') {
       setIsOpenState(true);
@@ -6316,6 +6329,47 @@ export default function Admin() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Botão Flutuante: Conhecer o Sistema */}
+          <div className="pt-6 border-t">
+            <h3 className="text-lg font-bold text-stone-800 mb-2 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              Botão Flutuante "Conhecer o Sistema"
+            </h3>
+            <p className="text-xs text-stone-500 mb-4">
+              Ative ou desative o botão flutuante que aparece no canto inferior do cardápio convidando clientes a conhecerem as funcionalidades e entrar em contato pelo WhatsApp.
+            </p>
+
+            <label className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50/70 to-orange-50/50 hover:bg-amber-100/60 rounded-2xl border border-amber-200 cursor-pointer transition-colors shadow-xs">
+              <div className="space-y-1 pr-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-stone-900">
+                    Exibir Botão Flutuante (CLIQUE PARA CONHECER ESSE SISTEMA)
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    showSystemIntroButtonState 
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                      : 'bg-stone-200 text-stone-600 border border-stone-300'
+                  }`}>
+                    {showSystemIntroButtonState ? 'Ativado (Visível no Cardápio)' : 'Desativado (Oculto)'}
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600">
+                  Ao desativar, o botão flutuante e a janela de apresentação não serão exibidos no cardápio público dos clientes.
+                </p>
+              </div>
+              <div className="relative shrink-0">
+                <input 
+                  type="checkbox" 
+                  name="showSystemIntroButton" 
+                  checked={showSystemIntroButtonState}
+                  onChange={(e) => handleToggleShowSystemIntroButton(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-12 h-7 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-600"></div>
+              </div>
+            </label>
           </div>
 
           <div className="pt-6 border-t">

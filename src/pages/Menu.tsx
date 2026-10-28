@@ -6149,7 +6149,7 @@ export default function Menu() {
       )}
 
       {/* Botão Flutuante: "CLIQUE PARA CONHECER ESSE SISTEMA" */}
-      {!isCheckout && !isCartOpen && (
+      {!isCheckout && !isCartOpen && storeInfo.showSystemIntroButton !== false && (
         <div 
           className={`fixed z-40 transition-all duration-300 ${
             cart.length > 0 ? 'bottom-22 sm:bottom-24 left-3 sm:left-6' : 'bottom-4 sm:bottom-6 left-3 sm:left-6'
