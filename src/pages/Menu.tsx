@@ -4284,7 +4284,7 @@ export default function Menu() {
               <img
                 src={storeInfo.logoUrl}
                 alt="Logo"
-                className="w-24 h-24 sm:w-28 sm:h-28 aspect-square object-cover rounded-full shadow-md border-2 border-stone-100 mb-3"
+                className="w-32 h-32 sm:w-36 sm:h-36 aspect-square object-cover rounded-full shadow-md border-2 border-stone-100 mb-3"
                 referrerPolicy="no-referrer"
               />
             ) : (
@@ -4861,7 +4861,7 @@ export default function Menu() {
                 <img 
                   src={storeInfo.logoUrl} 
                   alt="Logo" 
-                  className="w-16 h-16 sm:w-[86px] sm:h-[86px] md:w-[110px] md:h-[110px] aspect-square object-cover rounded-full shrink-0 shadow-sm border border-stone-200"
+                  className="w-20 h-20 sm:w-[104px] sm:h-[104px] md:w-[132px] md:h-[132px] aspect-square object-cover rounded-full shrink-0 shadow-sm border border-stone-200"
                   referrerPolicy="no-referrer"
                 />
               ) : null}
