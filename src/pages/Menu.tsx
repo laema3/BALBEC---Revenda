@@ -33,6 +33,7 @@ export default function Menu() {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchData();
@@ -1434,7 +1435,7 @@ export default function Menu() {
     setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
   };
 
-  const initiateAddToCart = (product: any) => {
+  const initiateAddToCartWithQty = (product: any, qty: number = 1) => {
     if (!hasChosenChannel) {
       setHasChosenChannel(true);
       safeStorage.setSession('selected_sales_channel', salesChannel || 'delivery');
@@ -1449,7 +1450,6 @@ export default function Menu() {
     const prodName = normalizeText(product?.name || '');
 
     // Regra de Negócio BALBEC: Apenas lanches na chapa possuem adicionais!
-    // Caldos (incluindo Caldo Misto, Caldo Verde, Caldo de Feijão, etc.), sopas, bebidas, doces, salgados e outros produtos NUNCA abrem modal de adicionais.
     const isExplicitlyNonLanche = 
       prodName.includes('caldo') || 
       prodName.includes('sopa') || 
@@ -1554,13 +1554,11 @@ export default function Menu() {
       return;
     }
     
-    const qtyStr = prompt(`Digite a quantidade desejada para "${product.name}":`, "1");
-    if (qtyStr !== null) {
-      const q = parseInt(qtyStr, 10);
-      if (!isNaN(q) && q > 0) {
-        addToCart(product, [], null, q);
-      }
-    }
+    addToCart(product, [], null, qty);
+  };
+
+  const initiateAddToCart = (product: any) => {
+    initiateAddToCartWithQty(product, 1);
   };
 
   const updateQuantity = (productId: string, addons: any[] | undefined, flavor: any | undefined, delta: number) => {
@@ -5355,15 +5353,41 @@ export default function Menu() {
                                   👁️ Apenas visualização
                                 </span>
                               ) : (
-                                <button 
-                                  onClick={() => initiateAddToCart(product)}
-                                  disabled={!canBuy}
-                                  className="w-10 h-10 sm:w-14 sm:h-14 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-white transition-all transform active:scale-95 shadow-md shadow-orange-500/30 cursor-pointer shrink-0"
-                                  style={{ backgroundColor: storeInfo.addButtonColor || storeInfo.themeColor }}
-                                  title="Adicionar ao pedido"
-                                >
-                                  <Plus className="w-5 h-5 sm:w-8 sm:h-8 lg:w-6 lg:h-6 xl:w-7 xl:h-7" />
-                                </button>
+                                <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-2xl border border-stone-200">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="9999"
+                                    value={productQuantities[product.id] ?? 1}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value, 10);
+                                      setProductQuantities(prev => ({
+                                        ...prev,
+                                        [product.id]: isNaN(val) ? 1 : Math.max(1, val)
+                                      }));
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const qty = productQuantities[product.id] ?? 1;
+                                        initiateAddToCartWithQty(product, qty);
+                                      }
+                                    }}
+                                    className="w-12 sm:w-14 text-center font-black text-xs sm:text-sm py-1.5 bg-white text-stone-900 rounded-xl border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none font-mono"
+                                    title="Digite a quantidade"
+                                  />
+                                  <button 
+                                    onClick={() => {
+                                      const qty = productQuantities[product.id] ?? 1;
+                                      initiateAddToCartWithQty(product, qty);
+                                    }}
+                                    disabled={!canBuy}
+                                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-white transition-all transform active:scale-95 shadow-md shadow-orange-500/30 cursor-pointer shrink-0"
+                                    style={{ backgroundColor: storeInfo.addButtonColor || storeInfo.themeColor }}
+                                    title="Adicionar quantidade ao pedido"
+                                  >
+                                    <Plus className="w-4 h-4 sm:w-6 sm:h-6" />
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
