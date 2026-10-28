@@ -5937,6 +5937,9 @@ export default function Admin() {
       setThemeColor={setThemeColor}
       addButtonColor={addButtonColor}
       setAddButtonColor={setAddButtonColor}
+      showSystemIntroButtonState={showSystemIntroButtonState}
+      setShowSystemIntroButtonState={setShowSystemIntroButtonState}
+      handleToggleShowSystemIntroButton={handleToggleShowSystemIntroButton}
       isOpenState={isOpenState}
       setIsOpenState={handleToggleIsOpen}
       forceOpenState={forceOpenState}
@@ -8147,6 +8150,19 @@ export default function Admin() {
               <span>{orders.filter(o => o.status === 'pending').length}</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => handleToggleShowSystemIntroButton(!showSystemIntroButtonState)}
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              showSystemIntroButtonState 
+                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25' 
+                : 'bg-stone-800 text-stone-400 border-stone-700 hover:text-stone-300'
+            }`}
+            title="Ativar ou desativar o botão flutuante 'Conhecer o Sistema' no cardápio"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>Botão Conhecer: {showSystemIntroButtonState ? 'ON' : 'OFF'}</span>
+          </button>
           <Link
             to="/"
             className="text-xs bg-stone-800 hover:bg-stone-700 text-stone-200 px-3 py-2 rounded-xl font-bold transition-colors"
@@ -8427,6 +8443,26 @@ export default function Admin() {
             </span>
             <span className={`text-xs px-2 py-1 rounded-full ${isSoundEnabled ? 'bg-green-500/20 text-green-400' : 'bg-stone-700 text-stone-400'}`}>
               {isSoundEnabled ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
+          {/* Quick Toggle: Botão Flutuante (Conhecer o Sistema) */}
+          <button 
+            type="button" 
+            onClick={() => handleToggleShowSystemIntroButton(!showSystemIntroButtonState)}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all text-stone-300 hover:bg-stone-800 hover:text-white border border-stone-800 hover:border-amber-500/40 cursor-pointer group"
+            title="Clique para ativar ou desativar o botão flutuante 'Conhecer o Sistema' no cardápio"
+          >
+            <span className="flex items-center gap-2.5 text-xs font-bold text-left">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
+              <span>Botão "Conhecer"</span>
+            </span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-colors ${
+              showSystemIntroButtonState 
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' 
+                : 'bg-stone-800 text-stone-500 border border-stone-700'
+            }`}>
+              {showSystemIntroButtonState ? 'LIGADO' : 'DESLIGADO'}
             </span>
           </button>
           <Link 

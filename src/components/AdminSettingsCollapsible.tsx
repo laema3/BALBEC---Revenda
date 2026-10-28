@@ -74,6 +74,9 @@ interface AdminSettingsCollapsibleProps {
   setThemeColor: (color: string) => void;
   addButtonColor: string;
   setAddButtonColor: (color: string) => void;
+  showSystemIntroButtonState?: boolean;
+  setShowSystemIntroButtonState?: (v: boolean) => void;
+  handleToggleShowSystemIntroButton?: (v: boolean) => void;
   
   // Channels
   isOpenState: boolean;
@@ -218,6 +221,8 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     setThemeColor,
     addButtonColor,
     setAddButtonColor,
+    showSystemIntroButtonState = true,
+    handleToggleShowSystemIntroButton,
     isOpenState,
     setIsOpenState,
     forceOpenState = false,
@@ -552,6 +557,48 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
             <ChevronsUpDown className="w-4 h-4" />
             <span>{openCount === 0 ? 'Expandir Todas' : 'Recolher Todas'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* CARD DE DESTAQUE: Botão Flutuante Conhecer o Sistema */}
+      <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 rounded-2xl p-4 sm:p-5 border-2 border-amber-400 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md shrink-0">
+            <Sparkles className="w-6 h-6 text-yellow-200 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm sm:text-base font-black text-stone-900">
+                Botão Flutuante: "CLIQUE PARA CONHECER ESSE SISTEMA"
+              </span>
+              <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                showSystemIntroButtonState 
+                  ? 'bg-emerald-600 text-white shadow-xs' 
+                  : 'bg-stone-300 text-stone-700'
+              }`}>
+                {showSystemIntroButtonState ? '🟢 Ativado (Visível no Cardápio)' : '⚪ Desativado (Oculto)'}
+              </span>
+            </div>
+            <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+              Exibe um botão flutuante dourado no canto inferior do cardápio público para os clientes conhecerem o sistema e abrirem o WhatsApp direto (34-9-9632-0500).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+          <label className="relative cursor-pointer flex items-center gap-3 bg-white/90 px-3.5 py-2 rounded-xl border border-amber-300 shadow-xs hover:bg-white transition-all">
+            <span className="text-xs font-black text-stone-800">
+              {showSystemIntroButtonState ? 'LIGADO' : 'DESLIGADO'}
+            </span>
+            <input 
+              type="checkbox" 
+              name="showSystemIntroButton" 
+              checked={showSystemIntroButtonState}
+              onChange={(e) => handleToggleShowSystemIntroButton?.(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-12 h-7 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
         </div>
       </div>
 
@@ -1371,6 +1418,29 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                     <input type="color" value={addButtonColor} onChange={(e) => setAddButtonColor(e.target.value)} className="h-10 w-16 rounded-lg cursor-pointer" />
                     <input type="text" value={addButtonColor} onChange={(e) => setAddButtonColor(e.target.value)} className="flex-1 p-2 border rounded-lg text-xs font-mono" />
                   </div>
+                </div>
+
+                <div className="pt-3 border-t border-stone-200">
+                  <label className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-100 transition-colors">
+                    <div>
+                      <span className="text-xs font-bold text-stone-800 block">
+                        Botão Flutuante (Conhecer o Sistema)
+                      </span>
+                      <span className="text-[11px] text-stone-500">
+                        {showSystemIntroButtonState ? 'Visível no cardápio dos clientes' : 'Oculto'}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="checkbox" 
+                        name="showSystemIntroButton_sec4" 
+                        checked={showSystemIntroButtonState}
+                        onChange={(e) => handleToggleShowSystemIntroButton?.(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>
