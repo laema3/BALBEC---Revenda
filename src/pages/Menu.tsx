@@ -5353,41 +5353,82 @@ export default function Menu() {
                                   👁️ Apenas visualização
                                 </span>
                               ) : (
-                                <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-2xl border border-stone-200">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="9999"
-                                    value={productQuantities[product.id] ?? 1}
-                                    onChange={(e) => {
-                                      const val = parseInt(e.target.value, 10);
-                                      setProductQuantities(prev => ({
-                                        ...prev,
-                                        [product.id]: isNaN(val) ? 1 : Math.max(1, val)
-                                      }));
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        const qty = productQuantities[product.id] ?? 1;
-                                        initiateAddToCartWithQty(product, qty);
-                                      }
-                                    }}
-                                    className="w-12 sm:w-14 text-center font-black text-xs sm:text-sm py-1.5 bg-white text-stone-900 rounded-xl border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none font-mono"
-                                    title="Digite a quantidade"
-                                  />
-                                  <button 
-                                    onClick={() => {
-                                      const qty = productQuantities[product.id] ?? 1;
-                                      initiateAddToCartWithQty(product, qty);
-                                    }}
-                                    disabled={!canBuy}
-                                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-white transition-all transform active:scale-95 shadow-md shadow-orange-500/30 cursor-pointer shrink-0"
-                                    style={{ backgroundColor: storeInfo.addButtonColor || storeInfo.themeColor }}
-                                    title="Adicionar quantidade ao pedido"
-                                  >
-                                    <Plus className="w-4 h-4 sm:w-6 sm:h-6" />
-                                  </button>
-                                </div>
+                                (() => {
+                                  const cartItem = cart.find(ci => ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor);
+                                  const inCartQty = cartItem?.quantity || 0;
+                                  const currentQty = inCartQty > 0 ? inCartQty : (productQuantities[product.id] ?? 1);
+
+                                  return (
+                                    <div className="flex items-center gap-1.5 bg-stone-100 rounded-xl p-1">
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          if (inCartQty > 0) {
+                                            updateQuantity(product.id, cartItem?.addons, cartItem?.flavor, -1);
+                                          } else {
+                                            setProductQuantities(prev => ({
+                                              ...prev,
+                                              [product.id]: Math.max(1, (prev[product.id] ?? 1) - 1)
+                                            }));
+                                          }
+                                        }}
+                                        className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                                        title={currentQty === 1 ? (inCartQty > 0 ? "Remover do pedido" : "Mínimo 1") : "Diminuir"}
+                                      >
+                                        {currentQty === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
+                                      </button>
+
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="9999"
+                                        value={currentQty}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value, 10);
+                                          if (inCartQty > 0) {
+                                            if (isNaN(val) || val <= 0) {
+                                              setCart(prev => prev.filter(ci => !(ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor)));
+                                            } else {
+                                              const q = Math.max(1, val);
+                                              setCart(prev => prev.map(ci => (ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor) ? { ...ci, quantity: q } : ci));
+                                            }
+                                          } else {
+                                            setProductQuantities(prev => ({
+                                              ...prev,
+                                              [product.id]: isNaN(val) ? 1 : Math.max(1, val)
+                                            }));
+                                          }
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            if (inCartQty === 0) {
+                                              const qty = productQuantities[product.id] ?? 1;
+                                              initiateAddToCartWithQty(product, qty);
+                                            }
+                                          }
+                                        }}
+                                        className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                                        title="Digite a quantidade"
+                                      />
+
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          if (inCartQty > 0) {
+                                            updateQuantity(product.id, cartItem?.addons, cartItem?.flavor, 1);
+                                          } else {
+                                            const qty = productQuantities[product.id] ?? 1;
+                                            initiateAddToCartWithQty(product, qty);
+                                          }
+                                        }}
+                                        className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                                        title={inCartQty > 0 ? "Aumentar" : "Adicionar ao pedido"}
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  );
+                                })()
                               )}
                             </div>
                           </div>
