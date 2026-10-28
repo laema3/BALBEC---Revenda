@@ -2,7 +2,7 @@
   "storeInfo": {
     "id": "default",
     "name": "BALBEC - REVENDA",
-    "themeColor": "#e6a800",
+    "themeColor": "#123456",
     "addButtonColor": "#e6a800",
     "iconColor": "#e6a800",
     "headerPhrase": "Salgados Especiais e Revenda",
@@ -71,11 +71,11 @@
     "mercadoPagoPixKey": "3433383795",
     "deliveryEstimatedTimeMin": 35,
     "deliveryEstimatedTimeMax": 50,
+    "minOrderValue": 150,
     "onlinePaymentEnabled": false,
     "onlinePaymentOperator": "mercadopago",
     "onlinePaymentPublicKey": "",
-    "onlinePaymentSecretKey": "",
-    "minOrderValue": 150
+    "onlinePaymentSecretKey": ""
   },
   "tvMedia": [
     {
@@ -155,5 +155,5 @@
   "totemBackups": [],
   "drivers": [],
   "deliveryZones": [],
-  "savedAt": "2026-10-27T15:53:56.985Z"
+  "savedAt": "2026-10-28T01:14:54.240Z"
 }

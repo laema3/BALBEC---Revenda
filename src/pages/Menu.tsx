@@ -5581,7 +5581,7 @@ export default function Menu() {
                   )}
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
                     <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0))} un</span>
-                    <div className="flex items-center gap-2 bg-stone-100 rounded-xl p-1">
+                     <div className="flex items-center gap-1.5 bg-stone-100 rounded-xl p-1">
                       <button 
                         onClick={() => updateQuantity(item.productId, item.addons, item.flavor, -1)}
                         className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
@@ -5589,7 +5589,24 @@ export default function Menu() {
                       >
                         {item.quantity === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
                       </button>
-                      <span className="font-black text-sm w-6 text-center text-stone-900">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newQtyStr = prompt(`Digite a quantidade desejada para "${item.name}":`, String(item.quantity));
+                          if (newQtyStr !== null) {
+                            const q = parseInt(newQtyStr, 10);
+                            if (!isNaN(q) && q > 0) {
+                              setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: q } : ci));
+                            } else if (q === 0) {
+                              setCart(prev => prev.filter(ci => !(ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
+                            }
+                          }
+                        }}
+                        className="font-black text-xs sm:text-sm px-2 py-0.5 rounded-lg bg-white hover:bg-orange-100 hover:text-orange-600 text-stone-900 transition-colors cursor-pointer shadow-2xs border border-stone-200"
+                        title="Clique para digitar a quantidade manualmente"
+                      >
+                        {item.quantity} ✏️
+                      </button>
                       <button 
                         onClick={() => updateQuantity(item.productId, item.addons, item.flavor, 1)}
                         className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
