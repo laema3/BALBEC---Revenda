@@ -190,6 +190,38 @@ try {
   });
 } catch (e) {}
 
+// Auto-import user uploaded backup to permanently seed store state and customers
+try {
+  const userBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_2026-10-28__1__8d48a2c6.json');
+  if (fs.existsSync(userBackupPath)) {
+    const backupRaw = fs.readFileSync(userBackupPath, 'utf8');
+    const backupData = JSON.parse(backupRaw);
+    if (backupData) {
+      if (backupData.storeInfo) {
+        fs.writeFileSync(path.join(STORAGE_DIR, '.store_info_data.json'), JSON.stringify(backupData.storeInfo, null, 2), 'utf8');
+      }
+      if (Array.isArray(backupData.categories) && backupData.categories.length > 0) {
+        fs.writeFileSync(path.join(STORAGE_DIR, '.categories_data.json'), JSON.stringify(backupData.categories, null, 2), 'utf8');
+      }
+      if (Array.isArray(backupData.products) && backupData.products.length > 0) {
+        fs.writeFileSync(path.join(STORAGE_DIR, '.products_data.json'), JSON.stringify(backupData.products, null, 2), 'utf8');
+      }
+      if (Array.isArray(backupData.customers) && backupData.customers.length > 0) {
+        fs.writeFileSync(path.join(STORAGE_DIR, '.customers_data.json'), JSON.stringify(backupData.customers, null, 2), 'utf8');
+      }
+      if (Array.isArray(backupData.users) && backupData.users.length > 0) {
+        fs.writeFileSync(path.join(STORAGE_DIR, '.users_data.json'), JSON.stringify(backupData.users, null, 2), 'utf8');
+      }
+      if (Array.isArray(backupData.tvMedia) && backupData.tvMedia.length > 0) {
+        fs.writeFileSync(path.join(STORAGE_DIR, '.tv_media_data.json'), JSON.stringify(backupData.tvMedia, null, 2), 'utf8');
+      }
+      console.log('[Auto-Import Backup] Dados do backup do usuário importados com sucesso para armazenamento e seed!');
+    }
+  }
+} catch (e) {
+  console.warn('Aviso: Falha ao importar backup automático:', e);
+}
+
 const STORE_INFO_FILE = path.join(STORAGE_DIR, '.store_info_data.json');
 const TV_MEDIA_FILE = path.join(STORAGE_DIR, '.tv_media_data.json');
 const CATEGORIES_FILE = path.join(STORAGE_DIR, '.categories_data.json');
