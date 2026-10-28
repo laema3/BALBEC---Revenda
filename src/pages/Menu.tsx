@@ -2477,7 +2477,19 @@ export default function Menu() {
                         </div>
                       )}
                     </div>
-                    <div className="font-medium">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="font-bold text-stone-900">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCart(prev => prev.filter(ci => !(ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
+                        }}
+                        className="p-1 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        title="Excluir item do pedido"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -3180,7 +3192,7 @@ export default function Menu() {
                                 Pagamento Online Desabilitado
                               </p>
                               <p className="text-[11px] text-stone-500 font-medium">
-                                Você selecionou pagamento na entrega ({paymentMethod}).
+                                Você selecionou pagamento no balcão ({paymentMethod}).
                               </p>
                             </div>
                           </div>
@@ -3291,13 +3303,13 @@ export default function Menu() {
                       ) : (
                         <div className="bg-stone-100 p-3.5 rounded-2xl border border-stone-200 text-stone-600 text-xs flex items-center gap-2.5">
                           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                          <span>Pagamento Online desativado no momento. Escolha uma opção de pagamento na entrega.</span>
+                          <span>Pagamento Online desativado no momento. Escolha uma opção de pagamento no balcão.</span>
                         </div>
                       )}
 
-                      {/* Seção 2: Pagamento na Entrega */}
+                      {/* Seção 2: Pagamento no Balcão */}
                       {paymentMode === 'online' ? (
-                        /* Se o cliente escolheu Pagamento Online, a seção na entrega fica desabilitada e travada */
+                        /* Se o cliente escolheu Pagamento Online, a seção no balcão fica desabilitada e travada */
                         <div className="p-4 bg-stone-100/80 border-2 border-dashed border-stone-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-stone-500 opacity-60">
                           <div className="flex items-center gap-2.5 text-center sm:text-left">
                             <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center shrink-0">
@@ -3305,7 +3317,7 @@ export default function Menu() {
                             </div>
                             <div>
                               <p className="text-xs font-black uppercase tracking-wider text-stone-600">
-                                Pagamento na Entrega Desabilitado
+                                Pagamento no Balcão Desabilitado
                               </p>
                               <p className="text-[11px] text-stone-500 font-medium">
                                 Você selecionou pagamento online ({paymentMethod}).
@@ -3321,7 +3333,7 @@ export default function Menu() {
                             className="px-3.5 py-2 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 hover:text-orange-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer shrink-0"
                           >
                             <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
-                            <span>Mudar para Entrega</span>
+                            <span>Mudar para Pagamento na Retirada</span>
                           </button>
                         </div>
                       ) : (
@@ -3332,7 +3344,7 @@ export default function Menu() {
                         }`}>
                           <div className="flex items-center justify-between pl-1 mb-2.5">
                             <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-1.5">
-                              Pagamento na Entrega (com o Motoboy)
+                              Pagamento no Balcão
                               {paymentMode === 'delivery' && (
                                 <span className="bg-orange-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
                                   Ativo
@@ -5359,7 +5371,24 @@ export default function Menu() {
                                   const currentQty = inCartQty > 0 ? inCartQty : (productQuantities[product.id] ?? 1);
 
                                   return (
-                                    <div className="flex items-center gap-1.5 bg-stone-100 rounded-xl p-1">
+                                    <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          if (inCartQty > 0) {
+                                            setCart(prev => prev.filter(ci => !(ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor)));
+                                          }
+                                          setProductQuantities(prev => ({
+                                            ...prev,
+                                            [product.id]: 1
+                                          }));
+                                        }}
+                                        className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                                        title={inCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade para 1"}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-red-500" />
+                                      </button>
+
                                       <button 
                                         type="button"
                                         onClick={() => {
@@ -5373,9 +5402,9 @@ export default function Menu() {
                                           }
                                         }}
                                         className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
-                                        title={currentQty === 1 ? (inCartQty > 0 ? "Remover do pedido" : "Mínimo 1") : "Diminuir"}
+                                        title="Diminuir"
                                       >
-                                        {currentQty === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
+                                        <Minus className="w-4 h-4" />
                                       </button>
 
                                       <input
@@ -5407,7 +5436,7 @@ export default function Menu() {
                                             }
                                           }
                                         }}
-                                        className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                                        className="font-black text-xs sm:text-sm w-11 sm:w-13 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
                                         title="Digite a quantidade"
                                       />
 
@@ -5652,13 +5681,24 @@ export default function Menu() {
                   )}
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
                     <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0))} un</span>
-                     <div className="flex items-center gap-1.5 bg-stone-100 rounded-xl p-1">
+                     <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
                       <button 
+                        type="button"
+                        onClick={() => {
+                          setCart(prev => prev.filter(ci => !(ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
+                        }}
+                        className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                        title="Excluir item do pedido"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                      <button 
+                        type="button"
                         onClick={() => updateQuantity(item.productId, item.addons, item.flavor, -1)}
                         className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
                         title="Diminuir"
                       >
-                        {item.quantity === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
+                        <Minus className="w-4 h-4" />
                       </button>
                       <input
                         type="number"
@@ -5670,10 +5710,11 @@ export default function Menu() {
                           const q = isNaN(val) ? 1 : Math.max(1, val);
                           setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: q } : ci));
                         }}
-                        className="font-black text-xs sm:text-sm w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                        className="font-black text-xs sm:text-sm w-11 sm:w-13 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
                         title="Digite a quantidade diretamente"
                       />
                       <button 
+                        type="button"
                         onClick={() => updateQuantity(item.productId, item.addons, item.flavor, 1)}
                         className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
                         title="Aumentar"
