@@ -1389,7 +1389,7 @@ export default function Menu() {
     }
   };
 
-  const addToCart = (product: any, addons: any[] = [], flavor: any = null) => {
+  const addToCart = (product: any, addons: any[] = [], flavor: any = null, quantity: number = 1) => {
     setCart(prev => {
       const existing = prev.find(item => 
         item.productId === product.id && 
@@ -1399,7 +1399,7 @@ export default function Menu() {
       if (existing) {
         return prev.map(item => 
           (item.productId === product.id && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor))
-            ? { ...item, quantity: item.quantity + 1 } 
+            ? { ...item, quantity: item.quantity + quantity } 
             : item
         );
       }
@@ -1425,7 +1425,7 @@ export default function Menu() {
         name: product.name, 
         description: descWithCode, 
         price: product.price, 
-        quantity: 1, 
+        quantity: Math.max(1, quantity), 
         imageUrl: product.imageUrl, 
         addons: enrichedAddons, 
         flavor: enrichedFlavor 
@@ -1554,7 +1554,13 @@ export default function Menu() {
       return;
     }
     
-    addToCart(product);
+    const qtyStr = prompt(`Digite a quantidade desejada para "${product.name}":`, "1");
+    if (qtyStr !== null) {
+      const q = parseInt(qtyStr, 10);
+      if (!isNaN(q) && q > 0) {
+        addToCart(product, [], null, q);
+      }
+    }
   };
 
   const updateQuantity = (productId: string, addons: any[] | undefined, flavor: any | undefined, delta: number) => {
@@ -5589,24 +5595,19 @@ export default function Menu() {
                       >
                         {item.quantity === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newQtyStr = prompt(`Digite a quantidade desejada para "${item.name}":`, String(item.quantity));
-                          if (newQtyStr !== null) {
-                            const q = parseInt(newQtyStr, 10);
-                            if (!isNaN(q) && q > 0) {
-                              setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: q } : ci));
-                            } else if (q === 0) {
-                              setCart(prev => prev.filter(ci => !(ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
-                            }
-                          }
+                      <input
+                        type="number"
+                        min="1"
+                        max="9999"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          const q = isNaN(val) ? 1 : Math.max(1, val);
+                          setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: q } : ci));
                         }}
-                        className="font-black text-xs sm:text-sm px-2 py-0.5 rounded-lg bg-white hover:bg-orange-100 hover:text-orange-600 text-stone-900 transition-colors cursor-pointer shadow-2xs border border-stone-200"
-                        title="Clique para digitar a quantidade manualmente"
-                      >
-                        {item.quantity} ✏️
-                      </button>
+                        className="font-black text-xs sm:text-sm w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                        title="Digite a quantidade diretamente"
+                      />
                       <button 
                         onClick={() => updateQuantity(item.productId, item.addons, item.flavor, 1)}
                         className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
