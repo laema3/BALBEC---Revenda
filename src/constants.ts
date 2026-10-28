@@ -285,4 +285,31 @@ export const getEnrichedProductDescription = (name: string, externalId?: string,
   return cleanCurrent || '';
 };
 
+export const isSalgadoProduct = (product: any, categories: any[]) => {
+  if (!product) return false;
+  const category = categories.find(c => c && c.id === product.categoryId);
+  const catName = normalizeText(category?.name || '');
+  const prodName = normalizeText(product?.name || '');
+  
+  const isExcluded = 
+    prodName.includes('bebida') || prodName.includes('suco') || prodName.includes('refrigerante') || 
+    prodName.includes('cerveja') || prodName.includes('agua') || prodName.includes('cafe') || 
+    prodName.includes('caldo') || prodName.includes('sopa') || prodName.includes('doce') || 
+    prodName.includes('bolo') || prodName.includes('pudim') || prodName.includes('sorvete') ||
+    catName.includes('bebida') || catName.includes('caldo') || catName.includes('sopa') || 
+    catName.includes('doce') || catName.includes('confeitaria');
+  
+  if (isExcluded) return false;
+
+  const isSalgado = 
+    prodName.includes('salgado') || prodName.includes('coxinha') || prodName.includes('esfirra') || 
+    prodName.includes('pastel') || prodName.includes('kibe') || prodName.includes('empada') || 
+    prodName.includes('risole') || prodName.includes('croquete') || prodName.includes('pao de queijo') ||
+    catName.includes('salgado') || catName.includes('coxinha') || catName.includes('esfirra') ||
+    catName.includes('salgados');
+  
+  return isSalgado;
+};
+
+
 

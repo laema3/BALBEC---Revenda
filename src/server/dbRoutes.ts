@@ -423,6 +423,26 @@ try {
       : (Array.isArray(seedProducts) && seedProducts.length > 0)
         ? seedProducts
         : DEFAULT_PRODUCTS;
+
+  const hasCongelado = memProducts.some(p => (p.name || '').toLowerCase().includes('congelado'));
+  if (!hasCongelado) {
+    memProducts.push({
+      id: 'prod_congelado',
+      categoryId: memCategories[0]?.id || 'cat_salgados',
+      name: 'Salgado Congelado (Adicional por unidade)',
+      description: 'Acréscimo unitário para salgado congelado',
+      price: 0.30,
+      imageUrl: '',
+      isActive: true,
+      isAddon: true,
+      externalId: '9999',
+      availableForDelivery: true,
+      availableInStore: true,
+      availableForKiosk: true,
+      order: 9999
+    });
+    writeJsonFile(PRODUCTS_FILE, memProducts);
+  }
   memTvMedia = loadJsonFile(TV_MEDIA_FILE, masterState?.tvMedia || (Array.isArray(seedTvMedia) && seedTvMedia.length > 0 ? seedTvMedia : []));
   memStoreInfo = { ...DEFAULT_STORE_INFO, ...seedStoreInfo, ...(masterState?.storeInfo || {}), ...loadJsonFile(STORE_INFO_FILE, {}) };
   const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);

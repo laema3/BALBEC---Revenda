@@ -8,7 +8,7 @@ import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
 import { BakeryLoader } from '../components/BakeryLoader';
 import { MaintenancePage } from '../components/MaintenancePage';
-import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode } from '../constants';
+import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct } from '../constants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCode, resolveAddonCode } from '../utils/printer';
 import { sendNtfyNotification } from '../utils/ntfy';
@@ -1114,6 +1114,16 @@ export default function Menu() {
     availableAddons: [],
     availableFlavors: []
   });
+
+  const [frozenModal, setFrozenModal] = useState<{
+    isOpen: boolean;
+    product: any;
+    quantity: number;
+  }>({
+    isOpen: false,
+    product: null,
+    quantity: 1
+  });
   
   const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
@@ -1453,6 +1463,11 @@ export default function Menu() {
     }
 
     if (!canBuy || isAddonProduct(product)) {
+      return;
+    }
+
+    if (isSalgadoProduct(product, categories)) {
+      setFrozenModal({ isOpen: true, product, quantity: qty });
       return;
     }
 
@@ -6042,6 +6057,68 @@ export default function Menu() {
           </div>
         </div>
       )})()}
+
+      {/* Modal de Opção de Salgado Congelado */}
+      {frozenModal.isOpen && frozenModal.product && (
+        <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-6">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-orange-100 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner">
+                🥟
+              </div>
+              <h3 className="text-xl font-black text-stone-900 uppercase tracking-tight">Deseja o salgado congelado?</h3>
+              <p className="text-xs font-bold text-orange-600 uppercase tracking-wide">
+                {frozenModal.product.name} ({frozenModal.quantity}x)
+              </p>
+              <p className="text-xs text-stone-500 leading-relaxed px-2">
+                Salgados congelados possuem um acréscimo unitário de <strong className="text-stone-800">
+                  {formatCurrency(Number(products.find(p => (p.name || '').toLowerCase().includes('congelado'))?.price || 0.30))}
+                </strong> por unidade.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const congeladoProd = products.find(p => (p.name || '').toLowerCase().includes('congelado')) || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
+                  const frozenAddon = {
+                    productId: congeladoProd.id,
+                    name: 'Opção: Congelado',
+                    price: Number(congeladoProd.price) || 0.30,
+                    externalId: (congeladoProd as any).externalId || '9999'
+                  };
+                  addToCart(frozenModal.product, [frozenAddon], null, frozenModal.quantity);
+                  setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                }}
+                className="py-4 px-4 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer"
+              >
+                <span className="text-base">❄️ Sim, Congelado</span>
+                <span className="text-[10px] opacity-90">+ {formatCurrency(Number(products.find(p => (p.name || '').toLowerCase().includes('congelado'))?.price || 0.30) * frozenModal.quantity)}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  addToCart(frozenModal.product, [], null, frozenModal.quantity);
+                  setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                }}
+                className="py-4 px-4 bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex flex-col items-center justify-center gap-1 border border-stone-200 cursor-pointer"
+              >
+                <span className="text-base">🔥 Não, Frito/Normal</span>
+                <span className="text-[10px] text-stone-400">Preço padrão</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setFrozenModal({ isOpen: false, product: null, quantity: 1 })}
+              className="w-full py-2.5 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Seleção de Mesa */}
       {showTableSelectModal && (
