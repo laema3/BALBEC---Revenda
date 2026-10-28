@@ -306,10 +306,12 @@ export async function ensureTablesExist() {
       max_addons INTEGER DEFAULT 0,
       flavor_ids JSONB DEFAULT '[]'::jsonb,
       external_id TEXT,
+      "order" INTEGER DEFAULT 0,
       available_for_delivery BOOLEAN DEFAULT TRUE,
       available_in_store BOOLEAN DEFAULT TRUE,
       available_for_kiosk BOOLEAN DEFAULT TRUE
     );
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS "order" INTEGER DEFAULT 0;
 
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,

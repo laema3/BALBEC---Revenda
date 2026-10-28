@@ -597,6 +597,7 @@ export function formatProductForDb(p: any) {
     maxAddons: typeof p.maxAddons === 'number' ? p.maxAddons : (parseInt(p.max_addons, 10) || 0),
     flavorIds: Array.isArray(p.flavorIds) ? p.flavorIds : (Array.isArray(p.flavor_ids) ? p.flavor_ids : []),
     externalId: p.externalId ? String(p.externalId) : (p.external_id ? String(p.external_id) : null),
+    order: typeof p.order === 'number' ? p.order : (parseInt(p.order, 10) || 0),
     availableForDelivery: p.availableForDelivery !== false && p.available_for_delivery !== false,
     availableInStore: p.availableInStore !== false && p.available_in_store !== false,
     availableForKiosk: p.availableForKiosk !== false && p.available_for_kiosk !== false,

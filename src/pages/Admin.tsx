@@ -2396,6 +2396,7 @@ export default function Admin() {
       addonIds: formData.getAll('addonIds') as string[],
       flavorIds: formData.getAll('flavorIds') as string[],
       maxAddons: Number(formData.get('maxAddons')) || 2,
+      order: Number(formData.get('order') || 0),
       availableForDelivery: formData.get('availableForDelivery') === 'on',
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
@@ -5056,7 +5057,12 @@ export default function Admin() {
         return nameMatch || descMatch || codeMatch;
       }
       return true;
-    }).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+    }).sort((a, b) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+    });
 
     const totalPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
     const paginatedProducts = filteredProducts.slice((productPage - 1) * productsPerPage, productPage * productsPerPage);
@@ -8824,6 +8830,10 @@ export default function Admin() {
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1">Nome do Produto</label>
                   <input type="text" name="name" defaultValue={editingItem?.name} required className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-1">Ordem de Exibição</label>
+                  <input type="number" name="order" defaultValue={editingItem?.order || 0} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1">Código do Produto (Cód / EAN / Referência)</label>

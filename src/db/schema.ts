@@ -39,6 +39,7 @@ export const products = pgTable('products', {
   maxAddons: integer('max_addons').default(0),
   flavorIds: jsonb('flavor_ids').$type<string[]>().default([]),
   externalId: text('external_id'),
+  order: integer('order').default(0),
   availableForDelivery: boolean('available_for_delivery').default(true),
   availableInStore: boolean('available_in_store').default(true),
   availableForKiosk: boolean('available_for_kiosk').default(true),

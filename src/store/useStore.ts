@@ -146,6 +146,7 @@ export interface Product {
   maxAddons?: number;
   flavorIds?: string[];
   externalId?: string;
+  order?: number;
   availableForDelivery?: boolean;
   availableInStore?: boolean;
   availableForKiosk?: boolean;

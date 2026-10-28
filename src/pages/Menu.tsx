@@ -1305,7 +1305,12 @@ export default function Menu() {
     }
 
     for (const catId in map) {
-      map[catId].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+      map[catId].sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+      });
       counts[catId] = map[catId].length;
     }
 
@@ -1329,7 +1334,12 @@ export default function Menu() {
                matchesChannel &&
                Boolean(categoryCountMap[c.id]);
       })
-      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+      .sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+      });
   }, [categories, categoryCountMap, salesChannel]);
 
   const displayedCategories = useMemo(() => {
