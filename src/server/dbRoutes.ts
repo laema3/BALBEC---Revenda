@@ -2187,6 +2187,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (body.mercadoPagoPixKey !== undefined) sanitized.mercadoPagoPixKey = String(body.mercadoPagoPixKey);
       if (body.deliveryEstimatedTimeMin !== undefined) sanitized.deliveryEstimatedTimeMin = Number(body.deliveryEstimatedTimeMin) || 35;
       if (body.deliveryEstimatedTimeMax !== undefined) sanitized.deliveryEstimatedTimeMax = Number(body.deliveryEstimatedTimeMax) || 50;
+      if (body.showSystemIntroButton !== undefined) sanitized.showSystemIntroButton = Boolean(body.showSystemIntroButton);
 
       // Preserve existing memory properties if not explicitly provided
       memStoreInfo = { ...memStoreInfo, ...sanitized };

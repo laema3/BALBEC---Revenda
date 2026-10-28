@@ -488,7 +488,8 @@ export async function ensureTablesExist() {
       online_payment_enabled BOOLEAN DEFAULT FALSE,
       online_payment_operator TEXT DEFAULT 'mercadopago',
       online_payment_public_key TEXT DEFAULT '',
-      online_payment_secret_key TEXT DEFAULT ''
+      online_payment_secret_key TEXT DEFAULT '',
+      show_system_intro_button BOOLEAN DEFAULT TRUE
     );
 
     CREATE TABLE IF NOT EXISTS tv_media (
@@ -589,5 +590,6 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS mercado_pago_pix_key TEXT DEFAULT '3433383795';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS delivery_estimated_time_min INTEGER DEFAULT 35;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS delivery_estimated_time_max INTEGER DEFAULT 50;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS show_system_intro_button BOOLEAN DEFAULT TRUE;
   `);
 }

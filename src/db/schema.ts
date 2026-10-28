@@ -189,6 +189,7 @@ export const storeInfo = pgTable('store_info', {
   onlinePaymentOperator: text('online_payment_operator').default('mercadopago'),
   onlinePaymentPublicKey: text('online_payment_public_key').default(''),
   onlinePaymentSecretKey: text('online_payment_secret_key').default(''),
+  showSystemIntroButton: boolean('show_system_intro_button').default(true),
 });
 
 // TV Media Playlist table for Smart TV Indoor Signage
