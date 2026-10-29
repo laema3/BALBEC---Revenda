@@ -1138,16 +1138,23 @@ export async function hydrateFromPostgres(): Promise<void> {
       console.warn('[DB Hydrate] Aviso ao carregar customers do PostgreSQL:', custErr?.message || custErr);
     }
 
-    // 3.2. Hidratar Pedidos
-    try {
-      const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(1000);
-      if (ordList && ordList.length > 0) {
-        memOrders = ordList;
-        persistOrdersToDisk(memOrders);
-        console.log(`[DB Hydrate] ${memOrders.length} pedidos carregados do PostgreSQL.`);
-      }
-    } catch (ordHydrateErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar orders do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
+      // 3.2. Hidratar Pedidos
+      try {
+        const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(1000);
+        if (ordList && ordList.length > 0) {
+          // SMART MERGE: Não sobrescreve memOrders (que já tem dados de arquivos/backup), mas mescla com o que está no DB
+          const orderMap = new Map<string, any>();
+          // 1. Prioriza o que já está na memória (vindo de arquivos de backup locais / public assets)
+          memOrders.forEach(o => { if (o && o.id) orderMap.set(String(o.id), o); });
+          // 2. Mescla com o que está no PostgreSQL (Railway)
+          ordList.forEach(o => { if (o && o.id) orderMap.set(String(o.id), { ...(orderMap.get(String(o.id)) || {}), ...o }); });
+          
+          memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+          persistOrdersToDisk(memOrders);
+          console.log(`[DB Hydrate] ${memOrders.length} pedidos sincronizados (Arquivos + PostgreSQL).`);
+        }
+      } catch (ordHydrateErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar orders do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
     }
 
     // 4. Hidratar Mesas

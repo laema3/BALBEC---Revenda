@@ -2290,8 +2290,8 @@ export default function Menu() {
                   {lastPlacedOrder?.type === 'delivery' 
                     ? 'Seu pedido para Delivery foi recebido e está PENDENTE no painel. Ele entrará em preparação para entrega pelo motoboy.' 
                     : (lastPlacedOrder?.scheduledTime 
-                        ? `Seu pedido foi agendado para ${lastPlacedOrder.scheduledTime}. Aguarde ser chamado pelo seu nome no balcão.` 
-                        : 'Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.')
+                        ? `Seu pedido foi agendado para ${lastPlacedOrder.scheduledTime}. Ele será preparado com antecedência para retirada neste horário.` 
+                        : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação e ficará pronto em aprox. ${storeInfo.schedulePrepTimeNormalMinutes || 40} minutos.`)
                   }
                 </p>
               </div>
@@ -3100,6 +3100,7 @@ export default function Menu() {
                       onClick={() => {
                         setScheduleStepMode('pickup');
                         setShowScheduleSelectionStep(true);
+                        window.scrollTo(0, 0);
                       }}
                       className="px-3 py-1.5 bg-white hover:bg-amber-100 text-stone-800 rounded-xl text-xs font-black border border-stone-300 shadow-2xs cursor-pointer transition-colors"
                     >
@@ -3201,6 +3202,7 @@ export default function Menu() {
                         onClick={() => {
                           setScheduleStepMode('pickup');
                           setShowScheduleSelectionStep(true);
+                          window.scrollTo(0, 0);
                         }}
                         className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer shrink-0 ${
                           selectedScheduleTime
@@ -7383,6 +7385,9 @@ export default function Menu() {
           onClose={() => setTrackingOrderId(null)}
         />
       )}
+
+      {/* Perfil e Pedidos Anteriores */}
+      <ProfileModal />
     </div>
   );
 }
