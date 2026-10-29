@@ -233,14 +233,42 @@ try {
         const syncItem = (key: string, fileName: string) => {
           const val = backupData[key];
           if (val !== undefined && val !== null) {
+            let finalVal = val;
+
+            // SMART MERGE for orders & customers so existing seed/disk items are NEVER overwritten or lost
+            if (key === 'orders' || key === 'customers') {
+              const baseName = fileName.replace('.json', '');
+              const altName = baseName.includes('_data') ? baseName.replace('_data', '') : baseName + '_data';
+              const seedDirFile = path.join(seedDir, `${baseName}.json`);
+              const existingSeed: any[] = loadJsonFile(seedDirFile, []);
+              const backupList: any[] = Array.isArray(val) ? val : [];
+
+              const map = new Map<string, any>();
+              // Load backup items
+              for (const item of backupList) {
+                if (item && item.id) map.set(String(item.id), item);
+              }
+              // Overlay existing seed/disk items so updated or newly placed orders take precedence
+              for (const item of existingSeed) {
+                if (item && item.id) {
+                  const existing = map.get(String(item.id)) || {};
+                  map.set(String(item.id), { ...existing, ...item });
+                }
+              }
+              finalVal = Array.from(map.values());
+              if (key === 'orders') {
+                finalVal.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+              }
+            }
+
             try {
-              fs.writeFileSync(path.join(STORAGE_DIR, `.${fileName}`), JSON.stringify(val, null, 2), 'utf8');
+              fs.writeFileSync(path.join(STORAGE_DIR, `.${fileName}`), JSON.stringify(finalVal, null, 2), 'utf8');
             } catch (e) {}
             try {
               const baseName = fileName.replace('.json', '');
               const altName = baseName.includes('_data') ? baseName.replace('_data', '') : baseName + '_data';
-              fs.writeFileSync(path.join(seedDir, `${baseName}.json`), JSON.stringify(val, null, 2), 'utf8');
-              fs.writeFileSync(path.join(seedDir, `${altName}.json`), JSON.stringify(val, null, 2), 'utf8');
+              fs.writeFileSync(path.join(seedDir, `${baseName}.json`), JSON.stringify(finalVal, null, 2), 'utf8');
+              fs.writeFileSync(path.join(seedDir, `${altName}.json`), JSON.stringify(finalVal, null, 2), 'utf8');
             } catch (e) {}
           }
         };
@@ -257,7 +285,7 @@ try {
         syncItem('drivers', 'drivers_data.json');
         syncItem('deliveryZones', 'delivery_zones_data.json');
 
-        console.log(`[Auto-Import Backup] Dados do backup (${path.basename(latestBackupPath)}) importados com sucesso para STORAGE_DIR e src/data/seed/!`);
+        console.log(`[Auto-Import Backup] Dados do backup (${path.basename(latestBackupPath)}) importados e mesclados com sucesso para STORAGE_DIR e src/data/seed/!`);
       }
     }
   }
@@ -498,9 +526,11 @@ try {
   memStoreInfo = { ...DEFAULT_STORE_INFO, ...seedStoreInfo, ...(masterState?.storeInfo || {}), ...loadJsonFile(STORE_INFO_FILE, {}) };
   const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
   const initialBackupOrders = loadJsonFile(ORDERS_BACKUP_FILE, []);
+  const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []);
+  const initialPublicOrders = loadJsonFile<any>(path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json'), {})?.orders || [];
   const initialMasterOrders = masterState?.orders || [];
   const initOrderMap = new Map<string, any>();
-  [...initialMasterOrders, ...initialDiskOrders, ...initialBackupOrders].forEach((o: any) => {
+  [...initialPublicOrders, ...initialSeedOrders, ...initialMasterOrders, ...initialDiskOrders, ...initialBackupOrders].forEach((o: any) => {
     if (o && o.id) initOrderMap.set(String(o.id), { ...(initOrderMap.get(String(o.id)) || {}), ...o });
   });
   memOrders = Array.from(initOrderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
@@ -570,9 +600,58 @@ let productsVersion = Date.now();
 let categoriesVersion = Date.now();
 let storeInfoVersion = Date.now();
 
+function syncPublicBackupAssets(key: string, data: any) {
+  try {
+    const assetDir = path.join(process.cwd(), 'public', 'assets', 'aistudio');
+    if (!fs.existsSync(assetDir)) {
+      fs.mkdirSync(assetDir, { recursive: true });
+    }
+
+    // 1. Synchronize all backup JSON files in public/assets/aistudio/
+    if (fs.existsSync(assetDir)) {
+      const files = fs.readdirSync(assetDir);
+      for (const file of files) {
+        if (file.startsWith('balbec_backup_') && file.endsWith('.json')) {
+          const fullP = path.join(assetDir, file);
+          try {
+            const raw = fs.readFileSync(fullP, 'utf8');
+            const json = JSON.parse(raw);
+            if (json && typeof json === 'object') {
+              json[key] = data;
+              json.updatedAt = new Date().toISOString();
+              fs.writeFileSync(fullP, JSON.stringify(json, null, 2), 'utf8');
+            }
+          } catch (err) {}
+        }
+      }
+    }
+
+    // 2. Also keep a master latest backup asset in public/assets/aistudio
+    const autoBackupPath = path.join(assetDir, 'balbec_backup_latest_auto.json');
+    let autoData: any = {};
+    if (fs.existsSync(autoBackupPath)) {
+      try {
+        autoData = JSON.parse(fs.readFileSync(autoBackupPath, 'utf8')) || {};
+      } catch {}
+    }
+    autoData[key] = data;
+    autoData.storeInfo = autoData.storeInfo || memStoreInfo;
+    autoData.categories = autoData.categories || memCategories;
+    autoData.products = autoData.products || memProducts;
+    autoData.customers = autoData.customers || memCustomers;
+    autoData.orders = autoData.orders || memOrders;
+    autoData.users = autoData.users || memUsers;
+    autoData.updatedAt = new Date().toISOString();
+    fs.writeFileSync(autoBackupPath, JSON.stringify(autoData, null, 2), 'utf8');
+  } catch (e) {
+    console.warn(`[Sync Public Backup] Aviso ao sincronizar backup public de ${key}:`, e);
+  }
+}
+
 function persistTotemBackupsToDisk(data: any[]) {
   writeJsonFile(TOTEM_BACKUPS_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('totemBackups', data);
 }
 
 function persistCategoriesToDisk(data: any[]) {
@@ -580,6 +659,7 @@ function persistCategoriesToDisk(data: any[]) {
   categoriesVersion = Date.now();
   writeJsonFile(CATEGORIES_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('categories', data);
 }
 
 function persistProductsToDisk(data: any[]) {
@@ -587,38 +667,45 @@ function persistProductsToDisk(data: any[]) {
   productsVersion = Date.now();
   writeJsonFile(PRODUCTS_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('products', data);
 }
 
 function persistTvMediaToDisk(data: any[]) {
   writeJsonFile(TV_MEDIA_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('tvMedia', data);
 }
 
 function persistUsersToDisk(data: any[]) {
   writeJsonFile(USERS_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('users', data);
 }
 
 function persistOrdersToDisk(data: any[]) {
   writeJsonFile(ORDERS_FILE, data);
   writeJsonFile(ORDERS_BACKUP_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('orders', data);
 }
 
 function persistStoreInfoToDisk(data: any) {
   storeInfoVersion = Date.now();
   writeJsonFile(STORE_INFO_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('storeInfo', data);
 }
 
 function persistCustomersToDisk(data: any[]) {
   writeJsonFile(CUSTOMERS_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('customers', data);
 }
 
 function persistTablesToDisk(data: any[]) {
   writeJsonFile(TABLES_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('tables', data);
 }
 
 function persistAppInstallsToDisk(data: any[]) {
