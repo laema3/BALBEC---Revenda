@@ -14,7 +14,7 @@ import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCo
 import { sendNtfyNotification } from '../utils/ntfy';
 import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
-import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary } from '../utils/scheduleHelper';
+import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime } from '../utils/scheduleHelper';
 import { CustomerOrderTrackerModal } from '../components/CustomerOrderTrackerModal';
 
 // Detecção de bandeiras de cartões de crédito e débito
@@ -1835,6 +1835,20 @@ export default function Menu() {
 
     try {
       const isTotemOrDineIn = isKioskMode || isTableOrder;
+      const hasFrozenInOrder = cart.some(it => 
+        Boolean(it.isFrozen) || 
+        (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) ||
+        (it.options && Array.isArray(it.options) && it.options.some((o: any) => o.isFrozen || (o.name && o.name.toLowerCase().includes('congelad'))))
+      );
+      const normalPrepMins = Number(storeInfo.schedulePrepTimeNormalMinutes) || 40;
+      const frozenPrepMins = Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90;
+      const computedPickup = selectedScheduleTime 
+        ? calculatePickupTime(selectedScheduleTime, hasFrozenInOrder, normalPrepMins, frozenPrepMins) 
+        : '';
+      const formattedScheduledTime = selectedScheduleTime 
+        ? (computedPickup ? `${selectedScheduleTime} (Retirada às ${computedPickup})` : selectedScheduleTime) 
+        : undefined;
+
       const createdOrder = await placeOrder({
         items: cart,
         total,
@@ -1856,7 +1870,7 @@ export default function Menu() {
         deliveryFee: isDeliveryOrder ? deliveryFee : 0,
         tableNumber: isTableOrder ? String(selectedTableNumber) : undefined,
         tableId: isTableOrder ? `table-${selectedTableNumber}` : undefined,
-        scheduledTime: selectedScheduleTime || undefined,
+        scheduledTime: formattedScheduledTime,
         scheduledDate: selectedScheduleDate || undefined,
         scheduledDay: selectedScheduleDay || undefined,
       });
@@ -2503,9 +2517,331 @@ export default function Menu() {
     );
   }
 
+  // Etapa de Agendamento de Horários (Segunda a Sábado, Capacidade de Salgados e Preparo Normal vs Congelado)
+  if (showScheduleSelectionStep) {
+    const rawSlots = storeInfo.deliveryScheduleSlots;
+    let slots = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'];
+    if (Array.isArray(rawSlots) && rawSlots.length > 0) {
+      slots = rawSlots;
+    } else if (typeof rawSlots === 'string') {
+      try {
+        const p = JSON.parse(rawSlots);
+        if (Array.isArray(p) && p.length > 0) slots = p;
+      } catch (e) {}
+    }
+
+    // Gerar dias da semana disponíveis: Segunda a Sábado (Domingo a loja fecha)
+    const availableWeekDays: {
+      dateStr: string;
+      dayOfWeek: number;
+      shortDayName: string;
+      dayName: string;
+      dateFormatted: string;
+      isToday: boolean;
+    }[] = [];
+    const dayShortNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const dayFullNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeInMinutes = (currentHours * 60) + currentMinutes;
+
+    const dayCursor = new Date(now);
+    while (availableWeekDays.length < 6) {
+      const dOfWeek = dayCursor.getDay();
+      if (dOfWeek !== 0) { // Domingo não abre
+        const y = dayCursor.getFullYear();
+        const m = String(dayCursor.getMonth() + 1).padStart(2, '0');
+        const d = String(dayCursor.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+        const isToday = dayCursor.toDateString() === now.toDateString();
+
+        availableWeekDays.push({
+          dateStr,
+          dayOfWeek: dOfWeek,
+          shortDayName: dayShortNames[dOfWeek],
+          dayName: `${dayFullNames[dOfWeek]}, ${d}/${m}`,
+          dateFormatted: `${d}/${m}`,
+          isToday
+        });
+      }
+      dayCursor.setDate(dayCursor.getDate() + 1);
+    }
+
+    // Dia ativo selecionado (ou o primeiro dia útil disponível)
+    const activeDay = availableWeekDays.find(d => d.dateStr === selectedScheduleDate) || availableWeekDays[0];
+    const isTodaySelected = activeDay?.isToday || false;
+
+    // Detecção de itens congelados no carrinho
+    const hasFrozenInCart = cart.some(it => 
+      Boolean(it.isFrozen) || 
+      (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) ||
+      (it.options && Array.isArray(it.options) && it.options.some((o: any) => o.isFrozen || (o.name && o.name.toLowerCase().includes('congelad'))))
+    );
+
+    // Tempos de retirada configuráveis no Painel (padrão: 40 min normal, 90 min congelado)
+    const normalPrepMinutes = Number(storeInfo.schedulePrepTimeNormalMinutes) || 40;
+    const frozenPrepMinutes = Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90;
+    const activePrepBuffer = hasFrozenInCart ? frozenPrepMinutes : normalPrepMinutes;
+
+    // Capacidade máxima de salgados por bloco de horário
+    const slotItemCapacity = Number(storeInfo.scheduleSlotItemCapacity) || 100;
+
+    // Helper para verificar status de um slot no dia ativo
+    const getSlotStatus = (slot: string) => {
+      const bookedUnits = slotBookedItemsMap[`${activeDay.dateStr}_${slot}`] || 0;
+      const remainingUnits = Math.max(0, slotItemCapacity - bookedUnits);
+      const isFull = remainingUnits <= 0;
+
+      let isPast = false;
+      if (isTodaySelected) {
+        const [sh, sm] = slot.split(':').map(Number);
+        const slotMinutes = (sh * 60) + sm;
+        isPast = slotMinutes <= (currentTimeInMinutes + activePrepBuffer);
+      }
+
+      return {
+        isPast,
+        isFull,
+        isDisabled: isPast || isFull,
+        bookedUnits,
+        remainingUnits
+      };
+    };
+
+    // Auto-avanço para o próximo horário disponível se o horário atual estiver desabilitado ou expirado
+    const currentSlotStatus = selectedScheduleTime ? getSlotStatus(selectedScheduleTime) : null;
+    let effectiveSelectedTime = selectedScheduleTime;
+    if (!effectiveSelectedTime || currentSlotStatus?.isDisabled) {
+      const firstAvailableSlot = slots.find(s => !getSlotStatus(s).isDisabled);
+      if (firstAvailableSlot && firstAvailableSlot !== selectedScheduleTime) {
+        effectiveSelectedTime = firstAvailableSlot;
+      }
+    }
+
+    const previewPickup = effectiveSelectedTime 
+      ? calculatePickupTime(effectiveSelectedTime, hasFrozenInCart, normalPrepMinutes, frozenPrepMinutes) 
+      : '';
+
+    return (
+      <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-3 sm:p-6 animate-fadeIn">
+        <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-xl max-w-lg w-full text-center border border-stone-200 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
+
+          {(selectedScheduleTime || isCheckout) && (
+            <button
+              type="button"
+              onClick={() => setShowScheduleSelectionStep(false)}
+              className="absolute top-4 right-4 p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full transition-colors cursor-pointer"
+              title="Voltar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          <div className="w-14 h-14 mx-auto mb-3 bg-orange-100 text-orange-700 rounded-2xl flex items-center justify-center text-2xl shadow-xs border border-orange-200">
+            ⏰
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight mb-1">
+            Agende a Retirada do Pedido
+          </h2>
+          <p className="text-stone-600 text-xs sm:text-sm mb-4">
+            Escolha o dia da semana (Segunda a Sábado) e o horário de retirada no balcão
+          </p>
+
+          {/* 1. SELEÇÃO DOS DIAS DA SEMANA (Segunda a Sábado, Domingo não abre) */}
+          <div className="mb-4 text-left">
+            <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
+              1. Selecione o Dia da Retirada (Segunda a Sábado):
+            </label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+              {availableWeekDays.map(day => {
+                const isSelected = activeDay.dateStr === day.dateStr;
+                return (
+                  <button
+                    key={day.dateStr}
+                    type="button"
+                    onClick={() => {
+                      setSelectedScheduleDate(day.dateStr);
+                      setSelectedScheduleDay(day.dayName);
+                      safeStorage.setItem('balbec_selected_schedule_date', day.dateStr);
+                      safeStorage.setItem('balbec_selected_schedule_day', day.dayName);
+                    }}
+                    className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      isSelected
+                        ? 'bg-orange-600 text-white border-orange-600 shadow-sm scale-102 font-black'
+                        : 'bg-stone-50 hover:bg-orange-50 text-stone-700 border-stone-200 font-semibold'
+                    }`}
+                  >
+                    <span className={`text-[10px] uppercase tracking-wider font-extrabold ${isSelected ? 'text-orange-100' : 'text-stone-500'}`}>
+                      {day.isToday ? 'Hoje' : day.shortDayName}
+                    </span>
+                    <span className="text-xs font-mono font-bold leading-tight">
+                      {day.dateFormatted}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-1 text-right">
+              <span className="text-[10px] text-stone-500 italic">* Domingo estabelecimento fechado</span>
+            </div>
+          </div>
+
+          {/* 2. AVISO SOBRE O TEMPO DE PREPARO (Normal 40m vs Congelados 90m) */}
+          <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl text-left text-xs text-amber-950 font-medium mb-4 flex items-start gap-2.5 shadow-xs">
+            <span className="text-xl shrink-0 mt-0.5">⏳</span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <strong className="text-amber-900 font-bold uppercase text-[11px] tracking-wider">Tempo Estimado para Retirada</strong>
+                {hasFrozenInCart ? (
+                  <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-2xs">
+                    ❄️ Pedido Congelado ({frozenPrepMinutes} min)
+                  </span>
+                ) : (
+                  <span className="bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-2xs">
+                    🥖 Pedido Padrão ({normalPrepMinutes} min)
+                  </span>
+                )}
+              </div>
+              <p className="leading-relaxed text-[11px] text-stone-700">
+                Pedido normal: <strong>{normalPrepMinutes} min</strong> para retirada. Pedidos com congelados: <strong>{frozenPrepMinutes} min</strong> para retirada.
+              </p>
+              {effectiveSelectedTime && previewPickup && (
+                <div className="mt-1.5 p-2 bg-amber-100/80 rounded-xl border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1.5">
+                  <span>🎯</span>
+                  <span>Agendando {effectiveSelectedTime} → Retirada às <strong>{previewPickup}h</strong></span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. GRADE DE HORÁRIOS DISPONÍVEIS POR CAPACIDADE DE SALGADOS */}
+          <div className="space-y-2 text-left mb-5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
+                2. Horários ({activeDay.dayName}):
+              </label>
+              <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                Capacidade: {slotItemCapacity} salgados/bloco
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1.5 border border-stone-100 rounded-2xl bg-stone-50/50">
+              {slots.map(slot => {
+                const status = getSlotStatus(slot);
+                const isSelected = effectiveSelectedTime === slot;
+
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    disabled={status.isDisabled}
+                    onClick={() => {
+                      if (!status.isDisabled) {
+                        setSelectedScheduleTime(slot);
+                        setSelectedScheduleDate(activeDay.dateStr);
+                        setSelectedScheduleDay(activeDay.dayName);
+                        safeStorage.setItem('balbec_selected_schedule_time', slot);
+                        safeStorage.setItem('balbec_selected_schedule_date', activeDay.dateStr);
+                        safeStorage.setItem('balbec_selected_schedule_day', activeDay.dayName);
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-black transition-all flex flex-col items-center justify-center gap-1 ${
+                      status.isDisabled 
+                        ? 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed opacity-60' 
+                        : isSelected 
+                          ? 'bg-orange-600 text-white border-orange-600 shadow-xs scale-102 cursor-pointer ring-2 ring-orange-300' 
+                          : 'bg-white text-stone-800 border-stone-200 hover:bg-orange-50 cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-mono text-sm">
+                      <span>{status.isPast ? '❌' : status.isFull ? '🔒' : '🕐'}</span>
+                      <span className={status.isDisabled ? 'line-through opacity-50' : ''}>{slot}</span>
+                    </div>
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-black ${
+                      status.isFull 
+                        ? 'bg-red-100 text-red-700' 
+                        : status.isPast 
+                          ? 'bg-stone-200 text-stone-500' 
+                          : isSelected
+                            ? 'bg-white/20 text-white'
+                            : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {status.isFull 
+                        ? `Esgotado (${slotItemCapacity}/${slotItemCapacity})` 
+                        : status.isPast 
+                          ? 'Encerrado' 
+                          : `${status.remainingUnits} de ${slotItemCapacity} un.`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={!effectiveSelectedTime}
+            onClick={() => {
+              if (!effectiveSelectedTime) {
+                alert('O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis acima.');
+                return;
+              }
+              setSelectedScheduleTime(effectiveSelectedTime);
+              setSelectedScheduleDate(activeDay.dateStr);
+              setSelectedScheduleDay(activeDay.dayName);
+              safeStorage.setItem('balbec_selected_schedule_time', effectiveSelectedTime);
+              safeStorage.setItem('balbec_selected_schedule_date', activeDay.dateStr);
+              safeStorage.setItem('balbec_selected_schedule_day', activeDay.dayName);
+
+              setShowScheduleSelectionStep(false);
+              safeStorage.setSession('selected_sales_channel', 'instore');
+              safeStorage.setSession('balbec_qr_validated', 'true');
+              setIsQrValidated(true);
+              setSalesChannel('instore');
+              setDeliveryType('pickup');
+              setHasChosenChannel(true);
+              setHasName(true);
+            }}
+            className={`w-full py-3.5 sm:py-4 text-white rounded-2xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-2 ${
+              !effectiveSelectedTime 
+                ? 'bg-stone-300 text-stone-500 cursor-not-allowed shadow-none' 
+                : 'hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700'
+            }`}
+          >
+            <span>{effectiveSelectedTime ? `CONFIRMAR PARA ${activeDay.shortDayName.toUpperCase()} ÀS ${effectiveSelectedTime}${previewPickup ? ` (RETIRADA ÀS ${previewPickup}H)` : ''} 🥖` : 'SELECIONE UM HORÁRIO ACIMA'}</span>
+          </button>
+
+          {(selectedScheduleTime || isCheckout) && (
+            <button
+              type="button"
+              onClick={() => setShowScheduleSelectionStep(false)}
+              className="mt-3 w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+            >
+              Voltar sem alterar
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (isCheckout) {
     const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
     const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
+    const hasFrozenInCart = cart.some(it => 
+      Boolean(it.isFrozen) || 
+      (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) ||
+      (it.options && Array.isArray(it.options) && it.options.some((o: any) => o.isFrozen || (o.name && o.name.toLowerCase().includes('congelad'))))
+    );
+    const normalPrepMins = Number(storeInfo.schedulePrepTimeNormalMinutes) || 40;
+    const frozenPrepMins = Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90;
+    const checkoutPickupTime = selectedScheduleTime 
+      ? calculatePickupTime(selectedScheduleTime, hasFrozenInCart, normalPrepMins, frozenPrepMins) 
+      : '';
 
     return (
       <div className="min-h-screen bg-stone-50 flex flex-col">
@@ -2629,6 +2965,11 @@ export default function Menu() {
                         <p className={`text-sm font-black ${selectedScheduleTime ? 'text-stone-900' : 'text-red-600 font-extrabold'}`}>
                           {selectedScheduleTime ? `⏰ ${selectedScheduleDay ? `${selectedScheduleDay} às ` : 'Às '}${selectedScheduleTime}` : 'Nenhum horário selecionado'}
                         </p>
+                        {selectedScheduleTime && checkoutPickupTime && (
+                          <p className="text-xs font-bold text-amber-900 mt-0.5">
+                            {hasFrozenInCart ? '❄️ Retirada estimada: ' : '🥖 Retirada estimada: '}<strong>{checkoutPickupTime}h</strong> ({hasFrozenInCart ? `${frozenPrepMins} min` : `${normalPrepMins} min`})
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button
@@ -2639,7 +2980,7 @@ export default function Menu() {
                       }}
                       className="px-3 py-1.5 bg-white hover:bg-amber-100 text-stone-800 rounded-xl text-xs font-black border border-stone-300 shadow-2xs cursor-pointer transition-colors"
                     >
-                      {selectedScheduleTime ? 'Alterar' : 'Escolher'}
+                      {selectedScheduleTime ? 'Alterar Horário 🕒' : 'Escolher'}
                     </button>
                   </div>
                 </div>
@@ -2721,11 +3062,15 @@ export default function Menu() {
                               <span className="text-red-700">Por favor, escolha o dia e horário de retirada</span>
                             )}
                           </h3>
-                          <p className="text-xs text-stone-600 font-medium">
-                            {selectedScheduleTime 
-                              ? 'Seu pedido será preparado com antecedência para este horário escolhido.' 
-                              : 'O estabelecimento exige a escolha prévia de um horário para organizar a produção.'}
-                          </p>
+                          {selectedScheduleTime && checkoutPickupTime ? (
+                            <p className="text-xs font-black text-amber-950 mt-1 bg-amber-200/80 px-2.5 py-1 rounded-lg border border-amber-300 w-fit">
+                              {hasFrozenInCart ? '❄️ Retirada estimada às ' : '🥖 Retirada estimada às '}<strong>{checkoutPickupTime}h</strong> ({hasFrozenInCart ? `${frozenPrepMins} min - Pedido Congelado` : `${normalPrepMins} min - Pedido Normal`})
+                            </p>
+                          ) : (
+                            <p className="text-xs text-stone-600 font-medium">
+                              Seu pedido será preparado com antecedência para este horário escolhido.
+                            </p>
+                          )}
                         </div>
                       </div>
                       <button
@@ -2736,11 +3081,11 @@ export default function Menu() {
                         }}
                         className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer shrink-0 ${
                           selectedScheduleTime
-                            ? 'bg-white hover:bg-stone-50 text-stone-900 border border-stone-300'
+                            ? 'bg-white hover:bg-amber-100 text-stone-900 border border-stone-300'
                             : 'bg-red-600 hover:bg-red-700 text-white animate-bounce'
                         }`}
                       >
-                        {selectedScheduleTime ? 'Trocar Horário 🕒' : 'Escolher Horário Agora 👉'}
+                        {selectedScheduleTime ? 'Alterar Horário 🕒' : 'Escolher Horário Agora 👉'}
                       </button>
                     </div>
                   </div>
@@ -4000,286 +4345,7 @@ export default function Menu() {
     return <BakeryLoader isLoading={true} />;
   }
 
-  // Etapa de Agendamento de Horários (Segunda a Sábado, Capacidade de Salgados e Preparo Normal vs Congelado)
-  if (showScheduleSelectionStep) {
-    const rawSlots = storeInfo.deliveryScheduleSlots;
-    let slots = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'];
-    if (Array.isArray(rawSlots) && rawSlots.length > 0) {
-      slots = rawSlots;
-    } else if (typeof rawSlots === 'string') {
-      try {
-        const p = JSON.parse(rawSlots);
-        if (Array.isArray(p) && p.length > 0) slots = p;
-      } catch (e) {}
-    }
 
-    // Gerar dias da semana disponíveis: Segunda a Sábado (Domingo a loja fecha)
-    const availableWeekDays: {
-      dateStr: string;
-      dayOfWeek: number;
-      shortDayName: string;
-      dayName: string;
-      dateFormatted: string;
-      isToday: boolean;
-    }[] = [];
-    const dayShortNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const dayFullNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-
-    const now = new Date();
-    const currentHours = now.getHours();
-    const currentMinutes = now.getMinutes();
-    const currentTimeInMinutes = (currentHours * 60) + currentMinutes;
-
-    const dayCursor = new Date(now);
-    while (availableWeekDays.length < 6) {
-      const dOfWeek = dayCursor.getDay();
-      if (dOfWeek !== 0) { // Domingo não abre
-        const y = dayCursor.getFullYear();
-        const m = String(dayCursor.getMonth() + 1).padStart(2, '0');
-        const d = String(dayCursor.getDate()).padStart(2, '0');
-        const dateStr = `${y}-${m}-${d}`;
-        const isToday = dayCursor.toDateString() === now.toDateString();
-
-        availableWeekDays.push({
-          dateStr,
-          dayOfWeek: dOfWeek,
-          shortDayName: dayShortNames[dOfWeek],
-          dayName: `${dayFullNames[dOfWeek]}, ${d}/${m}`,
-          dateFormatted: `${d}/${m}`,
-          isToday
-        });
-      }
-      dayCursor.setDate(dayCursor.getDate() + 1);
-    }
-
-    // Dia ativo selecionado (ou o primeiro dia útil disponível)
-    const activeDay = availableWeekDays.find(d => d.dateStr === selectedScheduleDate) || availableWeekDays[0];
-    const isTodaySelected = activeDay?.isToday || false;
-
-    // Detecção de itens congelados no carrinho
-    const hasFrozenInCart = cart.some(it => 
-      Boolean(it.isFrozen) || 
-      (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || (a.name && a.name.toLowerCase().includes('congelad')))) ||
-      (it.options && Array.isArray(it.options) && it.options.some((o: any) => o.isFrozen || (o.name && o.name.toLowerCase().includes('congelad'))))
-    );
-
-    // Tempos de retirada configuráveis no Painel (padrão: 40 min normal, 90 min congelado)
-    const normalPrepMinutes = Number(storeInfo.schedulePrepTimeNormalMinutes) || 40;
-    const frozenPrepMinutes = Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90;
-    const activePrepBuffer = hasFrozenInCart ? frozenPrepMinutes : normalPrepMinutes;
-
-    // Capacidade máxima de salgados por bloco de horário
-    const slotItemCapacity = Number(storeInfo.scheduleSlotItemCapacity) || 100;
-
-    // Helper para verificar status de um slot no dia ativo
-    const getSlotStatus = (slot: string) => {
-      const bookedUnits = slotBookedItemsMap[`${activeDay.dateStr}_${slot}`] || 0;
-      const remainingUnits = Math.max(0, slotItemCapacity - bookedUnits);
-      const isFull = remainingUnits <= 0;
-
-      let isPast = false;
-      if (isTodaySelected) {
-        const [sh, sm] = slot.split(':').map(Number);
-        const slotMinutes = (sh * 60) + sm;
-        isPast = slotMinutes <= (currentTimeInMinutes + activePrepBuffer);
-      }
-
-      return {
-        isPast,
-        isFull,
-        isDisabled: isPast || isFull,
-        bookedUnits,
-        remainingUnits
-      };
-    };
-
-    // Auto-avanço para o próximo horário disponível se o horário atual estiver desabilitado ou expirado
-    const currentSlotStatus = selectedScheduleTime ? getSlotStatus(selectedScheduleTime) : null;
-    let effectiveSelectedTime = selectedScheduleTime;
-    if (!effectiveSelectedTime || currentSlotStatus?.isDisabled) {
-      const firstAvailableSlot = slots.find(s => !getSlotStatus(s).isDisabled);
-      if (firstAvailableSlot && firstAvailableSlot !== selectedScheduleTime) {
-        effectiveSelectedTime = firstAvailableSlot;
-      }
-    }
-
-    return (
-      <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-3 sm:p-6 animate-fadeIn">
-        <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-xl max-w-lg w-full text-center border border-stone-200 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
-
-          <div className="w-14 h-14 mx-auto mb-3 bg-orange-100 text-orange-700 rounded-2xl flex items-center justify-center text-2xl shadow-xs border border-orange-200">
-            ⏰
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight mb-1">
-            Agende a Retirada do Pedido
-          </h2>
-          <p className="text-stone-600 text-xs sm:text-sm mb-4">
-            Escolha o dia da semana (Segunda a Sábado) e o horário de retirada no balcão
-          </p>
-
-          {/* 1. SELEÇÃO DOS DIAS DA SEMANA (Segunda a Sábado, Domingo não abre) */}
-          <div className="mb-4 text-left">
-            <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
-              1. Selecione o Dia da Retirada (Segunda a Sábado):
-            </label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {availableWeekDays.map(day => {
-                const isSelected = activeDay.dateStr === day.dateStr;
-                return (
-                  <button
-                    key={day.dateStr}
-                    type="button"
-                    onClick={() => {
-                      setSelectedScheduleDate(day.dateStr);
-                      setSelectedScheduleDay(day.dayName);
-                      safeStorage.setItem('balbec_selected_schedule_date', day.dateStr);
-                      safeStorage.setItem('balbec_selected_schedule_day', day.dayName);
-                    }}
-                    className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                      isSelected
-                        ? 'bg-orange-600 text-white border-orange-600 shadow-sm scale-102 font-black'
-                        : 'bg-stone-50 hover:bg-orange-50 text-stone-700 border-stone-200 font-semibold'
-                    }`}
-                  >
-                    <span className={`text-[10px] uppercase tracking-wider font-extrabold ${isSelected ? 'text-orange-100' : 'text-stone-500'}`}>
-                      {day.isToday ? 'Hoje' : day.shortDayName}
-                    </span>
-                    <span className="text-xs font-mono font-bold leading-tight">
-                      {day.dateFormatted}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-1 text-right">
-              <span className="text-[10px] text-stone-500 italic">* Domingo estabelecimento fechado</span>
-            </div>
-          </div>
-
-          {/* 2. AVISO SOBRE O TEMPO DE PREPARO (Normal vs Congelados) */}
-          <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl text-left text-xs text-amber-950 font-medium mb-4 flex items-start gap-2.5 shadow-xs">
-            <span className="text-xl shrink-0 mt-0.5">⏳</span>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <strong className="text-amber-900 font-bold uppercase text-[11px] tracking-wider">Tempo Estimado para Retirada</strong>
-                {hasFrozenInCart ? (
-                  <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-2xs">
-                    ❄️ Pedido Congelado ({frozenPrepMinutes} min)
-                  </span>
-                ) : (
-                  <span className="bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-2xs">
-                    🥖 Pedido Padrão ({normalPrepMinutes} min)
-                  </span>
-                )}
-              </div>
-              <p className="leading-relaxed text-[11px] text-stone-700">
-                Retirada normal: <strong>{normalPrepMinutes} minutos</strong> de preparo. Para pedidos com itens congelados: <strong>{frozenPrepMinutes} minutos</strong>.
-              </p>
-            </div>
-          </div>
-
-          {/* 3. GRADE DE HORÁRIOS DISPONÍVEIS POR CAPACIDADE DE SALGADOS */}
-          <div className="space-y-2 text-left mb-5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
-                2. Horários ({activeDay.dayName}):
-              </label>
-              <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
-                Capacidade: {slotItemCapacity} salgados/bloco
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1.5 border border-stone-100 rounded-2xl bg-stone-50/50">
-              {slots.map(slot => {
-                const status = getSlotStatus(slot);
-                const isSelected = effectiveSelectedTime === slot;
-
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    disabled={status.isDisabled}
-                    onClick={() => {
-                      if (!status.isDisabled) {
-                        setSelectedScheduleTime(slot);
-                        setSelectedScheduleDate(activeDay.dateStr);
-                        setSelectedScheduleDay(activeDay.dayName);
-                        safeStorage.setItem('balbec_selected_schedule_time', slot);
-                        safeStorage.setItem('balbec_selected_schedule_date', activeDay.dateStr);
-                        safeStorage.setItem('balbec_selected_schedule_day', activeDay.dayName);
-                      }
-                    }}
-                    className={`p-2.5 rounded-xl border text-xs font-black transition-all flex flex-col items-center justify-center gap-1 ${
-                      status.isDisabled 
-                        ? 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed opacity-60' 
-                        : isSelected 
-                          ? 'bg-orange-600 text-white border-orange-600 shadow-xs scale-102 cursor-pointer ring-2 ring-orange-300' 
-                          : 'bg-white text-stone-800 border-stone-200 hover:bg-orange-50 cursor-pointer'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-mono text-sm">
-                      <span>{status.isPast ? '❌' : status.isFull ? '🔒' : '🕐'}</span>
-                      <span className={status.isDisabled ? 'line-through opacity-50' : ''}>{slot}</span>
-                    </div>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-black ${
-                      status.isFull 
-                        ? 'bg-red-100 text-red-700' 
-                        : status.isPast 
-                          ? 'bg-stone-200 text-stone-500' 
-                          : isSelected
-                            ? 'bg-white/20 text-white'
-                            : 'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {status.isFull 
-                        ? `Esgotado (${slotItemCapacity}/${slotItemCapacity})` 
-                        : status.isPast 
-                          ? 'Encerrado' 
-                          : `${status.remainingUnits} de ${slotItemCapacity} un.`}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            disabled={!effectiveSelectedTime}
-            onClick={() => {
-              if (!effectiveSelectedTime) {
-                alert('O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis acima.');
-                return;
-              }
-              setSelectedScheduleTime(effectiveSelectedTime);
-              setSelectedScheduleDate(activeDay.dateStr);
-              setSelectedScheduleDay(activeDay.dayName);
-              safeStorage.setItem('balbec_selected_schedule_time', effectiveSelectedTime);
-              safeStorage.setItem('balbec_selected_schedule_date', activeDay.dateStr);
-              safeStorage.setItem('balbec_selected_schedule_day', activeDay.dayName);
-
-              setShowScheduleSelectionStep(false);
-              safeStorage.setSession('selected_sales_channel', 'instore');
-              safeStorage.setSession('balbec_qr_validated', 'true');
-              setIsQrValidated(true);
-              setSalesChannel('instore');
-              setDeliveryType('pickup');
-              setHasChosenChannel(true);
-              setHasName(true);
-            }}
-            className={`w-full py-3.5 sm:py-4 text-white rounded-2xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-2 ${
-              !effectiveSelectedTime 
-                ? 'bg-stone-300 text-stone-500 cursor-not-allowed shadow-none' 
-                : 'hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700'
-            }`}
-          >
-            <span>{effectiveSelectedTime ? `CONFIRMAR PARA ${activeDay.shortDayName.toUpperCase()} ÀS ${effectiveSelectedTime} 🥖` : 'SELECIONE UM HORÁRIO ACIMA'}</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
 
 
   // Se a loja estiver configurada em Modo de Manutenção

@@ -303,3 +303,27 @@ export function getStoreCurrentStatus(
     currentTimeString,
   };
 }
+
+export function calculatePickupTime(
+  scheduledTime: string,
+  hasFrozen: boolean,
+  normalMinutes = 40,
+  frozenMinutes = 90
+): string {
+  if (!scheduledTime || typeof scheduledTime !== 'string') return '';
+  const match = scheduledTime.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return '';
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (isNaN(h) || isNaN(m)) return '';
+
+  const addMinutes = hasFrozen ? frozenMinutes : normalMinutes;
+  const totalMinutes = h * 60 + m + addMinutes;
+  const newH = Math.floor((totalMinutes / 60) % 24);
+  const newM = totalMinutes % 60;
+
+  const padH = String(newH).padStart(2, '0');
+  const padM = String(newM).padStart(2, '0');
+  return `${padH}:${padM}`;
+}
+
