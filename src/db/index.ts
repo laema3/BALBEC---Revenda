@@ -228,35 +228,45 @@ export async function ensureTablesExist() {
   const dbUrl = getDatabaseUrl() || '';
   const initialSsl = !dbUrl.includes('.railway.internal') && !dbUrl.includes('localhost') && !dbUrl.includes('sslmode=disable');
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  console.log(`[DB] Iniciando verificação de tabelas... (Host: ${dbUrl.includes('@') ? dbUrl.split('@')[1].split('/')[0] : 'local'})`);
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       const pingPromise = pool.query('SELECT 1 as ping');
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('PostgreSQL indisponível ou tempo limite atingido (10s)')), 10000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('PostgreSQL indisponível ou tempo limite atingido (15s)')), 15000));
       await Promise.race([pingPromise, timeoutPromise]);
       isConnected = true;
+      railwayInternalUnreachable = false;
       break;
     } catch (pingErr: any) {
       const errMsg = String(pingErr?.message || pingErr || '');
+      console.warn(`[DB] Tentativa ${attempt}/5 falhou: ${errMsg}`);
+      
       if (errMsg.includes('ENOTFOUND') && dbUrl.includes('.railway.internal')) {
-        console.warn('[DB] Host interno postgres.railway.internal inacessível fora da rede Railway. Usando armazenamento local.');
-        railwayInternalUnreachable = true;
-        return;
+        console.warn('[DB] Host interno postgres.railway.internal inacessível fora da rede Railway.');
+        if (attempt === 5) {
+          railwayInternalUnreachable = true;
+          return;
+        }
       }
+      
       if (attempt === 1 && (errMsg.includes('SSL') || errMsg.includes('pg_hba.conf') || errMsg.includes('ECONNRESET') || errMsg.includes('Connection terminated'))) {
-        console.log(`[DB] Alternando modo SSL para ${!initialSsl} e reconectando ao PostgreSQL...`);
+        console.log(`[DB] Tentando alternar modo SSL para ${!initialSsl}...`);
         pool = createPool(!initialSsl);
         db = drizzle(pool, { schema });
         continue;
       }
-      if (attempt < 3) {
-        console.warn(`[DB] Tentativa ${attempt} aguardando conexão com PostgreSQL (${errMsg}), tentando novamente em 1.5s...`);
-        await new Promise(r => setTimeout(r, 1500));
-      } else {
-        console.warn('[DB] PostgreSQL não respondeu ao teste inicial, migrações ignoradas:', errMsg);
+      
+      if (attempt < 5) {
+        const delay = 2000 + (attempt * 1000);
+        console.warn(`[DB] Aguardando ${delay}ms para nova tentativa...`);
+        await new Promise(r => setTimeout(r, delay));
       }
     }
   }
+
   if (!isConnected) {
+    console.error('[DB] ERRO CRÍTICO: Não foi possível conectar ao PostgreSQL após 5 tentativas. O sistema entrará em modo de OPERAÇÃO LIMITADA (Apenas Memória/Disco Local). Dados novos serão perdidos no próximo deploy!');
     railwayInternalUnreachable = true;
     return;
   }
@@ -559,6 +569,9 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_accepted_at BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_completed_at BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_time TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_date TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_day TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_pickup_time TEXT;
 
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS external_id TEXT;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';
@@ -594,6 +607,9 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS mercado_pago_pix_key TEXT DEFAULT '3433383795';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS delivery_estimated_time_min INTEGER DEFAULT 35;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS delivery_estimated_time_max INTEGER DEFAULT 50;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_slot_item_capacity INTEGER DEFAULT 100;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_prep_time_normal_minutes INTEGER DEFAULT 40;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_prep_time_frozen_minutes INTEGER DEFAULT 90;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS show_system_intro_button BOOLEAN DEFAULT TRUE;
   `);
 }

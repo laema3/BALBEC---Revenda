@@ -4111,7 +4111,21 @@ export default function Admin() {
   const [completedOrderPage, setCompletedOrderPage] = useState(1);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [orderChannelFilter, setOrderChannelFilter] = useState<'all' | 'delivery' | 'instore' | 'kiosk'>('all');
+  const todayKey = new Date().toISOString().slice(0, 10);
   const [selectedOrderDateTab, setSelectedOrderDateTab] = useState<string>('all');
+
+  // Auto-select 'Today' tab if it's the first render and we have orders for today
+  useEffect(() => {
+    if (selectedOrderDateTab === 'all' && orders.length > 0) {
+      const hasTodayOrders = orders.some(o => {
+        const info = getOrderDateInfo(o);
+        return info.dateKey === todayKey && (o.status !== 'completed' && o.status !== 'cancelled');
+      });
+      if (hasTodayOrders) {
+        setSelectedOrderDateTab(todayKey);
+      }
+    }
+  }, [orders.length, todayKey]);
 
   const renderOrders = () => {
     // Filter orders according to channel and search query
@@ -4155,6 +4169,8 @@ export default function Admin() {
 
     // Construção dinâmica das Abas por Dia
     const dateMap = new Map<string, { key: string; label: string; count: number }>();
+    const todayKey = new Date().toISOString().slice(0, 10);
+
     allPendingOrders.forEach(o => {
       const info = getOrderDateInfo(o);
       if (!dateMap.has(info.dateKey)) {
@@ -4164,9 +4180,16 @@ export default function Admin() {
       item.count += 1;
     });
 
+    const sortedDates = Array.from(dateMap.values()).sort((a, b) => a.key.localeCompare(b.key));
+    
+    // Prioriza 'Hoje' se houver pedidos para hoje
+    const todayTab = sortedDates.find(t => t.key === todayKey);
+    const otherTabs = sortedDates.filter(t => t.key !== todayKey);
+
     const dateTabs = [
+      ...(todayTab ? [todayTab] : []),
       { key: 'all', label: 'Todos os Dias', count: allPendingOrders.length },
-      ...Array.from(dateMap.values()).sort((a, b) => a.key.localeCompare(b.key))
+      ...otherTabs
     ];
 
     // Filtragem por Aba de Dia selecionada
@@ -4536,9 +4559,10 @@ export default function Admin() {
                     key={order.id} 
                     className={`bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col transition-all ${
                       isDueWithin30Mins 
-                        ? 'border-2 border-red-500 ring-4 ring-red-400/80 bg-red-50/20 animate-pulse shadow-2xl' 
-                        : (order.type === 'kiosk' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-orange-200')
+                        ? 'border-4 border-red-600 ring-4 ring-red-500/50 bg-red-50 shadow-2xl scale-[1.02] z-10 animate-pulse' 
+                        : (order.type === 'kiosk' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-orange-200 shadow-xs')
                     }`}
+                    style={isDueWithin30Mins ? { animationDuration: '1s' } : {}}
                   >
                     {/* BANNER PULSANTE: FALTANDO 30 MINUTOS PARA ENTREGA / RETIRADA */}
                     {isDueWithin30Mins && (
@@ -7683,9 +7707,8 @@ export default function Admin() {
                 <p className="font-mono text-sm break-all">ai-studio-00ea1247</p>
               </div>
             </div>
-            
             <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <button type="button" 
                   onClick={async () => {
                     setConnectionStatus('testing');
@@ -7722,10 +7745,39 @@ export default function Admin() {
                 >
                   {connectionStatus === 'testing' ? 'Testando...' : 'Testar Conexão Agora'}
                 </button>
-                <p className="text-xs text-stone-500 italic">
-                  Este teste verifica se o aplicativo consegue se conectar e ler dados do banco de dados Cloud SQL PostgreSQL e servidor API.
-                </p>
+
+                <button type="button" 
+                  onClick={async () => {
+                    if (!confirm('Deseja realmente FORÇAR a restauração de todos os pedidos e cadastros a partir do PostgreSQL (Railway)?\n\nIsso sincronizará o estado em memória com o banco de dados agora.')) return;
+                    setIsSyncing(true);
+                    try {
+                      const res = await fetch('/api/db/force-hydrate', { method: 'POST' });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        await fetchData();
+                        alert(`${data.message}\nTotal de Pedidos agora: ${data.ordersCount}`);
+                      } else {
+                        alert('Erro na hidratação: ' + (data.error || 'Erro desconhecido'));
+                      }
+                    } catch (e: any) {
+                      alert('Falha na requisição: ' + e.message);
+                    } finally {
+                      setIsSyncing(false);
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className={`px-6 py-2 text-white rounded-lg font-medium transition-all shadow-md active:scale-95 flex items-center gap-2 ${
+                    isSyncing ? 'bg-stone-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? 'Sincronizando...' : 'Sincronizar Tudo com PostgreSQL'}
+                </button>
               </div>
+              <p className="text-xs text-stone-500 italic">
+                Este teste e sincronização garantem que todos os pedidos persistidos no PostgreSQL sejam carregados para o sistema atual. Use caso perceba que algum pedido não está aparecendo após um deploy.
+              </p>
+            </div>
 
               {connectionStatus === 'success' && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3 text-green-700">
@@ -7750,7 +7802,6 @@ export default function Admin() {
               )}
             </div>
           </div>
-        </div>
       )}
 
       {/* Modal de Teste do Agente I.A. */}

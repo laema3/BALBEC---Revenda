@@ -1140,22 +1140,32 @@ export async function hydrateFromPostgres(): Promise<void> {
 
       // 3.2. Hidratar Pedidos
       try {
-        const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(1000);
+        console.log('[DB Hydrate] Consultando últimos 5000 pedidos do PostgreSQL...');
+        const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
+        
+        const orderMap = new Map<string, any>();
+        const initialMemCount = memOrders.length;
+        
+        // 1. Prioriza o que já está na memória (vindo de arquivos de backup locais / public assets)
+        memOrders.forEach(o => { if (o && o.id) orderMap.set(String(o.id), o); });
+        
+        // 2. Mescla com o que está no PostgreSQL (Railway)
+        let dbAddedCount = 0;
         if (ordList && ordList.length > 0) {
-          // SMART MERGE: Não sobrescreve memOrders (que já tem dados de arquivos/backup), mas mescla com o que está no DB
-          const orderMap = new Map<string, any>();
-          // 1. Prioriza o que já está na memória (vindo de arquivos de backup locais / public assets)
-          memOrders.forEach(o => { if (o && o.id) orderMap.set(String(o.id), o); });
-          // 2. Mescla com o que está no PostgreSQL (Railway)
-          ordList.forEach(o => { if (o && o.id) orderMap.set(String(o.id), { ...(orderMap.get(String(o.id)) || {}), ...o }); });
-          
-          memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-          persistOrdersToDisk(memOrders);
-          console.log(`[DB Hydrate] ${memOrders.length} pedidos sincronizados (Arquivos + PostgreSQL).`);
+          ordList.forEach(o => { 
+            if (o && o.id) {
+              if (!orderMap.has(String(o.id))) dbAddedCount++;
+              orderMap.set(String(o.id), { ...(orderMap.get(String(o.id)) || {}), ...o }); 
+            }
+          });
         }
+        
+        memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+        persistOrdersToDisk(memOrders);
+        console.log(`[DB Hydrate] Sincronização de Pedidos: ${initialMemCount} do Disco + ${dbAddedCount} novos do DB. Total final: ${memOrders.length} pedidos.`);
       } catch (ordHydrateErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar orders do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
-    }
+      }
 
     // 4. Hidratar Mesas
     try {
@@ -1482,7 +1492,6 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     next();
   });
 
-  // SSE Real-Time Sync Endpoint
   app.get('/api/events', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -1496,6 +1505,26 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     req.on('close', () => {
       sseClients.delete(res);
     });
+  });
+
+  // Force Hydrate from PostgreSQL (Admin Panic Button)
+  app.post('/api/db/force-hydrate', async (req: Request, res: Response) => {
+    try {
+      console.log('[DB Force Hydrate] Iniciando hidratação manual solicitada pelo Administrador...');
+      isHydrated = false;
+      hydrationPromise = null;
+      await hydrateFromPostgres();
+      onUpdate?.('orders');
+      res.json({ 
+        success: true, 
+        message: 'Hidratação concluída com sucesso! Os dados foram recarregados do PostgreSQL.', 
+        ordersCount: memOrders.length,
+        customersCount: memCustomers.length
+      });
+    } catch (err: any) {
+      console.error('[DB Force Hydrate] Erro:', err);
+      res.status(500).json({ success: false, error: err?.message || 'Falha na hidratação manual' });
+    }
   });
 
   // NTFY Proxy Endpoint (Evita bloqueios de CORS no navegador e garante entrega garantida de notificações)
@@ -2074,11 +2103,17 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     if (isDatabaseConfigured()) {
       try {
-        const result = await db.insert(orders).values(newOrder).returning();
+        const result = await withDbRetry(async () => {
+          return await db.insert(orders).values(newOrder).returning();
+        });
+        console.log(`[DB Order] Pedido #${newOrder.id} salvo com sucesso no PostgreSQL.`);
         onUpdate?.('orders');
         return res.json(result[0] || newOrder);
       } catch (error: any) {
+        console.error(`[CRITICAL] Falha ao salvar pedido #${newOrder.id} no PostgreSQL após tentativas:`, error?.message || error);
         onUpdate?.();
+        // Em caso de falha crítica no DB, retornamos o pedido em memória para não bloquear o cliente,
+        // mas o log acima alertará o administrador sobre a falha na persistência definitiva.
         return res.json(newOrder);
       }
     }

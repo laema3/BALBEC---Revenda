@@ -213,6 +213,7 @@ export interface Order {
   scheduledTime?: string;
   scheduledDate?: string;
   scheduledDay?: string;
+  scheduledPickupTime?: string;
 }
 
 export interface TvMediaItem {

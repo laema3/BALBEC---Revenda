@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations } from '../lib/utils';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar } from 'lucide-react';
 import { MotorcycleIcon } from '../components/MotorcycleIcon';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
@@ -805,11 +805,17 @@ export default function Menu() {
       const oCpf = String((o as any).customerCpf || '').replace(/\D/g, '');
       const oPhone = String(o.customerPhone || '').replace(/\D/g, '');
 
+      const sessionPhone = String(customerPhone || '').replace(/\D/g, '');
+      const sessionName = (customerName || '').trim().toLowerCase();
+
       const matchesCustomer = activeCustomer ? (
         (o as any).customerId === activeCustomer.id ||
         (cleanActiveCpf && oCpf === cleanActiveCpf) ||
         (cleanActivePhone.length >= 8 && oPhone === cleanActivePhone)
-      ) : true;
+      ) : (
+        (sessionPhone.length >= 8 && oPhone === sessionPhone) ||
+        (sessionName && sessionName !== 'cliente' && String(o.customerName || '').trim().toLowerCase() === sessionName)
+      );
 
       if (matchesCustomer) {
         seenOrderIds.add(o.id);
@@ -2250,89 +2256,92 @@ export default function Menu() {
       <div id="success-order-screen" className="min-h-screen bg-stone-900 text-stone-100 flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 pt-2 sm:pt-6">
         <div className="bg-white text-stone-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-stone-200 animate-in fade-in zoom-in duration-200 my-0 sm:my-auto">
           
-          {/* Header de Sucesso */}
-          <div className="bg-emerald-600 text-white p-4 sm:p-5 text-center flex flex-col items-center justify-center">
-            <CheckCircle2 className="w-12 h-12 sm:w-14 sm:h-14 mb-1.5 animate-bounce" />
-            <h2 className="text-xl sm:text-3xl font-black tracking-tight uppercase">PEDIDO REALIZADO!</h2>
-            <p className="text-emerald-100 text-xs sm:text-sm font-medium">
-              {isKioskMode ? 'Imprima seu comprovante e retire no balcão' : 'Recebemos seu pedido com sucesso!'}
+          {/* Header de Sucesso (VERDE) */}
+          <div className="bg-[#00a65a] text-white p-6 sm:p-8 text-center flex flex-col items-center justify-center">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3">
+              <CheckCircle2 className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black tracking-tight uppercase leading-tight">PEDIDO REALIZADO!</h2>
+            <p className="text-white/90 text-sm sm:text-base font-bold mt-1">
+              Recebemos seu pedido com sucesso!
             </p>
           </div>
 
-          {/* DIA E HORÁRIO DE ENTREGA / RETIRADA EM GRANDE DESTAQUE BEM NO COMEÇO */}
-          <div id="top-delivery-schedule-banner" className="p-4 sm:p-5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-stone-950 border-b-2 border-yellow-600 shadow-md text-center">
-            <div className="flex items-center justify-center gap-2 text-xs sm:text-sm font-black uppercase tracking-wider text-stone-900 mb-1.5">
-              <Clock className="w-5 h-5 text-stone-950 animate-bounce" />
-              <span>📅 DIA E HORÁRIO DE {lastPlacedOrder?.type === 'delivery' ? 'ENTREGA' : 'RETIRADA'}:</span>
+          {/* Seção de ATENÇÃO (LARANJA) */}
+          <div className="bg-[#ff851b] text-white p-6 sm:p-8 text-center flex flex-col items-center">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg">
+              <UserCheck className="w-9 h-9 text-[#ff851b] stroke-[2.5]" />
             </div>
-            <div className="text-xl sm:text-3xl font-black text-stone-950 font-mono tracking-tight bg-white py-2.5 px-4 rounded-2xl border-2 border-yellow-600 shadow-sm inline-block w-full">
-              {lastPlacedOrder?.scheduledDay ? `${lastPlacedOrder.scheduledDay} • ` : ''}
-              {lastPlacedOrder?.scheduledTime || (lastPlacedOrder?.createdAt ? new Date(lastPlacedOrder.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '')}
+            <h3 className="text-xl sm:text-3xl font-black uppercase tracking-tight mb-4 drop-shadow-sm">
+              ATENÇÃO PREZADO {clientNameDisplay || 'CLIENTE'}
+            </h3>
+            
+            <div className="w-full bg-white/10 backdrop-blur-sm rounded-3xl p-5 sm:p-7 border border-white/30 shadow-inner mb-6">
+              <p className="text-lg sm:text-2xl font-black text-white leading-tight">
+                {lastPlacedOrder?.type === 'delivery' 
+                  ? 'Seu pedido para Delivery foi recebido e está sendo processado para entrega pelo motoboy.' 
+                  : (lastPlacedOrder?.scheduledTime 
+                      ? `Seu pedido foi agendado para ${lastPlacedOrder.scheduledTime}${lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}. Aguarde ser chamado pelo seu nome no balcão.` 
+                      : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.`)}
+              </p>
             </div>
-            {lastPlacedOrder?.scheduledTime && (
-              <div className="mt-2 text-xs font-black text-stone-950 bg-white/90 px-3 py-1 rounded-full inline-block border border-amber-500/50 shadow-xs">
-                ⏰ Horário Agendado Confirmado com Sucesso
-              </div>
-            )}
+
+            <div className="inline-flex items-center gap-2 bg-black/30 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/20 shadow-lg animate-pulse">
+              <Printer className="w-4 h-4 text-white" />
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wide">
+                Pedido #{orderNumber} já impresso no balcão da loja!
+              </span>
+            </div>
           </div>
 
-          {/* Mensagem em destaque no Smartphone: Atenção prezado (CLIENTE). Aguarde ser chamado... */}
-          {!isKioskMode && (
-            <div id="order-attention-banner" className="p-4 sm:p-5 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white text-center border-b-2 border-orange-600 shadow-md">
-              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white text-orange-600 shadow-lg mb-2">
-                <UserCheck className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.5]" />
+          {/* Horário Agendado em Destaque (AMARELO/BEGE) */}
+          {lastPlacedOrder?.scheduledTime && (
+            <div className="p-5 bg-[#fff8e1] border-b border-stone-200 flex items-center gap-4 text-stone-900">
+              <div className="w-12 h-12 rounded-2xl bg-[#ff9800] text-white flex items-center justify-center shadow-md shrink-0 text-2xl">
+                ⏰
               </div>
-              <h3 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-white drop-shadow-xs">
-                Atenção prezado {clientNameDisplay || 'CLIENTE'}
-              </h3>
-              <div className="mt-2 bg-white/20 backdrop-blur-xs rounded-2xl p-3.5 sm:p-4 border border-white/25">
-                <p className="text-sm sm:text-lg font-black text-white leading-snug">
-                  {lastPlacedOrder?.type === 'delivery' 
-                    ? 'Seu pedido para Delivery foi recebido e está PENDENTE no painel. Ele entrará em preparação para entrega pelo motoboy.' 
-                    : (lastPlacedOrder?.scheduledTime 
-                        ? `Seu pedido foi agendado para ${lastPlacedOrder.scheduledTime}. Ele será preparado com antecedência para retirada neste horário.` 
-                        : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação e ficará pronto em aprox. ${storeInfo.schedulePrepTimeNormalMinutes || 40} minutos.`)
-                  }
+              <div className="text-left flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#a85d00] mb-0.5">Horário Agendado para o Pedido</p>
+                <p className="text-lg sm:text-xl font-black text-stone-950">
+                  {lastPlacedOrder.scheduledTime}{lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}
                 </p>
-              </div>
-              <div className="mt-2.5 inline-flex items-center justify-center gap-1.5 bg-black/25 px-3 py-1 rounded-full text-xs font-bold text-amber-100 border border-white/10">
-                <span>🖨️ Pedido #{orderNumber} {lastPlacedOrder?.type === 'delivery' ? 'enviado para produção de entrega!' : 'já impresso no balcão da loja!'}</span>
+                <p className="text-[11px] text-[#a85d00] font-bold leading-tight">
+                  Seu pedido será preparado com antecedência para retirada no horário agendado.
+                </p>
               </div>
             </div>
           )}
+
+          {/* SUA SENHA DE CHAMADA (CARD BRANCO) */}
+          <div className="p-6 sm:p-8 bg-white space-y-6">
+            <div className="relative p-6 sm:p-8 rounded-[40px] border-2 border-stone-100 shadow-xl overflow-hidden bg-gradient-to-b from-white to-stone-50/50">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+                <div className="text-center sm:text-left">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 block mb-1">Sua Senha de Chamada</span>
+                  <h3 className="text-5xl sm:text-7xl font-black text-stone-950 tracking-tighter">#{orderNumber}</h3>
+                  <div className="mt-4 inline-flex flex-col gap-1">
+                    <div className="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-2 shadow-md">
+                      <Clock className="w-4 h-4" />
+                      <span>{lastPlacedOrder?.scheduledDay ? `${lastPlacedOrder.scheduledDay} ` : ''}{lastPlacedOrder?.scheduledTime}{lastPlacedOrder?.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}</span>
+                    </div>
+                    <span className="text-xs font-bold text-stone-500 ml-1 mt-1">Cliente: {clientNameDisplay}</span>
+                  </div>
+                </div>
+
+                <div className="w-full sm:w-40 bg-[#fffde7] p-5 rounded-[32px] border-2 border-[#fff9c4] text-center flex flex-col items-center justify-center shadow-sm">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mb-2 shadow-xs border border-[#fff9c4]">
+                    <Monitor className="w-6 h-6 text-[#fbc02d]" />
+                  </div>
+                  <p className="text-[11px] font-black text-stone-800 leading-tight">Acompanhe na TV da Loja</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Card Meta do Mês */}
           <div className="px-4 sm:px-5">
             {renderMonthlyGoalCard()}
           </div>
-
-          {/* Confirmação de Pagamento Online Aprovado */}
-          {lastPlacedOrder?.paymentMethod?.includes('Online') && (
-            <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center justify-center gap-3 text-emerald-900">
-              <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-black uppercase tracking-wider text-emerald-800">Pagamento Online Confirmado</p>
-                <p className="text-sm font-bold text-emerald-950">{lastPlacedOrder.paymentMethod}</p>
-                <p className="text-[10px] text-emerald-700">O pagamento foi aprovado com sucesso e o pedido já está liberado para a produção.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Horário Agendado em Destaque */}
-          {lastPlacedOrder?.scheduledTime && (
-            <div className="p-4 bg-amber-50 border-b-2 border-amber-300 flex items-center justify-center gap-3 text-amber-950 animate-fadeIn">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs shrink-0 text-xl">
-                ⏰
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">Horário Agendado para o Pedido</p>
-                <p className="text-base font-black text-amber-950 font-mono">{lastPlacedOrder.scheduledTime}</p>
-                <p className="text-[11px] text-amber-800 font-medium">Seu pedido será preparado com antecedência para retirada no horário agendado.</p>
-              </div>
-            </div>
-          )}
 
           {/* Cronômetro e Acompanhamento ao Vivo de Entrega (Apenas para Delivery) */}
           {lastPlacedOrder?.type === 'delivery' && (
