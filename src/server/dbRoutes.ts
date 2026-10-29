@@ -20,18 +20,18 @@ const DEFAULT_STORE_INFO = {
   id: 'default',
   name: 'BALBEC - REVENDA',
   themeColor: '#e6a800',
-  addButtonColor: '#e6a800',
+  addButtonColor: '#139f09',
   iconColor: '#e6a800',
   headerPhrase: 'Salgados Especiais e Revenda',
   logoUrl: '/logo.svg',
-  address: 'Praça Dr. Jorge Frange, 72 - São Benedito, Uberaba - MG',
-  hours: 'De segunda à sábado das 06:00h às 20:00h.\nDomingo das 07:00h às 13:00h.',
+  address: 'Rua São Benedito',
+  hours: 'Dom: 07:00 às 13:00 • Seg a Sáb: 06:00 às 20:00',
   instagram: '@balbecrevenda',
-  whatsapp: '(34) 99632-0500',
-  categoryTitleColor: '#e6a800',
+  whatsapp: '(34) 3338-3795',
+  categoryTitleColor: '#dc2626',
   deliveryEnabled: false,
-  deliveryScheduleEnabled: false,
-  deliveryScheduleSlots: '["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"]',
+  deliveryScheduleEnabled: true,
+  deliveryScheduleSlots: '["09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","09:00"]',
   scheduleSlotItemCapacity: 100,
   schedulePrepTimeNormalMinutes: 40,
   schedulePrepTimeFrozenMinutes: 90,
@@ -42,7 +42,7 @@ const DEFAULT_STORE_INFO = {
   ntfyTopic: 'balbecrevenda_pedidos',
   ntfyEnabled: true,
   tvTickerText: '🥟 Salgados fresquinhos e crocantes para revenda e consumo! Peça pelo app ou no balcão!',
-  tvMode: 'split_menu',
+  tvMode: 'split_orders',
   tvSelectedCategories: '[]',
   tvSoundEnabled: false,
   tvShowClock: true,
@@ -58,10 +58,10 @@ const DEFAULT_STORE_INFO = {
     { dayOfWeek: 5, dayName: 'Sexta-feira', shortName: 'Sex', isOpen: true, openTime: '06:00', closeTime: '20:00' },
     { dayOfWeek: 6, dayName: 'Sábado', shortName: 'Sáb', isOpen: true, openTime: '06:00', closeTime: '20:00' },
   ]),
-  autoOpenClose: false,
-  forceOpen: false,
+  autoOpenClose: true,
+  forceOpen: true,
   closedMessage: 'Estamos fechados no momento. Confira nossos horários de atendimento!',
-  aiAgentEnabled: true,
+  aiAgentEnabled: false,
   aiAgentName: 'Balbec IA',
   aiAgentTone: 'amigavel',
   aiAgentCustomPrompt: 'Salgados fresquinhos para festa e revenda. Aceitamos encomendas pelo app e WhatsApp.',
@@ -78,7 +78,7 @@ const DEFAULT_STORE_INFO = {
   inStoreMaxRadiusMeters: 150,
   inStorePinValidation: false,
   inStorePinCode: '1234',
-  preferredPrinterName: 'EPSON TM-T20X (Rede 192.168.0.90)',
+  preferredPrinterName: 'HP LaserJet / Epson Padrão',
   printerCutMode: 'partial',
   printerCopies: 2,
   totemPrinterCutMode: 'partial',
@@ -92,7 +92,7 @@ const DEFAULT_STORE_INFO = {
     { id: 'p2', name: 'Elgin i9 (Balcão / Ignorada para Pedidos)', model: 'Térmica 80mm (Ignorada)', isOrderPrinter: false }
   ]),
   caixaPrinterName: 'EPSON TM-T20X (Rede 192.168.0.90)',
-  autoPrintOrdersOnCaixa: true,
+  autoPrintOrdersOnCaixa: false,
   printerConnectionType: 'network',
   networkPrinterIp: '192.168.0.90',
   networkPrinterPort: 9100,
@@ -102,7 +102,8 @@ const DEFAULT_STORE_INFO = {
   mercadoPagoPixKey: '3433383795',
   deliveryEstimatedTimeMin: 35,
   deliveryEstimatedTimeMax: 50,
-  showSystemIntroButton: true
+  showSystemIntroButton: false,
+  minOrderValue: 150,
 };
 
 export function sanitizeStoreInfoPrinters(info: any) {
@@ -111,13 +112,10 @@ export function sanitizeStoreInfoPrinters(info: any) {
     info.networkPrinterIp = '192.168.0.90';
   }
   if (!info.preferredPrinterName || /elgin/i.test(info.preferredPrinterName)) {
-    info.preferredPrinterName = 'EPSON TM-T20X (Rede 192.168.0.90)';
+    info.preferredPrinterName = 'HP LaserJet / Epson Padrão';
   }
   if (!info.caixaPrinterName || /elgin/i.test(info.caixaPrinterName)) {
     info.caixaPrinterName = 'EPSON TM-T20X (Rede 192.168.0.90)';
-  }
-  if (info.autoPrintOrdersOnCaixa === undefined) {
-    info.autoPrintOrdersOnCaixa = true;
   }
   try {
     let printers: any[] = [];
@@ -151,8 +149,6 @@ export function sanitizeStoreInfoPrinters(info: any) {
     }
   } catch (e) {}
 
-  // Padrão consolidado (desde 19/09/26): SEMPRE 2 VIAS (1ª Via Cliente + 2ª Via Balcão com corte).
-  // Corrige qualquer valor residual de 1 via do Totem voltando para 2 vias.
   if (info.totemPrinterCopies === undefined || info.totemPrinterCopies === 1) {
     info.totemPrinterCopies = 2;
   }
@@ -194,32 +190,61 @@ try {
   });
 } catch (e) {}
 
-// Auto-import user uploaded backup to permanently seed store state and customers
+// Dynamic auto-import for user uploaded backup files
 try {
-  const userBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_2026-10-28__1__8d48a2c6.json');
-  if (fs.existsSync(userBackupPath)) {
-    const backupRaw = fs.readFileSync(userBackupPath, 'utf8');
-    const backupData = JSON.parse(backupRaw);
-    if (backupData) {
-      if (backupData.storeInfo) {
-        fs.writeFileSync(path.join(STORAGE_DIR, '.store_info_data.json'), JSON.stringify(backupData.storeInfo, null, 2), 'utf8');
+  const assetDir = path.join(process.cwd(), 'public', 'assets', 'aistudio');
+  let latestBackupPath: string | null = null;
+  let latestMtime = 0;
+
+  if (fs.existsSync(assetDir)) {
+    const dirFiles = fs.readdirSync(assetDir);
+    for (const file of dirFiles) {
+      if (file.startsWith('balbec_backup_') && file.endsWith('.json')) {
+        const fullP = path.join(assetDir, file);
+        const stat = fs.statSync(fullP);
+        if (stat.mtimeMs > latestMtime) {
+          latestMtime = stat.mtimeMs;
+          latestBackupPath = fullP;
+        }
       }
-      if (Array.isArray(backupData.categories) && backupData.categories.length > 0) {
-        fs.writeFileSync(path.join(STORAGE_DIR, '.categories_data.json'), JSON.stringify(backupData.categories, null, 2), 'utf8');
+    }
+  }
+
+  if (latestBackupPath) {
+    const storeInfoPath = path.join(STORAGE_DIR, '.store_info_data.json');
+    let shouldImport = !fs.existsSync(storeInfoPath);
+    if (fs.existsSync(storeInfoPath)) {
+      const existingStat = fs.statSync(storeInfoPath);
+      // Importa apenas se o arquivo de backup for significativamente mais recente que o store_info no disco
+      if (latestMtime > existingStat.mtimeMs + 10000) {
+        shouldImport = true;
       }
-      if (Array.isArray(backupData.products) && backupData.products.length > 0) {
-        fs.writeFileSync(path.join(STORAGE_DIR, '.products_data.json'), JSON.stringify(backupData.products, null, 2), 'utf8');
+    }
+
+    if (shouldImport) {
+      const backupRaw = fs.readFileSync(latestBackupPath, 'utf8');
+      const backupData = JSON.parse(backupRaw);
+      if (backupData) {
+        if (backupData.storeInfo) {
+          fs.writeFileSync(storeInfoPath, JSON.stringify(backupData.storeInfo, null, 2), 'utf8');
+        }
+        if (Array.isArray(backupData.categories) && backupData.categories.length > 0) {
+          fs.writeFileSync(path.join(STORAGE_DIR, '.categories_data.json'), JSON.stringify(backupData.categories, null, 2), 'utf8');
+        }
+        if (Array.isArray(backupData.products) && backupData.products.length > 0) {
+          fs.writeFileSync(path.join(STORAGE_DIR, '.products_data.json'), JSON.stringify(backupData.products, null, 2), 'utf8');
+        }
+        if (Array.isArray(backupData.customers) && backupData.customers.length > 0) {
+          fs.writeFileSync(path.join(STORAGE_DIR, '.customers_data.json'), JSON.stringify(backupData.customers, null, 2), 'utf8');
+        }
+        if (Array.isArray(backupData.users) && backupData.users.length > 0) {
+          fs.writeFileSync(path.join(STORAGE_DIR, '.users_data.json'), JSON.stringify(backupData.users, null, 2), 'utf8');
+        }
+        if (Array.isArray(backupData.tvMedia) && backupData.tvMedia.length > 0) {
+          fs.writeFileSync(path.join(STORAGE_DIR, '.tv_media_data.json'), JSON.stringify(backupData.tvMedia, null, 2), 'utf8');
+        }
+        console.log(`[Auto-Import Backup] Dados do backup (${path.basename(latestBackupPath)}) importados com sucesso!`);
       }
-      if (Array.isArray(backupData.customers) && backupData.customers.length > 0) {
-        fs.writeFileSync(path.join(STORAGE_DIR, '.customers_data.json'), JSON.stringify(backupData.customers, null, 2), 'utf8');
-      }
-      if (Array.isArray(backupData.users) && backupData.users.length > 0) {
-        fs.writeFileSync(path.join(STORAGE_DIR, '.users_data.json'), JSON.stringify(backupData.users, null, 2), 'utf8');
-      }
-      if (Array.isArray(backupData.tvMedia) && backupData.tvMedia.length > 0) {
-        fs.writeFileSync(path.join(STORAGE_DIR, '.tv_media_data.json'), JSON.stringify(backupData.tvMedia, null, 2), 'utf8');
-      }
-      console.log('[Auto-Import Backup] Dados do backup do usuário importados com sucesso para armazenamento e seed!');
     }
   }
 } catch (e) {

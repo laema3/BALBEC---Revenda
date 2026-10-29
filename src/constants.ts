@@ -298,19 +298,34 @@ export const isSalgadoProduct = (product: any, categories: any[] = []) => {
     prodName.includes('cerveja') || prodName.includes('agua') || prodName.includes('cafe') || 
     prodName.includes('caldo') || prodName.includes('sopa') || prodName.includes('doce') || 
     prodName.includes('bolo') || prodName.includes('pudim') || prodName.includes('sorvete') ||
+    prodName.includes('maionese') || prodName.includes('frete') ||
     catName.includes('bebida') || catName.includes('caldo') || catName.includes('sopa') || 
     catName.includes('doce') || catName.includes('confeitaria');
   
   if (isExcluded) return false;
 
-  const isSalgado = 
-    prodName.includes('salgado') || prodName.includes('coxinha') || prodName.includes('esfirra') || 
-    prodName.includes('pastel') || prodName.includes('kibe') || prodName.includes('empada') || 
-    prodName.includes('risole') || prodName.includes('croquete') || prodName.includes('pao de queijo') ||
-    catName.includes('salgado') || catName.includes('coxinha') || catName.includes('esfirra') ||
-    catName.includes('salgados');
+  // Se a categoria for de salgados / revenda / festa / tipo 2, é salgado
+  const isSalgadoCat = 
+    catName.includes('salgado') || catName.includes('salgados') ||
+    catName.includes('revenda') || catName.includes('festa') ||
+    catName.includes('tipo') || catName.includes('rev');
+
+  if (isSalgadoCat) return true;
+
+  // Checagem de palavras-chave e abreviações no nome do produto
+  const isSalgadoName = 
+    prodName.includes('salgado') || prodName.includes('coxinha') || prodName.includes('cox') ||
+    prodName.includes('esfirra') || prodName.includes('esfiha') || prodName.includes('esf') ||
+    prodName.includes('pastel') || prodName.includes('kibe') || prodName.includes('quibe') ||
+    prodName.includes('empada') || prodName.includes('emp') || prodName.includes('risole') ||
+    prodName.includes('risolis') || prodName.includes('croquete') || prodName.includes('croq') ||
+    prodName.includes('pao de queijo') || prodName.includes('bolinho') || prodName.includes('bol') ||
+    prodName.includes('espetinho') || prodName.includes('enroladinho') || prodName.includes('quiche') ||
+    prodName.includes('cachorro') || prodName.includes('mandioca') || prodName.includes('bacalhau') ||
+    prodName.includes('pizza') || prodName.includes('kafta') || prodName.includes('hamburguer') ||
+    prodName.includes('festa') || prodName.includes('revenda') || prodName.includes('tipo');
   
-  return isSalgado;
+  return isSalgadoName;
 };
 
 
