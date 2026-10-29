@@ -1930,6 +1930,14 @@ export default function Menu() {
       return;
     }
 
+    // Validação obrigatória de agendamento de retirada
+    if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+      setScheduleStepMode('pickup');
+      setShowScheduleSelectionStep(true);
+      alert('⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
+      return;
+    }
+
     if (isDeliveryOrder) {
       if (!customerEmail.trim()) {
         alert('Por favor, informe seu E-mail.');
@@ -2215,6 +2223,12 @@ export default function Menu() {
                     <span>MESA {lastPlacedOrder.tableNumber}</span>
                   </div>
                 ) : null}
+                {lastPlacedOrder?.scheduledTime ? (
+                  <div className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 bg-amber-500 text-stone-900 rounded-lg text-xs font-black shadow-xs">
+                    <Clock className="w-3.5 h-3.5 text-stone-950" />
+                    <span>HORÁRIO AGENDADO RETIRADA: {lastPlacedOrder.scheduledTime}</span>
+                  </div>
+                ) : null}
                 {!isKioskMode && clientNameDisplay && (
                   <p className="text-xs text-stone-500 font-semibold mt-0.5">Cliente: <span className="text-stone-800 font-bold uppercase">{clientNameDisplay}</span></p>
                 )}
@@ -2287,6 +2301,11 @@ export default function Menu() {
                     {lastPlacedOrder.tableNumber && (
                       <div className="font-black text-xs tracking-widest text-amber-300 uppercase">
                         🍽️ MESA {lastPlacedOrder.tableNumber}
+                      </div>
+                    )}
+                    {lastPlacedOrder.scheduledTime && (
+                      <div className="bg-amber-400 text-black px-2 py-1 rounded text-xs font-black tracking-wide uppercase mt-1">
+                        ⏰ RETIRADA AGENDADA: {lastPlacedOrder.scheduledTime}
                       </div>
                     )}
                   </div>
@@ -2555,6 +2574,36 @@ export default function Menu() {
                 <span>Total do Pedido</span>
                 <span style={{ color: storeInfo.themeColor }}>{formatCurrency(total)}</span>
               </div>
+
+              {storeInfo.deliveryScheduleEnabled && (
+                <div className={`mt-4 p-3.5 rounded-2xl border-2 transition-all ${
+                  selectedScheduleTime ? 'bg-amber-50/90 border-amber-300' : 'bg-red-50 border-red-300'
+                }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <Clock className={`w-5 h-5 shrink-0 ${selectedScheduleTime ? 'text-amber-600' : 'text-red-600 animate-bounce'}`} />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">
+                          Horário Agendado Retirada {selectedScheduleTime ? '✓' : '(Obrigatório)'}
+                        </p>
+                        <p className={`text-sm font-black ${selectedScheduleTime ? 'text-stone-900' : 'text-red-600 font-extrabold'}`}>
+                          {selectedScheduleTime ? `⏰ Às ${selectedScheduleTime}` : 'Nenhum horário selecionado'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScheduleStepMode('pickup');
+                        setShowScheduleSelectionStep(true);
+                      }}
+                      className="px-3 py-1.5 bg-white hover:bg-amber-100 text-stone-800 rounded-xl text-xs font-black border border-stone-300 shadow-2xs cursor-pointer transition-colors"
+                    >
+                      {selectedScheduleTime ? 'Alterar' : 'Escolher'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2606,6 +2655,57 @@ export default function Menu() {
               </div>
             ) : (
               <div>
+                {/* Destaque Obrigatório de Horário de Retirada */}
+                {storeInfo.deliveryScheduleEnabled && (
+                  <div className={`p-4 sm:p-5 rounded-2xl border-2 mb-6 transition-all shadow-sm ${
+                    selectedScheduleTime 
+                      ? 'bg-gradient-to-r from-amber-50 to-orange-50/60 border-amber-300' 
+                      : 'bg-red-50 border-red-400 ring-2 ring-red-300 animate-pulse'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 ${
+                          selectedScheduleTime ? 'bg-amber-500 text-stone-950 font-black' : 'bg-red-600 text-white'
+                        }`}>
+                          <Clock className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider mb-0.5 bg-amber-200/80 text-amber-950">
+                            <span>Retirada Agendada</span>
+                            <span className="text-red-700 font-extrabold">• Obrigatório</span>
+                          </div>
+                          <h3 className="text-base sm:text-lg font-black text-stone-900">
+                            {selectedScheduleTime ? (
+                              <span>Agendado para às <strong className="text-amber-800 underline decoration-amber-400">{selectedScheduleTime}</strong></span>
+                            ) : (
+                              <span className="text-red-700">Por favor, escolha o horário de retirada</span>
+                            )}
+                          </h3>
+                          <p className="text-xs text-stone-600 font-medium">
+                            {selectedScheduleTime 
+                              ? 'Seu pedido será preparado com antecedência para este horário escolhido.' 
+                              : 'O estabelecimento exige a escolha prévia de um horário para organizar a produção.'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScheduleStepMode('pickup');
+                          setShowScheduleSelectionStep(true);
+                        }}
+                        className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer shrink-0 ${
+                          selectedScheduleTime
+                            ? 'bg-white hover:bg-stone-50 text-stone-900 border border-stone-300'
+                            : 'bg-red-600 hover:bg-red-700 text-white animate-bounce'
+                        }`}
+                      >
+                        {selectedScheduleTime ? 'Trocar Horário 🕒' : 'Escolher Horário Agora 👉'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Opções de Entrega (Apenas quando NÃO estiver em Consumo na Loja / Mesa) */}
                 {!selectedTableNumber && (
                   <div>
@@ -3494,6 +3594,14 @@ export default function Menu() {
                       }
                     }
 
+                    // Validação obrigatória de agendamento de retirada
+                    if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+                      setScheduleStepMode('pickup');
+                      setShowScheduleSelectionStep(true);
+                      alert('⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
+                      return;
+                    }
+
                     handleCheckout();
                   }}
                   disabled={isSendingOrder}
@@ -3906,14 +4014,6 @@ export default function Menu() {
             </label>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto p-1 border border-stone-100 rounded-2xl bg-stone-50/50">
-              <button
-                type="button"
-                onClick={() => setSelectedScheduleTime('')}
-                className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer col-span-full text-center ${!selectedScheduleTime ? 'bg-orange-600 text-white border-orange-600 shadow-xs' : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'}`}
-              >
-                ⚡ Imediato / Sem horário específico (Horário mais próximo)
-              </button>
-
               {slots.map(slot => {
                 const isSelected = selectedScheduleTime === slot;
                 const [sh, sm] = slot.split(':').map(Number);
@@ -3956,7 +4056,12 @@ export default function Menu() {
 
           <button
             type="button"
+            disabled={!selectedScheduleTime}
             onClick={() => {
+              if (!selectedScheduleTime) {
+                alert('O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis acima.');
+                return;
+              }
               setShowScheduleSelectionStep(false);
               safeStorage.setSession('selected_sales_channel', 'instore');
               safeStorage.setSession('balbec_qr_validated', 'true');
@@ -3966,9 +4071,13 @@ export default function Menu() {
               setHasChosenChannel(true);
               setHasName(true);
             }}
-            className="w-full py-4 text-white rounded-2xl font-black text-base transition-all hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
+            className={`w-full py-4 text-white rounded-2xl font-black text-base transition-all flex items-center justify-center gap-2 ${
+              !selectedScheduleTime 
+                ? 'bg-stone-300 text-stone-500 cursor-not-allowed shadow-none' 
+                : 'hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700'
+            }`}
           >
-            <span>{selectedScheduleTime ? `CONFIRMAR PARA ${selectedScheduleTime} E IR AO CARDÁPIO 🥖` : 'CONTINUAR PARA O CARDÁPIO 🥖'}</span>
+            <span>{selectedScheduleTime ? `CONFIRMAR PARA ÀS ${selectedScheduleTime} E IR AO CARDÁPIO 🥖` : 'SELECIONE UM HORÁRIO ACIMA PARA CONTINUAR'}</span>
           </button>
         </div>
       </div>
@@ -5847,6 +5956,12 @@ export default function Menu() {
             {/* Primary Finish Button */}
             <button 
               onClick={() => {
+                if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+                  setScheduleStepMode('pickup');
+                  setShowScheduleSelectionStep(true);
+                  setIsCartOpen(false);
+                  return;
+                }
                 setIsCartOpen(false);
                 setIsCheckout(true);
               }}

@@ -767,9 +767,8 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
 <body>
   ${(() => {
     const isKiosk = order.type === 'kiosk' || (order as any).channel === 'kiosk';
-    const isSingleCopy = isKiosk 
-      ? (storeInfo?.totemPrinterCopies === 1 && storeInfo?.printerCopies === 1)
-      : ((storeInfo?.windowsPrinterCopies ?? storeInfo?.printerCopies ?? 2) === 1);
+    // Regra mandatória: Esse cupom quando for sair, tem que ser impresso em duas vias (1ª Via Cliente + 2ª Via Balcão).
+    const isSingleCopy = false;
     const bottomSpaceCm = isKiosk
       ? (storeInfo?.totemPrinterBottomSpaceCm ?? 2.5)
       : (storeInfo?.windowsPrinterBottomSpaceCm ?? 8.0);
@@ -838,9 +837,14 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
           ${order.tableNumber ? `<div class="box-client" style="font-size: 14px; margin-bottom: 2px;">🍽️ MESA: ${order.tableNumber}</div>` : ''}
         </div>
 
+        ${order.scheduledTime ? `
+        <div style="margin: 6px 0; padding: 6px 4px; background-color: #000 !important; color: #fff !important; text-align: center; border-radius: 4px; font-weight: 900; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+          <div style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase;">*** HORÁRIO AGENDADO RETIRADA ***</div>
+          <div style="font-size: 20px; letter-spacing: 1.5px; margin-top: 2px;">⏰ ${order.scheduledTime}</div>
+        </div>` : ''}
+
         ${order.customerPhone ? `<div class="center text-sm">Tel: ${order.customerPhone}</div>` : ''}
         ${order.deliveryAddress ? `<div class="center text-sm" style="margin-top: 2px;">End: ${order.deliveryAddress}</div>` : ''}
-        ${order.scheduledTime ? `<div class="center text-sm bold" style="color: #b45309; margin-top: 3px; font-weight: 900;">⏰ HORÁRIO AGENDADO: ${order.scheduledTime}</div>` : ''}
         
         <div class="center text-sm" style="margin-top: 2px;">${orderDate}</div>
         <div class="center text-sm bold" style="margin-top: 2px;">
@@ -987,11 +991,8 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     ? (storeInfo?.totemPrinterCutMode || storeInfo?.printerCutMode || 'partial')
     : (storeInfo?.windowsPrinterCutMode || storeInfo?.printerCutMode || 'partial');
 
-  // Regra oficial consolidada (desde 19/09/26): SEMPRE 2 VIAS (1ª Cliente + 2ª Balcão com corte entre elas).
-  // Apenas se o operador tiver configurado explicitamente 1 via em todas as opções torna-se via única.
-  const isSingleCopy = isKiosk
-    ? (storeInfo?.totemPrinterCopies === 1 && storeInfo?.printerCopies === 1)
-    : ((storeInfo?.windowsPrinterCopies ?? storeInfo?.printerCopies ?? 2) === 1);
+  // Regra mandatória: Esse cupom quando for sair, tem que ser impresso em duas vias (1ª Via Cliente + 2ª Via Balcão).
+  const isSingleCopy = false;
 
   const bottomSpaceCm = isKiosk
     ? (storeInfo?.totemPrinterBottomSpaceCm ?? 2.5)
@@ -1096,7 +1097,10 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
       lines.push(`End: ${normalizeEscPosText(order.deliveryAddress)}\n`);
     }
     if (order.scheduledTime) {
-      lines.push(`TIME: HORARIO AGENDADO: ${order.scheduledTime}\n`);
+      lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11');
+      lines.push(`*** HORARIO RETIRADA ***\n`);
+      lines.push(`       ${order.scheduledTime}       \n`);
+      lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00');
     }
     lines.push(`${orderDate}\n`);
     const channelEscPos = order.type === 'kiosk' 
