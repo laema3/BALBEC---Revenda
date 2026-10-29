@@ -424,9 +424,9 @@ try {
         ? seedProducts
         : DEFAULT_PRODUCTS;
 
-  const hasCongelado = memProducts.some(p => (p.name || '').toLowerCase().includes('congelado'));
-  if (!hasCongelado) {
-    memProducts.push({
+  let congeladoProd = memProducts.find(p => p.id === 'prod_congelado');
+  if (!congeladoProd) {
+    congeladoProd = {
       id: 'prod_congelado',
       categoryId: memCategories[0]?.id || 'cat_salgados',
       name: 'Salgado Congelado (Adicional por unidade)',
@@ -440,7 +440,11 @@ try {
       availableInStore: true,
       availableForKiosk: true,
       order: 9999
-    });
+    };
+    memProducts.push(congeladoProd);
+    writeJsonFile(PRODUCTS_FILE, memProducts);
+  } else if (!congeladoProd.price || congeladoProd.price > 1.0) {
+    congeladoProd.price = 0.30;
     writeJsonFile(PRODUCTS_FILE, memProducts);
   }
   memTvMedia = loadJsonFile(TV_MEDIA_FILE, masterState?.tvMedia || (Array.isArray(seedTvMedia) && seedTvMedia.length > 0 ? seedTvMedia : []));

@@ -6072,7 +6072,11 @@ export default function Menu() {
               </p>
               <p className="text-xs text-stone-500 leading-relaxed px-2">
                 Salgados congelados possuem um acréscimo unitário de <strong className="text-stone-800">
-                  {formatCurrency(Number(products.find(p => (p.name || '').toLowerCase().includes('congelado'))?.price || 0.30))}
+                  {formatCurrency( (() => {
+                    const found = products.find(p => p.id === 'prod_congelado');
+                    const pVal = found ? Number(found.price) : 0.30;
+                    return (pVal > 0 && pVal < 2.0) ? pVal : 0.30;
+                  })() )}
                 </strong> por unidade.
               </p>
             </div>
@@ -6081,11 +6085,13 @@ export default function Menu() {
               <button
                 type="button"
                 onClick={() => {
-                  const congeladoProd = products.find(p => (p.name || '').toLowerCase().includes('congelado')) || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
+                  const found = products.find(p => p.id === 'prod_congelado');
+                  const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
+                  const congeladoProd = found || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
                   const frozenAddon = {
                     productId: congeladoProd.id,
                     name: 'Opção: Congelado',
-                    price: Number(congeladoProd.price) || 0.30,
+                    price: pVal,
                     externalId: (congeladoProd as any).externalId || '9999'
                   };
                   addToCart(frozenModal.product, [frozenAddon], null, frozenModal.quantity);
@@ -6094,7 +6100,11 @@ export default function Menu() {
                 className="py-4 px-4 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer"
               >
                 <span className="text-base">❄️ Sim, Congelado</span>
-                <span className="text-[10px] opacity-90">+ {formatCurrency(Number(products.find(p => (p.name || '').toLowerCase().includes('congelado'))?.price || 0.30) * frozenModal.quantity)}</span>
+                <span className="text-[10px] opacity-90">+ {formatCurrency( (() => {
+                  const found = products.find(p => p.id === 'prod_congelado');
+                  const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
+                  return pVal * frozenModal.quantity;
+                })() )}</span>
               </button>
               <button
                 type="button"
