@@ -2174,7 +2174,10 @@ export default function Menu() {
                 <p className="text-sm sm:text-lg font-black text-white leading-snug">
                   {lastPlacedOrder?.type === 'delivery' 
                     ? 'Seu pedido para Delivery foi recebido e está PENDENTE no painel. Ele entrará em preparação para entrega pelo motoboy.' 
-                    : 'Aguarde ser chamado pelo seu nome pelo atendente. O pedido ficará pronto no máximo em 10 minutos.'}
+                    : (lastPlacedOrder?.scheduledTime 
+                        ? `Seu pedido foi agendado para ${lastPlacedOrder.scheduledTime}. Aguarde ser chamado pelo seu nome no balcão.` 
+                        : 'Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.')
+                  }
                 </p>
               </div>
               <div className="mt-2.5 inline-flex items-center justify-center gap-1.5 bg-black/25 px-3 py-1 rounded-full text-xs font-bold text-amber-100 border border-white/10">
@@ -2206,7 +2209,7 @@ export default function Menu() {
               <div className="text-left">
                 <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">Horário Agendado para o Pedido</p>
                 <p className="text-base font-black text-amber-950 font-mono">{lastPlacedOrder.scheduledTime}</p>
-                <p className="text-[11px] text-amber-800 font-medium">Preparo estimado em aprox. 40 minutos a partir deste horário, podendo ficar pronto ou entregue antes.</p>
+                <p className="text-[11px] text-amber-800 font-medium">Seu pedido será preparado com antecedência para retirada no horário agendado.</p>
               </div>
             </div>
           )}
