@@ -1445,16 +1445,22 @@ export default function Menu() {
   };
 
   const addToCart = (product: any, addons: any[] = [], flavor: any = null, quantity: number = 1) => {
+    const isFrozenChoice = (addons || []).some((a: any) => 
+      a.isFrozen || 
+      a.productId === 'prod_congelado' || 
+      (a.name && a.name.toLowerCase().includes('congelad'))
+    );
     setCart(prev => {
       const existing = prev.find(item => 
         item.productId === product.id && 
+        Boolean(item.isFrozen) === isFrozenChoice &&
         JSON.stringify(item.addons) === JSON.stringify(addons) &&
         JSON.stringify(item.flavor) === JSON.stringify(flavor)
       );
       if (existing) {
         return prev.map(item => 
-          (item.productId === product.id && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor))
-            ? { ...item, quantity: item.quantity + quantity } 
+          (item.productId === product.id && Boolean(item.isFrozen) === isFrozenChoice && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor))
+            ? { ...item, quantity: item.quantity + quantity, isFrozen: isFrozenChoice } 
             : item
         );
       }
@@ -1470,7 +1476,8 @@ export default function Menu() {
       const enrichedAddons = (addons || []).map((a: any) => ({
         ...a,
         externalId: a.externalId || a.code || (products.find(p => p.id === a.productId)?.externalId) || '',
-        code: a.code || a.externalId || (products.find(p => p.id === a.productId)?.externalId) || ''
+        code: a.code || a.externalId || (products.find(p => p.id === a.productId)?.externalId) || '',
+        isFrozen: a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad'))
       }));
 
       return [...prev, { 
@@ -1482,6 +1489,7 @@ export default function Menu() {
         price: product.price, 
         quantity: Math.max(1, quantity), 
         imageUrl: product.imageUrl, 
+        isFrozen: isFrozenChoice,
         addons: enrichedAddons, 
         flavor: enrichedFlavor 
       }];
@@ -2533,7 +2541,13 @@ export default function Menu() {
                   </div>
                   <div className="flex-1 flex justify-between items-center">
                     <div>
-                      <span className="font-medium">{item.quantity}x</span> <span className="uppercase">{item.name}</span>
+                      <span className="font-medium">{item.quantity}x</span> <span className="uppercase font-bold">{item.name}</span>
+                      {(item.isFrozen || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 animate-pulse text-xs font-black uppercase tracking-wider my-1">
+                          <span>❄️</span>
+                          <span>CONGELADO</span>
+                        </div>
+                      )}
                       {item.description && (
                         <div className="text-xs text-red-600 italic font-medium mt-0.5">
                           {formatCapitalized(item.description)}
@@ -5754,95 +5768,127 @@ export default function Menu() {
                                 </span>
                               ) : (
                                 (() => {
-                                  const cartItem = cart.find(ci => ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor);
-                                  const inCartQty = cartItem?.quantity || 0;
-                                  const currentQty = inCartQty > 0 ? inCartQty : (productQuantities[product.id] ?? 1);
+                                  const isSalgado = isSalgadoProduct(product, categories);
+                                  const cartItemsForProd = cart.filter(ci => ci.productId === product.id);
+                                  const frozenCartItems = cartItemsForProd.filter(ci => 
+                                    ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))
+                                  );
+                                  const hasFrozenInCartForProd = frozenCartItems.length > 0;
+                                  const totalCartQty = cartItemsForProd.reduce((sum, ci) => sum + ci.quantity, 0);
+                                  const hasNormalInCartForProd = totalCartQty > 0 && !hasFrozenInCartForProd;
+
+                                  const mainCartItem = cartItemsForProd[0];
+                                  const currentQty = totalCartQty > 0 ? totalCartQty : (productQuantities[product.id] ?? 1);
 
                                   return (
-                                    <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          if (inCartQty > 0) {
-                                            setCart(prev => prev.filter(ci => !(ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor)));
-                                          }
-                                          setProductQuantities(prev => ({
-                                            ...prev,
-                                            [product.id]: 1
-                                          }));
-                                        }}
-                                        className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                                        title={inCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade para 1"}
-                                      >
-                                        <Trash2 className="w-4 h-4 text-red-500" />
-                                      </button>
+                                    <div className="flex flex-col items-end gap-1">
+                                      {/* Botão de Estado de Temperatura do Salgado (Congelado vs Normal) */}
+                                      {isSalgado && hasFrozenInCartForProd && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setFrozenModal({ isOpen: true, product, quantity: currentQty })}
+                                          className="text-[10px] sm:text-[11px] font-black text-blue-600 animate-pulse bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs cursor-pointer transition-all active:scale-95"
+                                          title="Clique para alterar a opção (Congelado / Normal)"
+                                        >
+                                          <span>❄️ CONGELADO</span>
+                                          <span className="text-[9px] bg-blue-200/80 text-blue-900 px-1.5 py-0.2 rounded font-bold">Alterar ✏️</span>
+                                        </button>
+                                      )}
 
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          if (inCartQty > 0) {
-                                            updateQuantity(product.id, cartItem?.addons, cartItem?.flavor, -1);
-                                          } else {
-                                            setProductQuantities(prev => ({
-                                              ...prev,
-                                              [product.id]: Math.max(1, (prev[product.id] ?? 1) - 1)
-                                            }));
-                                          }
-                                        }}
-                                        className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
-                                        title="Diminuir"
-                                      >
-                                        <Minus className="w-4 h-4" />
-                                      </button>
+                                      {isSalgado && hasNormalInCartForProd && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setFrozenModal({ isOpen: true, product, quantity: currentQty })}
+                                          className="text-[10px] sm:text-[11px] font-black text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs cursor-pointer transition-all active:scale-95"
+                                          title="Clique para alterar para Congelado"
+                                        >
+                                          <span>🔥 NORMAL</span>
+                                          <span className="text-[9px] bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded font-bold">Alterar ✏️</span>
+                                        </button>
+                                      )}
 
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        max="9999"
-                                        value={currentQty}
-                                        onChange={(e) => {
-                                          const val = parseInt(e.target.value, 10);
-                                          if (inCartQty > 0) {
-                                            if (isNaN(val) || val <= 0) {
-                                              setCart(prev => prev.filter(ci => !(ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor)));
-                                            } else {
-                                              const q = Math.max(1, val);
-                                              setCart(prev => prev.map(ci => (ci.productId === product.id && (!ci.addons || ci.addons.length === 0) && !ci.flavor) ? { ...ci, quantity: q } : ci));
+                                      <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            if (totalCartQty > 0) {
+                                              setCart(prev => prev.filter(ci => ci.productId !== product.id));
                                             }
-                                          } else {
                                             setProductQuantities(prev => ({
                                               ...prev,
-                                              [product.id]: isNaN(val) ? 1 : Math.max(1, val)
+                                              [product.id]: 1
                                             }));
-                                          }
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            if (inCartQty === 0) {
+                                          }}
+                                          className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                                          title={totalCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade para 1"}
+                                        >
+                                          <Trash2 className="w-4 h-4 text-red-500" />
+                                        </button>
+
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            if (totalCartQty > 0) {
+                                              if (mainCartItem) {
+                                                updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, -1);
+                                              }
+                                            } else {
+                                              setProductQuantities(prev => ({
+                                                ...prev,
+                                                [product.id]: Math.max(1, (prev[product.id] ?? 1) - 1)
+                                              }));
+                                            }
+                                          }}
+                                          className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                                          title="Diminuir"
+                                        >
+                                          <Minus className="w-4 h-4" />
+                                        </button>
+
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          max="9999"
+                                          value={currentQty}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            const q = isNaN(val) ? 1 : Math.max(1, val);
+                                            if (totalCartQty > 0) {
+                                              setCart(prev => prev.map(ci => ci.productId === product.id ? { ...ci, quantity: q } : ci));
+                                            } else {
+                                              setProductQuantities(prev => ({ ...prev, [product.id]: q }));
+                                            }
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              const qty = productQuantities[product.id] ?? currentQty ?? 1;
+                                              if (totalCartQty === 0) {
+                                                initiateAddToCartWithQty(product, qty);
+                                              }
+                                            }
+                                          }}
+                                          className="font-black text-xs sm:text-sm w-11 sm:w-13 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                                          title="Digite a quantidade"
+                                        />
+
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            if (totalCartQty > 0) {
+                                              if (mainCartItem) {
+                                                updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, 1);
+                                              }
+                                            } else {
                                               const qty = productQuantities[product.id] ?? 1;
                                               initiateAddToCartWithQty(product, qty);
                                             }
-                                          }
-                                        }}
-                                        className="font-black text-xs sm:text-sm w-11 sm:w-13 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
-                                        title="Digite a quantidade"
-                                      />
-
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          if (inCartQty > 0) {
-                                            updateQuantity(product.id, cartItem?.addons, cartItem?.flavor, 1);
-                                          } else {
-                                            const qty = productQuantities[product.id] ?? 1;
-                                            initiateAddToCartWithQty(product, qty);
-                                          }
-                                        }}
-                                        className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
-                                        title={inCartQty > 0 ? "Aumentar" : "Adicionar ao pedido"}
-                                      >
-                                        <Plus className="w-4 h-4" />
-                                      </button>
+                                          }}
+                                          className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                                          title={totalCartQty > 0 ? "Aumentar" : "Adicionar ao pedido"}
+                                        >
+                                          <Plus className="w-4 h-4" />
+                                        </button>
+                                      </div>
                                     </div>
                                   );
                                 })()
@@ -6039,6 +6085,12 @@ export default function Menu() {
                     <span className="line-clamp-1 pr-2 text-stone-900">{formatCapitalized(item.name)}</span>
                     <span className="text-orange-600 font-black">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</span>
                   </div>
+                  {(item.isFrozen || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 animate-pulse text-[11px] font-black uppercase tracking-wider my-0.5">
+                      <span>❄️</span>
+                      <span>CONGELADO (+R$ 0,30/un)</span>
+                    </div>
+                  )}
                   {item.description && (
                     <div className="text-xs text-red-600 italic font-medium line-clamp-1 mb-0.5">
                       {formatCapitalized(item.description)}
@@ -6431,15 +6483,17 @@ export default function Menu() {
         <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-6">
             <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-orange-100 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner">
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-blue-200">
                 🥟
               </div>
-              <h3 className="text-xl font-black text-stone-900 uppercase tracking-tight">Deseja o salgado congelado?</h3>
+              <h3 className="text-xl font-black text-stone-900 uppercase tracking-tight">
+                Deseja o salgado <span className="text-blue-600 animate-pulse font-black underline">CONGELADO</span>?
+              </h3>
               <p className="text-xs font-bold text-orange-600 uppercase tracking-wide">
                 {frozenModal.product.name} ({frozenModal.quantity}x)
               </p>
               <p className="text-xs text-stone-500 leading-relaxed px-2">
-                Salgados congelados possuem um acréscimo unitário de <strong className="text-stone-800">
+                Salgados <strong className="text-blue-600 font-bold uppercase">congelados</strong> possuem um acréscimo unitário de <strong className="text-stone-800">
                   {formatCurrency( (() => {
                     const found = products.find(p => p.id === 'prod_congelado');
                     const pVal = found ? Number(found.price) : 0.30;
@@ -6460,14 +6514,19 @@ export default function Menu() {
                     productId: congeladoProd.id,
                     name: 'Opção: Congelado',
                     price: pVal,
-                    externalId: (congeladoProd as any).externalId || '9999'
+                    externalId: (congeladoProd as any).externalId || '9999',
+                    isFrozen: true
                   };
+                  setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
                   addToCart(frozenModal.product, [frozenAddon], null, frozenModal.quantity);
                   setFrozenModal({ isOpen: false, product: null, quantity: 1 });
                 }}
-                className="py-4 px-4 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer"
+                className="py-4 px-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ring-2 ring-blue-300"
               >
-                <span className="text-base">❄️ Sim, Congelado</span>
+                <span className="text-base font-black flex items-center gap-1">
+                  <span>❄️ Sim,</span>
+                  <span className="text-blue-100 animate-pulse underline">CONGELADO</span>
+                </span>
                 <span className="text-[10px] opacity-90">+ {formatCurrency( (() => {
                   const found = products.find(p => p.id === 'prod_congelado');
                   const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
@@ -6477,13 +6536,14 @@ export default function Menu() {
               <button
                 type="button"
                 onClick={() => {
+                  setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
                   addToCart(frozenModal.product, [], null, frozenModal.quantity);
                   setFrozenModal({ isOpen: false, product: null, quantity: 1 });
                 }}
-                className="py-4 px-4 bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex flex-col items-center justify-center gap-1 border border-stone-200 cursor-pointer"
+                className="py-4 px-4 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex flex-col items-center justify-center gap-1 border border-amber-300 cursor-pointer shadow-xs"
               >
-                <span className="text-base">🔥 Não, Frito/Normal</span>
-                <span className="text-[10px] text-stone-400">Preço padrão</span>
+                <span className="text-base font-black">🔥 Não, Normal</span>
+                <span className="text-[10px] text-amber-800 font-bold">Preço padrão (Frito/Assado)</span>
               </button>
             </div>
 
