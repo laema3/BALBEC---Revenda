@@ -2161,6 +2161,23 @@ export default function Menu() {
             </p>
           </div>
 
+          {/* DIA E HORÁRIO DE ENTREGA / RETIRADA EM GRANDE DESTAQUE BEM NO COMEÇO */}
+          <div id="top-delivery-schedule-banner" className="p-4 sm:p-5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-stone-950 border-b-2 border-yellow-600 shadow-md text-center">
+            <div className="flex items-center justify-center gap-2 text-xs sm:text-sm font-black uppercase tracking-wider text-stone-900 mb-1.5">
+              <Clock className="w-5 h-5 text-stone-950 animate-bounce" />
+              <span>📅 DIA E HORÁRIO DE {lastPlacedOrder?.type === 'delivery' ? 'ENTREGA' : 'RETIRADA'}:</span>
+            </div>
+            <div className="text-xl sm:text-3xl font-black text-stone-950 font-mono tracking-tight bg-white py-2.5 px-4 rounded-2xl border-2 border-yellow-600 shadow-sm inline-block w-full">
+              {lastPlacedOrder?.scheduledDay ? `${lastPlacedOrder.scheduledDay} • ` : ''}
+              {lastPlacedOrder?.scheduledTime || (lastPlacedOrder?.createdAt ? new Date(lastPlacedOrder.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '')}
+            </div>
+            {lastPlacedOrder?.scheduledTime && (
+              <div className="mt-2 text-xs font-black text-stone-950 bg-white/90 px-3 py-1 rounded-full inline-block border border-amber-500/50 shadow-xs">
+                ⏰ Horário Agendado Confirmado com Sucesso
+              </div>
+            )}
+          </div>
+
           {/* Mensagem em destaque no Smartphone: Atenção prezado (CLIENTE). Aguarde ser chamado... */}
           {!isKioskMode && (
             <div id="order-attention-banner" className="p-4 sm:p-5 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white text-center border-b-2 border-orange-600 shadow-md">

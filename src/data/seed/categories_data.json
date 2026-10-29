@@ -1,1 +1,102 @@
-[]
+[
+  {
+    "id": "wscjzcx",
+    "name": "REVENDA FESTA",
+    "order": 9,
+    "externalId": "REVENDA FESTA",
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": false
+  },
+  {
+    "id": "nwc89q5",
+    "name": "SALGADO REV 1",
+    "order": 10,
+    "externalId": "SALGADO REV 1",
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": false
+  },
+  {
+    "id": "e0sv8sp",
+    "name": "GALINHADA",
+    "order": 5,
+    "externalId": "GALINH",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  },
+  {
+    "id": "nyww21f",
+    "name": "TIPO 2",
+    "order": 3,
+    "externalId": "REVENDA",
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": false
+  },
+  {
+    "id": "6rxjvu9",
+    "name": "SALGADO",
+    "order": 1,
+    "externalId": "SALGAD",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  },
+  {
+    "id": "j9pixiq",
+    "name": "DOCES",
+    "order": 7,
+    "externalId": "DOCES",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  },
+  {
+    "id": "80iq08q",
+    "name": "MAIONESE",
+    "order": 6,
+    "externalId": "MAIONE",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  },
+  {
+    "id": "k790tcu",
+    "name": "SORVETE",
+    "order": 4,
+    "externalId": "SORVET",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  },
+  {
+    "id": "wmsqohp",
+    "name": "Diversos",
+    "order": 8,
+    "externalId": "DIVERSOS",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  },
+  {
+    "id": "hricv6a",
+    "name": "BEBIDA",
+    "order": 2,
+    "externalId": "BEBIDA",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": false,
+    "availableForKiosk": false
+  }
+]

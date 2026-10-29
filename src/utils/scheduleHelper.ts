@@ -327,3 +327,59 @@ export function calculatePickupTime(
   return `${padH}:${padM}`;
 }
 
+export function getEffectivePickupTimestamp(order: any): number {
+  if (!order) return Date.now();
+
+  const createdTime = order.createdAt 
+    ? (typeof order.createdAt === 'number' ? order.createdAt : new Date(order.createdAt).getTime())
+    : Date.now();
+
+  const scheduledTimeStr = order.scheduledTime || (order as any).scheduled_time;
+  const scheduledDayStr = order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date;
+
+  if (scheduledTimeStr && typeof scheduledTimeStr === 'string' && scheduledTimeStr.trim().length > 0) {
+    let timePart = scheduledTimeStr;
+    const matchRetirada = scheduledTimeStr.match(/retirada\s+às\s+(\d{1,2}:\d{2})/i);
+    if (matchRetirada && matchRetirada[1]) {
+      timePart = matchRetirada[1];
+    } else {
+      const matchTime = scheduledTimeStr.match(/(\d{1,2}:\d{2})/);
+      if (matchTime) {
+        timePart = matchTime[1];
+      }
+    }
+
+    const timeParts = timePart.split(':');
+    if (timeParts.length >= 2) {
+      const targetHours = parseInt(timeParts[0], 10);
+      const targetMinutes = parseInt(timeParts[1], 10);
+
+      if (!isNaN(targetHours) && !isNaN(targetMinutes)) {
+        let baseDate = new Date(createdTime);
+
+        if (scheduledDayStr && typeof scheduledDayStr === 'string') {
+          const isoMatch = scheduledDayStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          const slashMatch = scheduledDayStr.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+
+          if (isoMatch) {
+            baseDate = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+          } else if (slashMatch) {
+            const day = parseInt(slashMatch[1], 10);
+            const month = parseInt(slashMatch[2], 10) - 1;
+            const year = slashMatch[3] ? parseInt(slashMatch[3], 10) : baseDate.getFullYear();
+            baseDate = new Date(year, month, day);
+          }
+        }
+
+        baseDate.setHours(targetHours, targetMinutes, 0, 0);
+        return baseDate.getTime();
+      }
+    }
+  }
+
+  // Immediate order: createdAt + prep buffer (40m / 90m)
+  const hasFrozen = Boolean(order.hasFrozenItems) || (Array.isArray(order.items) && order.items.some((i: any) => i.isFrozen || (i.addons && i.addons.some((a: any) => a.isFrozen))));
+  const prepMinutes = hasFrozen ? 90 : 40;
+  return createdTime + (prepMinutes * 60 * 1000);
+}
+

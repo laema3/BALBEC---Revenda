@@ -225,25 +225,39 @@ try {
       const backupRaw = fs.readFileSync(latestBackupPath, 'utf8');
       const backupData = JSON.parse(backupRaw);
       if (backupData) {
-        if (backupData.storeInfo) {
-          fs.writeFileSync(storeInfoPath, JSON.stringify(backupData.storeInfo, null, 2), 'utf8');
+        const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
+        if (!fs.existsSync(seedDir)) {
+          try { fs.mkdirSync(seedDir, { recursive: true }); } catch (e) {}
         }
-        if (Array.isArray(backupData.categories) && backupData.categories.length > 0) {
-          fs.writeFileSync(path.join(STORAGE_DIR, '.categories_data.json'), JSON.stringify(backupData.categories, null, 2), 'utf8');
-        }
-        if (Array.isArray(backupData.products) && backupData.products.length > 0) {
-          fs.writeFileSync(path.join(STORAGE_DIR, '.products_data.json'), JSON.stringify(backupData.products, null, 2), 'utf8');
-        }
-        if (Array.isArray(backupData.customers) && backupData.customers.length > 0) {
-          fs.writeFileSync(path.join(STORAGE_DIR, '.customers_data.json'), JSON.stringify(backupData.customers, null, 2), 'utf8');
-        }
-        if (Array.isArray(backupData.users) && backupData.users.length > 0) {
-          fs.writeFileSync(path.join(STORAGE_DIR, '.users_data.json'), JSON.stringify(backupData.users, null, 2), 'utf8');
-        }
-        if (Array.isArray(backupData.tvMedia) && backupData.tvMedia.length > 0) {
-          fs.writeFileSync(path.join(STORAGE_DIR, '.tv_media_data.json'), JSON.stringify(backupData.tvMedia, null, 2), 'utf8');
-        }
-        console.log(`[Auto-Import Backup] Dados do backup (${path.basename(latestBackupPath)}) importados com sucesso!`);
+
+        const syncItem = (key: string, fileName: string) => {
+          const val = backupData[key];
+          if (val !== undefined && val !== null) {
+            try {
+              fs.writeFileSync(path.join(STORAGE_DIR, `.${fileName}`), JSON.stringify(val, null, 2), 'utf8');
+            } catch (e) {}
+            try {
+              const baseName = fileName.replace('.json', '');
+              const altName = baseName.includes('_data') ? baseName.replace('_data', '') : baseName + '_data';
+              fs.writeFileSync(path.join(seedDir, `${baseName}.json`), JSON.stringify(val, null, 2), 'utf8');
+              fs.writeFileSync(path.join(seedDir, `${altName}.json`), JSON.stringify(val, null, 2), 'utf8');
+            } catch (e) {}
+          }
+        };
+
+        syncItem('storeInfo', 'store_info_data.json');
+        syncItem('categories', 'categories_data.json');
+        syncItem('products', 'products_data.json');
+        syncItem('customers', 'customers_data.json');
+        syncItem('users', 'users_data.json');
+        syncItem('tvMedia', 'tv_media_data.json');
+        syncItem('tables', 'tables_data.json');
+        syncItem('orders', 'orders_data.json');
+        syncItem('totemBackups', 'totem_backups_data.json');
+        syncItem('drivers', 'drivers_data.json');
+        syncItem('deliveryZones', 'delivery_zones_data.json');
+
+        console.log(`[Auto-Import Backup] Dados do backup (${path.basename(latestBackupPath)}) importados com sucesso para STORAGE_DIR e src/data/seed/!`);
       }
     }
   }
@@ -320,13 +334,28 @@ let memTotemBackups: any[] = [];
 // Helper functions for safe disk persistence
 function loadJsonFile<T>(filePath: string, fallback: T): T {
   try {
+    // 1. Prioritize direct primary file path if it exists and is valid
+    if (fs.existsSync(filePath)) {
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed !== undefined && parsed !== null) {
+          if (Array.isArray(fallback)) {
+            if (Array.isArray(parsed)) return parsed as unknown as T;
+          } else {
+            return parsed as T;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fall back to seed directories if primary file does not exist
     const baseName = path.basename(filePath).replace(/^\./, '');
     const altBaseName = baseName.includes('_data.json') 
       ? baseName.replace('_data.json', '.json') 
       : baseName.replace('.json', '_data.json');
 
     const candidatePaths = [
-      filePath,
       path.join(process.cwd(), 'src', 'data', 'seed', baseName),
       path.join(process.cwd(), 'src', 'data', 'seed', altBaseName),
       path.join(process.cwd(), 'dist', 'seed', baseName),
@@ -335,8 +364,6 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
       path.join(process.cwd(), altBaseName),
     ];
 
-    let bestArrayResult: any[] | null = null;
-
     for (const cand of candidatePaths) {
       if (fs.existsSync(cand)) {
         try {
@@ -344,21 +371,13 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
           const parsed = JSON.parse(raw);
           if (parsed !== undefined && parsed !== null) {
             if (Array.isArray(fallback)) {
-              if (Array.isArray(parsed)) {
-                if (!bestArrayResult || parsed.length > bestArrayResult.length) {
-                  bestArrayResult = parsed;
-                }
-              }
+              if (Array.isArray(parsed)) return parsed as unknown as T;
             } else {
-              return parsed;
+              return parsed as T;
             }
           }
         } catch (_) {}
       }
-    }
-
-    if (Array.isArray(fallback) && bestArrayResult && bestArrayResult.length > 0) {
-      return bestArrayResult as unknown as T;
     }
   } catch (e) {
     console.warn(`Aviso: Não foi possível ler ${path.basename(filePath)}:`, e);

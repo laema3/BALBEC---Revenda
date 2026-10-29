@@ -1,1 +1,2229 @@
-[]
+[
+  {
+    "id": "totem_bkp_baseline_1793190214532",
+    "name": "Backup Inicial Padrão Totem",
+    "createdAt": "2026-10-28T12:23:34.532Z",
+    "activeCategoriesCount": 0,
+    "activeProductsCount": 0,
+    "categories": [
+      {
+        "id": "wscjzcx",
+        "name": "REVENDA FESTA",
+        "externalId": "REVENDA FESTA",
+        "availableForKiosk": false
+      },
+      {
+        "id": "nwc89q5",
+        "name": "SALGADO REV 1",
+        "externalId": "SALGADO REV 1",
+        "availableForKiosk": false
+      },
+      {
+        "id": "e0sv8sp",
+        "name": "GALINHADA",
+        "externalId": "GALINH",
+        "availableForKiosk": false
+      },
+      {
+        "id": "nyww21f",
+        "name": "TIPO 2",
+        "externalId": "REVENDA",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6rxjvu9",
+        "name": "SALGADO",
+        "externalId": "SALGAD",
+        "availableForKiosk": false
+      },
+      {
+        "id": "j9pixiq",
+        "name": "DOCES",
+        "externalId": "DOCES",
+        "availableForKiosk": false
+      },
+      {
+        "id": "80iq08q",
+        "name": "MAIONESE",
+        "externalId": "MAIONE",
+        "availableForKiosk": false
+      },
+      {
+        "id": "k790tcu",
+        "name": "SORVETE",
+        "externalId": "SORVET",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wmsqohp",
+        "name": "Diversos",
+        "externalId": "DIVERSOS",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hricv6a",
+        "name": "BEBIDA",
+        "externalId": "BEBIDA",
+        "availableForKiosk": false
+      }
+    ],
+    "products": [
+      {
+        "id": "zzahj66",
+        "name": "WAFER CHOCOLATE",
+        "externalId": "55",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "vjgwwd1",
+        "name": "WAFER CHOCOLATE MASSIMO",
+        "externalId": "56",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "3dyyo6p",
+        "name": "WAFER CHOCOLATE BITES",
+        "externalId": "57",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ypwsgp8",
+        "name": "SPRITE PET 600 ML",
+        "externalId": "58",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "s6k84gn",
+        "name": "GUARANA PET 600 ML NORMAL",
+        "externalId": "61",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1akg7k5",
+        "name": "GUARANA PET 600 ML DIET",
+        "externalId": "62",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "u1q3yu3",
+        "name": "AGUA TONICA ANTARCTICA 35",
+        "externalId": "72",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "frle5cd",
+        "name": "SORVETE VARIATTA BANANA C",
+        "externalId": "73",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ph7mn2v",
+        "name": "SORVETE VARIATTA CHOCOLAT",
+        "externalId": "74",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "x2fw7np",
+        "name": "SORVETE VARIATTA MARACUJA",
+        "externalId": "75",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "sg0ztkv",
+        "name": "SORVETE VARIATTA MORANGO",
+        "externalId": "76",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "fu9tjx0",
+        "name": "SORVETE VARIATTA COCO TRU",
+        "externalId": "77",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "18grxdk",
+        "name": "SORVETE VARIATTA PAPAIA C",
+        "externalId": "78",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ov8bz8s",
+        "name": "SORVETE VARIATTA CHOCOMEL",
+        "externalId": "79",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4fduzhr",
+        "name": "COXINHA DE FRANGO",
+        "externalId": "101",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "gonkx5v",
+        "name": "COXINHA DE BACALHAU",
+        "externalId": "102",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "vr08ijb",
+        "name": "QUIBE DE CARNE",
+        "externalId": "103",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "j9qyg9v",
+        "name": "QUIBE DE QUEIJO",
+        "externalId": "104",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ekr65b5",
+        "name": "BOLINHO DE MANDIOCA",
+        "externalId": "105",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "s8lkgxy",
+        "name": "BOLINHO DE BACALHAU",
+        "externalId": "106",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v9ml9f7",
+        "name": "ESPETINHO DE FRANGO",
+        "externalId": "107",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "fj3juc1",
+        "name": "PASTEL DE FRANGO",
+        "externalId": "108",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "29ti0fc",
+        "name": "ESFIRRA DE CARNE",
+        "externalId": "109",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "snrs7c4",
+        "name": "ESFIRRA DE CALABRESA",
+        "externalId": "110",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "swpro05",
+        "name": "ESFIRRA DE FRANGO",
+        "externalId": "111",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "z2o962v",
+        "name": "ESFIRRA DE CHICORIA",
+        "externalId": "112",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "977aaza",
+        "name": "CACHORRO QUENTE",
+        "externalId": "113",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v7vyy9a",
+        "name": "PASTEL DE BACALHAU",
+        "externalId": "114",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "i9v7c80",
+        "name": "EMPADA DE FRANGO",
+        "externalId": "115",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "zs6tqso",
+        "name": "ESFIRRA DE BACALHAU",
+        "externalId": "122",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "y5gcjd4",
+        "name": "RISOLIS DE MILHO",
+        "externalId": "123",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "shgns0s",
+        "name": "ESFIRRA DE PRESUNTO COM R",
+        "externalId": "124",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "aj53axn",
+        "name": "RISOLE DE CARNE",
+        "externalId": "125",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "x5j83v5",
+        "name": "SUCO UVA NORMAL LATA",
+        "externalId": "126",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "5jc7xzc",
+        "name": "SUCO UVA LIGHT LATA",
+        "externalId": "127",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "u8vtwbx",
+        "name": "ESFIHA DE RICOTA",
+        "externalId": "134",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "r1xfgil",
+        "name": "FRETE",
+        "externalId": "250",
+        "categoryId": "e0sv8sp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "762851f",
+        "name": "CAPPUCCINO C/ CHOCOLATE B",
+        "externalId": "307",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "rjay1ft",
+        "name": "CAPPUCCINO C/ CHOCOLATE B",
+        "externalId": "308",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ezvtis6",
+        "name": "VODKA ROSKOF",
+        "externalId": "313",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "riunog4",
+        "name": "SORVETE VARIATTA LEITE TR",
+        "externalId": "1020",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ivlg8mi",
+        "name": "SORVETE VARIATTA ROMEU E",
+        "externalId": "1021",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4h9z4p4",
+        "name": "SORVETE VARIATTA AMEIXA",
+        "externalId": "1033",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "bqbu2dx",
+        "name": "SUCO MANGA LT 335ML",
+        "externalId": "1034",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4xqskti",
+        "name": "SUCO MARACUJA LT 335ML",
+        "externalId": "1035",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ddhs55q",
+        "name": "SUCO PESSEGO LT 335ML",
+        "externalId": "1036",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "5jpanfo",
+        "name": "SUCO DE LARANJA NATURELL 300 ML",
+        "externalId": "1045",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "24hd4ec",
+        "name": "SUCO NATURAL ONE LIMAO PE",
+        "externalId": "1047",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2m9194n",
+        "name": "SUCO NATURAL ONE LARANJA/",
+        "externalId": "1048",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "mjhzosn",
+        "name": "SUCO NATURAL ONE UVA/MACA",
+        "externalId": "1049",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "x032z89",
+        "name": "COXINHA DE FRANGO",
+        "externalId": "1",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "oq8zimz",
+        "name": "COXINHA DE BACALHAU",
+        "externalId": "2",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ao4xefs",
+        "name": "QUIBE DE CARNE",
+        "externalId": "3",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "oxyzdsw",
+        "name": "QUIBE DE QUEIJO",
+        "externalId": "4",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wcattx2",
+        "name": "BOLINHO DE MANDIOCA",
+        "externalId": "5",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6hav354",
+        "name": "BOLINHO DE BACALHAU",
+        "externalId": "6",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1vegy1v",
+        "name": "ESPETINHO DE FRANGO",
+        "externalId": "7",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "9m2n313",
+        "name": "PASTEL DE FRANGO",
+        "externalId": "8",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2qop3si",
+        "name": "ESFIRRA DE CARNE",
+        "externalId": "9",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "nh3cr1a",
+        "name": "ESFIRRA DE CALABRESA",
+        "externalId": "10",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "t5y2sgm",
+        "name": "ESFIRRA DE FRANGO",
+        "externalId": "11",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "w2718rh",
+        "name": "ESFIRRA DE CHICORIA",
+        "externalId": "12",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ubrjqts",
+        "name": "CACHORRO QUENTE",
+        "externalId": "13",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "irfuqs2",
+        "name": "PASTEL DE BACALHAU",
+        "externalId": "14",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "32rez9a",
+        "name": "EMPADA DE FRANGO",
+        "externalId": "15",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "vp06vfm",
+        "name": "REFRIGERANTE LATA SABORES",
+        "externalId": "16",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6136a86",
+        "name": "RISOLE CARNE",
+        "externalId": "17",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "bbxz6m4",
+        "name": "SUCO SPRES COPO SABORES  200 ML",
+        "externalId": "18",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "gy7jo41",
+        "name": "QUICHE DE CAMARAO",
+        "externalId": "20",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "tevtdpg",
+        "name": "KIBE CARNE C/CATUPIRY",
+        "externalId": "21",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "st9tklw",
+        "name": "QUICHE DE CAMARAO",
+        "externalId": "22",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2o0alqs",
+        "name": "RISOLE DE MILHO",
+        "externalId": "23",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7t9q99h",
+        "name": "ESFIRRA DE PRESUNTO COM R",
+        "externalId": "24",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "tduu3n2",
+        "name": "QUICHE DE ALHO PORO",
+        "externalId": "25",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dsomok8",
+        "name": "SORVETE  VARIATTA 1,8LTS",
+        "externalId": "26",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "l2wpdi0",
+        "name": "AGUA MINERAL S/ GAS PORTO REAL",
+        "externalId": "27",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "04fe7u3",
+        "name": "AGUA MINERAL C/ GAS",
+        "externalId": "28",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4h4tjem",
+        "name": "GUARANA GOLE 250 ML",
+        "externalId": "29",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "w4a3ixp",
+        "name": "SANDUICHE NATURAL",
+        "externalId": "30",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "qljpp4q",
+        "name": "SUCO LARANJA 300 ML",
+        "externalId": "31",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "n2k173h",
+        "name": "GUARANA GOLE 600 ML",
+        "externalId": "32",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "j7l2hih",
+        "name": "ENROLADINHO PRESUNTO E QUEIJO",
+        "externalId": "33",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "59hw2kt",
+        "name": "ESFIRRA DE RICOTA",
+        "externalId": "34",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ie24h26",
+        "name": "GALINHADA",
+        "externalId": "35",
+        "categoryId": "e0sv8sp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "z9vhpgo",
+        "name": "SANDUICHE NATURAL.",
+        "externalId": "36",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "xhbnro2",
+        "name": "MAIONESE DE FRANGO",
+        "externalId": "37",
+        "categoryId": "80iq08q",
+        "availableForKiosk": false
+      },
+      {
+        "id": "d57jpc6",
+        "name": "RISOLE DE CARNE",
+        "externalId": "38",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "me82nzy",
+        "name": "CROQUETE CARNE",
+        "externalId": "39",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "99z80bs",
+        "name": "SALGADO CONGELADO REVENDA",
+        "externalId": "40",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6w4wy6t",
+        "name": "MINI PIZZA MARGUERITA",
+        "externalId": "41",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "tdxbkpv",
+        "name": "MINI PIZZA CALABRESA",
+        "externalId": "42",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "at6do1d",
+        "name": "MINI PIZZA FRANGO CATUPIRY",
+        "externalId": "43",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "cvqjmaf",
+        "name": "SCHWEPPES NORMAL",
+        "externalId": "44",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1lnjvr0",
+        "name": "REFRIGERANTE LT 350ML COC",
+        "externalId": "45",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "r7odr39",
+        "name": "REFRIGERANTE LT 350ML FAN",
+        "externalId": "46",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "od59u5a",
+        "name": "REFRIGERANTE LT 350ML SPR",
+        "externalId": "47",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "tkm40ju",
+        "name": "SCHWEPPES LIGHT",
+        "externalId": "48",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "kyjdvyq",
+        "name": "REFRESCO COPO 300 ML F.C.",
+        "externalId": "52",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ek5g2d4",
+        "name": "REFRIGERANTE LT GUARANA",
+        "externalId": "53",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wvnntsc",
+        "name": "REFRIGERANTE LATA ZERO",
+        "externalId": "54",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "fmv0iqi",
+        "name": "MONSTER ULTRA WATERMELON LT473ML",
+        "externalId": "1726",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "b5mzl7i",
+        "name": "MONSTER ULTRA FIESTA MANGO LT473ML 6X1",
+        "externalId": "1727",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "na24u3s",
+        "name": "MONSTER JUICE RIO PUNCH LT473ML",
+        "externalId": "1728",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ulcr80d",
+        "name": "MONSTER ABSOLUTELY ZERO LT473ML",
+        "externalId": "1735",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "aa67v4g",
+        "name": "MONSTER ULTRA VIOLET LT473ML",
+        "externalId": "1736",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "5qp1cuo",
+        "name": "MONSTER ULTRA STRAWBERRY LT473ML 6X1",
+        "externalId": "1749",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "0bt330q",
+        "name": "MONSTER KHAOTIC LT473ML 6X1",
+        "externalId": "1750",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "q7hznf6",
+        "name": "PRATS PRO  BEBIDA MISTA DE LARANJA E PR",
+        "externalId": "1975",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "tkinr49",
+        "name": "REFRIGERANTE PETMINI COCA",
+        "externalId": "1264",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6c01ksc",
+        "name": "REFRIGERANTE PETMINI COCA",
+        "externalId": "1265",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wjtwleu",
+        "name": "REFRIGERANTE PETMINI FANT",
+        "externalId": "1266",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7xey34p",
+        "name": "WAFER QUATTRO CHOC BCO 24",
+        "externalId": "1277",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "iwz7qi6",
+        "name": "WAFER TRENTO MOSSIMO BCOC",
+        "externalId": "1278",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v8h4wz8",
+        "name": "WAFER TRENTO MASSIMO PACO",
+        "externalId": "1279",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "xoncfzx",
+        "name": "COCA COLA ZERO 1 LITRO",
+        "externalId": "1281",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "06t7r2t",
+        "name": "SCHWEPPES TONICA SLEEK 31",
+        "externalId": "1282",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "n3zcma9",
+        "name": "SORVETE VARIATTA LOVE STORY",
+        "externalId": "1284",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "m4gbbe5",
+        "name": "FIGO RAMI 500G",
+        "externalId": "1309",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ja63epw",
+        "name": "REFRIGERANTE LT FANTA UVA",
+        "externalId": "1317",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "bk2oukx",
+        "name": "SORVETE VARIATTA 3 LEITES",
+        "externalId": "1319",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "582zxam",
+        "name": "VINHO A MARE PRIMITIVO",
+        "externalId": "1321",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8mji3t8",
+        "name": "MOLHO HABANERO RED SKINS",
+        "externalId": "1322",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2w3ai5r",
+        "name": "CERVEJA STELLA ARTOIS LON",
+        "externalId": "1324",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "qc9sjox",
+        "name": "CERVEJA BUDWEISER 330ML",
+        "externalId": "1325",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ecltp8w",
+        "name": "FESTA COXINHA FRANGO",
+        "externalId": "1326",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "p7dwtr7",
+        "name": "FESTA RISOLIS",
+        "externalId": "1327",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "xf0swzm",
+        "name": "FESTA BOL. BACALHAU",
+        "externalId": "1328",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "uu4yp2w",
+        "name": "FESTA KIBE CARNE",
+        "externalId": "1329",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1v5iir3",
+        "name": "FESTA KIBE QUEIJO",
+        "externalId": "1330",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "52jlbmu",
+        "name": "FESTA BOL. QUEIJO",
+        "externalId": "1331",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "17c1woy",
+        "name": "FESTA CROQUETE",
+        "externalId": "1332",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hmjw9kf",
+        "name": "FESTA ESF. CARNE",
+        "externalId": "1333",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "s1cyrqt",
+        "name": "FESTA ESF. CALAB",
+        "externalId": "1334",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "oja4y9q",
+        "name": "FESTA ESF. PRESUNTO",
+        "externalId": "1335",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "q6zb5l8",
+        "name": "FESTA ESF. FRANGO",
+        "externalId": "1336",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "cbndyx6",
+        "name": "FESTA CACHORRO QUENTE",
+        "externalId": "1337",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hxcfnqe",
+        "name": "FESTA EMPADA",
+        "externalId": "1338",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "s9jf8rk",
+        "name": "FESTA BOL.MANDIOCA",
+        "externalId": "1339",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "3qt1jjr",
+        "name": "QUICHE DE PALMITO",
+        "externalId": "1340",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ooh9awx",
+        "name": "RISOLE  CARNE SECA CATUPIRY",
+        "externalId": "1341",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4ce488v",
+        "name": "MINI PIZZA CALABRESA",
+        "externalId": "1342",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8xev4ct",
+        "name": "MINI PIZZA MARGUERITA",
+        "externalId": "1343",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "zv3clqs",
+        "name": "MINI PIZZA FRANGO",
+        "externalId": "1344",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8qq167h",
+        "name": "KAFTA CONGELADA",
+        "externalId": "1345",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "do63sb3",
+        "name": "HAMBURGUER CONGELADO",
+        "externalId": "1346",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "z2p5iwx",
+        "name": "FESTA ESF. RICOTA",
+        "externalId": "1360",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dywzbff",
+        "name": "SUCO LARANJA INTEGRAL 4 L",
+        "externalId": "1361",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "fjubxe9",
+        "name": "CHOCOLATE AO LEITE SICAO",
+        "externalId": "1364",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7rupfgl",
+        "name": "CHOCOLATE BRANCO SICAO 2,",
+        "externalId": "1365",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "uds31oo",
+        "name": "CHOCOLATE MEIO AMARGO SIC",
+        "externalId": "1366",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "bq60q5k",
+        "name": "COCO FLOCO SOCOCO",
+        "externalId": "1367",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "o2gs7xi",
+        "name": "DISQUETE RECHEADO DORI 1",
+        "externalId": "1368",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dsvvygg",
+        "name": "SORVETE VARIATTA BROWNIE GALAXIAS",
+        "externalId": "1370",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2j2du6a",
+        "name": "CHOCOLATE BLEND SICAO 2,1",
+        "externalId": "1372",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "h64h66l",
+        "name": "SUCO MISTO LARANJA ACEROL",
+        "externalId": "1373",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "rzb2lxn",
+        "name": "SUCO SPRES LARANJA 200 ML",
+        "externalId": "1377",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "nslt1vx",
+        "name": "AZEITE OLIVA EV ALMA LUSA CX C/12 GARRAF",
+        "externalId": "1386",
+        "categoryId": "wmsqohp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "w7me7fz",
+        "name": "AMEIXA",
+        "externalId": "1387",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "q5ga68t",
+        "name": "SUCO NATURAL ONE LIMAO,MA",
+        "externalId": "1050",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "kjo2dta",
+        "name": "SORVETE 200ML ZIPP NAPOLI",
+        "externalId": "1055",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "poyy07a",
+        "name": "SORVETE VARIATTA ABACAXI",
+        "externalId": "1056",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2ne2h6e",
+        "name": "MASSA ITALIANA SPAGHETTI",
+        "externalId": "1058",
+        "categoryId": "e0sv8sp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "lrh2v78",
+        "name": "AGUA DE COCO 200ML",
+        "externalId": "1063",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "vnfha3l",
+        "name": "AGUA DE COCO 1LITRO",
+        "externalId": "1064",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2ekvcw2",
+        "name": "BARRA BANANA E AMEIXA/CHO",
+        "externalId": "1067",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "cc5kbth",
+        "name": "BARRA BANANA E CAST.PARA/",
+        "externalId": "1068",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "9kl2iee",
+        "name": "BARRA BANANA E COCO/CHOC",
+        "externalId": "1069",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "f0lzire",
+        "name": "BARRA BANANA E DAMASCO/CH",
+        "externalId": "1070",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "zf5k4tl",
+        "name": "BARRA BANANA E NOZES/CHOC",
+        "externalId": "1071",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1j8i2jt",
+        "name": "BARRA BANANA TRAD.C/CHOC",
+        "externalId": "1072",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "vbrngha",
+        "name": "SUCO DE UVA",
+        "externalId": "1074",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "440grm3",
+        "name": "REFRIGERANTE LT GUARANA BLACK",
+        "externalId": "1092",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "3g3b1s8",
+        "name": "REFRIGERANTE LT 350ML FAN",
+        "externalId": "1096",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "x3bbamg",
+        "name": "SORVETE VARIATTA LIMAO",
+        "externalId": "1139",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "jtqz3v6",
+        "name": "ROLINHOS WAFFER CROCK ROL",
+        "externalId": "1144",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "op13b58",
+        "name": "ROLINHOS WAFFER RECH SB C",
+        "externalId": "1145",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4vlifz1",
+        "name": "REFRIGERANTE LT 350ML KUA",
+        "externalId": "1150",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "9ddufcd",
+        "name": "SORVETE VARIATTA PUDIM",
+        "externalId": "1154",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "t2dukl1",
+        "name": "REFRIGERANTE",
+        "externalId": "1155",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v23kwmq",
+        "name": "SUCO",
+        "externalId": "1156",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "cifr4vu",
+        "name": "REFRIGERANTE LT 350ML FAN",
+        "externalId": "1171",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8z1rn79",
+        "name": "REFRIGERANTE LT 350ML COC",
+        "externalId": "1196",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hp3ccsx",
+        "name": "SORVETE VARIATTA UVA",
+        "externalId": "1197",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wxvt8sx",
+        "name": "PIRULITO YOGURMIX GREGO S",
+        "externalId": "1198",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "xkt4qej",
+        "name": "WAFE QUATTRO CHOCOLATE PE",
+        "externalId": "1199",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4a2o3s9",
+        "name": "WAFER QUATTRO DARK PECCIN",
+        "externalId": "1200",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1dlepdo",
+        "name": "WAFER TRENTO MASSINO CHOC",
+        "externalId": "1201",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "grx53k4",
+        "name": "SUCO PET 450ML",
+        "externalId": "1205",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "g9fnnzh",
+        "name": "SORVETE VARIATTA IORGUTE",
+        "externalId": "1215",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ec39d1t",
+        "name": "SORVETE VARIATTA CROK",
+        "externalId": "1220",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "exk4iyj",
+        "name": "AGUA TONICA DIET 350ML",
+        "externalId": "1222",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "vi4dbsm",
+        "name": "CERVEJA ESTRELLA GALICIA",
+        "externalId": "1228",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ej5dqnu",
+        "name": "CERVEJA ESTRELLA GALICIA",
+        "externalId": "1230",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "s4sapwg",
+        "name": "SUCO LIMONADA ADOCADA 330",
+        "externalId": "1231",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "b6jdoa0",
+        "name": "SUCO MISTO GOIABA/MACA 33",
+        "externalId": "1232",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "10gigu4",
+        "name": "CHA LIPTON PESSEGO LT 340",
+        "externalId": "1233",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "arrsvf5",
+        "name": "REFRIGERANTE LT 350ML PEP",
+        "externalId": "1234",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "593k96q",
+        "name": "REFRIGERANTE LT 350ML FAN",
+        "externalId": "1236",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "4e2pji2",
+        "name": "SUCO LIPTON PESSEGO LATA",
+        "externalId": "1238",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "0b45thn",
+        "name": "SUCO DELL VALLE MARACUJA",
+        "externalId": "1239",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "gkdmrho",
+        "name": "SUCO DELL VALLE PESSEGO 2",
+        "externalId": "1240",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "lc59yuu",
+        "name": "SUCO DELL VALLE UVA 290ML",
+        "externalId": "1241",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7uqa8gz",
+        "name": "REFRIGERANTE PEPSI ZERO 3",
+        "externalId": "1243",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "bsyljl1",
+        "name": "REFRIGERANTE PET 510ML GO",
+        "externalId": "1247",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "sxvfbla",
+        "name": "REFRIGERANTE PET 250ML GO",
+        "externalId": "1248",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8lbqyo3",
+        "name": "REFRIGERANTE LT COCA COLA ZERO",
+        "externalId": "1256",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hrag5rd",
+        "name": "REFRIGERANTE LT FANTA 310",
+        "externalId": "1257",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6dzn37v",
+        "name": "REFRIGERANTE LT SPRITE 310",
+        "externalId": "1258",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "9mip0yp",
+        "name": "JAL NECTAR GOIABA 900 ML",
+        "externalId": "1505",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "01sk6p6",
+        "name": "COXINHA REV 1",
+        "externalId": "1508",
+        "categoryId": "nwc89q5",
+        "availableForKiosk": false
+      },
+      {
+        "id": "6pw5c6g",
+        "name": "SUCO LARANJA 900 ML  NATURELL",
+        "externalId": "1509",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "zl3kji5",
+        "name": "SUCO LARANJA NATDELI 1L",
+        "externalId": "1510",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2yi3mwk",
+        "name": "SUCO JAL MARACUJA",
+        "externalId": "1511",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "e80hnzk",
+        "name": "COCA COLA ZERO 1L",
+        "externalId": "1514",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "jyhgo83",
+        "name": "FANTA LARANJA 1L",
+        "externalId": "1515",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dhp1jgg",
+        "name": "REFRIGERANTE LT GUARANA",
+        "externalId": "1516",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "cs4yb2c",
+        "name": "SUCO SPRES COPO UVA 200ML",
+        "externalId": "1517",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ufefvow",
+        "name": "SUCO SPRES COPO MARACUJA 200ML",
+        "externalId": "1518",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "zzit2gn",
+        "name": "SUCO JAL ABACAXI 900ML",
+        "externalId": "1519",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "n8pf0rd",
+        "name": "JAL NECTAR ACEROLA 900 ML",
+        "externalId": "1520",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ieabyre",
+        "name": "SALGADO REV. 2",
+        "externalId": "1528",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wsuy1eg",
+        "name": "SALGADO REV.2",
+        "externalId": "1529",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1zwbnjn",
+        "name": "TRIDENT CANELA",
+        "externalId": "1550",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "cocacjc",
+        "name": "CHOCOLATE SNICKERS",
+        "externalId": "1551",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2al3jlf",
+        "name": "HALLS MENTA PRATA",
+        "externalId": "1552",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7bacqvh",
+        "name": "HALLS MENTA",
+        "externalId": "1553",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "icmwjcj",
+        "name": "HALLS UVA VERDE",
+        "externalId": "1554",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "rgthhcr",
+        "name": "TIC TAC CITRUS",
+        "externalId": "1555",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "coxad1z",
+        "name": "TIC TAC FRUTAS",
+        "externalId": "1556",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "2oa0deh",
+        "name": "TIC TAC LARANJA",
+        "externalId": "1557",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "zw70v2h",
+        "name": "TIC TAC MENTA",
+        "externalId": "1558",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "q19eqep",
+        "name": "TIC TAC MENTA FRESH",
+        "externalId": "1559",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ld8gy1u",
+        "name": "TIC TAC MORANGO",
+        "externalId": "1560",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "k66q7rz",
+        "name": "PASTEL FRITO CARNE",
+        "externalId": "1561",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "awd2ncq",
+        "name": "PIRULITO",
+        "externalId": "1562",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "3jhhvdi",
+        "name": "PASTEL FRITO DE BACALHAU C/ BATATA",
+        "externalId": "1564",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "gk213zb",
+        "name": "PASTEL FRITO BACALHAU C/ BATATA REV",
+        "externalId": "1565",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "osx3hqm",
+        "name": "QUICHE DE PALMITO",
+        "externalId": "1602",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "esnpyfq",
+        "name": "QUICHE DE CREME DE MILHO",
+        "externalId": "1603",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "5o1sh9i",
+        "name": "QUICHE CREME DE MILHO",
+        "externalId": "1614",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "af5qvfk",
+        "name": "QUICHE DE ALHO PORO",
+        "externalId": "1616",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8uykprm",
+        "name": "BROWNIE LEITE NINHO",
+        "externalId": "1617",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "f4oeleu",
+        "name": "BROWNIE BRIGADEIRO",
+        "externalId": "1618",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "l5ajx67",
+        "name": "BROWNIE COOKIES CREAM",
+        "externalId": "1619",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ap4d5ok",
+        "name": "BROWNIE NINHO E NUTELLA",
+        "externalId": "1620",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8urul2f",
+        "name": "BROWNIE BRIGADEIRO E OVOMALTINE",
+        "externalId": "1621",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v5meliv",
+        "name": "BROWNIE DOCE DE LEITE",
+        "externalId": "1650",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "qz98jlc",
+        "name": "MONSTER GREEN LT473ML",
+        "externalId": "1670",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ficia7a",
+        "name": "MONSTER ZERO SUGAR LT473ML",
+        "externalId": "1671",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "u2p84yb",
+        "name": "QUICHE DE BACALHAU",
+        "externalId": "1694",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8ysyjdp",
+        "name": "QUICHE DE DAMASCO",
+        "externalId": "1695",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ap4q4s2",
+        "name": "TR MONSTER ZERO SUGAR LT473ML",
+        "externalId": "1696",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hqv2v5m",
+        "name": "TR. AG.CRYSTAL VIP350CG",
+        "externalId": "1697",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "blf9kt2",
+        "name": "FANTA UVA SLEEK LT310ML",
+        "externalId": "1717",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8szqm83",
+        "name": "SORVETEVARIATTA BIG BISCOTTO GINGERBREAD",
+        "externalId": "1721",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ic03a7b",
+        "name": "SUCO TROPICAL DE CAJU 300 ML",
+        "externalId": "1723",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "z8ye8qv",
+        "name": "FRUITZ NECTAR DE UVA 300 ML",
+        "externalId": "1724",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "sfmx0pe",
+        "name": "MONSTER PACIFIC PUNCH 473ML",
+        "externalId": "1725",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "usy5ka5",
+        "name": "DAMASCO",
+        "externalId": "1388",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "q7nyuw1",
+        "name": "SORVETE VARIATTA 3 LEITES",
+        "externalId": "1389",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "wm3nzlb",
+        "name": "KIBE DE CARNE COM CATUPIRY",
+        "externalId": "1392",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1vyaz2z",
+        "name": "POTE - VARIATTA FRUTAS AMADAS LARANJA C/",
+        "externalId": "1394",
+        "categoryId": "k790tcu",
+        "availableForKiosk": false
+      },
+      {
+        "id": "fqhkxsc",
+        "name": "RISOLE CARNE SECA CATUPIRY",
+        "externalId": "1396",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "j2oduuz",
+        "name": "REFRIGERADOR EXPOSITOR VERTICAL VR08SLIM",
+        "externalId": "1397",
+        "categoryId": "wmsqohp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "s7elvpt",
+        "name": "AGUA KERO COCO 330ML",
+        "externalId": "1398",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "5498pes",
+        "name": "AGUA KERO COCO 1000ML",
+        "externalId": "1399",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "5gclf7c",
+        "name": "AGUA KERO COCO KIDS 200ML",
+        "externalId": "1400",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dzxwf62",
+        "name": "PASTEL DE CARNE C/ BATATA REV",
+        "externalId": "1401",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "677phqb",
+        "name": "KIBE CARNE CATUPIRY",
+        "externalId": "1402",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "t08npuk",
+        "name": "QUEIJO MUSSARELA FATIADO 200G SADIA",
+        "externalId": "1405",
+        "categoryId": "wmsqohp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "pcfifa2",
+        "name": "FESTA BOL.BACALHAU",
+        "externalId": "1413",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "9bg5ja8",
+        "name": "FESTA BOL. MANDIOCA",
+        "externalId": "1414",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1pen64b",
+        "name": "FESTA BOL. QUEIJO",
+        "externalId": "1415",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "tdbxu7i",
+        "name": "FESTA CACHORRO QUENTE",
+        "externalId": "1416",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ub0po57",
+        "name": "FESTA COX.FRG",
+        "externalId": "1417",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "k9rk7me",
+        "name": "FESTA CROQUETE CARNE",
+        "externalId": "1418",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "8nxejo0",
+        "name": "FESTA EMPADA FRG",
+        "externalId": "1419",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7m4wyat",
+        "name": "FESTA ESF.CALABRESA",
+        "externalId": "1420",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "232t1ts",
+        "name": "FESTA ESF.CARNE",
+        "externalId": "1421",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "i9ov5sw",
+        "name": "FESTA ESF.FRG",
+        "externalId": "1422",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v7pyfmy",
+        "name": "FESTA ESF.PRES C REQUEIJA",
+        "externalId": "1423",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dnvnj6q",
+        "name": "FESTA ESF RICOTA",
+        "externalId": "1424",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "7ro74dc",
+        "name": "FESTA KIBE BAT C QUEIJO",
+        "externalId": "1425",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ldvz6t5",
+        "name": "FESTA KIBE CARNE C REQUEIJAO",
+        "externalId": "1426",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hbs4mg6",
+        "name": "FESTA RISOLE MILHO",
+        "externalId": "1427",
+        "categoryId": "wscjzcx",
+        "availableForKiosk": false
+      },
+      {
+        "id": "td74osz",
+        "name": "POWERADE SABORES",
+        "externalId": "1429",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "pce4bx8",
+        "name": "PEPSI BLACK PET 200ML",
+        "externalId": "1431",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "3awbkyt",
+        "name": "Acessos a plataforma de estudos Ead adqu",
+        "externalId": "1432",
+        "categoryId": "wmsqohp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "busnjmm",
+        "name": "ENROLADINHO PRE./QJO",
+        "externalId": "1433",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "amav5qg",
+        "name": "RISOLE DE CARNE",
+        "externalId": "1434",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dl46yf1",
+        "name": "RISOLE DE CARNE",
+        "externalId": "1435",
+        "categoryId": "nyww21f",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ea7zthl",
+        "name": "SUCO JAL UVA",
+        "externalId": "1439",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "0k4wtru",
+        "name": "TANQUE P-500 VERTICAL",
+        "externalId": "1442",
+        "categoryId": "wmsqohp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "r8zr5b9",
+        "name": "PAO DE QUEIJO PALITO 110G",
+        "externalId": "1447",
+        "categoryId": "wmsqohp",
+        "availableForKiosk": false
+      },
+      {
+        "id": "ryvi7g0",
+        "name": "REFRIGERANTE 1L SABORES",
+        "externalId": "1448",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "1728egs",
+        "name": "COCA COLA 600 ML",
+        "externalId": "1449",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "65gxnjv",
+        "name": "PIRULITO BLONG MORANGO",
+        "externalId": "1450",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "bo4yetw",
+        "name": "PAO DE QUEIJO RECHEADO",
+        "externalId": "1452",
+        "categoryId": "6rxjvu9",
+        "availableForKiosk": false
+      },
+      {
+        "id": "a322yx6",
+        "name": "JAL CAJU LIMAO ABACAXI 900 ML",
+        "externalId": "1456",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "dnyumny",
+        "name": "JAL MAR GOIA ACER MANGA 900",
+        "externalId": "1457",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "gibfiza",
+        "name": "JAL LIMONADA 900 ML",
+        "externalId": "1458",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "46bkiyl",
+        "name": "JAL NECTAR ABACAXI 900 ML",
+        "externalId": "1459",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "odtgr9m",
+        "name": "TEENS SNACK CHOCOLATE",
+        "externalId": "1461",
+        "categoryId": "j9pixiq",
+        "availableForKiosk": false
+      },
+      {
+        "id": "j7wsjib",
+        "name": "SUCO SPRES SABORES 900 ML",
+        "externalId": "1474",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hexn1o5",
+        "name": "APICE NECTAR UVA 900ML CX06",
+        "externalId": "1475",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "61gcayr",
+        "name": "SUCO JAL 1,5 CAJU",
+        "externalId": "1476",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "v68hvx3",
+        "name": "SUCO SPRES UVA 300 ML",
+        "externalId": "1482",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      },
+      {
+        "id": "hexgnnm",
+        "name": "JAL NECTAR MARACUJA 900 ML",
+        "externalId": "1485",
+        "categoryId": "hricv6a",
+        "availableForKiosk": false
+      }
+    ]
+  }
+]

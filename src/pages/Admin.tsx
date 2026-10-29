@@ -87,7 +87,7 @@ import {
 } from 'lucide-react';
 import { getCurrentPosition } from '../utils/geolocation';
 import { sendNtfyNotification } from '../utils/ntfy';
-import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE } from '../utils/scheduleHelper';
+import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp } from '../utils/scheduleHelper';
 import { AiAssistantModal } from '../components/AiAssistantModal';
 import { AdminSettingsCollapsible } from '../components/AdminSettingsCollapsible';
 import { CaixaPrinterStationCard } from '../components/CaixaPrinterStationCard';
@@ -154,6 +154,15 @@ export default function Admin() {
     };
     fetchDeployInfo();
     const interval = setInterval(fetchDeployInfo, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Ticker dinâmico em tempo real a cada 10s para ordenar e identificar pedidos a vencer
+  const [nowTime, setNowTime] = useState<number>(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowTime(Date.now());
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -4130,18 +4139,29 @@ export default function Admin() {
       return true;
     });
 
-    const pendingOrders = filteredOrders.filter(o => 
-      o.status === 'pending' || 
-      o.status === 'preparing' || 
-      o.status === 'ready_for_delivery' || 
-      o.status === 'ready' || 
-      o.status === 'ready_for_pickup' || 
-      o.status === 'out_for_delivery'
-    );
-    const completedOrders = filteredOrders.filter(o => 
-      o.status === 'completed' || 
-      o.status === 'cancelled'
-    );
+    // Ordenação por Horário de Entrega/Retirada:
+    // Pedidos mais recentes/próximos de entrega ficam sempre primeiro; agendamentos mais distantes ficam no final.
+    const pendingOrders = filteredOrders
+      .filter(o => 
+        o.status === 'pending' || 
+        o.status === 'preparing' || 
+        o.status === 'ready_for_delivery' || 
+        o.status === 'ready' || 
+        o.status === 'ready_for_pickup' || 
+        o.status === 'out_for_delivery'
+      )
+      .sort((a, b) => getEffectivePickupTimestamp(a) - getEffectivePickupTimestamp(b));
+
+    const completedOrders = filteredOrders
+      .filter(o => 
+        o.status === 'completed' || 
+        o.status === 'cancelled'
+      )
+      .sort((a, b) => {
+        const timeA = a.createdAt ? (typeof a.createdAt === 'number' ? a.createdAt : new Date(a.createdAt).getTime()) : 0;
+        const timeB = b.createdAt ? (typeof b.createdAt === 'number' ? b.createdAt : new Date(b.createdAt).getTime()) : 0;
+        return timeB - timeA;
+      });
 
     const ordersPerPage = 10;
 
@@ -4443,8 +4463,33 @@ export default function Admin() {
                 {orderSearchQuery || orderChannelFilter !== 'all' ? 'Nenhum pedido em andamento com estes filtros.' : 'Nenhum pedido em andamento.'}
               </p>
             ) : (
-              paginatedPendingOrders.map(order => (
-                <div key={order.id} className={`bg-white rounded-xl shadow-sm border ${order.type === 'kiosk' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-orange-200'} overflow-hidden flex flex-col`}>
+              paginatedPendingOrders.map(order => {
+                const pickupTs = getEffectivePickupTimestamp(order);
+                const diffMinutes = Math.round((pickupTs - nowTime) / (60 * 1000));
+                // Faltando 30 minutos ou menos para a entrega (ou já no horário/atrasado)
+                const isDueWithin30Mins = diffMinutes <= 30 && order.status !== 'completed' && order.status !== 'cancelled';
+
+                return (
+                  <div 
+                    key={order.id} 
+                    className={`bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col transition-all ${
+                      isDueWithin30Mins 
+                        ? 'border-2 border-red-500 ring-4 ring-red-400/80 bg-red-50/20 animate-pulse shadow-2xl' 
+                        : (order.type === 'kiosk' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-orange-200')
+                    }`}
+                  >
+                    {/* BANNER PULSANTE: FALTANDO 30 MINUTOS PARA ENTREGA / RETIRADA */}
+                    {isDueWithin30Mins && (
+                      <div className="bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white font-black text-xs px-3 py-2 flex items-center justify-between gap-2 border-b border-red-700 animate-pulse">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4 text-amber-300 animate-spin" />
+                          <span className="uppercase tracking-wider">⏰ PRÓXIMO PEDIDO A ENTREGAR</span>
+                        </div>
+                        <span className="bg-white text-red-700 px-2.5 py-0.5 rounded-full font-black text-[11px] shadow-sm uppercase tracking-wide">
+                          {diffMinutes > 0 ? `FALTAM ${diffMinutes} MIN` : 'RETIRADA AGORA / ATRASADO'}
+                        </span>
+                      </div>
+                    )}
                   <div className={`p-4 text-white font-bold flex justify-between items-center ${
                     order.type === 'kiosk' 
                       ? 'bg-blue-600' 
@@ -4664,7 +4709,7 @@ export default function Admin() {
                     </div>
                   </div>
                 </div>
-              ))
+              ); })
             )}
           </div>
           {totalPendingPages > 1 && (
