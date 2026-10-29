@@ -157,6 +157,16 @@ export default function Menu() {
     };
   }, [categories, products]);
 
+  const slotOrderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const o of (orders || [])) {
+      if (o && o.scheduledTime && o.status !== 'cancelled') {
+        counts[o.scheduledTime] = (counts[o.scheduledTime] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [orders]);
+
   const hasDeliveryCategories = channelCategoryCounts.delivery > 0;
   const hasInStoreCategories = channelCategoryCounts.instore > 0;
   const hasKioskCategories = channelCategoryCounts.kiosk > 0;
@@ -888,8 +898,13 @@ export default function Menu() {
         setCustomerName(data.customer.name || '');
         setCustomerPhone(data.customer.phone || '');
         setCustomerCpf(data.customer.cpf || '');
-        setHasName(true);
-        setHasChosenChannel(true);
+        if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+          setScheduleStepMode('delivery');
+          setShowScheduleSelectionStep(true);
+        } else {
+          setHasName(true);
+          setHasChosenChannel(true);
+        }
         setIsAuthModalOpen(false);
         setAuthIdentifier('');
         setAuthPassword('');
@@ -3889,10 +3904,10 @@ export default function Menu() {
           {/* Grade de Horários */}
           <div className="space-y-3 text-left mb-6">
             <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
-              Horários Disponíveis (De 30 em 30 min):
+              Horários Disponíveis (Capacidade: 10 pedidos por bloco):
             </label>
             
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-1 border border-stone-100 rounded-2xl bg-stone-50/50">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto p-1 border border-stone-100 rounded-2xl bg-stone-50/50">
               <button
                 type="button"
                 onClick={() => setSelectedScheduleTime('')}
@@ -3906,23 +3921,35 @@ export default function Menu() {
                 const [sh, sm] = slot.split(':').map(Number);
                 const slotMinutes = (sh * 60) + sm;
                 const isPast = slotMinutes <= (currentTimeInMinutes + preparationBuffer);
+                const count = slotOrderCounts[slot] || 0;
+                const isFull = count >= 10;
+                const isDisabled = isPast || isFull;
 
                 return (
                   <button
                     key={slot}
                     type="button"
-                    disabled={isPast}
-                    onClick={() => setSelectedScheduleTime(slot)}
-                    className={`p-2.5 rounded-xl border text-xs font-black font-mono transition-all flex items-center justify-center gap-1.5 ${
-                      isPast 
-                        ? 'bg-stone-100 text-stone-300 border-stone-200 cursor-not-allowed opacity-60' 
+                    disabled={isDisabled}
+                    onClick={() => {
+                      if (!isDisabled) setSelectedScheduleTime(slot);
+                    }}
+                    className={`p-3 rounded-xl border text-xs font-black transition-all flex flex-col items-center justify-center gap-1 ${
+                      isDisabled 
+                        ? 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed opacity-60' 
                         : isSelected 
                           ? 'bg-orange-600 text-white border-orange-600 shadow-xs scale-102 cursor-pointer' 
                           : 'bg-white text-stone-800 border-stone-200 hover:bg-orange-50 cursor-pointer'
                     }`}
                   >
-                    <span>{isPast ? '❌' : '🕐'}</span>
-                    <span className={isPast ? 'line-through opacity-50' : ''}>{slot}</span>
+                    <div className="flex items-center gap-1.5 font-mono text-sm">
+                      <span>{isPast ? '❌' : isFull ? '🔒' : '🕐'}</span>
+                      <span className={isDisabled ? 'line-through opacity-50' : ''}>{slot}</span>
+                    </div>
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-black ${
+                      isFull ? 'bg-red-100 text-red-700' : isPast ? 'bg-stone-200 text-stone-500' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {isFull ? 'Lotado (10/10)' : isPast ? 'Encerrado' : `${10 - count} de 10 vagas`}
+                    </span>
                   </button>
                 );
               })}
