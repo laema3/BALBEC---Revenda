@@ -285,8 +285,10 @@ export const getEnrichedProductDescription = (name: string, externalId?: string,
   return cleanCurrent || '';
 };
 
-export const isSalgadoProduct = (product: any, categories: any[]) => {
+export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   if (!product) return false;
+  if (product.allowFrozen === false) return false;
+  if (product.allowFrozen === true) return true;
   const category = categories.find(c => c && c.id === product.categoryId);
   const catName = normalizeText(category?.name || '');
   const prodName = normalizeText(product?.name || '');

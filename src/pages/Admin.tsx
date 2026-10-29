@@ -402,6 +402,7 @@ export default function Admin() {
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
   const [productStatusFilter, setProductStatusFilter] = useState('all');
+  const [productFrozenFilter, setProductFrozenFilter] = useState<'all' | 'frozen' | 'not_frozen'>('all');
 
   // Batch selection state for product transfer
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -423,6 +424,33 @@ export default function Admin() {
         isOpen: true,
         title: 'Erro',
         message: 'Erro ao transferir produtos. Tente novamente.',
+        onConfirm: () => setConfirmModal(null)
+      });
+    } finally {
+      setIsTransferringBatch(false);
+    }
+  };
+
+  const handleBatchToggleFrozen = async (enable: boolean) => {
+    if (selectedProductIds.length === 0 || isTransferringBatch) return;
+    setIsTransferringBatch(true);
+    try {
+      await Promise.all(
+        selectedProductIds.map(id => updateProduct(id, { allowFrozen: enable }))
+      );
+      setConfirmModal({
+        isOpen: true,
+        title: enable ? 'Opção Congelados Ativada' : 'Opção Congelados Desativada',
+        message: `${selectedProductIds.length} produto(s) atualizado(s) com sucesso!\n\n${enable ? 'A opção de Salgado Congelado (+R$ 0,30) foi HABILITADA.' : 'A opção de Salgado Congelado foi DESABILITADA.'}`,
+        onConfirm: () => setConfirmModal(null)
+      });
+      setSelectedProductIds([]);
+    } catch (err) {
+      console.error('Error batch updating allowFrozen:', err);
+      setConfirmModal({
+        isOpen: true,
+        title: 'Erro',
+        message: 'Erro ao atualizar congelados dos produtos selecionados.',
         onConfirm: () => setConfirmModal(null)
       });
     } finally {
@@ -2397,6 +2425,7 @@ export default function Admin() {
       flavorIds: formData.getAll('flavorIds') as string[],
       maxAddons: Number(formData.get('maxAddons')) || 2,
       order: Number(formData.get('order') || 0),
+      allowFrozen: formData.get('allowFrozen') === 'on',
       availableForDelivery: formData.get('availableForDelivery') === 'on',
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
@@ -5042,6 +5071,8 @@ export default function Admin() {
       }
       if (productStatusFilter === 'active' && !p.isActive) return false;
       if (productStatusFilter === 'inactive' && p.isActive) return false;
+      if (productFrozenFilter === 'frozen' && p.allowFrozen === false) return false;
+      if (productFrozenFilter === 'not_frozen' && p.allowFrozen !== false) return false;
       
       const activeSearch = (productSearch || productSearchInput).trim();
       if (activeSearch) {
@@ -5272,7 +5303,20 @@ export default function Admin() {
               <option value="inactive">Somente Inativos</option>
             </select>
 
-            {(productSearch || productSearchInput || productCategoryFilter !== 'all' || productStatusFilter !== 'all') && (
+            <select
+              value={productFrozenFilter}
+              onChange={(e) => {
+                setProductFrozenFilter(e.target.value as any);
+                setProductPage(1);
+              }}
+              className="px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium text-stone-700 focus:ring-2 focus:ring-orange-500 outline-none w-full sm:w-auto font-bold"
+            >
+              <option value="all">❄️ Congelados (Todos)</option>
+              <option value="frozen">❄️ Com Congelado (+R$ 0,30)</option>
+              <option value="not_frozen">🚫 Sem Congelado</option>
+            </select>
+
+            {(productSearch || productSearchInput || productCategoryFilter !== 'all' || productStatusFilter !== 'all' || productFrozenFilter !== 'all') && (
               <button
                 type="button"
                 onClick={() => {
@@ -5280,6 +5324,7 @@ export default function Admin() {
                   setProductSearch('');
                   setProductCategoryFilter('all');
                   setProductStatusFilter('all');
+                  setProductFrozenFilter('all');
                   setProductPage(1);
                 }}
                 className="px-3 py-2.5 text-xs font-bold text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
@@ -5432,6 +5477,28 @@ export default function Admin() {
               >
                 {isTransferringBatch ? 'Transferindo...' : 'Aplicar Transferência'}
               </button>
+
+              <div className="flex items-center gap-1.5 border-l border-orange-300/80 pl-2">
+                <button
+                  type="button"
+                  disabled={isTransferringBatch}
+                  onClick={() => handleBatchToggleFrozen(true)}
+                  className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs rounded-lg transition-colors shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                  title="Amarrar opção de Congelados (+R$ 0,30) a todos os produtos selecionados"
+                >
+                  <span>❄️ Habilitar Congelados (+R$ 0,30)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isTransferringBatch}
+                  onClick={() => handleBatchToggleFrozen(false)}
+                  className="px-3 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold text-xs rounded-lg transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                  title="Desabilitar opção de Congelados para todos os selecionados"
+                >
+                  <span>🚫 Sem Congelados</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedProductIds([])}
@@ -5482,7 +5549,7 @@ export default function Admin() {
                       <p className="text-xs text-stone-400 mt-1 max-w-sm mx-auto">
                         Tente pesquisar por outros termos (nome, código ERP ou descrição) ou alterar os filtros de categoria e status.
                       </p>
-                      {(productSearch || productSearchInput || productCategoryFilter !== 'all' || productStatusFilter !== 'all') && (
+                      {(productSearch || productSearchInput || productCategoryFilter !== 'all' || productStatusFilter !== 'all' || productFrozenFilter !== 'all') && (
                         <button
                           type="button"
                           onClick={() => {
@@ -5490,6 +5557,7 @@ export default function Admin() {
                             setProductSearch('');
                             setProductCategoryFilter('all');
                             setProductStatusFilter('all');
+                            setProductFrozenFilter('all');
                             setProductPage(1);
                           }}
                           className="mt-4 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
@@ -5587,6 +5655,23 @@ export default function Admin() {
                               }`}
                             >
                               📱 Autoatendimento
+                            </button>
+
+                            <button
+                              type="button"
+                              title={product.allowFrozen !== false ? "Clique para desativar opção de Congelado (+R$ 0,30)" : "Clique para ativar opção de Congelado (+R$ 0,30)"}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const newValue = product.allowFrozen === false;
+                                await updateProduct(product.id, { allowFrozen: newValue });
+                              }}
+                              className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer font-bold flex items-center gap-1 active:scale-95 ${
+                                product.allowFrozen !== false
+                                  ? 'bg-cyan-100 text-cyan-800 border-cyan-300 shadow-xs hover:bg-cyan-200'
+                                  : 'bg-stone-100 text-stone-400 border-stone-200 line-through opacity-50 hover:opacity-100 hover:bg-cyan-50 hover:text-cyan-700 hover:no-underline'
+                              }`}
+                            >
+                              ❄️ {product.allowFrozen !== false ? 'Congelado (+R$ 0,30)' : 'Congelado (Desativado)'}
                             </button>
 
                             {product.externalId && <span className="text-[10px] bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded font-mono uppercase font-bold">CÓD: {product.externalId}</span>}
@@ -8932,6 +9017,10 @@ export default function Admin() {
                 <div className="flex items-center gap-2">
                   <input type="checkbox" name="isActive" id="isActive" defaultChecked={editingItem ? editingItem.isActive : true} className="w-4 h-4 text-orange-600 focus:ring-orange-500 rounded" />
                   <label htmlFor="isActive" className="text-sm font-medium text-stone-700">Produto Ativo (Visível no cardápio)</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" name="allowFrozen" id="allowFrozen" defaultChecked={editingItem ? editingItem.allowFrozen !== false : true} className="w-4 h-4 text-orange-600 focus:ring-orange-500 rounded" />
+                  <label htmlFor="allowFrozen" className="text-sm font-medium text-stone-700">Permitir opção de Salgado Congelado (+R$ 0,30 / un)</label>
                 </div>
 
                 {/* Sales Channels / Exibição por Local */}

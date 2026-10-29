@@ -147,6 +147,7 @@ export interface Product {
   flavorIds?: string[];
   externalId?: string;
   order?: number;
+  allowFrozen?: boolean;
   availableForDelivery?: boolean;
   availableInStore?: boolean;
   availableForKiosk?: boolean;

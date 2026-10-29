@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations } from '../lib/utils';
-import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles } from 'lucide-react';
 import { MotorcycleIcon } from '../components/MotorcycleIcon';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
@@ -593,7 +593,7 @@ export default function Menu() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedScheduleTime, setSelectedScheduleTime] = useState<string>('');
   const [showScheduleSelectionStep, setShowScheduleSelectionStep] = useState<boolean>(false);
-  const [scheduleStepMode, setScheduleStepMode] = useState<'delivery' | 'pickup'>('delivery');
+  const [scheduleStepMode, setScheduleStepMode] = useState<'delivery' | 'pickup'>('pickup');
   const [customerEmail, setCustomerEmail] = useState(() => safeStorage.getItem('balbec_customer_email') || '');
   const [customerCpf, setCustomerCpf] = useState(() => safeStorage.getItem('balbec_customer_cpf') || '');
   const [deliveryStreet, setDeliveryStreet] = useState(() => safeStorage.getItem('balbec_customer_street') || '');
@@ -899,7 +899,7 @@ export default function Menu() {
         setCustomerPhone(data.customer.phone || '');
         setCustomerCpf(data.customer.cpf || '');
         if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
-          setScheduleStepMode('delivery');
+          setScheduleStepMode('pickup');
           setShowScheduleSelectionStep(true);
         } else {
           setHasName(true);
@@ -3882,12 +3882,10 @@ export default function Menu() {
           </div>
 
           <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight mb-1">
-            {scheduleStepMode === 'delivery' ? 'Agende o Horário de Entrega' : 'Agende o Horário de Retirada'}
+            Agende o Horário de Retirada
           </h2>
           <p className="text-stone-600 text-xs sm:text-sm mb-4">
-            {scheduleStepMode === 'delivery' 
-              ? 'Selecione o horário em que prefere receber o seu pedido' 
-              : 'Selecione o horário em que virá retirar seu pedido no balcão'}
+            Selecione o horário em que virá retirar seu pedido no balcão
           </p>
 
           {/* Aviso importante sobre o tempo de preparo de 40 minutos */}
@@ -3896,7 +3894,7 @@ export default function Menu() {
             <div className="space-y-1">
               <strong className="block text-amber-900 font-bold uppercase text-[11px] tracking-wider">Tempo Estimado de Preparo</strong>
               <p className="leading-relaxed">
-                Sempre que escolher um horário desses, o estabelecimento terá em média <strong>40 minutos para o preparo</strong>, podendo ficar pronto ou ser entregue antes.
+                Sempre que escolher um horário desses, o estabelecimento terá em média <strong>40 minutos para o preparo</strong>, podendo ficar pronto antes para você retirar no balcão.
               </p>
             </div>
           </div>
@@ -3960,26 +3958,13 @@ export default function Menu() {
             type="button"
             onClick={() => {
               setShowScheduleSelectionStep(false);
-              if (scheduleStepMode === 'delivery') {
-                safeStorage.setItem('balbec_delivery_cep_verified', 'true');
-                safeStorage.setSession('selected_sales_channel', 'delivery');
-                safeStorage.setSession('balbec_qr_validated', 'true');
-                setIsQrValidated(true);
-                setSalesChannel('delivery');
-                setDeliveryType('delivery');
-                setHasChosenChannel(true);
-                setShowFormSuccess(true);
-                setTimeout(() => {
-                  setShowFormSuccess(false);
-                  setHasName(true);
-                }, 900);
-              } else {
-                safeStorage.setSession('selected_sales_channel', 'instore');
-                setSalesChannel('instore');
-                setDeliveryType('pickup');
-                setHasChosenChannel(true);
-                setHasName(true);
-              }
+              safeStorage.setSession('selected_sales_channel', 'instore');
+              safeStorage.setSession('balbec_qr_validated', 'true');
+              setIsQrValidated(true);
+              setSalesChannel('instore');
+              setDeliveryType('pickup');
+              setHasChosenChannel(true);
+              setHasName(true);
             }}
             className="w-full py-4 text-white rounded-2xl font-black text-base transition-all hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
           >
@@ -4818,7 +4803,7 @@ export default function Menu() {
                       type="button"
                       onClick={() => {
                         if (storeInfo.deliveryScheduleEnabled) {
-                          setScheduleStepMode('delivery');
+                          setScheduleStepMode('pickup');
                           setShowScheduleSelectionStep(true);
                         } else {
                           safeStorage.setItem('balbec_delivery_cep_verified', 'true');
@@ -4915,8 +4900,66 @@ export default function Menu() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Top Brown Bar */}
-        <div className="h-8 shrink-0 w-full bg-[#5c4033]"></div>
+        {/* Top Header Menu Bar */}
+        <div className="min-h-9 py-1 px-3 sm:px-6 shrink-0 w-full bg-[#5c4033] text-stone-100 z-40 border-b border-[#473127] shadow-xs">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 text-xs">
+            {/* Quick Links Menu: Agendamento & Pedidos Anteriores */}
+            <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-0.5">
+              {/* Botão de Agendamento */}
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleStepMode('pickup');
+                  setShowScheduleSelectionStep(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 hover:text-white rounded-lg font-bold text-[11px] sm:text-xs transition-all cursor-pointer border border-amber-400/35 shadow-2xs whitespace-nowrap active:scale-95"
+                title="Clique para alterar seu horário de retirada"
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                <span>
+                  {selectedScheduleTime ? `Retirada: ${selectedScheduleTime}` : '⏰ Agendar Horário de Retirada'}
+                </span>
+                <span className="text-[10px] bg-amber-400 text-stone-900 px-1.5 py-0.5 rounded font-black uppercase ml-1">
+                  Alterar
+                </span>
+              </button>
+
+              {/* Botão Pedidos Anteriores */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeCustomer) {
+                    setProfileView('orders');
+                    setIsProfileModalOpen(true);
+                  } else {
+                    setAuthMode('login');
+                    setIsAuthModalOpen(true);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/20 text-stone-200 hover:text-white rounded-lg font-bold text-[11px] sm:text-xs transition-all cursor-pointer border border-white/20 shadow-2xs whitespace-nowrap active:scale-95"
+                title="Ver pedidos anteriores e repetir pedido"
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                <span>📋 Pedidos Anteriores</span>
+                {customerOrders.length > 0 && (
+                  <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.2 rounded-full font-black">
+                    {customerOrders.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Informação do Balcão */}
+            <div className="hidden sm:flex items-center gap-3 text-[11px] text-stone-300">
+              <span className="flex items-center gap-1">
+                <Store className="w-3.5 h-3.5 text-amber-400" />
+                <span className="font-semibold">Balcão &amp; Retirada</span>
+              </span>
+              <span>•</span>
+              <span className="truncate max-w-[200px]">{storeInfo.headerPhrase || 'Salgados Especiais e Revenda'}</span>
+            </div>
+          </div>
+        </div>
 
         {/* Modern Header */}
         <header className="bg-white border-b border-stone-200 shrink-0 z-30 pt-2 sm:pt-3 md:pt-4 pb-2 md:pb-3">
