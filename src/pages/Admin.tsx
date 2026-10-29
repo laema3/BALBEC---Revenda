@@ -87,7 +87,7 @@ import {
 } from 'lucide-react';
 import { getCurrentPosition } from '../utils/geolocation';
 import { sendNtfyNotification } from '../utils/ntfy';
-import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp } from '../utils/scheduleHelper';
+import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp, getOrderDateInfo } from '../utils/scheduleHelper';
 import { AiAssistantModal } from '../components/AiAssistantModal';
 import { AdminSettingsCollapsible } from '../components/AdminSettingsCollapsible';
 import { CaixaPrinterStationCard } from '../components/CaixaPrinterStationCard';
@@ -4111,6 +4111,7 @@ export default function Admin() {
   const [completedOrderPage, setCompletedOrderPage] = useState(1);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [orderChannelFilter, setOrderChannelFilter] = useState<'all' | 'delivery' | 'instore' | 'kiosk'>('all');
+  const [selectedOrderDateTab, setSelectedOrderDateTab] = useState<string>('all');
 
   const renderOrders = () => {
     // Filter orders according to channel and search query
@@ -4141,7 +4142,7 @@ export default function Admin() {
 
     // Ordenação por Horário de Entrega/Retirada:
     // Pedidos mais recentes/próximos de entrega ficam sempre primeiro; agendamentos mais distantes ficam no final.
-    const pendingOrders = filteredOrders
+    const allPendingOrders = filteredOrders
       .filter(o => 
         o.status === 'pending' || 
         o.status === 'preparing' || 
@@ -4151,6 +4152,27 @@ export default function Admin() {
         o.status === 'out_for_delivery'
       )
       .sort((a, b) => getEffectivePickupTimestamp(a) - getEffectivePickupTimestamp(b));
+
+    // Construção dinâmica das Abas por Dia
+    const dateMap = new Map<string, { key: string; label: string; count: number }>();
+    allPendingOrders.forEach(o => {
+      const info = getOrderDateInfo(o);
+      if (!dateMap.has(info.dateKey)) {
+        dateMap.set(info.dateKey, { key: info.dateKey, label: info.formattedLabel, count: 0 });
+      }
+      const item = dateMap.get(info.dateKey)!;
+      item.count += 1;
+    });
+
+    const dateTabs = [
+      { key: 'all', label: 'Todos os Dias', count: allPendingOrders.length },
+      ...Array.from(dateMap.values()).sort((a, b) => a.key.localeCompare(b.key))
+    ];
+
+    // Filtragem por Aba de Dia selecionada
+    const pendingOrders = selectedOrderDateTab === 'all'
+      ? allPendingOrders
+      : allPendingOrders.filter(o => getOrderDateInfo(o).dateKey === selectedOrderDateTab);
 
     const completedOrders = filteredOrders
       .filter(o => 
@@ -4444,6 +4466,46 @@ export default function Admin() {
               <Trash2 className="w-4 h-4" /> Zerar Todos os Pedidos
             </button>
           </div>
+          {/* ABAS SEPARADAS POR DIA */}
+          <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 p-3 rounded-2xl border border-amber-300/80 shadow-xs">
+            <div className="flex items-center justify-between gap-2 mb-2 px-1">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                <CalendarDays className="w-4 h-4 text-orange-600" />
+                <span>Filtrar Pedidos por Dia de Entrega / Retirada ({allPendingOrders.length}):</span>
+              </span>
+              <span className="text-[11px] text-stone-500 font-medium hidden sm:inline">
+                Clique no dia para ver apenas os pedidos agendados para a data
+              </span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {dateTabs.map(tab => {
+                const isActive = selectedOrderDateTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedOrderDateTab(tab.key);
+                      setPendingOrderPage(1);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 border select-none ${
+                      isActive
+                        ? 'bg-orange-600 text-white border-orange-700 shadow-md scale-102 ring-2 ring-orange-400/50'
+                        : 'bg-white text-stone-700 border-stone-200 hover:bg-amber-50 hover:border-amber-300'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                      isActive ? 'bg-white text-orange-700' : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
               <Clock className="w-6 h-6 text-orange-600" /> Pedidos em Andamento

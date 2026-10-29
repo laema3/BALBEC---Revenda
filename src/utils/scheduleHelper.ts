@@ -383,3 +383,33 @@ export function getEffectivePickupTimestamp(order: any): number {
   return createdTime + (prepMinutes * 60 * 1000);
 }
 
+export function getOrderDateInfo(order: any): { dateKey: string; formattedLabel: string; isToday: boolean; isTomorrow: boolean } {
+  const pickupTs = getEffectivePickupTimestamp(order);
+  const d = new Date(pickupTs);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dayNum = String(d.getDate()).padStart(2, '0');
+  const dateKey = `${y}-${m}-${dayNum}`;
+
+  const dayShortNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const tomorrowKey = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
+  const isToday = dateKey === todayKey;
+  const isTomorrow = dateKey === tomorrowKey;
+
+  let label = `${dayShortNames[d.getDay()]}, ${dayNum}/${m}`;
+  if (isToday) {
+    label = `Hoje (${dayNum}/${m})`;
+  } else if (isTomorrow) {
+    label = `Amanhã (${dayShortNames[d.getDay()]}, ${dayNum}/${m})`;
+  }
+
+  return { dateKey, formattedLabel: label, isToday, isTomorrow };
+}
+
