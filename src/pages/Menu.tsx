@@ -763,48 +763,146 @@ export default function Menu() {
     }
   }, [activeCustomer?.id]);
 
-  // Cálculo em tempo real da META mensal do cliente logado
+  // Estado de Meta Mensal Customizada
+  const [customMonthlyGoal, setCustomMonthlyGoal] = useState<number>(() => {
+    const saved = safeStorage.getItem('balbec_custom_monthly_goal');
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 1000;
+  });
+  const [isEditGoalModalOpen, setIsEditGoalModalOpen] = useState(false);
+  const [newGoalInput, setNewGoalInput] = useState('1000');
+
+  // Cálculo em tempo real da META mensal do cliente
   const customerMonthlyGoalInfo = useMemo(() => {
-    if (!activeCustomer) return { goal: 0, spent: 0, pct: 0, rawPct: 0, remaining: 0 };
-    const cleanActiveCpf = String(activeCustomer.cpf || '').replace(/\D/g, '');
-    const storeCustomer = (customers || []).find((c: any) =>
+    const cleanActiveCpf = activeCustomer ? String(activeCustomer.cpf || '').replace(/\D/g, '') : '';
+    const cleanActivePhone = activeCustomer ? String(activeCustomer.phone || '').replace(/\D/g, '') : '';
+
+    const storeCustomer = activeCustomer ? (customers || []).find((c: any) =>
       c.id === activeCustomer.id ||
       (cleanActiveCpf && String(c.cpf || '').replace(/\D/g, '') === cleanActiveCpf)
-    );
-    const goal = Number(storeCustomer?.monthlyGoal ?? activeCustomer.monthlyGoal ?? 0) || 0;
+    ) : null;
+
+    const goal = Number(storeCustomer?.monthlyGoal ?? activeCustomer?.monthlyGoal ?? customMonthlyGoal ?? 1000) || 1000;
 
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    const cleanActivePhone = String(activeCustomer.phone || '').replace(/\D/g, '');
 
-    // Somar pedidos do mês atual na store + customerOrders (sem duplicar IDs)
     const seenOrderIds = new Set<string>();
     let calculatedSpent = 0;
+    let monthOrderCount = 0;
+
     const allOrdersToScan = [...(orders || []), ...(customerOrders || [])];
     for (const o of allOrdersToScan) {
       if (!o || !o.id || seenOrderIds.has(o.id)) continue;
       if (o.status === 'cancelled') continue;
       const d = new Date(o.createdAt);
       if (isNaN(d.getTime()) || d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) continue;
+
       const oCpf = String((o as any).customerCpf || '').replace(/\D/g, '');
       const oPhone = String(o.customerPhone || '').replace(/\D/g, '');
-      const matchesCustomer =
+
+      const matchesCustomer = activeCustomer ? (
         (o as any).customerId === activeCustomer.id ||
         (cleanActiveCpf && oCpf === cleanActiveCpf) ||
-        (cleanActivePhone.length >= 8 && oPhone === cleanActivePhone);
+        (cleanActivePhone.length >= 8 && oPhone === cleanActivePhone)
+      ) : true;
+
       if (matchesCustomer) {
         seenOrderIds.add(o.id);
         calculatedSpent += Number(o.total) || 0;
+        monthOrderCount++;
       }
     }
 
-    const spent = Math.max(calculatedSpent, Number(activeCustomer.currentMonthSpent || 0));
+    const spent = Math.max(calculatedSpent, Number(activeCustomer?.currentMonthSpent || 0));
     const rawPct = goal > 0 ? (spent / goal) * 100 : 0;
     const pct = Math.min(100, Math.round(rawPct));
     const remaining = Math.max(0, goal - spent);
-    return { goal, spent, pct, rawPct, remaining };
-  }, [activeCustomer, customers, orders, customerOrders]);
+
+    return { goal, spent, pct, rawPct, remaining, orderCount: monthOrderCount };
+  }, [activeCustomer, customers, orders, customerOrders, customMonthlyGoal]);
+
+  const handleSaveMonthlyGoal = async () => {
+    const numGoal = parseFloat(newGoalInput);
+    if (isNaN(numGoal) || numGoal <= 0) {
+      alert('Por favor, insira um valor de meta válido.');
+      return;
+    }
+
+    safeStorage.setItem('balbec_custom_monthly_goal', String(numGoal));
+    setCustomMonthlyGoal(numGoal);
+
+    if (activeCustomer?.id) {
+      const updatedCustomer = { ...activeCustomer, monthlyGoal: numGoal };
+      setActiveCustomer(updatedCustomer);
+      safeStorage.setItem('balbec_logged_customer', JSON.stringify(updatedCustomer));
+
+      try {
+        await fetch(`/api/db/customers/${activeCustomer.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ monthlyGoal: numGoal })
+        });
+      } catch (e) {
+        console.warn('Erro ao salvar meta no servidor:', e);
+      }
+    }
+
+    setIsEditGoalModalOpen(false);
+  };
+
+  const renderMonthlyGoalCard = () => {
+    const { goal, spent, pct, orderCount } = customerMonthlyGoalInfo;
+    return (
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-stone-200/90 shadow-xs space-y-3 my-4 text-left">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎯</span>
+            <span className="text-sm sm:text-base font-black text-stone-900 tracking-tight">
+              META DO MÊS: {formatCurrency(goal)}
+            </span>
+          </div>
+          <span className="bg-amber-100 text-amber-900 font-black text-xs px-2.5 py-1 rounded-lg border border-amber-300/60">
+            {pct}%
+          </span>
+        </div>
+
+        {/* Barra de Progresso em Laranja */}
+        <div className="w-full bg-stone-100 h-3.5 rounded-full overflow-hidden p-0.5 border border-stone-200/60">
+          <div
+            className="bg-orange-500 h-full rounded-full transition-all duration-500"
+            style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between text-xs sm:text-sm font-bold pt-0.5">
+          <span className="text-stone-500">
+            Comprado no mês: <strong className="text-stone-900">{formatCurrency(spent)}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setNewGoalInput(String(goal));
+              setIsEditGoalModalOpen(true);
+            }}
+            className="text-xs font-black text-red-600 hover:text-red-700 transition-colors cursor-pointer hover:underline"
+          >
+            Alterar Meta
+          </button>
+        </div>
+
+        <div className="border-t border-stone-100 pt-2 flex items-center gap-1.5 text-xs sm:text-sm font-black text-stone-900">
+          <span>Total: {orderCount} {orderCount === 1 ? 'pedido' : 'pedidos'}</span>
+          <span className="text-stone-300">•</span>
+          <span className="text-emerald-600">{formatCurrency(spent)}</span>
+        </div>
+      </div>
+    );
+  };
 
   const formatCpfCnpj = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 14);
@@ -2202,6 +2300,11 @@ export default function Menu() {
               </div>
             </div>
           )}
+
+          {/* Card Meta do Mês */}
+          <div className="px-4 sm:px-5">
+            {renderMonthlyGoalCard()}
+          </div>
 
           {/* Confirmação de Pagamento Online Aprovado */}
           {lastPlacedOrder?.paymentMethod?.includes('Online') && (
@@ -3946,6 +4049,9 @@ export default function Menu() {
                     </div>
                   </div>
                 )}
+
+                {/* Card Meta do Mês */}
+                {renderMonthlyGoalCard()}
 
                 <button 
                   onClick={async () => {
@@ -7205,6 +7311,67 @@ export default function Menu() {
             )}
           </>
         )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Alteração da Meta do Mês */}
+      {isEditGoalModalOpen && (
+        <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xl">
+                  🎯
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-stone-900 leading-tight">Alterar Meta Mensal</h3>
+                  <p className="text-xs text-stone-500 font-medium">Defina seu objetivo de compras do mês</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditGoalModalOpen(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-black uppercase text-stone-700 tracking-wider">
+                Valor da Meta (R$)
+              </label>
+              <input
+                type="number"
+                step="50"
+                min="100"
+                value={newGoalInput}
+                onChange={(e) => setNewGoalInput(e.target.value)}
+                placeholder="Ex: 1000"
+                className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl text-lg font-black font-mono text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+              />
+              <p className="text-xs text-stone-500 leading-relaxed font-medium">
+                Sua meta ajuda a acompanhar seus gastos e progresso ao longo do mês.
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setIsEditGoalModalOpen(false)}
+                className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveMonthlyGoal}
+                className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all cursor-pointer"
+              >
+                Salvar Meta
+              </button>
+            </div>
           </div>
         </div>
       )}
