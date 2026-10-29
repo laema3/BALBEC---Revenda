@@ -162,7 +162,9 @@ export interface OrderItem {
   name: string;
   description?: string;
   imageUrl?: string;
-  addons?: { productId: string; name: string; price: number; externalId?: string; code?: string }[];
+  isFrozen?: boolean;
+  options?: any[];
+  addons?: { productId: string; name: string; price: number; externalId?: string; code?: string; isFrozen?: boolean }[];
   flavor?: { productId: string; name: string; price: number; externalId?: string; code?: string };
 }
 
@@ -209,6 +211,8 @@ export interface Order {
   deliveryAcceptedAt?: number | null;
   deliveryCompletedAt?: number | null;
   scheduledTime?: string;
+  scheduledDate?: string;
+  scheduledDay?: string;
 }
 
 export interface TvMediaItem {
@@ -299,6 +303,9 @@ export interface StoreInfo {
   onlinePaymentSecretKey?: string;
   deliveryScheduleEnabled?: boolean;
   deliveryScheduleSlots?: string[] | string;
+  scheduleSlotItemCapacity?: number;
+  schedulePrepTimeNormalMinutes?: number;
+  schedulePrepTimeFrozenMinutes?: number;
   minOrderValue?: number;
   showSystemIntroButton?: boolean;
 }
@@ -548,6 +555,9 @@ export const defaultStoreInfo: StoreInfo = {
   networkPrinterPort: 9100,
   deliveryScheduleEnabled: false,
   deliveryScheduleSlots: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'],
+  scheduleSlotItemCapacity: 100,
+  schedulePrepTimeNormalMinutes: 40,
+  schedulePrepTimeFrozenMinutes: 90,
   minOrderValue: 0,
   showSystemIntroButton: true,
 };

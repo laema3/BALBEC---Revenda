@@ -96,6 +96,12 @@ interface AdminSettingsCollapsibleProps {
   setDeliveryScheduleEnabledState: (v: boolean) => void;
   deliveryScheduleSlotsState: string[];
   setDeliveryScheduleSlotsState: React.Dispatch<React.SetStateAction<string[]>>;
+  scheduleSlotItemCapacityState?: number;
+  setScheduleSlotItemCapacityState?: (v: number) => void;
+  schedulePrepTimeNormalMinutesState?: number;
+  setSchedulePrepTimeNormalMinutesState?: (v: number) => void;
+  schedulePrepTimeFrozenMinutesState?: number;
+  setSchedulePrepTimeFrozenMinutesState?: (v: number) => void;
   
   // Maintenance
   isMaintenanceState: boolean;
@@ -240,6 +246,12 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     setDeliveryScheduleEnabledState,
     deliveryScheduleSlotsState,
     setDeliveryScheduleSlotsState,
+    scheduleSlotItemCapacityState = 100,
+    setScheduleSlotItemCapacityState,
+    schedulePrepTimeNormalMinutesState = 40,
+    setSchedulePrepTimeNormalMinutesState,
+    schedulePrepTimeFrozenMinutesState = 90,
+    setSchedulePrepTimeFrozenMinutesState,
     isMaintenanceState,
     setIsMaintenanceState,
     weeklyScheduleState,
@@ -1784,7 +1796,91 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                       </div>
 
                       {deliveryScheduleEnabledState && (
-                        <div className="space-y-3 pt-2 border-t border-stone-200 animate-fadeIn">
+                        <div className="space-y-4 pt-3 border-t border-stone-200 animate-fadeIn">
+                          {/* Configurações de Capacidade e Tempos de Preparo */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 shadow-2xs">
+                            {/* 1. Capacidade por Horário em Quantidade de Salgados / Itens */}
+                            <div>
+                              <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
+                                Capacidade por Bloco (Qtd. de Salgados)
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="9999"
+                                  value={scheduleSlotItemCapacityState ?? 100}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                    setScheduleSlotItemCapacityState?.(val);
+                                  }}
+                                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                                  placeholder="Ex: 100"
+                                />
+                                <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
+                                  unidades
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-stone-600 mt-1 leading-tight">
+                                Limite máximo de salgados que podem ser agendados para o mesmo horário. A cada pedido, os itens são abatidos até esgotar.
+                              </p>
+                            </div>
+
+                            {/* 2. Tempo para Retirada de Pedido Normal */}
+                            <div>
+                              <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
+                                Tempo Retirada: Pedido Normal
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="5"
+                                  max="360"
+                                  value={schedulePrepTimeNormalMinutesState ?? 40}
+                                  onChange={(e) => {
+                                    const val = Math.max(5, parseInt(e.target.value, 10) || 40);
+                                    setSchedulePrepTimeNormalMinutesState?.(val);
+                                  }}
+                                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                                  placeholder="Ex: 40"
+                                />
+                                <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
+                                  minutos
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-stone-600 mt-1 leading-tight">
+                                Tempo mínimo de antecedência necessário para preparar pedidos comuns (fritos/assados). Padrão: 40 min.
+                              </p>
+                            </div>
+
+                            {/* 3. Tempo para Retirada de Pedido Congelado */}
+                            <div>
+                              <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
+                                Tempo Retirada: Pedido Congelado
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="10"
+                                  max="720"
+                                  value={schedulePrepTimeFrozenMinutesState ?? 90}
+                                  onChange={(e) => {
+                                    const val = Math.max(10, parseInt(e.target.value, 10) || 90);
+                                    setSchedulePrepTimeFrozenMinutesState?.(val);
+                                  }}
+                                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                                  placeholder="Ex: 90"
+                                />
+                                <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
+                                  minutos
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-stone-600 mt-1 leading-tight">
+                                Tempo de preparo aplicado automaticamente quando houver salgados congelados no carrinho. Padrão: 90 min.
+                              </p>
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-stone-700">Horários Atendidos (De 30 em 30 min):</span>
                             <div className="flex gap-2">

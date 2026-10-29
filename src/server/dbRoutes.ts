@@ -32,6 +32,9 @@ const DEFAULT_STORE_INFO = {
   deliveryEnabled: false,
   deliveryScheduleEnabled: false,
   deliveryScheduleSlots: '["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"]',
+  scheduleSlotItemCapacity: 100,
+  schedulePrepTimeNormalMinutes: 40,
+  schedulePrepTimeFrozenMinutes: 90,
   inStoreEnabled: true,
   kioskEnabled: false,
   requireQrCodeForOrdering: false,
@@ -2147,6 +2150,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           ? body.deliveryScheduleSlots
           : JSON.stringify(body.deliveryScheduleSlots);
       }
+      if (body.scheduleSlotItemCapacity !== undefined) sanitized.scheduleSlotItemCapacity = Number(body.scheduleSlotItemCapacity) || 100;
+      if (body.schedulePrepTimeNormalMinutes !== undefined) sanitized.schedulePrepTimeNormalMinutes = Number(body.schedulePrepTimeNormalMinutes) || 40;
+      if (body.schedulePrepTimeFrozenMinutes !== undefined) sanitized.schedulePrepTimeFrozenMinutes = Number(body.schedulePrepTimeFrozenMinutes) || 90;
       if (body.inStoreEnabled !== undefined) sanitized.inStoreEnabled = Boolean(body.inStoreEnabled);
       if (body.kioskEnabled !== undefined) sanitized.kioskEnabled = Boolean(body.kioskEnabled);
       if (body.requireQrCodeForOrdering !== undefined) sanitized.requireQrCodeForOrdering = Boolean(body.requireQrCodeForOrdering);

@@ -650,6 +650,9 @@ export default function Admin() {
     }
     return ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'];
   });
+  const [scheduleSlotItemCapacityState, setScheduleSlotItemCapacityState] = useState<number>(storeInfo.scheduleSlotItemCapacity ?? 100);
+  const [schedulePrepTimeNormalMinutesState, setSchedulePrepTimeNormalMinutesState] = useState<number>(storeInfo.schedulePrepTimeNormalMinutes ?? 40);
+  const [schedulePrepTimeFrozenMinutesState, setSchedulePrepTimeFrozenMinutesState] = useState<number>(storeInfo.schedulePrepTimeFrozenMinutes ?? 90);
   const [kioskEnabledState, setKioskEnabledState] = useState<boolean>(storeInfo.kioskEnabled !== false);
   const [requireQrCodeForOrderingState, setRequireQrCodeForOrderingState] = useState<boolean>(storeInfo.requireQrCodeForOrdering !== false);
   const [isMaintenanceState, setIsMaintenanceState] = useState<boolean>(storeInfo.isMaintenance || false);
@@ -2590,6 +2593,9 @@ export default function Admin() {
       deliveryEnabled: deliveryEnabledState,
       deliveryScheduleEnabled: deliveryScheduleEnabledState,
       deliveryScheduleSlots: JSON.stringify(deliveryScheduleSlotsState),
+      scheduleSlotItemCapacity: scheduleSlotItemCapacityState,
+      schedulePrepTimeNormalMinutes: schedulePrepTimeNormalMinutesState,
+      schedulePrepTimeFrozenMinutes: schedulePrepTimeFrozenMinutesState,
       inStoreEnabled: inStoreEnabledState,
       kioskEnabled: kioskEnabledState,
       requireQrCodeForOrdering: requireQrCodeForOrderingState,
@@ -4481,10 +4487,10 @@ export default function Admin() {
                     <div className="text-sm text-stone-500 mb-2">
                       {new Date(order.createdAt).toLocaleTimeString()} • {order.paymentMethod}
                     </div>
-                    {order.scheduledTime && (
+                    {(order.scheduledTime || (order as any).scheduled_time) && (
                       <div className="mb-3 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 flex items-center gap-2 text-xs font-bold">
                         <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>Horário Agendado: <strong className="font-mono text-amber-950 font-black">{order.scheduledTime}</strong> (Preparo ~40min antes)</span>
+                        <span>Agendamento: <strong className="font-mono text-amber-950 font-black">{order.scheduledDay || order.scheduledDate || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</strong></span>
                       </div>
                     )}
                     <ul className="space-y-2 mb-4">
@@ -4704,9 +4710,9 @@ export default function Admin() {
                     <td className="p-4">{order.customerName}</td>
                     <td className="p-4">
                       <div>{new Date(order.createdAt).toLocaleTimeString()}</div>
-                      {order.scheduledTime && (
-                        <div className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 inline-flex items-center gap-1">
-                          <span>⏰ Agendado: {order.scheduledTime}</span>
+                      {(order.scheduledTime || (order as any).scheduled_time) && (
+                        <div className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300 mt-1 inline-flex items-center gap-1 shadow-2xs">
+                          <span>⏰ {order.scheduledDay || order.scheduledDate || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</span>
                         </div>
                       )}
                     </td>
@@ -5984,6 +5990,21 @@ export default function Admin() {
     updateStoreInfo({ deliveryScheduleSlots: JSON.stringify(slots) });
   };
 
+  const handleUpdateScheduleSlotCapacity = (cap: number) => {
+    setScheduleSlotItemCapacityState(cap);
+    updateStoreInfo({ scheduleSlotItemCapacity: cap });
+  };
+
+  const handleUpdateSchedulePrepTimeNormal = (min: number) => {
+    setSchedulePrepTimeNormalMinutesState(min);
+    updateStoreInfo({ schedulePrepTimeNormalMinutes: min });
+  };
+
+  const handleUpdateSchedulePrepTimeFrozen = (min: number) => {
+    setSchedulePrepTimeFrozenMinutesState(min);
+    updateStoreInfo({ schedulePrepTimeFrozenMinutes: min });
+  };
+
   const handleToggleKiosk = (val: boolean) => {
     setKioskEnabledState(val);
     updateStoreInfo({ kioskEnabled: val });
@@ -6043,6 +6064,12 @@ export default function Admin() {
       setDeliveryScheduleEnabledState={handleToggleDeliverySchedule}
       deliveryScheduleSlotsState={deliveryScheduleSlotsState}
       setDeliveryScheduleSlotsState={handleUpdateScheduleSlots}
+      scheduleSlotItemCapacityState={scheduleSlotItemCapacityState}
+      setScheduleSlotItemCapacityState={handleUpdateScheduleSlotCapacity}
+      schedulePrepTimeNormalMinutesState={schedulePrepTimeNormalMinutesState}
+      setSchedulePrepTimeNormalMinutesState={handleUpdateSchedulePrepTimeNormal}
+      schedulePrepTimeFrozenMinutesState={schedulePrepTimeFrozenMinutesState}
+      setSchedulePrepTimeFrozenMinutesState={handleUpdateSchedulePrepTimeFrozen}
       setDeliveryEnabledState={handleToggleDelivery}
       kioskEnabledState={kioskEnabledState}
       setKioskEnabledState={handleToggleKiosk}

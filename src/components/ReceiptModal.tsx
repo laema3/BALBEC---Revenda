@@ -67,6 +67,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
     customerDisplayText = 'CLIENTE: BALCÃO / RETIRADA';
   }
 
+  const scheduledTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
+  const scheduledDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+
   const receiptBlobUrl = useMemo(() => {
     const html = getFullReceiptHTML(order, storeInfo, true);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -90,10 +93,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
 ------------------------------
 *${customerDisplayText}*
 *PEDIDO #${orderNumber}*
-${order.customerPhone ? `Tel: ${order.customerPhone}` : ''}
+${scheduledTime ? `*HORÁRIO AGENDADO: 📅 ${scheduledDay ? scheduledDay + ' ' : ''}⏰ ${scheduledTime}*\n` : ''}${order.customerPhone ? `Tel: ${order.customerPhone}` : ''}
 ${order.deliveryAddress ? `End: ${order.deliveryAddress}` : ''}
 Data: ${orderDate}
-Tipo: ${order.type === 'kiosk' ? 'Totem Autoatendimento' : (isDeliveryOrder ? 'Entrega em Domicílio' : (order.tableNumber ? `Consumo Loja (Mesa ${order.tableNumber})` : 'Retirada no Balcão'))}
+Tipo: ${order.type === 'kiosk' ? 'Totem Autoatendimento' : (isDeliveryOrder ? 'Entrega em Domicílio' : (order.tableNumber ? `Consumo Loja (Mesa ${order.tableNumber})` : 'Retirada no Balcão'))}${scheduledTime ? ` (Agendado: ${scheduledDay ? scheduledDay + ' ' : ''}às ${scheduledTime})` : ''}
 ------------------------------
 ${items.map(item => {
   const itemCode = resolveItemCode(item);
@@ -180,12 +183,30 @@ Pagamento: ${order.paymentMethod || 'Não informado'}
               )}
             </div>
 
+            {/* HORÁRIO AGENDADO RETIRADA EM DESTAQUE MÁXIMO (FUNDO PRETO / TEXTO BRANCO E AMARELO) */}
+            {scheduledTime ? (
+              <div className="bg-black text-white p-2.5 my-2 text-center rounded space-y-0.5 border-2 border-stone-800">
+                <div className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                  *** HORÁRIO AGENDADO RETIRADA ***
+                </div>
+                {scheduledDay && (
+                  <div className="text-xs font-bold text-stone-200 uppercase tracking-wide">
+                    📅 {scheduledDay}
+                  </div>
+                )}
+                <div className="text-xl font-black tracking-widest text-white mt-0.5">
+                  ⏰ {scheduledTime}
+                </div>
+              </div>
+            ) : null}
+
             {order.customerPhone && <div className="text-center text-[11px]">Tel: {order.customerPhone}</div>}
             {order.deliveryAddress && <div className="text-center text-[11px] break-words">End: {order.deliveryAddress}</div>}
             
             <div className="text-center text-[11px] mt-1">{orderDate}</div>
             <div className="text-center text-[11px] font-bold mt-0.5">
               {order.type === 'kiosk' ? 'Tipo: Retirada no Balcão (Totem)' : (isDeliveryOrder ? 'Tipo: Entrega em Domicílio' : (order.tableNumber ? `Tipo: Consumo no Local (Mesa ${order.tableNumber})` : 'Tipo: Retirada no Balcão'))}
+              {scheduledTime ? ` (${scheduledDay ? scheduledDay + ' ' : ''}às ${scheduledTime})` : ''}
             </div>
 
             <div className="border-t border-dashed border-black my-2"></div>

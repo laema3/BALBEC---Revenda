@@ -155,7 +155,8 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
   const customerName = order?.customerName ? normalizeText(String(order.customerName).trim().toUpperCase()) : '';
   const orderDate = order?.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
   const items = Array.isArray(order?.items) ? order.items : [];
-  const isSingleCopy = storeInfo?.printerCopies === 1;
+  // Regra mandatória: Esse cupom quando for sair, tem que ser impresso em duas vias (1ª Via Cliente + 2ª Via Balcão).
+  const isSingleCopy = false;
 
   const formatCurrency = (val: number) => 'R$ ' + (Number(val) || 0).toFixed(2).replace('.', ',');
 
@@ -270,6 +271,18 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
     }
     if (order?.deliveryAddress) {
       lines.push(Buffer.from(`End: ${normalizeText(order.deliveryAddress)}\n`, 'latin1'));
+    }
+
+    const scheduledTime = order?.scheduledTime || order?.scheduled_time || order?.scheduleTime;
+    const scheduledDay = order?.scheduledDay || order?.scheduled_day || order?.scheduledDate || order?.scheduled_date;
+    if (scheduledTime) {
+      lines.push(Buffer.from('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11', 'ascii'));
+      lines.push(Buffer.from(`*** HORARIO RETIRADA ***\n`, 'latin1'));
+      if (scheduledDay) {
+        lines.push(Buffer.from(`     ${normalizeText(scheduledDay)}     \n`, 'latin1'));
+      }
+      lines.push(Buffer.from(`       ${scheduledTime}       \n`, 'latin1'));
+      lines.push(Buffer.from('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00', 'ascii'));
     }
 
     lines.push(Buffer.from(`${orderDate}\n`, 'latin1'));

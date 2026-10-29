@@ -73,6 +73,8 @@ export const orders = pgTable('orders', {
   deliveryAcceptedAt: bigint('delivery_accepted_at', { mode: 'number' }),
   deliveryCompletedAt: bigint('delivery_completed_at', { mode: 'number' }),
   scheduledTime: text('scheduled_time'),
+  scheduledDate: text('scheduled_date'),
+  scheduledDay: text('scheduled_day'),
 });
 
 // Delivery Zones / Bairros e CEPs table
@@ -127,6 +129,9 @@ export const storeInfo = pgTable('store_info', {
   deliveryEnabled: boolean('delivery_enabled').default(true),
   deliveryScheduleEnabled: boolean('delivery_schedule_enabled').default(false),
   deliveryScheduleSlots: text('delivery_schedule_slots').default('["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"]'),
+  scheduleSlotItemCapacity: integer('schedule_slot_item_capacity').default(100),
+  schedulePrepTimeNormalMinutes: integer('schedule_prep_time_normal_minutes').default(40),
+  schedulePrepTimeFrozenMinutes: integer('schedule_prep_time_frozen_minutes').default(90),
   minOrderValue: doublePrecision('min_order_value').default(0),
   inStoreEnabled: boolean('in_store_enabled').default(true),
   kioskEnabled: boolean('kiosk_enabled').default(true),

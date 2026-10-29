@@ -837,11 +837,17 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
           ${order.tableNumber ? `<div class="box-client" style="font-size: 14px; margin-bottom: 2px;">🍽️ MESA: ${order.tableNumber}</div>` : ''}
         </div>
 
-        ${order.scheduledTime ? `
-        <div style="margin: 6px 0; padding: 6px 4px; background-color: #000 !important; color: #fff !important; text-align: center; border-radius: 4px; font-weight: 900; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <div style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase;">*** HORÁRIO AGENDADO RETIRADA ***</div>
-          <div style="font-size: 20px; letter-spacing: 1.5px; margin-top: 2px;">⏰ ${order.scheduledTime}</div>
-        </div>` : ''}
+        ${(() => {
+          const sTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
+          const sDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+          if (!sTime) return '';
+          return `
+          <div style="margin: 6px 0; padding: 6px 4px; background-color: #000 !important; color: #fff !important; text-align: center; border-radius: 4px; font-weight: 900; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+            <div style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #ffd700 !important;">*** HORÁRIO AGENDADO RETIRADA ***</div>
+            ${sDay ? `<div style="font-size: 13px; letter-spacing: 0.5px; margin-top: 1px; text-transform: uppercase; color: #fff !important;">📅 ${sDay}</div>` : ''}
+            <div style="font-size: 22px; letter-spacing: 1.5px; margin-top: 2px;">⏰ ${sTime}</div>
+          </div>`;
+        })()}
 
         ${order.customerPhone ? `<div class="center text-sm">Tel: ${order.customerPhone}</div>` : ''}
         ${order.deliveryAddress ? `<div class="center text-sm" style="margin-top: 2px;">End: ${order.deliveryAddress}</div>` : ''}
@@ -853,6 +859,12 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
             : (order.tableNumber 
                 ? `Canal: Celular (Mesa ${order.tableNumber})` 
                 : (order.deliveryType === 'delivery' ? 'Canal: Entrega em Domicílio' : 'Canal: Celular (QR Code Balcão)'))}
+          ${(() => {
+            const sTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
+            const sDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+            if (!sTime) return '';
+            return `<br><span style="font-size: 13px; font-weight: 900; background-color: #000; color: #fff; padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 3px;">⏰ RETIRADA: ${sDay ? sDay + ' às ' : ''}${sTime}</span>`;
+          })()}
         </div>
 
         <div class="divider"></div>
@@ -1096,10 +1108,15 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     if (order.deliveryAddress) {
       lines.push(`End: ${normalizeEscPosText(order.deliveryAddress)}\n`);
     }
-    if (order.scheduledTime) {
+    const escScheduledTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
+    const escScheduledDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+    if (escScheduledTime) {
       lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11');
       lines.push(`*** HORARIO RETIRADA ***\n`);
-      lines.push(`       ${order.scheduledTime}       \n`);
+      if (escScheduledDay) {
+        lines.push(`     ${normalizeEscPosText(escScheduledDay)}     \n`);
+      }
+      lines.push(`       ${escScheduledTime}       \n`);
       lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00');
     }
     lines.push(`${orderDate}\n`);
