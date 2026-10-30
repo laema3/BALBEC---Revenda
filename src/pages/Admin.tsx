@@ -4639,7 +4639,11 @@ export default function Admin() {
                                 </span>
                               )}
                               {item.flavor && (
-                                <div className="text-[11px] text-stone-500 italic pl-3">
+                                <div className={`text-[11px] italic pl-3 ${
+                                  (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')
+                                    ? 'text-red-600 font-black'
+                                    : 'text-stone-500 font-medium'
+                                }`}>
                                   + Sabor: {item.flavor.name}
                                   {resolveAddonCode(item.flavor) && (
                                     <span className="ml-1.5 inline-block px-1 py-0.1 bg-stone-100 border border-stone-200 rounded text-[9px] font-mono font-bold text-stone-700">
@@ -4649,11 +4653,12 @@ export default function Admin() {
                                 </div>
                               )}
                               {item.addons && item.addons.length > 0 && (
-                                <div className="text-[11px] text-stone-500 italic pl-3 space-y-0.5 mt-0.5">
+                                <div className="text-[11px] italic pl-3 space-y-0.5 mt-0.5">
                                   {item.addons.map((a, aIdx) => {
                                     const aCode = resolveAddonCode(a);
+                                    const isHighlight = (a.name || '').toLowerCase().includes('congelado') || (a.name || '').toLowerCase().includes('normal');
                                     return (
-                                      <div key={aIdx} className="flex items-center gap-1">
+                                      <div key={aIdx} className={`flex items-center gap-1 ${isHighlight ? 'text-red-600 font-black' : 'text-stone-500 font-medium'}`}>
                                         <span>+ {a.name}</span>
                                         {aCode && (
                                           <span className="px-1 py-0.1 bg-stone-100 border border-stone-200 rounded text-[9px] font-mono font-bold text-stone-700">

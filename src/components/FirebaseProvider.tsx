@@ -33,8 +33,50 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
             if (data.type === 'sync') {
               consecutiveFailuresRef.current = 0;
               setIsOnline(true);
+              
               if (data.target === 'orders') {
-                fetchOrdersOnly().catch(() => {});
+                fetchOrdersOnly().then(() => {
+                  if (data.action === 'status_updated' && data.orderId) {
+                    // Verificar se o pedido atualizado pertence ao usuário atual (pelo LocalStorage)
+                    const savedPhone = localStorage.getItem('balbec_customer_phone');
+                    const savedName = localStorage.getItem('balbec_customer_name');
+                    const currentOrders = useStore.getState().orders;
+                    const updatedOrder = currentOrders.find(o => String(o.id) === String(data.orderId));
+                    
+                    if (updatedOrder) {
+                      const orderPhone = updatedOrder.customerPhone ? updatedOrder.customerPhone.replace(/\D/g, '') : '';
+                      const userPhone = savedPhone ? savedPhone.replace(/\D/g, '') : '';
+                      const isOwner = (userPhone && orderPhone === userPhone) || 
+                                      (savedName && updatedOrder.customerName === savedName);
+
+                      if (isOwner) {
+                        const statusMap: Record<string, string> = {
+                          'preparing': 'está sendo preparado agora!',
+                          'ready': 'está pronto para retirada no balcão!',
+                          'ready_for_pickup': 'está pronto! Pode vir buscar.',
+                          'out_for_delivery': 'saiu para entrega!',
+                          'completed': 'foi finalizado com sucesso. Obrigado!',
+                          'cancelled': 'foi cancelado pelo estabelecimento.'
+                        };
+                        const statusMsg = statusMap[data.status] || 'teve uma atualização no status.';
+                        
+                        useStore.getState().setCurrentNotification({
+                          id: `notif_${Date.now()}`,
+                          title: `Pedido #${updatedOrder.id.slice(-4)}`,
+                          message: `Olá ${updatedOrder.customerName}, seu pedido ${statusMsg}`,
+                          type: data.status === 'cancelled' ? 'warning' : 'success'
+                        });
+
+                        // Play sound if possible
+                        try {
+                          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                          audio.volume = 0.4;
+                          audio.play().catch(() => {});
+                        } catch {}
+                      }
+                    }
+                  }
+                }).catch(() => {});
               } else {
                 fetchData().catch(() => {});
               }

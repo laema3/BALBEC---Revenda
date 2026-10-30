@@ -2101,6 +2101,29 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     broadcastSSE({ type: 'sync', target: 'orders', orderId: newOrder.id, time: Date.now() });
 
+    // Enviar notificação via NTFY se estiver ativado
+    if (memStoreInfo.ntfyEnabled !== false) {
+      const topic = memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos';
+      const itemsSummary = Array.isArray(newOrder.items) 
+        ? newOrder.items.map((it: any) => `${it.quantity}x ${it.name}`).join(', ')
+        : 'Itens não detalhados';
+      
+      const ntfyPayload = {
+        topic,
+        title: `Novo Pedido #${newOrder.id.slice(-4)}`,
+        message: `Cliente: ${newOrder.customerName}\nValor: R$ ${Number(newOrder.total).toFixed(2)}\nItens: ${itemsSummary}`,
+        priority: 5,
+        tags: ['package', 'star-struck'],
+        click: 'https://cardapio.balbec.com.br/admin'
+      };
+
+      fetch('https://ntfy.sh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ntfyPayload)
+      }).catch(err => console.warn('[NTFY Order] Erro ao enviar:', err.message));
+    }
+
     if (isDatabaseConfigured()) {
       try {
         const result = await withDbRetry(async () => {

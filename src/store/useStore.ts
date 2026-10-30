@@ -478,6 +478,9 @@ interface StoreState {
   
   updateStoreInfo: (info: Partial<StoreInfo>) => Promise<void>;
   exportOrderToBlueFocus: (order: Order, config?: any) => Promise<void>;
+  
+  currentNotification: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning' } | null;
+  setCurrentNotification: (notif: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning' } | null) => void;
 }
 
 export const defaultStoreInfo: StoreInfo = {
@@ -742,6 +745,7 @@ export const useStore = create<StoreState>((set, get) => ({
   ordersError: null,
   isOnline: true,
   isInitialized: getInitialProducts().length > 0,
+  currentNotification: null,
   
   setCategories: (categories) => set({ categories }),
   setProducts: (products) => set({ products }),
@@ -767,6 +771,7 @@ export const useStore = create<StoreState>((set, get) => ({
     saveStoreInfoToStorage(merged);
     return { storeInfo: merged };
   }),
+  setCurrentNotification: (currentNotification) => set({ currentNotification }),
 
   fetchData: async () => {
     if (activeFetchDataPromise) {

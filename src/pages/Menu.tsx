@@ -3072,7 +3072,11 @@ export default function Menu() {
                         </div>
                       )}
                       {item.flavor && (
-                        <div className="text-sm text-stone-500 uppercase">
+                        <div className={`text-sm uppercase ${
+                          (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')
+                            ? 'text-red-600 font-black'
+                            : 'text-stone-500'
+                        }`}>
                           Sabor: {item.flavor.name}
                           {resolveAddonCode(item.flavor) && (
                             <span className="font-mono font-bold text-stone-700 ml-1.5">[CÓD: {resolveAddonCode(item.flavor)}]</span>
@@ -3080,11 +3084,12 @@ export default function Menu() {
                         </div>
                       )}
                       {item.addons && item.addons.length > 0 && (
-                        <div className="text-sm text-stone-500 uppercase space-y-0.5">
+                        <div className="text-sm uppercase space-y-0.5">
                           {item.addons.map((a, aIdx) => {
                             const aCode = a.externalId || a.code || resolveAddonCode(a);
+                            const isHighlight = (a.name || '').toLowerCase().includes('congelado') || (a.name || '').toLowerCase().includes('normal');
                             return (
-                              <div key={aIdx}>
+                              <div key={aIdx} className={isHighlight ? 'text-red-600 font-black' : 'text-stone-500'}>
                                 + {a.name}
                                 {aCode && (
                                   <span className="font-mono font-bold text-stone-700 ml-1.5">[CÓD: {aCode}]</span>

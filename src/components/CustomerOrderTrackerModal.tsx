@@ -640,16 +640,42 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
               Itens do Pedido #{orderNumber}
             </h4>
             <div className="divide-y divide-stone-100 text-xs">
-              {order.items?.map((item: any, idx: number) => (
-                <div key={idx} className="py-2 flex items-center justify-between">
-                  <span className="font-bold text-stone-800">
-                    {item.quantity}x {item.name}
-                  </span>
-                  <span className="text-stone-500 font-mono">
-                    R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
-                  </span>
-                </div>
-              ))}
+              {order.items?.map((item: any, idx: number) => {
+                const isHighlight = (item.name || '').toLowerCase().includes('congelado') || (item.name || '').toLowerCase().includes('normal');
+                return (
+                  <div key={idx} className="py-2.5 border-b border-stone-50 last:border-0">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold ${isHighlight ? 'text-red-600' : 'text-stone-800'}`}>
+                        {item.quantity}x {item.name}
+                      </span>
+                      <span className="text-stone-500 font-mono">
+                        R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
+                    {item.flavor && (
+                      <div className={`text-[10px] uppercase mt-0.5 ml-4 ${
+                        (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')
+                          ? 'text-red-600 font-black'
+                          : 'text-stone-400 font-medium'
+                      }`}>
+                        + Sabor: {item.flavor.name}
+                      </div>
+                    )}
+                    {item.addons && item.addons.length > 0 && (
+                      <div className="mt-0.5 ml-4 space-y-0.5">
+                        {item.addons.map((a: any, aIdx: number) => {
+                          const isAHighlight = (a.name || '').toLowerCase().includes('congelado') || (a.name || '').toLowerCase().includes('normal');
+                          return (
+                            <div key={aIdx} className={`text-[10px] uppercase ${isAHighlight ? 'text-red-600 font-black' : 'text-stone-400 font-medium'}`}>
+                              + {a.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="pt-3 border-t border-stone-200 flex items-center justify-between text-sm">

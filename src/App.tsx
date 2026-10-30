@@ -16,6 +16,7 @@ import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { FirebaseProvider } from './components/FirebaseProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useStore } from './store/useStore';
+import { SmsNotification } from './components/SmsNotification';
 
 function StoreMeta() {
   const { storeInfo } = useStore();
@@ -179,12 +180,15 @@ function MotoboyRoute() {
   return <MotoboyPortal storeInfo={storeInfo} onBack={() => { window.location.href = '/'; }} />;
 }
 
+
+
 export default function App() {
   return (
     <ErrorBoundary>
       <FirebaseProvider>
         <StoreMeta />
         <AutoUpdater />
+        <SmsNotification />
         <Router>
           <PwaInstallPrompt />
           <CookieConsentBanner />
