@@ -82,18 +82,13 @@ app.get("/api/ping", (req, res) => {
   res.json({ message: "pong", time: new Date().toISOString() });
 });
 
-app.get("/api/health", (req, res) => {
+app.get("/api/health", async (req, res) => {
+  const dbStatus = await testDatabaseConnection();
   res.json({ 
     status: "ok", 
     node: process.version,
     env: process.env.NODE_ENV,
-    db_config: {
-      host: !!process.env.SQL_HOST,
-      user: !!process.env.SQL_USER,
-      db: !!process.env.SQL_DB_NAME,
-      pass: !!process.env.SQL_PASSWORD,
-      port: !!process.env.SQL_PORT
-    },
+    db: dbStatus,
     time: new Date().toISOString()
   });
 });

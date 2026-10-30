@@ -4639,9 +4639,9 @@ export default function Admin() {
                                 </span>
                               )}
                               {item.flavor && (
-                                <div className={`text-[11px] italic pl-3 ${
+                                <div className={`text-[11px] italic pl-3 py-0.5 rounded-sm my-0.5 ${
                                   (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')
-                                    ? 'text-red-600 font-black'
+                                    ? 'text-red-700 font-black bg-red-50 border-l-2 border-red-500'
                                     : 'text-stone-500 font-medium'
                                 }`}>
                                   + Sabor: {item.flavor.name}
@@ -4658,7 +4658,7 @@ export default function Admin() {
                                     const aCode = resolveAddonCode(a);
                                     const isHighlight = (a.name || '').toLowerCase().includes('congelado') || (a.name || '').toLowerCase().includes('normal');
                                     return (
-                                      <div key={aIdx} className={`flex items-center gap-1 ${isHighlight ? 'text-red-600 font-black' : 'text-stone-500 font-medium'}`}>
+                                      <div key={aIdx} className={`flex items-center gap-1 py-0.5 rounded-sm px-1 ${isHighlight ? 'text-red-700 font-black bg-red-50 border-l-2 border-red-500' : 'text-stone-500 font-medium'}`}>
                                         <span>+ {a.name}</span>
                                         {aCode && (
                                           <span className="px-1 py-0.1 bg-stone-100 border border-stone-200 rounded text-[9px] font-mono font-bold text-stone-700">

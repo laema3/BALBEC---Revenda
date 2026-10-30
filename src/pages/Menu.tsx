@@ -108,8 +108,41 @@ export default function Menu() {
   const [initialEntryChoice, setInitialEntryChoice] = useState<'view' | 'delivery' | null>('view');
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isCheckout, setIsCheckout] = useState(false);
-  const [successCountdown, setSuccessCountdown] = useState<number>(15);
+  const [checkoutStep, setCheckoutStep] = useState<number>(1);
+  const checkoutScheduleRef = useRef<HTMLDivElement>(null);
+  const checkoutCustomerRef = useRef<HTMLHeadingElement>(null);
+  const checkoutPaymentRef = useRef<HTMLHeadingElement>(null);
+  const checkoutFinalizeRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-scroll para cada etapa do checkout conforme o preenchimento
+  useEffect(() => {
+    if (isCheckout) {
+      // 1. Rolagem para horário se agendamento estiver habilitado e ainda não escolhido
+      if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+        setTimeout(() => {
+          checkoutScheduleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+      // 2. Rolagem para identificação se horário escolhido mas nome/celular pendentes
+      else if (selectedScheduleTime && (!customerName || customerPhone.length < 14)) {
+        setTimeout(() => {
+          checkoutCustomerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      }
+      // 3. Rolagem para pagamento se identificação concluída mas método não escolhido
+      else if (customerName.length > 3 && customerPhone.length >= 14 && !paymentMethod) {
+        setTimeout(() => {
+          checkoutPaymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      }
+      // 4. Rolagem final para o botão de finalizar
+      else if (paymentMethod) {
+        setTimeout(() => {
+          checkoutFinalizeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    }
+  }, [isCheckout, selectedScheduleTime, customerName, customerPhone, paymentMethod, storeInfo.deliveryScheduleEnabled]);
   const [deliveryCountdown, setDeliveryCountdown] = useState<number>(0);
   const [pendingAddToCart, setPendingAddToCart] = useState<any>(null);
   const [showChannelSelection, setShowChannelSelection] = useState(false);
@@ -2559,7 +2592,11 @@ export default function Menu() {
                             <span className="font-bold">{formatCurrency(((item.price || 0) + (item.flavor?.price || 0) + (item.addons?.reduce((s: number, a: any) => s + (a.price || 0), 0) || 0)) * (item.quantity || 1))}</span>
                           </div>
                           {item.flavor && (
-                            <div className="text-[10px] pl-2 text-stone-600">
+                            <div className={`text-[10px] pl-2 py-0.5 rounded-sm my-0.5 ${
+                              (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')
+                                ? 'text-red-700 font-black bg-red-50 border-l-2 border-red-500'
+                                : 'text-stone-600'
+                            }`}>
                               • Sabor: {item.flavor.name}
                               {resolveAddonCode(item.flavor) && (
                                 <span className="font-mono font-bold text-white bg-black px-1 py-0.5 rounded text-[9px] ml-1">
@@ -2569,11 +2606,12 @@ export default function Menu() {
                             </div>
                           )}
                           {item.addons && item.addons.length > 0 && (
-                            <div className="text-[10px] pl-2 text-stone-600 space-y-0.5 mt-0.5">
+                            <div className="text-[10px] pl-2 space-y-0.5 mt-0.5">
                               {item.addons.map((a: any, aIdx: number) => {
                                 const aCode = resolveAddonCode(a);
+                                const isHighlight = (a.name || '').toLowerCase().includes('congelado') || (a.name || '').toLowerCase().includes('normal');
                                 return (
-                                  <div key={aIdx}>
+                                  <div key={aIdx} className={`flex items-center gap-1 py-0.5 rounded-sm px-1 ${isHighlight ? 'text-red-700 font-black bg-red-50 border-l-2 border-red-500' : 'text-stone-600'}`}>
                                     + <span>{a.name}</span>
                                     {aCode && (
                                       <span className="font-mono font-bold text-white bg-black px-1 py-0.5 rounded text-[9px] ml-1">
@@ -3072,10 +3110,10 @@ export default function Menu() {
                         </div>
                       )}
                       {item.flavor && (
-                        <div className={`text-sm uppercase ${
+                        <div className={`text-sm uppercase py-0.5 rounded-sm my-0.5 pl-2 border-l-2 ${
                           (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')
-                            ? 'text-red-600 font-black'
-                            : 'text-stone-500'
+                            ? 'text-red-700 font-black bg-red-50 border-red-500'
+                            : 'text-stone-500 border-stone-200'
                         }`}>
                           Sabor: {item.flavor.name}
                           {resolveAddonCode(item.flavor) && (
@@ -3084,12 +3122,12 @@ export default function Menu() {
                         </div>
                       )}
                       {item.addons && item.addons.length > 0 && (
-                        <div className="text-sm uppercase space-y-0.5">
+                        <div className="text-sm uppercase space-y-0.5 mt-1">
                           {item.addons.map((a, aIdx) => {
                             const aCode = a.externalId || a.code || resolveAddonCode(a);
                             const isHighlight = (a.name || '').toLowerCase().includes('congelado') || (a.name || '').toLowerCase().includes('normal');
                             return (
-                              <div key={aIdx} className={isHighlight ? 'text-red-600 font-black' : 'text-stone-500'}>
+                              <div key={aIdx} className={`py-0.5 rounded-sm pl-2 border-l-2 ${isHighlight ? 'text-red-700 font-black bg-red-50 border-red-500' : 'text-stone-500 border-stone-200'}`}>
                                 + {a.name}
                                 {aCode && (
                                   <span className="font-mono font-bold text-stone-700 ml-1.5">[CÓD: {aCode}]</span>
@@ -5493,10 +5531,12 @@ export default function Menu() {
               <button
                 type="button"
                 onClick={() => {
-                  if (activeCustomer) {
+                  console.log('[UI] Pedidos Anteriores clicado. ActiveCustomer:', activeCustomer);
+                  if (activeCustomer && activeCustomer.id) {
                     setProfileView('orders');
                     setIsProfileModalOpen(true);
                   } else {
+                    console.log('[UI] Redirecionando para Login Modal');
                     setAuthMode('login');
                     setIsAuthModalOpen(true);
                   }

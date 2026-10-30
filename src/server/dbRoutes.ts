@@ -1140,7 +1140,7 @@ export async function hydrateFromPostgres(): Promise<void> {
 
       // 3.2. Hidratar Pedidos
       try {
-        console.log('[DB Hydrate] Consultando últimos 5000 pedidos do PostgreSQL...');
+        console.log('[DB Hydrate] Consultando últimos 5000 pedidos do PostgreSQL para restauração...');
         const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
         
         const orderMap = new Map<string, any>();
@@ -1151,20 +1151,32 @@ export async function hydrateFromPostgres(): Promise<void> {
         
         // 2. Mescla com o que está no PostgreSQL (Railway)
         let dbAddedCount = 0;
+        let dbTotalCount = ordList?.length || 0;
+        
         if (ordList && ordList.length > 0) {
           ordList.forEach(o => { 
             if (o && o.id) {
-              if (!orderMap.has(String(o.id))) dbAddedCount++;
-              orderMap.set(String(o.id), { ...(orderMap.get(String(o.id)) || {}), ...o }); 
+              const orderId = String(o.id);
+              if (!orderMap.has(orderId)) {
+                dbAddedCount++;
+                orderMap.set(orderId, o);
+              } else {
+                // Se já existe na memória, mescla os dados mas mantém as propriedades do DB como autoritativas para o estado persistente
+                orderMap.set(orderId, { ...(orderMap.get(orderId) || {}), ...o });
+              }
             }
           });
         }
         
         memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
         persistOrdersToDisk(memOrders);
-        console.log(`[DB Hydrate] Sincronização de Pedidos: ${initialMemCount} do Disco + ${dbAddedCount} novos do DB. Total final: ${memOrders.length} pedidos.`);
+        console.log(`[DB Hydrate] Sincronização de Pedidos CONCLUÍDA:`);
+        console.log(` - Pedidos no DB PostgreSQL: ${dbTotalCount}`);
+        console.log(` - Pedidos no Disco/Memória: ${initialMemCount}`);
+        console.log(` - Novos pedidos restaurados do DB: ${dbAddedCount}`);
+        console.log(` - Total final em memória: ${memOrders.length}`);
       } catch (ordHydrateErr: any) {
-        console.warn('[DB Hydrate] Aviso ao carregar orders do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
+        console.error('[DB Hydrate] ERRO CRÍTICO ao carregar pedidos do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
       }
 
     // 4. Hidratar Mesas
@@ -1573,31 +1585,43 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       DATABASE_URL: !!getDatabaseUrl(),
       PGHOST: !!process.env.PGHOST,
       SQL_HOST: !!process.env.SQL_HOST,
-      nodeEnv: process.env.NODE_ENV
+      nodeEnv: process.env.NODE_ENV,
+      isRailway: isRailwayEnvironment()
     };
 
-    if (!isDatabaseConfigured()) {
+    try {
+      const dbStatus = await testDatabaseConnection();
+      let orderCount = 0;
+      let customerCount = 0;
+      
+      if (dbStatus.ok) {
+        const oRes = await pool.query('SELECT COUNT(*) as c FROM orders');
+        orderCount = parseInt(oRes.rows[0]?.c || '0', 10);
+        const cRes = await pool.query('SELECT COUNT(*) as c FROM customers');
+        customerCount = parseInt(cRes.rows[0]?.c || '0', 10);
+      }
+
       return res.status(200).json({
-        success: false,
-        status: 'missing_config',
-        message: 'Variável de ambiente do Banco de Dados não configurada.',
-        details: 'Configure a variável DATABASE_URL com a URL de conexão do PostgreSQL / Cloud SQL.',
+        success: dbStatus.ok,
+        message: dbStatus.ok ? 'Conexão com PostgreSQL ativa!' : 'Falha na conexão com PostgreSQL.',
+        details: dbStatus.error || 'Banco de dados respondendo normalmente.',
+        host: dbStatus.host,
+        stats: {
+          orders: orderCount,
+          customers: customerCount
+        },
         envDetected,
+        isHydrated,
         responseTimeMs: Date.now() - startTime
       });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || String(err),
+        envDetected
+      });
     }
-
-    try {
-      const result = await pool.query('SELECT NOW() as current_time, current_database() as db_name, version() as pg_version');
-      const row = result.rows[0];
-      let productCount = 0;
-      let categoryCount = 0;
-      try {
-        const pRes = await pool.query('SELECT COUNT(*) as c FROM products');
-        productCount = parseInt(pRes.rows[0]?.c || '0', 10);
-      } catch (_) {}
-
-      try {
+  });
         const cRes = await pool.query('SELECT COUNT(*) as c FROM categories');
         categoryCount = parseInt(cRes.rows[0]?.c || '0', 10);
       } catch (_) {}
@@ -2103,37 +2127,46 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     // Enviar notificação via NTFY se estiver ativado
     if (memStoreInfo.ntfyEnabled !== false) {
-      const topic = memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos';
+      const topic = (memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').replace(/[^a-zA-Z0-9_-]/g, '');
       const itemsSummary = Array.isArray(newOrder.items) 
         ? newOrder.items.map((it: any) => `${it.quantity}x ${it.name}`).join(', ')
         : 'Itens não detalhados';
       
       const ntfyPayload = {
         topic,
-        title: `Novo Pedido #${newOrder.id.slice(-4)}`,
-        message: `Cliente: ${newOrder.customerName}\nValor: R$ ${Number(newOrder.total).toFixed(2)}\nItens: ${itemsSummary}`,
+        title: `Pedido #${newOrder.id} - ${newOrder.customerName}`,
+        message: `Valor: R$ ${Number(newOrder.total).toFixed(2)}\nItens: ${itemsSummary}`,
         priority: 5,
-        tags: ['package', 'star-struck'],
+        tags: ['package', 'star-struck', 'money_with_wings'],
         click: 'https://cardapio.balbec.com.br/admin'
       };
 
       fetch('https://ntfy.sh', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify(ntfyPayload)
+      }).then(res => {
+        if (res.ok) console.log(`[NTFY Order] Notificação enviada para o tópico: ${topic}`);
       }).catch(err => console.warn('[NTFY Order] Erro ao enviar:', err.message));
     }
 
     if (isDatabaseConfigured()) {
       try {
+        console.log(`[DB Order] Tentando salvar pedido #${newOrder.id} no PostgreSQL...`);
         const result = await withDbRetry(async () => {
           return await db.insert(orders).values(newOrder).returning();
         });
-        console.log(`[DB Order] Pedido #${newOrder.id} salvo com sucesso no PostgreSQL.`);
-        onUpdate?.('orders');
-        return res.json(result[0] || newOrder);
+        if (result && result.length > 0) {
+          console.log(`[DB Order] SUCESSO: Pedido #${newOrder.id} persistido definitivamente no PostgreSQL.`);
+          onUpdate?.('orders');
+          return res.json(result[0]);
+        } else {
+          console.warn(`[DB Order] AVISO: O banco de dados retornou vazio ao salvar #${newOrder.id}.`);
+          onUpdate?.('orders');
+          return res.json(newOrder);
+        }
       } catch (error: any) {
-        console.error(`[CRITICAL] Falha ao salvar pedido #${newOrder.id} no PostgreSQL após tentativas:`, error?.message || error);
+        console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${newOrder.id} no PostgreSQL:`, error?.message || error);
         onUpdate?.();
         // Em caso de falha crítica no DB, retornamos o pedido em memória para não bloquear o cliente,
         // mas o log acima alertará o administrador sobre a falha na persistência definitiva.
