@@ -1,5 +1,5 @@
 import { Express, Request, Response } from 'express';
-import { db, pool, ensureTablesExist, isDatabaseConfigured, getDatabaseUrl, testDatabaseConnection, withDbRetry } from '../db/index';
+import { db, pool, ensureTablesExist, isDatabaseConfigured, getDatabaseUrl, testDatabaseConnection, withDbRetry, isRailwayEnvironment } from '../db/index';
 import { categories, products, orders, storeInfo, users, tvMedia, appInstalls, customers, restaurantTables, drivers, deliveryZones, totemBackups, customerAddresses } from '../db/schema';
 import { eq, desc, asc, sql } from 'drizzle-orm';
 import fs from 'fs';
@@ -1619,34 +1619,6 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         success: false,
         error: err?.message || String(err),
         envDetected
-      });
-    }
-  });
-        const cRes = await pool.query('SELECT COUNT(*) as c FROM categories');
-        categoryCount = parseInt(cRes.rows[0]?.c || '0', 10);
-      } catch (_) {}
-
-      return res.status(200).json({
-        success: true,
-        status: 'connected',
-        message: 'Conexão com PostgreSQL estabelecida com sucesso!',
-        databaseName: row.db_name,
-        dbTime: row.current_time,
-        pgVersion: row.pg_version?.split(' ')?.[0] + ' ' + row.pg_version?.split(' ')?.[1],
-        productCount,
-        categoryCount,
-        envDetected,
-        responseTimeMs: Date.now() - startTime
-      });
-    } catch (err: any) {
-      return res.status(200).json({
-        success: false,
-        status: 'connection_error',
-        message: 'Falha ao conectar no servidor PostgreSQL.',
-        details: err?.message || String(err),
-        code: err?.code,
-        envDetected,
-        responseTimeMs: Date.now() - startTime
       });
     }
   });

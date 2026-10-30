@@ -7,7 +7,7 @@ import compression from "compression";
 import { setupDatabaseRoutes, hydrateFromPostgres, getMemStoreInfo, broadcastSSE } from "./src/server/dbRoutes";
 import { setupPrinterRoutes } from "./src/server/printerRoutes";
 import { setupPrinterAgentRoutes } from "./src/server/printerAgentRoutes";
-import { ensureTablesExist } from "./src/db/index";
+import { ensureTablesExist, testDatabaseConnection } from "./src/db/index";
 import { cleanProductDescription } from "./src/constants";
 
 dotenv.config();

@@ -109,6 +109,19 @@ export default function Menu() {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<number>(1);
+  const [isCheckout, setIsCheckout] = useState(false);
+  const [successCountdown, setSuccessCountdown] = useState(0);
+
+  const [paymentMode, setPaymentMode] = useState<'online' | 'delivery' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [selectedScheduleTime, setSelectedScheduleTime] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_time') || '');
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_date') || '');
+  const [selectedScheduleDay, setSelectedScheduleDay] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_day') || '');
+  const [showScheduleSelectionStep, setShowScheduleSelectionStep] = useState<boolean>(false);
+  const [scheduleStepMode, setScheduleStepMode] = useState<'delivery' | 'pickup'>('pickup');
+
   const checkoutScheduleRef = useRef<HTMLDivElement>(null);
   const checkoutCustomerRef = useRef<HTMLHeadingElement>(null);
   const checkoutPaymentRef = useRef<HTMLHeadingElement>(null);
@@ -636,15 +649,7 @@ export default function Menu() {
       console.warn('Erro ao salvar carrinho no storage:', e);
     }
   }, [cart]);
-  const [paymentMode, setPaymentMode] = useState<'online' | 'delivery' | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
-  const [selectedScheduleTime, setSelectedScheduleTime] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_time') || '');
-  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_date') || '');
-  const [selectedScheduleDay, setSelectedScheduleDay] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_day') || '');
-  const [showScheduleSelectionStep, setShowScheduleSelectionStep] = useState<boolean>(false);
-  const [scheduleStepMode, setScheduleStepMode] = useState<'delivery' | 'pickup'>('pickup');
+
   const [customerEmail, setCustomerEmail] = useState(() => safeStorage.getItem('balbec_customer_email') || '');
   const [customerCpf, setCustomerCpf] = useState(() => safeStorage.getItem('balbec_customer_cpf') || '');
   const [deliveryStreet, setDeliveryStreet] = useState(() => safeStorage.getItem('balbec_customer_street') || '');
@@ -1127,55 +1132,6 @@ export default function Menu() {
     }
   };
 
-  // Refs para rolagem automática nas etapas do checkout
-  const checkoutScheduleRef = useRef<HTMLDivElement>(null);
-  const checkoutCustomerRef = useRef<HTMLDivElement>(null);
-  const checkoutPaymentRef = useRef<HTMLDivElement>(null);
-  const checkoutFinalizeRef = useRef<HTMLButtonElement>(null);
-
-  const scrollToRef = (ref: React.RefObject<HTMLElement | null>) => {
-    if (ref && ref.current) {
-      setTimeout(() => {
-        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-  };
-
-  // Efeito para rolar automaticamente para a identificação após escolher o horário
-  useEffect(() => {
-    if (isCheckout && selectedScheduleTime && !isTotemPath) {
-      scrollToRef(checkoutCustomerRef);
-    }
-  }, [selectedScheduleTime, isCheckout, isTotemPath]);
-
-  // Efeito para rolar automaticamente para o botão finalizar após escolher forma de pagamento
-  // Ou após identificação se for pedido de mesa (onde não há escolha de pagamento)
-  useEffect(() => {
-    const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
-    if (isCheckout && !isTotemPath) {
-      if (paymentMethod) {
-        scrollToRef(checkoutFinalizeRef);
-      } else if (isTableOrder && customerName.length > 3 && customerPhone.length >= 14) {
-        scrollToRef(checkoutFinalizeRef);
-      }
-    }
-  }, [paymentMethod, isCheckout, customerName, customerPhone, salesChannel, deliveryType, selectedTableNumber, isTotemPath]);
-
-  // Efeito para rolar para forma de pagamento após preencher identificação
-  // Consideramos preenchido se tiver nome e telefone (mínimo necessário para online)
-  useEffect(() => {
-    const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
-    if (isCheckout && customerName.length > 3 && customerPhone.length >= 14 && !paymentMethod && !isTotemPath && !isTableOrder) {
-      scrollToRef(checkoutPaymentRef);
-    }
-  }, [customerName, customerPhone, isCheckout, paymentMethod, salesChannel, deliveryType, selectedTableNumber, isTotemPath]);
-
-  // Efeito para rolar para identificação após selecionar uma mesa
-  useEffect(() => {
-    if (isCheckout && selectedTableNumber && !isTotemPath) {
-      scrollToRef(checkoutCustomerRef);
-    }
-  }, [selectedTableNumber, isCheckout, isTotemPath]);
 
   const handleCustomerForgot = async (e: React.FormEvent) => {
     e.preventDefault();
