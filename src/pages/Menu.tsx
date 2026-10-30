@@ -33,7 +33,8 @@ export default function Menu() {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
+  const [productQuantities, setProductQuantities] = useState<Record<string, number | string>>({});
+  const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchData();
@@ -6033,7 +6034,14 @@ export default function Menu() {
                                   const hasNormalInCartForProd = totalCartQty > 0 && !hasFrozenInCartForProd;
 
                                   const mainCartItem = cartItemsForProd[0];
-                                  const currentQty = totalCartQty > 0 ? totalCartQty : (productQuantities[product.id] ?? 1);
+                                  const displayedQty = productQuantities[product.id] !== undefined
+                                    ? productQuantities[product.id]
+                                    : (totalCartQty > 0 ? totalCartQty : 1);
+                                  const numericQty = (() => {
+                                    const parsed = parseInt(String(displayedQty), 10);
+                                    return isNaN(parsed) || parsed < 1 ? 1 : parsed;
+                                  })();
+                                  const currentQty = numericQty;
 
                                   return (
                                     <div className="flex flex-col items-end gap-1">
@@ -6069,13 +6077,14 @@ export default function Menu() {
                                             if (totalCartQty > 0) {
                                               setCart(prev => prev.filter(ci => ci.productId !== product.id));
                                             }
-                                            setProductQuantities(prev => ({
-                                              ...prev,
-                                              [product.id]: 1
-                                            }));
+                                            setProductQuantities(prev => {
+                                              const next = { ...prev };
+                                              delete next[product.id];
+                                              return next;
+                                            });
                                           }}
                                           className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                                          title={totalCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade para 1"}
+                                          title={totalCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade"}
                                         >
                                           <Trash2 className="w-4 h-4 text-red-500" />
                                         </button>
@@ -6088,9 +6097,10 @@ export default function Menu() {
                                                 updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, -1);
                                               }
                                             } else {
+                                              const next = Math.max(1, numericQty - 1);
                                               setProductQuantities(prev => ({
                                                 ...prev,
-                                                [product.id]: Math.max(1, (prev[product.id] ?? 1) - 1)
+                                                [product.id]: next
                                               }));
                                             }
                                           }}
@@ -6101,29 +6111,49 @@ export default function Menu() {
                                         </button>
 
                                         <input
-                                          type="number"
-                                          min="1"
-                                          max="9999"
-                                          value={currentQty}
+                                          type="text"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          value={displayedQty}
+                                          onFocus={(e) => e.target.select()}
                                           onChange={(e) => {
-                                            const val = parseInt(e.target.value, 10);
-                                            const q = isNaN(val) ? 1 : Math.max(1, val);
-                                            if (totalCartQty > 0) {
-                                              setCart(prev => prev.map(ci => ci.productId === product.id ? { ...ci, quantity: q } : ci));
+                                            const raw = e.target.value.replace(/\D/g, '');
+                                            setProductQuantities(prev => ({ ...prev, [product.id]: raw }));
+                                            if (raw !== '') {
+                                              const val = parseInt(raw, 10);
+                                              if (!isNaN(val) && val > 0 && totalCartQty > 0) {
+                                                setCart(prev => prev.map(ci => ci.productId === product.id ? { ...ci, quantity: val } : ci));
+                                              }
+                                            }
+                                          }}
+                                          onBlur={() => {
+                                            const raw = productQuantities[product.id];
+                                            if (raw === '' || raw === undefined) {
+                                              const safe = totalCartQty > 0 ? totalCartQty : 1;
+                                              setProductQuantities(prev => ({ ...prev, [product.id]: safe }));
                                             } else {
-                                              setProductQuantities(prev => ({ ...prev, [product.id]: q }));
+                                              const parsed = parseInt(String(raw), 10);
+                                              const safe = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+                                              if (totalCartQty > 0) {
+                                                setCart(prev => prev.map(ci => ci.productId === product.id ? { ...ci, quantity: safe } : ci));
+                                              }
+                                              setProductQuantities(prev => ({ ...prev, [product.id]: safe }));
                                             }
                                           }}
                                           onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
-                                              const qty = productQuantities[product.id] ?? currentQty ?? 1;
+                                              (e.target as HTMLInputElement).blur();
+                                              const raw = productQuantities[product.id];
+                                              const parsed = parseInt(String(raw ?? displayedQty), 10);
+                                              const qty = isNaN(parsed) || parsed < 1 ? 1 : parsed;
                                               if (totalCartQty === 0) {
                                                 initiateAddToCartWithQty(product, qty);
                                               }
                                             }
                                           }}
-                                          className="font-black text-xs sm:text-sm w-11 sm:w-13 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
-                                          title="Digite a quantidade"
+                                          placeholder="1"
+                                          className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                                          title="Digite a quantidade (pode apagar tudo)"
                                         />
 
                                         <button 
@@ -6134,8 +6164,7 @@ export default function Menu() {
                                                 updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, 1);
                                               }
                                             } else {
-                                              const qty = productQuantities[product.id] ?? 1;
-                                              initiateAddToCartWithQty(product, qty);
+                                              initiateAddToCartWithQty(product, numericQty);
                                             }
                                           }}
                                           className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
@@ -6396,17 +6425,42 @@ export default function Menu() {
                         <Minus className="w-4 h-4" />
                       </button>
                       <input
-                        type="number"
-                        min="1"
-                        max="9999"
-                        value={item.quantity}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={cartItemInputMap[item.productId + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null)] ?? item.quantity}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          const q = isNaN(val) ? 1 : Math.max(1, val);
-                          setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: q } : ci));
+                          const raw = e.target.value.replace(/\D/g, '');
+                          const key = item.productId + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null);
+                          setCartItemInputMap(prev => ({ ...prev, [key]: raw }));
+                          if (raw !== '') {
+                            const val = parseInt(raw, 10);
+                            if (!isNaN(val) && val > 0) {
+                              setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: val } : ci));
+                            }
+                          }
                         }}
-                        className="font-black text-xs sm:text-sm w-11 sm:w-13 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
-                        title="Digite a quantidade diretamente"
+                        onBlur={() => {
+                          const key = item.productId + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null);
+                          const raw = cartItemInputMap[key];
+                          const parsed = parseInt(String(raw ?? item.quantity), 10);
+                          const safe = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+                          setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: safe } : ci));
+                          setCartItemInputMap(prev => {
+                            const next = { ...prev };
+                            delete next[key];
+                            return next;
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                        placeholder="1"
+                        className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                        title="Digite a quantidade diretamente (pode apagar tudo)"
                       />
                       <button 
                         type="button"
