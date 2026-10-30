@@ -7728,7 +7728,7 @@ export default function Admin() {
                       if (testRes.ok && data.success) {
                         setConnectionStatus('success');
                         setConnectionErrorMessage(
-                          `✅ ${data.message} | Banco: ${data.databaseName || 'PostgreSQL'} | Produtos no BD: ${data.productCount} | Categorias: ${data.categoryCount} (${data.responseTimeMs}ms)`
+                          `✅ ${data.message} | Host: ${data.host || 'PostgreSQL'} | Pedidos Salvos no BD: ${data.ordersCount ?? data.stats?.orders ?? 0} | Clientes: ${data.customersCount ?? data.stats?.customers ?? 0} | Produtos: ${data.productCount ?? 0} (${data.responseTimeMs}ms)`
                         );
                       } else {
                         setConnectionStatus('error');

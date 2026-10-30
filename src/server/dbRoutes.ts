@@ -1593,12 +1593,18 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const dbStatus = await testDatabaseConnection();
       let orderCount = 0;
       let customerCount = 0;
+      let productCount = 0;
+      let categoryCount = 0;
       
       if (dbStatus.ok) {
         const oRes = await pool.query('SELECT COUNT(*) as c FROM orders');
         orderCount = parseInt(oRes.rows[0]?.c || '0', 10);
         const cRes = await pool.query('SELECT COUNT(*) as c FROM customers');
         customerCount = parseInt(cRes.rows[0]?.c || '0', 10);
+        const pRes = await pool.query('SELECT COUNT(*) as c FROM products');
+        productCount = parseInt(pRes.rows[0]?.c || '0', 10);
+        const catRes = await pool.query('SELECT COUNT(*) as c FROM categories');
+        categoryCount = parseInt(catRes.rows[0]?.c || '0', 10);
       }
 
       return res.status(200).json({
@@ -1606,9 +1612,15 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         message: dbStatus.ok ? 'Conexão com PostgreSQL ativa!' : 'Falha na conexão com PostgreSQL.',
         details: dbStatus.error || 'Banco de dados respondendo normalmente.',
         host: dbStatus.host,
+        productCount,
+        categoryCount,
+        ordersCount: orderCount,
+        customersCount: customerCount,
         stats: {
           orders: orderCount,
-          customers: customerCount
+          customers: customerCount,
+          products: productCount,
+          categories: categoryCount
         },
         envDetected,
         isHydrated,
