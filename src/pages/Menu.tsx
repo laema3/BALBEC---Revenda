@@ -1094,6 +1094,56 @@ export default function Menu() {
     }
   };
 
+  // Refs para rolagem automática nas etapas do checkout
+  const checkoutScheduleRef = useRef<HTMLDivElement>(null);
+  const checkoutCustomerRef = useRef<HTMLDivElement>(null);
+  const checkoutPaymentRef = useRef<HTMLDivElement>(null);
+  const checkoutFinalizeRef = useRef<HTMLButtonElement>(null);
+
+  const scrollToRef = (ref: React.RefObject<HTMLElement | null>) => {
+    if (ref && ref.current) {
+      setTimeout(() => {
+        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  };
+
+  // Efeito para rolar automaticamente para a identificação após escolher o horário
+  useEffect(() => {
+    if (isCheckout && selectedScheduleTime && !isTotemPath) {
+      scrollToRef(checkoutCustomerRef);
+    }
+  }, [selectedScheduleTime, isCheckout, isTotemPath]);
+
+  // Efeito para rolar automaticamente para o botão finalizar após escolher forma de pagamento
+  // Ou após identificação se for pedido de mesa (onde não há escolha de pagamento)
+  useEffect(() => {
+    const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
+    if (isCheckout && !isTotemPath) {
+      if (paymentMethod) {
+        scrollToRef(checkoutFinalizeRef);
+      } else if (isTableOrder && customerName.length > 3 && customerPhone.length >= 14) {
+        scrollToRef(checkoutFinalizeRef);
+      }
+    }
+  }, [paymentMethod, isCheckout, customerName, customerPhone, salesChannel, deliveryType, selectedTableNumber, isTotemPath]);
+
+  // Efeito para rolar para forma de pagamento após preencher identificação
+  // Consideramos preenchido se tiver nome e telefone (mínimo necessário para online)
+  useEffect(() => {
+    const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
+    if (isCheckout && customerName.length > 3 && customerPhone.length >= 14 && !paymentMethod && !isTotemPath && !isTableOrder) {
+      scrollToRef(checkoutPaymentRef);
+    }
+  }, [customerName, customerPhone, isCheckout, paymentMethod, salesChannel, deliveryType, selectedTableNumber, isTotemPath]);
+
+  // Efeito para rolar para identificação após selecionar uma mesa
+  useEffect(() => {
+    if (isCheckout && selectedTableNumber && !isTotemPath) {
+      scrollToRef(checkoutCustomerRef);
+    }
+  }, [selectedTableNumber, isCheckout, isTotemPath]);
+
   const handleCustomerForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -3084,7 +3134,7 @@ export default function Menu() {
               </div>
 
               {storeInfo.deliveryScheduleEnabled && (
-                <div className={`mt-4 p-3.5 rounded-2xl border-2 transition-all ${
+                <div ref={checkoutScheduleRef} className={`mt-4 p-3.5 rounded-2xl border-2 transition-all ${
                   selectedScheduleTime ? 'bg-amber-50/90 border-amber-300' : 'bg-red-50 border-red-300'
                 }`}>
                   <div className="flex items-center justify-between gap-2">
@@ -3171,7 +3221,7 @@ export default function Menu() {
               <div>
                 {/* Destaque Obrigatório de Horário de Retirada */}
                 {storeInfo.deliveryScheduleEnabled && (
-                  <div className={`p-4 sm:p-5 rounded-2xl border-2 mb-6 transition-all shadow-sm ${
+                  <div ref={checkoutScheduleRef} className={`p-4 sm:p-5 rounded-2xl border-2 mb-6 transition-all shadow-sm ${
                     selectedScheduleTime 
                       ? 'bg-gradient-to-r from-amber-50 to-orange-50/60 border-amber-300' 
                       : 'bg-red-50 border-red-400 ring-2 ring-red-300 animate-pulse'
@@ -3514,7 +3564,7 @@ export default function Menu() {
                   </div>
                 )}
 
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-stone-800">
+                <h2 ref={checkoutCustomerRef} className="text-xl font-bold mb-4 flex items-center gap-2 text-stone-800">
                   <UserIcon className="w-5 h-5 text-orange-600" />
                   {deliveryType === 'delivery' ? 'Identificação do Cliente & Entrega' : 'Identificação do Cliente (Preparo)'}
                 </h2>
@@ -3818,10 +3868,10 @@ export default function Menu() {
                 {!isTableOrder ? (
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold flex items-center gap-2 text-stone-800">
-                        <CreditCard className="w-5 h-5 text-orange-600" />
-                        Forma de Pagamento
-                      </h2>
+                    <h2 ref={checkoutPaymentRef} className="text-xl font-bold flex items-center gap-2 text-stone-800">
+                      <CreditCard className="w-5 h-5 text-orange-600" />
+                      Forma de Pagamento
+                    </h2>
                       {paymentMode !== null && (
                         <button
                           type="button"
@@ -4127,6 +4177,7 @@ export default function Menu() {
                     handleCheckout();
                   }}
                   disabled={isSendingOrder}
+                  ref={checkoutFinalizeRef}
                   className="w-full mt-8 py-4.5 px-6 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-black text-xl transition-all disabled:opacity-50 cursor-pointer shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-3 select-none"
                 >
                   <CheckCircle2 className="w-6 h-6" />
