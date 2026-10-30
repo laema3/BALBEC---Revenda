@@ -128,6 +128,10 @@ export default function Menu() {
   const checkoutPaymentRef = useRef<HTMLHeadingElement>(null);
   const checkoutFinalizeRef = useRef<HTMLButtonElement>(null);
 
+  const scheduleDaysSectionRef = useRef<HTMLDivElement>(null);
+  const scheduleSlotsSectionRef = useRef<HTMLDivElement>(null);
+  const scheduleConfirmBtnRef = useRef<HTMLButtonElement>(null);
+
   // Auto-scroll para cada etapa do checkout conforme o preenchimento
   useEffect(() => {
     if (isCheckout) {
@@ -157,6 +161,25 @@ export default function Menu() {
       }
     }
   }, [isCheckout, selectedScheduleTime, customerName, customerPhone, paymentMethod, storeInfo.deliveryScheduleEnabled]);
+
+  // Auto-scroll suave para as etapas de agendamento de data e horário (início do pedido / checkout)
+  useEffect(() => {
+    if (showScheduleSelectionStep) {
+      if (!selectedScheduleDate) {
+        setTimeout(() => {
+          scheduleDaysSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+      } else if (!selectedScheduleTime) {
+        setTimeout(() => {
+          scheduleSlotsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+      } else {
+        setTimeout(() => {
+          scheduleConfirmBtnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 200);
+      }
+    }
+  }, [showScheduleSelectionStep]);
   const [deliveryCountdown, setDeliveryCountdown] = useState<number>(0);
   const [pendingAddToCart, setPendingAddToCart] = useState<any>(null);
   const [showChannelSelection, setShowChannelSelection] = useState(false);
@@ -2829,7 +2852,7 @@ export default function Menu() {
           </p>
 
           {/* 1. SELEÇÃO DOS DIAS DA SEMANA (Segunda a Sábado, Domingo não abre) */}
-          <div className="mb-4 text-left">
+          <div ref={scheduleDaysSectionRef} className="mb-4 text-left">
             <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
               1. Selecione o Dia da Retirada (Segunda a Sábado):
             </label>
@@ -2845,6 +2868,10 @@ export default function Menu() {
                       setSelectedScheduleDay(day.dayName);
                       safeStorage.setItem('balbec_selected_schedule_date', day.dateStr);
                       safeStorage.setItem('balbec_selected_schedule_day', day.dayName);
+                      // Rolagem automática suave para os horários disponíveis
+                      setTimeout(() => {
+                        scheduleSlotsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 150);
                     }}
                     className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                       isSelected
@@ -2896,7 +2923,7 @@ export default function Menu() {
           </div>
 
           {/* 3. GRADE DE HORÁRIOS DISPONÍVEIS POR CAPACIDADE DE SALGADOS */}
-          <div className="space-y-2 text-left mb-5">
+          <div ref={scheduleSlotsSectionRef} className="space-y-2 text-left mb-5">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
                 2. Horários ({activeDay.dayName}):
@@ -2924,6 +2951,10 @@ export default function Menu() {
                         safeStorage.setItem('balbec_selected_schedule_time', slot);
                         safeStorage.setItem('balbec_selected_schedule_date', activeDay.dateStr);
                         safeStorage.setItem('balbec_selected_schedule_day', activeDay.dayName);
+                        // Rolagem automática suave para o botão de confirmação
+                        setTimeout(() => {
+                          scheduleConfirmBtnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 150);
                       }
                     }}
                     className={`p-2.5 rounded-xl border text-xs font-black transition-all flex flex-col items-center justify-center gap-1 ${
@@ -2960,6 +2991,7 @@ export default function Menu() {
           </div>
 
           <button
+            ref={scheduleConfirmBtnRef}
             type="button"
             disabled={!effectiveSelectedTime}
             onClick={() => {
