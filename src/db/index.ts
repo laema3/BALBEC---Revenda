@@ -77,7 +77,6 @@ export const getDatabaseUrl = (): string | undefined => {
 };
 
 export const isDatabaseConfigured = (): boolean => {
-  if (railwayInternalUnreachable) return false;
   const dbUrl = getDatabaseUrl();
   if (dbUrl && dbUrl.trim() !== '') {
     // Se o host for postgres.railway.internal e NÃO estivermos no ambiente Railway, evita bloquear o preview local
@@ -557,6 +556,7 @@ export async function ensureTablesExist() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS flavor_ids JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS external_id TEXT;
 
+    ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_customer_id_customers_id_fk;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_cpf TEXT DEFAULT '';

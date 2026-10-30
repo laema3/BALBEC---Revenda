@@ -1,1 +1,177 @@
-[]
+[
+  {
+    "id": "0002",
+    "items": [
+      {
+        "id": "1",
+        "name": "Bolinho",
+        "price": 10,
+        "quantity": 2
+      }
+    ],
+    "total": 20,
+    "status": "ready_for_delivery",
+    "createdAt": 1793383427990,
+    "type": "delivery",
+    "paymentMethod": "Dinheiro",
+    "customerName": "Cliente Teste",
+    "customerPhone": "11999999999",
+    "customerId": null,
+    "customerEmail": "",
+    "customerCpf": "",
+    "deliveryType": "pickup",
+    "deliveryAddress": "Rua teste",
+    "deliveryCep": "12345-678",
+    "deliveryNeighborhood": "Centro",
+    "deliveryFee": 0,
+    "tableNumber": null,
+    "tableId": null,
+    "driverId": null,
+    "driverName": null,
+    "deliveryStatus": "ready_for_delivery",
+    "deliveryAcceptedAt": null,
+    "deliveryCompletedAt": null,
+    "scheduledTime": "19:00",
+    "scheduledDate": "2026-10-30",
+    "scheduledDay": "Sexta-feira",
+    "scheduledPickupTime": "20:30",
+    "autoPrintedDelivery": true
+  },
+  {
+    "id": "0001",
+    "items": [
+      {
+        "code": "10",
+        "name": "ESFIRRA DE CALABRESA",
+        "price": 6.5,
+        "addons": [],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/10.jpg",
+        "isFrozen": false,
+        "quantity": 1,
+        "productId": "nh3cr1a",
+        "externalId": "10",
+        "description": "Cód: 10 • ESFIRRA DE CALABRESA"
+      },
+      {
+        "code": "12",
+        "name": "ESFIRRA DE CHICORIA",
+        "price": 6.5,
+        "addons": [],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/12.jpg",
+        "isFrozen": false,
+        "quantity": 5,
+        "productId": "w2718rh",
+        "externalId": "12",
+        "description": "Cód: 12 • ESFIRRA DE CHICORIA"
+      },
+      {
+        "code": "12",
+        "name": "ESFIRRA DE CHICORIA",
+        "price": 6.5,
+        "addons": [
+          {
+            "code": "9999",
+            "name": "Opção: Congelado",
+            "price": 0.3,
+            "isFrozen": true,
+            "productId": "prod_congelado",
+            "externalId": "9999"
+          }
+        ],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/12.jpg",
+        "isFrozen": true,
+        "quantity": 3,
+        "productId": "w2718rh",
+        "externalId": "12",
+        "description": "Cód: 12 • ESFIRRA DE CHICORIA"
+      },
+      {
+        "code": "12",
+        "name": "ESFIRRA DE CHICORIA",
+        "price": 6.5,
+        "addons": [
+          {
+            "code": "9999",
+            "name": "Opção: Congelado",
+            "price": 0.3,
+            "isFrozen": true,
+            "productId": "prod_congelado",
+            "externalId": "9999"
+          }
+        ],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/12.jpg",
+        "isFrozen": true,
+        "quantity": 6,
+        "productId": "w2718rh",
+        "externalId": "12",
+        "description": "Cód: 12 • ESFIRRA DE CHICORIA"
+      },
+      {
+        "code": "12",
+        "name": "ESFIRRA DE CHICORIA",
+        "price": 6.5,
+        "addons": [
+          {
+            "code": "9999",
+            "name": "Opção: Congelado",
+            "price": 0.3,
+            "isFrozen": true,
+            "productId": "prod_congelado",
+            "externalId": "9999"
+          }
+        ],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/12.jpg",
+        "isFrozen": true,
+        "quantity": 6,
+        "productId": "w2718rh",
+        "externalId": "12",
+        "description": "Cód: 12 • ESFIRRA DE CHICORIA"
+      },
+      {
+        "code": "6",
+        "name": "BOLINHO DE BACALHAU",
+        "price": 6.5,
+        "addons": [],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/6.jpg",
+        "isFrozen": false,
+        "quantity": 101,
+        "productId": "6hav354",
+        "externalId": "6",
+        "description": "Cód: 6 • BOLINHO DE BACALHAU"
+      }
+    ],
+    "total": 797.5,
+    "status": "pending",
+    "deliveryStatus": "pending",
+    "type": "online",
+    "paymentMethod": "Dinheiro",
+    "paymentStatus": "pending",
+    "customerName": "LS GUARATO LTDA",
+    "customerPhone": "(34) 99978-3261",
+    "customerId": "cust_1793149229408",
+    "customerEmail": "lazaro@lsguarato.com.br",
+    "customerCpf": "19.867.464/0001-28",
+    "deliveryType": "pickup",
+    "deliveryFee": 0,
+    "scheduledDate": "2026-11-03",
+    "scheduledDay": "Terça-feira, 03/11",
+    "createdAt": 1793378020067,
+    "deliveryAddress": null,
+    "deliveryCep": "",
+    "deliveryNeighborhood": "",
+    "tableNumber": null,
+    "tableId": null,
+    "driverId": null,
+    "driverName": null,
+    "deliveryAcceptedAt": null,
+    "deliveryCompletedAt": null,
+    "scheduledTime": null,
+    "scheduledPickupTime": null
+  }
+]

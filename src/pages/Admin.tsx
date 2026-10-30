@@ -157,6 +157,17 @@ export default function Admin() {
     return () => clearInterval(interval);
   }, []);
 
+  const [isSyncingOrdersNow, setIsSyncingOrdersNow] = useState(false);
+
+  useEffect(() => {
+    fetchData().catch(() => {});
+    fetchCustomers().catch(() => {});
+    const interval = setInterval(() => {
+      fetchData().catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Ticker dinâmico em tempo real a cada 10s para ordenar e identificar pedidos a vencer
   const [nowTime, setNowTime] = useState<number>(Date.now());
   useEffect(() => {
@@ -4456,18 +4467,38 @@ export default function Admin() {
         )}
 
         {orders.length === 0 && !ordersError && (
-          <div className="bg-orange-50 border border-orange-200 p-6 rounded-2xl text-center">
+          <div className="bg-orange-50 border border-orange-200 p-6 rounded-2xl text-center mb-6">
             <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-stone-800 mb-2">Nenhum pedido encontrado</h3>
-            <p className="text-stone-600 max-w-md mx-auto">
-              Se você acabou de fazer um pedido de teste e ele não apareceu aqui, pode haver um atraso na sincronização ou uma restrição de acesso.
+            <h3 className="text-lg font-bold text-stone-800 mb-2">Nenhum pedido encontrado na lista atual</h3>
+            <p className="text-stone-600 max-w-md mx-auto text-sm leading-relaxed mb-4">
+              Se você acabou de fazer um pedido de teste ou acabou de realizar um deploy, clique no botão abaixo para buscar os pedidos diretamente do servidor e do banco de dados.
             </p>
-            <button type="button" 
-              onClick={() => window.location.reload()}
-              className="mt-4 px-6 py-2 bg-stone-800 text-white rounded-xl font-bold hover:bg-stone-900 transition-all"
-            >
-              Atualizar Página
-            </button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <button 
+                type="button" 
+                onClick={async () => {
+                  setIsSyncingOrdersNow(true);
+                  try {
+                    await fetch('/api/db/force-hydrate', { method: 'POST' }).catch(() => {});
+                    await fetchData();
+                  } finally {
+                    setIsSyncingOrdersNow(false);
+                  }
+                }}
+                disabled={isSyncingOrdersNow}
+                className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncingOrdersNow ? 'animate-spin' : ''}`} />
+                <span>{isSyncingOrdersNow ? 'Buscando Pedidos...' : 'Buscar Pedidos do Servidor Agora'}</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={() => window.location.reload()}
+                className="px-5 py-2.5 bg-stone-800 hover:bg-stone-900 active:scale-95 text-white rounded-xl font-bold transition-all cursor-pointer"
+              >
+                Recarregar Página
+              </button>
+            </div>
           </div>
         )}
         <div>

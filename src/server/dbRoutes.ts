@@ -2134,26 +2134,55 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }).catch(err => console.warn('[NTFY Order] Erro ao enviar:', err.message));
     }
 
+    const orderForDb: any = {
+      id: String(newOrder.id),
+      items: typeof newOrder.items === 'string' ? JSON.parse(newOrder.items) : (newOrder.items || []),
+      total: Number(newOrder.total) || 0,
+      status: String(newOrder.status || 'pending'),
+      createdAt: Number(newOrder.createdAt) || Date.now(),
+      type: newOrder.type || 'kiosk',
+      paymentMethod: newOrder.paymentMethod || '',
+      customerName: newOrder.customerName || '',
+      customerPhone: newOrder.customerPhone || null,
+      customerId: newOrder.customerId || null,
+      customerEmail: newOrder.customerEmail || '',
+      customerCpf: newOrder.customerCpf || '',
+      deliveryType: newOrder.deliveryType || null,
+      deliveryAddress: newOrder.deliveryAddress || null,
+      deliveryCep: newOrder.deliveryCep || '',
+      deliveryNeighborhood: newOrder.deliveryNeighborhood || '',
+      deliveryFee: Number(newOrder.deliveryFee) || 0,
+      tableNumber: newOrder.tableNumber ? String(newOrder.tableNumber) : null,
+      tableId: newOrder.tableId || null,
+      driverId: newOrder.driverId || null,
+      driverName: newOrder.driverName || null,
+      deliveryStatus: newOrder.deliveryStatus || 'pending',
+      deliveryAcceptedAt: newOrder.deliveryAcceptedAt ? Number(newOrder.deliveryAcceptedAt) : null,
+      deliveryCompletedAt: newOrder.deliveryCompletedAt ? Number(newOrder.deliveryCompletedAt) : null,
+      scheduledTime: newOrder.scheduledTime || null,
+      scheduledDate: newOrder.scheduledDate || null,
+      scheduledDay: newOrder.scheduledDay || null,
+      scheduledPickupTime: newOrder.scheduledPickupTime || null
+    };
+
     if (isDatabaseConfigured()) {
       try {
-        console.log(`[DB Order] Tentando salvar pedido #${newOrder.id} no PostgreSQL...`);
+        console.log(`[DB Order] Tentando salvar pedido #${orderForDb.id} no PostgreSQL...`);
         const result = await withDbRetry(async () => {
-          return await db.insert(orders).values(newOrder).returning();
+          return await db.insert(orders).values(orderForDb).returning();
         });
         if (result && result.length > 0) {
-          console.log(`[DB Order] SUCESSO: Pedido #${newOrder.id} persistido definitivamente no PostgreSQL.`);
+          console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
           onUpdate?.('orders');
           return res.json(result[0]);
         } else {
-          console.warn(`[DB Order] AVISO: O banco de dados retornou vazio ao salvar #${newOrder.id}.`);
+          console.warn(`[DB Order] AVISO: O banco retornou vazio ao salvar #${orderForDb.id}.`);
           onUpdate?.('orders');
           return res.json(newOrder);
         }
       } catch (error: any) {
-        console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${newOrder.id} no PostgreSQL:`, error?.message || error);
+        console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${orderForDb.id} no PostgreSQL:`, error?.message || error);
         onUpdate?.();
-        // Em caso de falha crítica no DB, retornamos o pedido em memória para não bloquear o cliente,
-        // mas o log acima alertará o administrador sobre a falha na persistência definitiva.
         return res.json(newOrder);
       }
     }

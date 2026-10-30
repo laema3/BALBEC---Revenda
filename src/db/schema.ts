@@ -57,7 +57,7 @@ export const orders = pgTable('orders', {
   paymentMethod: text('payment_method').default(''),
   customerName: text('customer_name').default(''),
   customerPhone: text('customer_phone'),
-  customerId: text('customer_id').references(() => customers.id),
+  customerId: text('customer_id'),
   customerEmail: text('customer_email').default(''),
   customerCpf: text('customer_cpf').default(''),
   deliveryType: text('delivery_type'),
