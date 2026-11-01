@@ -2737,6 +2737,34 @@ export default function Admin() {
     setWeeklyScheduleState(DEFAULT_WEEKLY_SCHEDULE);
   };
 
+  const handleDirectSaveSchedule = async () => {
+    setIsSaving(true);
+    try {
+      await updateStoreInfo({
+        weeklySchedule: JSON.stringify(weeklyScheduleState),
+        autoOpenClose: autoOpenCloseState,
+        closedMessage: closedMessageState || storeInfo.closedMessage,
+        hours: formatWeeklyScheduleSummary(weeklyScheduleState) || storeInfo.hours
+      });
+      setConfirmModal({
+        isOpen: true,
+        title: 'Horários Salvos com Sucesso!',
+        message: 'A escala semanal de horários foi gravada no banco de dados e sincronizada em tempo real com todos os computadores, celulares e totens.',
+        onConfirm: () => setConfirmModal(null)
+      });
+    } catch (err) {
+      console.error('Erro ao salvar horários:', err);
+      setConfirmModal({
+        isOpen: true,
+        title: 'Erro ao Salvar',
+        message: 'Não foi possível salvar os horários. Verifique sua conexão.',
+        onConfirm: () => setConfirmModal(null)
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const playStatusChangeAudio = () => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -7174,6 +7202,16 @@ export default function Admin() {
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Padrão da Loja
+                </button>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={handleDirectSaveSchedule}
+                  className="text-xs bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                  title="Gravar horários no banco de dados e sincronizar com todos os celulares e computadores"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Salvar Horários
                 </button>
               </div>
             </div>

@@ -784,9 +784,12 @@ export const useStore = create<StoreState>((set, get) => ({
           const controller = new AbortController();
           const id = setTimeout(() => controller.abort(), timeout);
           return fetch(url, { 
+            cache: 'no-store',
             signal: controller.signal,
             headers: {
-              'Accept': 'application/json'
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
             }
           }).finally(() => clearTimeout(id));
         };
@@ -869,12 +872,13 @@ export const useStore = create<StoreState>((set, get) => ({
           });
 
         // 3. Fetch Store Info
-        const pStore = fetchWithTimeout('/api/db/store-info', 6000)
+        const pStore = fetchWithTimeout(`/api/db/store-info?_t=${Date.now()}`, 6000)
           .then(safeParseResponse)
           .then(storeInfo => {
             if (storeInfo) {
               set(state => {
                 const local = state.storeInfo;
+                // O servidor é a autoridade máxima e central de sincronização
                 const merged: StoreInfo = {
                   ...defaultStoreInfo,
                   ...local,
@@ -884,26 +888,66 @@ export const useStore = create<StoreState>((set, get) => ({
                   requireQrCodeForOrdering: false,
                 };
 
+                // Fallbacks locais apenas se o servidor não tiver a informação preenchida
                 if (!storeInfo.whatsapp && local.whatsapp) merged.whatsapp = local.whatsapp;
                 if (!storeInfo.address && local.address) merged.address = local.address;
                 if (!storeInfo.hours && local.hours) merged.hours = local.hours;
                 if (!storeInfo.instagram && local.instagram) merged.instagram = local.instagram;
-                if (local.weeklySchedule && local.weeklySchedule !== '[]' && local.weeklySchedule !== defaultStoreInfo.weeklySchedule) {
+
+                // weeklySchedule: SEMPRE prioriza a escala do servidor se existir, garantindo sincronização imediata entre PC e Celular
+                if (storeInfo.weeklySchedule && storeInfo.weeklySchedule !== '[]') {
+                  merged.weeklySchedule = storeInfo.weeklySchedule;
+                } else if (local.weeklySchedule && local.weeklySchedule !== '[]' && local.weeklySchedule !== defaultStoreInfo.weeklySchedule) {
                   merged.weeklySchedule = local.weeklySchedule;
                 }
-                if (local.aiAgentCustomPrompt) merged.aiAgentCustomPrompt = local.aiAgentCustomPrompt;
-                if (local.aiAgentKnowledgeBase) merged.aiAgentKnowledgeBase = local.aiAgentKnowledgeBase;
-                if (local.aiAgentWhatsAppPhone) merged.aiAgentWhatsAppPhone = local.aiAgentWhatsAppPhone;
-                if (local.aiAgentName) merged.aiAgentName = local.aiAgentName;
-                if (local.aiAgentTone) merged.aiAgentTone = local.aiAgentTone;
-                if (local.aiAgentTrainingExamples) merged.aiAgentTrainingExamples = local.aiAgentTrainingExamples;
 
-                const customLogo = localStorage.getItem('balbec_custom_logo_url') || local.logoUrl;
+                // AI Agent: prioriza valores do servidor
+                if (storeInfo.aiAgentCustomPrompt !== undefined && storeInfo.aiAgentCustomPrompt !== null) {
+                  merged.aiAgentCustomPrompt = storeInfo.aiAgentCustomPrompt;
+                } else if (local.aiAgentCustomPrompt) {
+                  merged.aiAgentCustomPrompt = local.aiAgentCustomPrompt;
+                }
+
+                if (storeInfo.aiAgentKnowledgeBase !== undefined && storeInfo.aiAgentKnowledgeBase !== null) {
+                  merged.aiAgentKnowledgeBase = storeInfo.aiAgentKnowledgeBase;
+                } else if (local.aiAgentKnowledgeBase) {
+                  merged.aiAgentKnowledgeBase = local.aiAgentKnowledgeBase;
+                }
+
+                if (storeInfo.aiAgentWhatsAppPhone !== undefined && storeInfo.aiAgentWhatsAppPhone !== null) {
+                  merged.aiAgentWhatsAppPhone = storeInfo.aiAgentWhatsAppPhone;
+                } else if (local.aiAgentWhatsAppPhone) {
+                  merged.aiAgentWhatsAppPhone = local.aiAgentWhatsAppPhone;
+                }
+
+                if (storeInfo.aiAgentName !== undefined && storeInfo.aiAgentName !== null) {
+                  merged.aiAgentName = storeInfo.aiAgentName;
+                } else if (local.aiAgentName) {
+                  merged.aiAgentName = local.aiAgentName;
+                }
+
+                if (storeInfo.aiAgentTone !== undefined && storeInfo.aiAgentTone !== null) {
+                  merged.aiAgentTone = storeInfo.aiAgentTone;
+                } else if (local.aiAgentTone) {
+                  merged.aiAgentTone = local.aiAgentTone;
+                }
+
+                if (storeInfo.aiAgentTrainingExamples !== undefined && storeInfo.aiAgentTrainingExamples !== null) {
+                  merged.aiAgentTrainingExamples = storeInfo.aiAgentTrainingExamples;
+                } else if (local.aiAgentTrainingExamples) {
+                  merged.aiAgentTrainingExamples = local.aiAgentTrainingExamples;
+                }
+
+                const customLogo = (storeInfo.logoUrl && storeInfo.logoUrl !== '/logo.svg')
+                  ? storeInfo.logoUrl 
+                  : (localStorage.getItem('balbec_custom_logo_url') || local.logoUrl);
                 if (customLogo && customLogo !== '/logo.svg') {
                   merged.logoUrl = customLogo;
                 }
 
-                const customTvCats = localStorage.getItem('balbec_tv_selected_categories') || local.tvSelectedCategories;
+                const customTvCats = (storeInfo.tvSelectedCategories && storeInfo.tvSelectedCategories !== '[]')
+                  ? storeInfo.tvSelectedCategories
+                  : (localStorage.getItem('balbec_tv_selected_categories') || local.tvSelectedCategories);
                 if (customTvCats && customTvCats !== '[]') {
                   merged.tvSelectedCategories = customTvCats;
                 }

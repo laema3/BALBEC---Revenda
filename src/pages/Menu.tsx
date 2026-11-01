@@ -2768,11 +2768,13 @@ export default function Menu() {
       
       // Se houver configuração explícita no painel, respeita estritamente. Se não houver, padrão fechado para domingo e aberto para os demais.
       let isDayOpen = dOfWeek !== 0; 
-      if (dayConfig && typeof dayConfig.isOpen === 'boolean') {
-        isDayOpen = dayConfig.isOpen;
+      if (dayConfig) {
+        if (typeof dayConfig.isOpen === 'boolean') {
+          isDayOpen = dayConfig.isOpen;
+        } else if (typeof (dayConfig as any).isOpen === 'string') {
+          isDayOpen = (dayConfig as any).isOpen === 'true';
+        }
       }
-
-      console.log(`[Schedule Sync Mobile] Day ${dOfWeek} (${dayCursor.toDateString()}): isOpen = ${isDayOpen}`, dayConfig);
 
       if (isDayOpen) {
         const y = dayCursor.getFullYear();

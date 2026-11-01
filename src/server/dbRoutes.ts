@@ -2357,7 +2357,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   // Store Info
   app.get('/api/db/store-info', (req: Request, res: Response) => {
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     res.json(sanitizeStoreInfoPrinters(memStoreInfo));
   });
 
