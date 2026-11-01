@@ -523,7 +523,25 @@ try {
     writeJsonFile(PRODUCTS_FILE, memProducts);
   }
   memTvMedia = loadJsonFile(TV_MEDIA_FILE, masterState?.tvMedia || (Array.isArray(seedTvMedia) && seedTvMedia.length > 0 ? seedTvMedia : []));
-  memStoreInfo = { ...DEFAULT_STORE_INFO, ...seedStoreInfo, ...(masterState?.storeInfo || {}), ...loadJsonFile(STORE_INFO_FILE, {}) };
+  const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
+  let backupStoreInfo = null;
+  if (fs.existsSync(autoBackupPath)) {
+    try {
+      const autoJson = JSON.parse(fs.readFileSync(autoBackupPath, 'utf8'));
+      if (autoJson && autoJson.storeInfo) {
+        backupStoreInfo = autoJson.storeInfo;
+      }
+    } catch {}
+  }
+  const diskStoreInfo = loadJsonFile<any>(STORE_INFO_FILE, {});
+  const baseStore = { ...DEFAULT_STORE_INFO, ...seedStoreInfo, ...(backupStoreInfo || {}), ...(masterState?.storeInfo || {}) };
+  memStoreInfo = {
+    ...baseStore,
+    ...diskStoreInfo,
+    weeklySchedule: (diskStoreInfo.weeklySchedule && diskStoreInfo.weeklySchedule !== '[]' && diskStoreInfo.weeklySchedule !== DEFAULT_STORE_INFO.weeklySchedule)
+      ? diskStoreInfo.weeklySchedule
+      : (baseStore.weeklySchedule || diskStoreInfo.weeklySchedule || DEFAULT_STORE_INFO.weeklySchedule)
+  };
   const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
   const initialBackupOrders = loadJsonFile(ORDERS_BACKUP_FILE, []);
   const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []);
@@ -694,6 +712,24 @@ function persistStoreInfoToDisk(data: any) {
   writeJsonFile(STORE_INFO_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('storeInfo', data);
+
+  // Persist directly to seed files so future deployments keep user settings!
+  try {
+    const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
+    if (!fs.existsSync(seedDir)) {
+      fs.mkdirSync(seedDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(seedDir, 'store_info_data.json'), JSON.stringify(data, null, 2), 'utf8');
+    
+    const persistentStatePath = path.join(seedDir, 'app_persistent_state.json');
+    if (fs.existsSync(persistentStatePath)) {
+      const pState = JSON.parse(fs.readFileSync(persistentStatePath, 'utf8')) || {};
+      pState.storeInfo = data;
+      fs.writeFileSync(persistentStatePath, JSON.stringify(pState, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.warn('[Persist Seed StoreInfo] Aviso ao atualizar arquivos seed:', err);
+  }
 }
 
 function persistCustomersToDisk(data: any[]) {
