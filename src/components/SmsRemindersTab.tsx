@@ -16,6 +16,11 @@ export const SmsRemindersTab: React.FC = () => {
   const [isSavingTimes, setIsSavingTimes] = useState(false);
   const [timesSaveResult, setTimesSaveResult] = useState<string | null>(null);
 
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+  const [webhookSaveResult, setWebhookSaveResult] = useState<string | null>(null);
+
   const fetchStoreSettings = async () => {
     try {
       const res = await fetch('/api/db/store-info');
@@ -24,6 +29,8 @@ export const SmsRemindersTab: React.FC = () => {
         if (info.smsReminderTime1) setTime1(info.smsReminderTime1);
         if (info.smsReminderTime2) setTime2(info.smsReminderTime2);
         if (info.smsReminderTime3) setTime3(info.smsReminderTime3);
+        if (info.autoSmsWebhookUrl) setWebhookUrl(info.autoSmsWebhookUrl);
+        if (info.autoSmsApiKey) setApiKey(info.autoSmsApiKey);
       }
     } catch {}
   };
@@ -71,6 +78,32 @@ export const SmsRemindersTab: React.FC = () => {
       setTimesSaveResult('Erro de conexão ao salvar.');
     } finally {
       setIsSavingTimes(false);
+    }
+  };
+
+  const handleSaveWebhook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingWebhook(true);
+    setWebhookSaveResult(null);
+    try {
+      const res = await fetch('/api/db/store-info', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoSmsWebhookUrl: webhookUrl.trim(),
+          autoSmsApiKey: apiKey.trim()
+        })
+      });
+      if (res.ok) {
+        setWebhookSaveResult('Webhook de automação salvo com sucesso!');
+        setTimeout(() => setWebhookSaveResult(null), 3000);
+      } else {
+        setWebhookSaveResult('Erro ao salvar webhook.');
+      }
+    } catch (err) {
+      setWebhookSaveResult('Erro de conexão ao salvar.');
+    } finally {
+      setIsSavingWebhook(false);
     }
   };
 
@@ -274,6 +307,52 @@ export const SmsRemindersTab: React.FC = () => {
         </form>
       </div>
 
+      {/* Configuração de Webhook para Automação Real 100% */}
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+        <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+          <span>⚡</span> Webhook / API de Envio Automático (WhatsApp / SMS Gateway)
+        </h3>
+        <p className="text-xs text-stone-500">
+          Para que o envio seja <strong>100% automatizado</strong> sem intervenção sua, cole abaixo a URL do seu Webhook (ex: Evolution API, Z-API, Twilio, Make, Zapier). O sistema enviará um POST HTTP automático com o telefone e a mensagem assim que a janela de horário for atingida.
+        </p>
+        <form onSubmit={handleSaveWebhook} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-[11px] font-bold text-stone-700 mb-1">URL do Webhook / Endpoint API</label>
+              <input
+                type="url"
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
+                placeholder="https://api.sualoja.com/send-whatsapp"
+                className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono text-stone-800"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-stone-700 mb-1">Chave API / Bearer Token (Opcional)</label>
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Token de Acesso"
+                className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono text-stone-800"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={isSavingWebhook}
+              className="py-2.5 px-6 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all"
+            >
+              {isSavingWebhook ? 'Salvando...' : 'Salvar Webhook Automático 🔗'}
+            </button>
+            {webhookSaveResult && (
+              <span className="text-xs font-bold text-emerald-600 animate-in fade-in">{webhookSaveResult}</span>
+            )}
+          </div>
+        </form>
+      </div>
+
       {/* Histórico de Lembretes Disparados */}
       <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
         <div className="p-4 bg-stone-50 border-b border-stone-200 flex items-center justify-between">
@@ -338,10 +417,23 @@ export const SmsRemindersTab: React.FC = () => {
                       {r.message}
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Enviado</span>
-                      </span>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Gerado</span>
+                        </span>
+                        {r.customerPhone && (
+                          <a
+                            href={`https://wa.me/55${r.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(r.message)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-sm transition-all cursor-pointer"
+                            title="Enviar esta mensagem diretamente para o WhatsApp do cliente"
+                          >
+                            <span>💬 WhatsApp</span>
+                          </a>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

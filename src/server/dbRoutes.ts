@@ -108,6 +108,8 @@ const DEFAULT_STORE_INFO = {
   smsReminderTime2: '12:00',
   smsReminderTime3: '15:00',
   smsRemindersEnabled: true,
+  autoSmsWebhookUrl: '',
+  autoSmsApiKey: '',
 };
 
 export function sanitizeStoreInfoPrinters(info: any) {
@@ -2472,6 +2474,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (body.smsReminderTime2 !== undefined) sanitized.smsReminderTime2 = String(body.smsReminderTime2);
       if (body.smsReminderTime3 !== undefined) sanitized.smsReminderTime3 = String(body.smsReminderTime3);
       if (body.smsRemindersEnabled !== undefined) sanitized.smsRemindersEnabled = Boolean(body.smsRemindersEnabled);
+      if (body.autoSmsWebhookUrl !== undefined) sanitized.autoSmsWebhookUrl = String(body.autoSmsWebhookUrl);
+      if (body.autoSmsApiKey !== undefined) sanitized.autoSmsApiKey = String(body.autoSmsApiKey);
       if (body.weeklySchedule !== undefined) {
         sanitized.weeklySchedule = typeof body.weeklySchedule === 'string'
           ? body.weeklySchedule
@@ -4822,7 +4826,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       let updated = false;
 
       memOrders = memOrders.map(order => {
-        if ((order.type === 'delivery' || order.deliveryType === 'delivery') && order.status !== 'completed' && order.status !== 'cancelled') {
+        if (order.status !== 'completed' && order.status !== 'cancelled') {
           const createdAt = order.createdAt ? new Date(order.createdAt).getTime() : now;
           const elapsedMinutes = (now - createdAt) / 60000;
 
@@ -4830,32 +4834,51 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           let newDeliveryStatus = order.deliveryStatus;
           let needsPrint = false;
 
-          // 1. Auto-Print imediatamente (independente de atendente, via socket de rede exatamente como o totem)
-          if (elapsedMinutes >= 0 && !(order as any).autoPrintedDelivery) {
+          // 1. Auto-Print for delivery orders
+          if ((order.type === 'delivery' || order.deliveryType === 'delivery') && elapsedMinutes >= 0 && !(order as any).autoPrintedDelivery) {
             (order as any).autoPrintedDelivery = true;
             needsPrint = true;
             updated = true;
           }
 
-          // 2. Progressão de Status:
-          // 5 min -> preparing
-          // 10 min -> ready_for_delivery
-          if (elapsedMinutes >= 10 && order.status === 'preparing') {
-            newStatus = 'ready_for_delivery';
-            newDeliveryStatus = 'ready_for_delivery';
-            updated = true;
-          } else if (elapsedMinutes >= 5 && order.status === 'pending') {
-            newStatus = 'preparing';
-            newDeliveryStatus = 'preparing';
-            updated = true;
+          // 2. Auto-Print when 90 minutes remaining until scheduled time (for scheduled orders / pickups / deliveries)
+          if (order.scheduledDate && order.scheduledTime && !(order as any).autoPrinted90Min) {
+            try {
+              const [year, month, day] = String(order.scheduledDate).slice(0, 10).split('-').map(Number);
+              const [hour, minute] = String(order.scheduledTime).split(':').map(Number);
+              if (!isNaN(year) && !isNaN(month) && !isNaN(day) && !isNaN(hour) && !isNaN(minute)) {
+                const scheduledDateTime = new Date(year, month - 1, day, hour, minute, 0).getTime();
+                const timeRemainingMinutes = (scheduledDateTime - now) / 60000;
+                
+                if (timeRemainingMinutes <= 90 && timeRemainingMinutes >= -60) {
+                  (order as any).autoPrinted90Min = true;
+                  needsPrint = true;
+                  updated = true;
+                  console.log(`[Auto-Print 90Min] Pedido agendado #${order.id} entrou na janela de 90 min (faltam ${Math.round(timeRemainingMinutes)} min). Acionando .bat agent!`);
+                }
+              }
+            } catch (e) {}
+          }
+
+          // 3. Progressão de Status para Delivery:
+          if (order.type === 'delivery' || order.deliveryType === 'delivery') {
+            if (elapsedMinutes >= 10 && order.status === 'preparing') {
+              newStatus = 'ready_for_delivery';
+              newDeliveryStatus = 'ready_for_delivery';
+              updated = true;
+            } else if (elapsedMinutes >= 5 && order.status === 'pending') {
+              newStatus = 'preparing';
+              newDeliveryStatus = 'preparing';
+              updated = true;
+            }
           }
 
           if (needsPrint) {
             queueOrderForAgent(order, memStoreInfo);
             printOrderToNetworkPrinter(order, memStoreInfo).then(res => {
-              console.log(`[Auto-Print Delivery] Pedido #${order.id} impresso automaticamente após 3 min:`, res.success);
+              console.log(`[Auto-Print] Pedido #${order.id} impresso automaticamente via .bat agent:`, res.success);
             }).catch(err => {
-              console.warn('[Auto-Print Delivery] Erro na impressão automática:', err);
+              console.warn('[Auto-Print] Erro na impressão automática:', err);
             });
           }
 
@@ -4964,7 +4987,32 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
               };
               memSmsReminders.unshift(reminder);
               newRemindersAdded = true;
-              console.log(`[SMS Automation] SMS enviado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${todayStr})`);
+              console.log(`[SMS Automation] SMS gerado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${todayStr})`);
+
+              if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
+                const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
+                const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
+                fetch(webhookUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+                  },
+                  body: JSON.stringify({
+                    phone: order.customerPhone,
+                    message: reminder.message,
+                    orderId: order.id,
+                    customerName: order.customerName || 'Cliente',
+                    slot: slot,
+                    scheduledDate: scheduledDateStr,
+                    scheduledTime: order.scheduledTime || '09:00'
+                  })
+                }).then(resp => {
+                  console.log(`[Auto SMS Webhook] Disparado para ${order.customerPhone}:`, resp.status);
+                }).catch(err => {
+                  console.warn('[Auto SMS Webhook Error] Falha ao despachar webhook:', err?.message);
+                });
+              }
             }
           });
         }
