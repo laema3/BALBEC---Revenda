@@ -2765,7 +2765,12 @@ export default function Menu() {
     while (availableWeekDays.length < 6) {
       const dOfWeek = dayCursor.getDay(); // 0 = Domingo, 1 = Segunda, etc.
       const dayConfig = storeWeeklySchedule.find(s => Number(s.dayOfWeek) === Number(dOfWeek));
-      const isDayOpen = dayConfig ? Boolean(dayConfig.isOpen) : (dOfWeek !== 0);
+      
+      // Se houver configuração explícita no painel, respeita estritamente. Se não houver, padrão fechado para domingo e aberto para os demais.
+      let isDayOpen = dOfWeek !== 0; 
+      if (dayConfig && typeof dayConfig.isOpen === 'boolean') {
+        isDayOpen = dayConfig.isOpen;
+      }
 
       console.log(`[Schedule Sync Mobile] Day ${dOfWeek} (${dayCursor.toDateString()}): isOpen = ${isDayOpen}`, dayConfig);
 
