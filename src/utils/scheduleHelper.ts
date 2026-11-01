@@ -38,13 +38,13 @@ export function parseWeeklySchedule(raw: any): DaySchedule[] {
 
   // Ensure all 7 days are present and properly structured
   return DEFAULT_WEEKLY_SCHEDULE.map((defaultDay) => {
-    const found = scheduleArray.find((d: any) => d.dayOfWeek === defaultDay.dayOfWeek);
+    const found = scheduleArray.find((d: any) => Number(d.dayOfWeek) === Number(defaultDay.dayOfWeek));
     if (!found) return defaultDay;
     return {
       dayOfWeek: defaultDay.dayOfWeek,
       dayName: defaultDay.dayName,
       shortName: defaultDay.shortName,
-      isOpen: found.isOpen !== false,
+      isOpen: found.isOpen === true || found.isOpen === 'true',
       openTime: found.openTime || defaultDay.openTime,
       closeTime: found.closeTime || defaultDay.closeTime,
       hasBreak: !!found.hasBreak,
