@@ -2339,12 +2339,23 @@ export default function Menu() {
               ATENÇÃO PREZADO {clientNameDisplay || 'CLIENTE'}
             </h3>
             
-            <div className="w-full bg-white/10 backdrop-blur-sm rounded-3xl p-5 sm:p-7 border border-white/30 shadow-inner mb-6">
+            <div className="w-full bg-white/10 backdrop-blur-sm rounded-3xl p-5 sm:p-7 border border-white/30 shadow-inner mb-6 space-y-4">
+              {lastPlacedOrder?.scheduledTime && (
+                <div className="bg-white text-stone-900 px-5 py-3 rounded-2xl shadow-md border border-white/50 flex items-center justify-center gap-3">
+                  <span className="text-2xl">📅</span>
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-orange-700">Data e Horário Agendado</p>
+                    <p className="text-base sm:text-lg font-black text-stone-950 uppercase">
+                      {lastPlacedOrder.scheduledDay ? `${lastPlacedOrder.scheduledDay} às ` : ''}{lastPlacedOrder.scheduledTime}{lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
               <p className="text-lg sm:text-2xl font-black text-white leading-tight">
                 {lastPlacedOrder?.type === 'delivery' 
                   ? 'Seu pedido para Delivery foi recebido e está sendo processado para entrega pelo motoboy.' 
                   : (lastPlacedOrder?.scheduledTime 
-                      ? `Seu pedido foi agendado para ${lastPlacedOrder.scheduledTime}${lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}. Aguarde ser chamado pelo seu nome no balcão.` 
+                      ? `Seu pedido foi agendado com sucesso. Aguarde ser chamado pelo seu nome no balcão.` 
                       : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.`)}
               </p>
             </div>
@@ -2356,24 +2367,6 @@ export default function Menu() {
               </span>
             </div>
           </div>
-
-          {/* Horário Agendado em Destaque (AMARELO/BEGE) */}
-          {lastPlacedOrder?.scheduledTime && (
-            <div className="p-5 bg-[#fff8e1] border-b border-stone-200 flex items-center gap-4 text-stone-900">
-              <div className="w-12 h-12 rounded-2xl bg-[#ff9800] text-white flex items-center justify-center shadow-md shrink-0 text-2xl">
-                ⏰
-              </div>
-              <div className="text-left flex-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#a85d00] mb-0.5">Horário Agendado para o Pedido</p>
-                <p className="text-lg sm:text-xl font-black text-stone-950">
-                  {lastPlacedOrder.scheduledTime}{lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}
-                </p>
-                <p className="text-[11px] text-[#a85d00] font-bold leading-tight">
-                  Seu pedido será preparado com antecedência para retirada no horário agendado.
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* SUA SENHA DE CHAMADA (CARD BRANCO) */}
           <div className="p-6 sm:p-8 bg-white space-y-6">
