@@ -2746,11 +2746,21 @@ export default function Menu() {
     const storeWeeklySchedule = parseWeeklySchedule(storeInfo.weeklySchedule);
 
     const now = new Date();
-    const currentHours = now.getHours();
-    const currentMinutes = now.getMinutes();
+    let currentHours = now.getHours();
+    let currentMinutes = now.getMinutes();
+    
+    // Obter data e hora exatas no fuso horário do Brasil (America/Sao_Paulo)
+    let brazilDate = new Date();
+    try {
+      const brazilDateStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+      brazilDate = new Date(brazilDateStr);
+      currentHours = brazilDate.getHours();
+      currentMinutes = brazilDate.getMinutes();
+    } catch {}
+
     const currentTimeInMinutes = (currentHours * 60) + currentMinutes;
 
-    const dayCursor = new Date(now);
+    const dayCursor = new Date(brazilDate);
     while (availableWeekDays.length < 6) {
       const dOfWeek = dayCursor.getDay();
       const dayConfig = storeWeeklySchedule.find(s => s.dayOfWeek === dOfWeek);
@@ -2761,7 +2771,7 @@ export default function Menu() {
         const m = String(dayCursor.getMonth() + 1).padStart(2, '0');
         const d = String(dayCursor.getDate()).padStart(2, '0');
         const dateStr = `${y}-${m}-${d}`;
-        const isToday = dayCursor.toDateString() === now.toDateString();
+        const isToday = dayCursor.toDateString() === brazilDate.toDateString();
 
         availableWeekDays.push({
           dateStr,
