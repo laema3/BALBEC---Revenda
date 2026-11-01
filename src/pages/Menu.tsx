@@ -2742,6 +2742,9 @@ export default function Menu() {
     const dayShortNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const dayFullNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
+    // Carregar os dias de funcionamento configurados no Painel (Horários de Atendimento por Dia)
+    const storeWeeklySchedule = parseWeeklySchedule(storeInfo.weeklySchedule);
+
     const now = new Date();
     const currentHours = now.getHours();
     const currentMinutes = now.getMinutes();
@@ -2750,7 +2753,10 @@ export default function Menu() {
     const dayCursor = new Date(now);
     while (availableWeekDays.length < 6) {
       const dOfWeek = dayCursor.getDay();
-      if (dOfWeek !== 0) { // Domingo não abre
+      const dayConfig = storeWeeklySchedule.find(s => s.dayOfWeek === dOfWeek);
+      const isDayOpen = dayConfig ? dayConfig.isOpen : (dOfWeek !== 0); // Se não configurado, domingo fecha, outros abrem
+
+      if (isDayOpen) {
         const y = dayCursor.getFullYear();
         const m = String(dayCursor.getMonth() + 1).padStart(2, '0');
         const d = String(dayCursor.getDate()).padStart(2, '0');
