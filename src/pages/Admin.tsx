@@ -8913,6 +8913,7 @@ export default function Admin() {
         {activeTab === 'tv' && !isCaixaUser && <TvManagerTab />}
         {activeTab === 'settings' && !isCaixaUser && isMaster && renderSettings()}
         {activeTab === 'users' && !isCaixaUser && isMaster && renderUsers()}
+        {activeTab === 'sms' && (isAdminOrMaster || isCaixaUser) && <SmsRemindersTab />}
       </main>
 
       {/* Global ERP Sync Progress Modal when not on products tab */}
