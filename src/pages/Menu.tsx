@@ -35,6 +35,7 @@ export default function Menu() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [productQuantities, setProductQuantities] = useState<Record<string, number | string>>({});
   const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
+  const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -1661,6 +1662,13 @@ export default function Menu() {
         flavor: enrichedFlavor 
       }];
     });
+    setProductQuantities(prev => {
+      const next = { ...prev };
+      delete next[product.id];
+      return next;
+    });
+    setCartToastMessage(`"${product.name}" adicionado com sucesso! 🛒✨`);
+    setTimeout(() => setCartToastMessage(null), 3000);
     setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
   };
 
@@ -7550,6 +7558,14 @@ export default function Menu() {
           orderId={trackingOrderId}
           onClose={() => setTrackingOrderId(null)}
         />
+      )}
+
+      {/* Toast de Sucesso ao Adicionar ao Carrinho */}
+      {cartToastMessage && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[150] bg-emerald-600 text-white font-black px-6 py-3.5 rounded-2xl shadow-2xl animate-in fade-in zoom-in slide-in-from-bottom-5 duration-200 flex items-center gap-3 border border-emerald-400/50">
+          <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+          <span className="text-xs sm:text-sm uppercase tracking-wide">{cartToastMessage}</span>
+        </div>
       )}
 
       {/* Perfil e Pedidos Anteriores */}
