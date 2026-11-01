@@ -9,7 +9,15 @@ export const SmsRemindersTab: React.FC = () => {
   const [testName, setTestName] = useState('Cliente Exemplo');
   const [testOrderId, setTestOrderId] = useState('0001');
   const [isSendingTest, setIsSendingTest] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    webhookTested?: boolean;
+    webhookResponseStatus?: number | null;
+    webhookResponseBody?: string;
+    webhookError?: string | null;
+  } | null>(null);
+
   const [isTriggeringNow, setIsTriggeringNow] = useState(false);
   const [time1, setTime1] = useState('09:00');
   const [time2, setTime2] = useState('12:00');
@@ -152,14 +160,27 @@ export const SmsRemindersTab: React.FC = () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setTestResult('Mensagem de teste disparada com sucesso!');
+        setTestResult({
+          success: true,
+          message: 'Mensagem de teste gerada e disparada com sucesso!',
+          webhookTested: data.webhookTested,
+          webhookResponseStatus: data.webhookResponseStatus,
+          webhookResponseBody: data.webhookResponseBody,
+          webhookError: data.webhookError
+        });
         await fetchReminders();
       } else {
-        setTestResult('Erro ao disparar teste de SMS.');
+        setTestResult({
+          success: false,
+          message: 'Erro ao disparar teste de SMS.'
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao testar SMS:', err);
-      setTestResult('Erro de conexão ao enviar SMS.');
+      setTestResult({
+        success: false,
+        message: 'Erro de conexão ao enviar SMS: ' + (err?.message || '')
+      });
     } finally {
       setIsSendingTest(false);
     }
@@ -199,12 +220,15 @@ export const SmsRemindersTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Caixa de Teste de Envio */}
+      {/* Caixa de Teste de Envio & Diagnóstico de Webhook */}
       <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-2xl border border-orange-200 shadow-xs">
-        <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider mb-2 flex items-center gap-2">
           <Send className="w-4 h-4 text-orange-600" />
-          Disparar Teste Manual de SMS
+          Disparar Teste Manual de SMS &amp; Diagnóstico Webhook
         </h3>
+        <p className="text-xs text-stone-600 mb-3">
+          Ao enviar um teste abaixo, o sistema executa um POST HTTP real para o seu Webhook configurado e exibe o código de status retornado pelo servidor para ajudar a identificar por que a mensagem pode não estar chegando.
+        </p>
         <form onSubmit={handleSendTestSms} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <label className="block text-[11px] font-bold text-stone-700 mb-1">Nome do Cliente</label>
@@ -246,14 +270,50 @@ export const SmsRemindersTab: React.FC = () => {
               className="w-full py-2.5 px-4 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-xl font-bold text-xs shadow-md shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{isSendingTest ? 'Enviando...' : 'Enviar SMS Teste'}</span>
+              <span>{isSendingTest ? 'Enviando...' : 'Testar Envio & Webhook 🔍'}</span>
             </button>
           </div>
         </form>
         {testResult && (
-          <div className="mt-3 p-2.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{testResult}</span>
+          <div className={`mt-3 p-3.5 rounded-xl text-xs space-y-2 border ${
+            testResult.success 
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
+              : 'bg-red-50 text-red-900 border-red-200'
+          }`}>
+            <div className="flex items-center gap-2 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{testResult.message}</span>
+            </div>
+            {testResult.webhookTested && (
+              <div className="pt-2 border-t border-emerald-200/60 font-mono text-[11px] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-stone-700">Status HTTP do Webhook:</span>
+                  <span className={`px-2 py-0.5 rounded font-bold ${
+                    testResult.webhookResponseStatus && testResult.webhookResponseStatus >= 200 && testResult.webhookResponseStatus < 300
+                      ? 'bg-emerald-200 text-emerald-900'
+                      : 'bg-amber-200 text-amber-900'
+                  }`}>
+                    {testResult.webhookResponseStatus ? `HTTP ${testResult.webhookResponseStatus}` : 'Sem resposta (Timeout ou Erro de DNS)'}
+                  </span>
+                </div>
+                {testResult.webhookError && (
+                  <p className="text-red-700 font-bold">Erro de Conexão Webhook: {testResult.webhookError}</p>
+                )}
+                {testResult.webhookResponseBody && (
+                  <div>
+                    <span className="text-stone-500 block mb-0.5 font-bold">Resposta do Gateway / Servidor:</span>
+                    <pre className="p-2 bg-white rounded border border-stone-200 text-[10px] overflow-x-auto max-h-24">
+                      {testResult.webhookResponseBody}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+            {!testResult.webhookTested && (
+              <p className="text-[11px] text-stone-600 italic">
+                💡 Dica: Nenhum Webhook URL foi configurado abaixo. O lembrete foi gerado no painel, mas para envio automático externo configure a URL do seu gateway abaixo.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -312,6 +372,55 @@ export const SmsRemindersTab: React.FC = () => {
         </form>
       </div>
 
+      {/* Instruções Detalhadas em Português para Configuração */}
+      <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 space-y-4">
+        <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+          <span>📖</span> Instruções Passo a Passo para Envio Automático (SMS e WhatsApp)
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-stone-700 leading-relaxed">
+          <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-xs space-y-2">
+            <h4 className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
+              <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-black text-[11px]">1</span>
+              Como Funciona o Envio Automático (Webhook / Gateway)
+            </h4>
+            <p>
+              O sistema não cobra taxa por mensagem porque permite conectar <strong>qualquer gateway ou provedor que você já utilize</strong> (exemplo: Evolution API, Z-API, Twilio, SMS Dev, Make ou Zapier).
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-stone-600 text-[11px]">
+              <li>Nos horários configurados (ex: 09h, 12h e 15h), o sistema busca pedidos agendados.</li>
+              <li>Ele envia uma chamada <strong>POST</strong> para a URL do Webhook com os dados do cliente, telefone e mensagem formatada.</li>
+              <li>A API externa que você contratou realiza a entrega no celular do cliente.</li>
+            </ul>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-xs space-y-2">
+            <h4 className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
+              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-[11px]">2</span>
+              Por que a mensagem pode não ter chegado?
+            </h4>
+            <ul className="list-disc list-inside space-y-1.5 text-stone-600 text-[11px]">
+              <li>
+                <strong>Nenhum Webhook preenchido:</strong> Sem uma URL de API contratada preenchida no campo abaixo, o sistema apenas registra a mensagem no painel (não há como disparar para a rede celular sem uma operadora).
+              </li>
+              <li>
+                <strong>URL ou Token incorreto:</strong> Se a URL do gateway exigir autenticação por token ou chave de API e ela não for informada, o provedor rejeitará o envio.
+              </li>
+              <li>
+                <strong>Alternativa 100% Gratuita e Imediata:</strong> Você pode usar o botão verde <strong>"💬 WhatsApp"</strong> ao lado de cada lembrete na tabela abaixo. Ele abre a conversa no WhatsApp diretamente com o cliente e a mensagem pronta para enviar com 1 toque!
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+          <span className="text-base shrink-0">💡</span>
+          <div>
+            <strong>Dica de Teste:</strong> Utilize o botão <strong>"Testar Envio &amp; Webhook"</strong> acima com o seu próprio número de celular. A caixa de diagnóstico exibirá exatamente a resposta do seu servidor para saber se ele aceitou ou rejeitou a conexão.
+          </div>
+        </div>
+      </div>
+
       {/* Configuração de Webhook para Automação Real 100% */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
         <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
@@ -333,7 +442,7 @@ export const SmsRemindersTab: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-stone-700 mb-1">Chave API / Bearer Token (Opcional)</label>
+              <label className="block text-[11px] font-bold text-stone-700 mb-1">Chave API / Token de Acesso (Opcional)</label>
               <input
                 type="text"
                 value={apiKey}

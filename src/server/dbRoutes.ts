@@ -4917,7 +4917,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     res.json(memSmsReminders);
   });
 
-  app.post('/api/db/sms-reminders/test', (req: Request, res: Response) => {
+  app.post('/api/db/sms-reminders/test', async (req: Request, res: Response) => {
     const { phone, name, orderId } = req.body || {};
     const testReminder = {
       id: `sms_test_${Date.now()}`,
@@ -4934,7 +4934,49 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     };
     memSmsReminders.unshift(testReminder);
     persistSmsRemindersToDisk(memSmsReminders);
-    res.json({ success: true, reminder: testReminder });
+
+    let webhookResponseStatus: number | null = null;
+    let webhookResponseBody = '';
+    let webhookError: string | null = null;
+
+    if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
+      try {
+        const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
+        const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
+        const cleanPhone = String(testReminder.customerPhone).replace(/\D/g, '');
+        const resp = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+          },
+          body: JSON.stringify({
+            phone: testReminder.customerPhone,
+            number: cleanPhone,
+            message: testReminder.message,
+            text: testReminder.message,
+            orderId: testReminder.orderId,
+            customerName: testReminder.customerName,
+            slot: 'slot_1_09h'
+          })
+        });
+        webhookResponseStatus = resp.status;
+        try {
+          webhookResponseBody = await resp.text();
+        } catch {}
+      } catch (err: any) {
+        webhookError = err?.message || 'Falha na conexão HTTP com o Webhook';
+      }
+    }
+
+    res.json({
+      success: true,
+      reminder: testReminder,
+      webhookTested: !!memStoreInfo.autoSmsWebhookUrl,
+      webhookResponseStatus,
+      webhookResponseBody,
+      webhookError
+    });
   });
 
   const checkAndTriggerSmsReminders = () => {
