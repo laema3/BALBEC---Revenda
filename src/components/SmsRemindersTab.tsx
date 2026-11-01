@@ -22,6 +22,7 @@ export const SmsRemindersTab: React.FC = () => {
   const [time1, setTime1] = useState('09:00');
   const [time2, setTime2] = useState('12:00');
   const [time3, setTime3] = useState('15:00');
+  const [advanceMinutes, setAdvanceMinutes] = useState(90);
   const [isSavingTimes, setIsSavingTimes] = useState(false);
   const [timesSaveResult, setTimesSaveResult] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export const SmsRemindersTab: React.FC = () => {
         if (info.smsReminderTime1) setTime1(info.smsReminderTime1);
         if (info.smsReminderTime2) setTime2(info.smsReminderTime2);
         if (info.smsReminderTime3) setTime3(info.smsReminderTime3);
+        if (info.schedulePrepTimeFrozenMinutes) setAdvanceMinutes(Number(info.schedulePrepTimeFrozenMinutes) || 90);
         if (info.autoSmsWebhookUrl) setWebhookUrl(info.autoSmsWebhookUrl);
         if (info.autoSmsApiKey) setApiKey(info.autoSmsApiKey);
       }
@@ -74,11 +76,12 @@ export const SmsRemindersTab: React.FC = () => {
         body: JSON.stringify({
           smsReminderTime1: time1,
           smsReminderTime2: time2,
-          smsReminderTime3: time3
+          smsReminderTime3: time3,
+          schedulePrepTimeFrozenMinutes: Number(advanceMinutes) || 90
         })
       });
       if (res.ok) {
-        setTimesSaveResult('Horários de disparo atualizados com sucesso!');
+        setTimesSaveResult('Horários e tempo de antecedência salvos com sucesso!');
         setTimeout(() => setTimesSaveResult(null), 3000);
       } else {
         setTimesSaveResult('Erro ao salvar horários.');
@@ -220,6 +223,36 @@ export const SmsRemindersTab: React.FC = () => {
         </div>
       </div>
 
+      {/* Banner de Automação via NTFY (Sem Depender de Funcionário) */}
+      <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border-2 border-emerald-500/40 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-3 bg-emerald-600 text-white rounded-xl font-black text-lg shrink-0 shadow-sm">
+            🔔
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-extrabold text-stone-900 text-sm">
+                Alerta Push Automático no NTFY (Ativo no Celular da Loja)
+              </h3>
+              <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                100% Automático
+              </span>
+            </div>
+            <p className="text-xs text-stone-600 mt-0.5 leading-relaxed">
+              O servidor dispara alertas automáticos no seu NTFY nos 3 horários do dia e <strong>ao faltar 90 minutos para a entrega</strong>. O celular toca sozinho com som de alarme e o resumo do pedido, sem depender de memória de funcionário!
+            </p>
+          </div>
+        </div>
+        <a
+          href="https://ntfy.sh/balbecrevenda_pedidos"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-stone-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 flex items-center gap-2 cursor-pointer"
+        >
+          <span>📱 Abrir Canal NTFY</span>
+        </a>
+      </div>
+
       {/* Caixa de Teste de Envio & Diagnóstico de Webhook */}
       <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-2xl border border-orange-200 shadow-xs">
         <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -318,15 +351,23 @@ export const SmsRemindersTab: React.FC = () => {
         )}
       </div>
 
-      {/* Configuração dos Horários de Disparo */}
+      {/* Configuração dos Horários de Disparo e Antecedência */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-        <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
-          <span>⏰</span> Configurar Horários dos 3 Disparos Diários de SMS
-        </h3>
-        <p className="text-xs text-stone-500">
-          Defina abaixo os 3 horários em que o sistema deve disparar automaticamente os lembretes de retirada para os clientes.
-        </p>
-        <form onSubmit={handleSaveTimes} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+              <span>⏰</span> Configurar Horários dos Lembretes e Alerta de Preparo
+            </h3>
+            <p className="text-xs text-stone-500 mt-1">
+              Defina os horários em que o sistema deve disparar os lembretes (via Webhook/SMS, NTFY e a janela fixa no celular do cliente), além da antecedência de preparo.
+            </p>
+          </div>
+          <span className="self-start sm:self-auto text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+            ● 100% Personalizável
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveTimes} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
           <div>
             <label className="block text-[11px] font-bold text-stone-700 mb-1">1º Horário (Manhã)</label>
             <input
@@ -357,13 +398,36 @@ export const SmsRemindersTab: React.FC = () => {
               className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono font-bold text-stone-800"
             />
           </div>
-          <div className="sm:col-span-3 flex items-center justify-between gap-3 pt-2">
+          <div>
+            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+              Antecedência p/ Alerta & Impressão
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="10"
+                max="300"
+                step="5"
+                value={advanceMinutes}
+                onChange={(e) => setAdvanceMinutes(Number(e.target.value) || 90)}
+                required
+                className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono font-bold text-stone-800 pr-12"
+              />
+              <span className="absolute right-3 top-2.5 text-[11px] font-bold text-stone-400">min</span>
+            </div>
+          </div>
+
+          <div className="sm:col-span-4 bg-amber-50/70 border border-amber-200/60 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+            💡 <strong>Como funciona na nova versão:</strong> Nos 3 horários acima (ex: {time1}, {time2} e {time3}) e quando faltar {advanceMinutes} minutos para a entrega/retirada, o sistema dispara automaticamente o aviso. A mensagem salta diretamente na tela do smartphone do cliente e <strong>permanece aberta e travada até ele tocar no botão para fechar</strong>, garantindo que ele não perca a informação!
+          </div>
+
+          <div className="sm:col-span-4 flex items-center justify-between gap-3 pt-2">
             <button
               type="submit"
               disabled={isSavingTimes}
               className="py-2.5 px-6 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all"
             >
-              {isSavingTimes ? 'Salvando...' : 'Salvar Horários de Disparo 💾'}
+              {isSavingTimes ? 'Salvando...' : 'Salvar Horários e Antecedência 💾'}
             </button>
             {timesSaveResult && (
               <span className="text-xs font-bold text-emerald-600 animate-in fade-in">{timesSaveResult}</span>

@@ -479,8 +479,8 @@ interface StoreState {
   updateStoreInfo: (info: Partial<StoreInfo>) => Promise<void>;
   exportOrderToBlueFocus: (order: Order, config?: any) => Promise<void>;
   
-  currentNotification: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning' } | null;
-  setCurrentNotification: (notif: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning' } | null) => void;
+  currentNotification: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning'; orderId?: string; badge?: string } | null;
+  setCurrentNotification: (notif: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning'; orderId?: string; badge?: string } | null) => void;
 }
 
 export const defaultStoreInfo: StoreInfo = {

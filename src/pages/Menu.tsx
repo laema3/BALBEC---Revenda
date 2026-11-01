@@ -2075,9 +2075,15 @@ export default function Menu() {
         setSelectedScheduleDate('');
         setSelectedScheduleDay('');
 
-        // Persistir dados do cliente para futuros pedidos
+        // Persistir dados do cliente e último pedido para notificações em tempo real
+        safeStorage.setItem('balbec_last_order_id', String(createdOrder.id));
         safeStorage.setItem('balbec_customer_name', finalCustomerName);
         safeStorage.setItem('balbec_customer_phone', finalCustomerPhone);
+        try {
+          localStorage.setItem('balbec_last_order_id', String(createdOrder.id));
+          localStorage.setItem('balbec_customer_name', finalCustomerName);
+          localStorage.setItem('balbec_customer_phone', finalCustomerPhone);
+        } catch {}
         if (isDeliveryOrder) {
           safeStorage.setItem('balbec_customer_email', customerEmail.trim());
           safeStorage.setItem('balbec_customer_cpf', customerCpf.trim());

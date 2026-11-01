@@ -4841,7 +4841,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             updated = true;
           }
 
-          // 2. Auto-Print when 90 minutes remaining until scheduled time (for scheduled orders / pickups / deliveries)
+          // 2. Auto-Print when advance minutes (default 90 min) remaining until scheduled time
+          const advanceMinutes = Number(memStoreInfo.schedulePrepTimeFrozenMinutes) || 90;
           if (order.scheduledDate && order.scheduledTime && !(order as any).autoPrinted90Min) {
             try {
               const [year, month, day] = String(order.scheduledDate).slice(0, 10).split('-').map(Number);
@@ -4850,11 +4851,21 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                 const scheduledDateTime = new Date(year, month - 1, day, hour, minute, 0).getTime();
                 const timeRemainingMinutes = (scheduledDateTime - now) / 60000;
                 
-                if (timeRemainingMinutes <= 90 && timeRemainingMinutes >= -60) {
+                if (timeRemainingMinutes <= advanceMinutes && timeRemainingMinutes >= -60) {
                   (order as any).autoPrinted90Min = true;
                   needsPrint = true;
                   updated = true;
-                  console.log(`[Auto-Print 90Min] Pedido agendado #${order.id} entrou na janela de 90 min (faltam ${Math.round(timeRemainingMinutes)} min). Acionando .bat agent!`);
+                  console.log(`[Auto-Print ${advanceMinutes}Min] Pedido agendado #${order.id} entrou na janela de ${advanceMinutes} min (faltam ${Math.round(timeRemainingMinutes)} min). Acionando .bat agent!`);
+                  broadcastSSE({
+                    type: 'sync',
+                    target: 'orders',
+                    action: 'status_updated',
+                    orderId: order.id,
+                    alertType: 'reminder_90min',
+                    status: order.status,
+                    message: `Faltam menos de ${advanceMinutes} minutos para a entrega/retirada do seu Pedido #${String(order.id).slice(-4)} agendado para às ${order.scheduledTime || '09:00'}. Nossa equipe já iniciou a preparação!`,
+                    time: Date.now()
+                  });
                 }
               }
             } catch (e) {}
@@ -4880,6 +4891,19 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             }).catch(err => {
               console.warn('[Auto-Print] Erro na impressão automática:', err);
             });
+
+            if (memStoreInfo.ntfyEnabled !== false) {
+              const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
+              fetch(`https://ntfy.sh/${topic}`, {
+                method: 'POST',
+                headers: {
+                  'Title': `🚨 [IMPRESSÃO AUTOMÁTICA] Pedido #${String(order.id).slice(-4)}`,
+                  'Priority': 'urgent',
+                  'Tags': 'printer,bell,alarm_clock',
+                },
+                body: `Faltam 90 minutos para entrega/retirada do Pedido #${String(order.id).slice(-4)}!\nCliente: ${order.customerName}\nCupom despachado para a impressora EPSON TM-T20X!`
+              }).catch(() => {});
+            }
           }
 
           if (newStatus !== order.status || newDeliveryStatus !== order.deliveryStatus || needsPrint) {
@@ -4992,12 +5016,29 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const currentDay = String(brazilDate.getDate()).padStart(2, '0');
       const todayStr = `${currentYear}-${currentMonth}-${currentDay}`;
       const currentHour = brazilDate.getHours();
+      const currentMinute = brazilDate.getMinutes();
+      const currentMinutesOfDay = currentHour * 60 + currentMinute;
 
-      let activeSlot = 'slot_2_12h';
-      if (currentHour >= 9 && currentHour < 12) activeSlot = 'slot_1_09h';
-      else if (currentHour >= 12 && currentHour < 15) activeSlot = 'slot_2_12h';
-      else if (currentHour >= 15) activeSlot = 'slot_3_15h';
-      else activeSlot = 'slot_1_09h';
+      // Horários customizados de disparo definidos pelo lojista no painel
+      const parseTimeToMinutes = (tStr: string | undefined, defH: number) => {
+        try {
+          const [h, m] = String(tStr || '').split(':').map(Number);
+          return (isNaN(h) ? defH : h) * 60 + (isNaN(m) ? 0 : m);
+        } catch {
+          return defH * 60;
+        }
+      };
+
+      const slot1Mins = parseTimeToMinutes(memStoreInfo.smsReminderTime1, 9);
+      const slot2Mins = parseTimeToMinutes(memStoreInfo.smsReminderTime2, 12);
+      const slot3Mins = parseTimeToMinutes(memStoreInfo.smsReminderTime3, 15);
+
+      const isSlotDue = (slot: string) => {
+        if (slot === 'slot_1_09h') return currentMinutesOfDay >= slot1Mins;
+        if (slot === 'slot_2_12h') return currentMinutesOfDay >= slot2Mins;
+        if (slot === 'slot_3_15h') return currentMinutesOfDay >= slot3Mins;
+        return false;
+      };
 
       let newRemindersAdded = false;
 
@@ -5012,7 +5053,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             const reminderKey = `ord_${order.id}_${todayStr}_${slot}`;
             const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
 
-            if (!alreadySent && (slot === activeSlot || slot <= activeSlot)) {
+            if (!alreadySent && isSlotDue(slot)) {
               const reminder = {
                 id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                 reminderKey,
@@ -5031,6 +5072,41 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
               newRemindersAdded = true;
               console.log(`[SMS Automation] SMS gerado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${todayStr})`);
 
+              // Disparo SSE direto para a tela do smartphone do cliente
+              broadcastSSE({
+                type: 'sync',
+                target: 'sms_reminders',
+                action: 'reminder_alert',
+                orderId: order.id,
+                customerName: order.customerName,
+                customerPhone: order.customerPhone,
+                message: reminder.message,
+                time: Date.now()
+              });
+
+              // Disparo Automático NTFY (Estilo NTFY 100% gratuito e sem esquecimento)
+              if (memStoreInfo.ntfyEnabled !== false) {
+                const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
+                const cleanPhone = String(order.customerPhone || '').replace(/\D/g, '');
+                const cleanMsg = reminder.message;
+                const slotLabel = slot === 'slot_1_09h' ? 'Manhã (09h)' : slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)';
+
+                fetch(`https://ntfy.sh/${topic}`, {
+                  method: 'POST',
+                  headers: {
+                    'Title': `⏰ LEMBRETE BALBEC: Pedido #${String(order.id).slice(-4)} (${order.customerName})`,
+                    'Priority': 'urgent',
+                    'Tags': 'alarm_clock,warning,package',
+                    'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : undefined
+                  },
+                  body: `Lembrete Automático [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} para ${scheduledDateStr} às ${order.scheduledTime || '09:00'}.\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
+                }).then(() => {
+                  console.log(`[Auto NTFY Reminder] Alerta automático de lembrete enviado para ntfy.sh/${topic}`);
+                }).catch(err => {
+                  console.warn('[Auto NTFY Reminder Error] Falha ao enviar ntfy:', err?.message);
+                });
+              }
+
               if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
                 const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
                 const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
@@ -5042,7 +5118,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                   },
                   body: JSON.stringify({
                     phone: order.customerPhone,
+                    number: String(order.customerPhone).replace(/\D/g, ''),
                     message: reminder.message,
+                    text: reminder.message,
                     orderId: order.id,
                     customerName: order.customerName || 'Cliente',
                     slot: slot,
