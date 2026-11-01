@@ -6877,7 +6877,7 @@ export default function Menu() {
                     externalId: (congeladoProd as any).externalId || '9999',
                     isFrozen: true
                   };
-                  setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
+                  setCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && (ci.isFrozen || (ci.addons || []).some((a: any) => a.isFrozen || a.productId === 'prod_congelado')))));
                   addToCart(frozenModal.product, [frozenAddon], null, frozenModal.quantity);
                   setFrozenModal({ isOpen: false, product: null, quantity: 1 });
                 }}
@@ -6896,7 +6896,7 @@ export default function Menu() {
               <button
                 type="button"
                 onClick={() => {
-                  setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
+                  setCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && !ci.isFrozen && !(ci.addons || []).some((a: any) => a.isFrozen || a.productId === 'prod_congelado'))));
                   addToCart(frozenModal.product, [], null, frozenModal.quantity);
                   setFrozenModal({ isOpen: false, product: null, quantity: 1 });
                 }}
