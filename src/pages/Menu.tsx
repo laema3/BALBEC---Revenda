@@ -2744,6 +2744,7 @@ export default function Menu() {
 
     // Carregar os dias de funcionamento configurados no Painel (Horários de Atendimento por Dia)
     const storeWeeklySchedule = parseWeeklySchedule(storeInfo.weeklySchedule);
+    console.log('[Schedule Sync Mobile Debug] storeWeeklySchedule:', storeWeeklySchedule);
 
     const now = new Date();
     let currentHours = now.getHours();
@@ -2762,9 +2763,11 @@ export default function Menu() {
 
     const dayCursor = new Date(brazilDate);
     while (availableWeekDays.length < 6) {
-      const dOfWeek = dayCursor.getDay();
-      const dayConfig = storeWeeklySchedule.find(s => s.dayOfWeek === dOfWeek);
-      const isDayOpen = dayConfig ? dayConfig.isOpen : (dOfWeek !== 0); // Se não configurado, domingo fecha, outros abrem
+      const dOfWeek = dayCursor.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+      const dayConfig = storeWeeklySchedule.find(s => Number(s.dayOfWeek) === Number(dOfWeek));
+      const isDayOpen = dayConfig ? Boolean(dayConfig.isOpen) : (dOfWeek !== 0);
+
+      console.log(`[Schedule Sync Mobile] Day ${dOfWeek} (${dayCursor.toDateString()}): isOpen = ${isDayOpen}`, dayConfig);
 
       if (isDayOpen) {
         const y = dayCursor.getFullYear();
