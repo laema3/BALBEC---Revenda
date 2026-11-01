@@ -15,6 +15,7 @@ import { TableManagerTab } from '../components/TableManagerTab';
 import { DriversTab } from '../components/DriversTab';
 import { DeliveryZonesTab } from '../components/DeliveryZonesTab';
 import { TotemBackupModal } from '../components/TotemBackupModal';
+import { SmsRemindersTab } from '../components/SmsRemindersTab';
 import { safeStorage } from '../utils/storage';
 import { Link } from 'react-router-dom';
 import { 
@@ -8474,6 +8475,7 @@ export default function Admin() {
               {activeTab === 'dashboard' ? 'Visão Geral' :
                activeTab === 'orders' ? 'Pedidos' :
                activeTab === 'customers' ? 'Clientes & Leads' :
+               activeTab === 'sms' ? 'Lembretes SMS (3x/dia)' :
                activeTab === 'tables' ? 'Mesas & QR Codes' :
                activeTab === 'categories' ? 'Categorias' :
                activeTab === 'products' ? 'Produtos' :
@@ -8731,6 +8733,17 @@ export default function Admin() {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'sync_logs' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
             >
               <History className="w-5 h-5" /> Histórico de Atualizações
+            </button>
+          )}
+          {!isCaixaUser && (
+            <button type="button" 
+              onClick={() => {
+                setActiveTab('sms');
+                setIsMobileNavOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'sms' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
+            >
+              <MessageCircle className="w-5 h-5" /> Lembretes SMS (3x/dia)
             </button>
           )}
           {!isCaixaUser && (

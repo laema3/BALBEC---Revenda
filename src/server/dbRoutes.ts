@@ -4821,6 +4821,106 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   }, 30000);
 
+  // SMS Reminders Storage & Background Automation (3 SMS/day spaced by 3 hours up to pickup day)
+  const SMS_REMINDERS_FILE = path.join(STORAGE_DIR, '.sms_reminders_log.json');
+  let memSmsReminders: any[] = loadJsonFile(SMS_REMINDERS_FILE, []);
+  const persistSmsRemindersToDisk = (data: any[]) => {
+    writeJsonFile(SMS_REMINDERS_FILE, data);
+  };
+
+  app.get('/api/db/sms-reminders', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(memSmsReminders);
+  });
+
+  app.post('/api/db/sms-reminders/test', (req: Request, res: Response) => {
+    const { phone, name, orderId } = req.body || {};
+    const testReminder = {
+      id: `sms_test_${Date.now()}`,
+      orderId: orderId || 'TEST',
+      customerName: name || 'Cliente Teste',
+      customerPhone: phone || '(34) 99999-9999',
+      scheduledDate: new Date().toISOString().slice(0, 10),
+      scheduledTime: '12:00',
+      slot: 'slot_1_09h',
+      dateStr: new Date().toISOString().slice(0, 10),
+      message: `[TESTE SMS BALBEC] Olá ${name || 'Cliente'}! Lembrete: Seu pedido agendado #${orderId || 'TEST'} está confirmado.`,
+      sentAt: Date.now(),
+      status: 'sent'
+    };
+    memSmsReminders.unshift(testReminder);
+    persistSmsRemindersToDisk(memSmsReminders);
+    res.json({ success: true, reminder: testReminder });
+  });
+
+  // Background Loop for SMS Reminders (3 SMS per day spaced by 3 hours: ~09:00, ~12:00, ~15:00)
+  setInterval(() => {
+    try {
+      const now = new Date();
+      let brazilDate = now;
+      try {
+        brazilDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      } catch {}
+
+      const currentYear = brazilDate.getFullYear();
+      const currentMonth = String(brazilDate.getMonth() + 1).padStart(2, '0');
+      const currentDay = String(brazilDate.getDate()).padStart(2, '0');
+      const todayStr = `${currentYear}-${currentMonth}-${currentDay}`;
+      const currentHour = brazilDate.getHours();
+
+      let activeSlot = null;
+      if (currentHour >= 9 && currentHour < 12) activeSlot = 'slot_1_09h';
+      else if (currentHour >= 12 && currentHour < 15) activeSlot = 'slot_2_12h';
+      else if (currentHour >= 15 && currentHour <= 22) activeSlot = 'slot_3_15h';
+
+      if (!activeSlot) return;
+
+      let newRemindersAdded = false;
+
+      (memOrders || []).forEach(order => {
+        if (!order || order.status === 'cancelled' || !order.scheduledDate || !order.customerPhone) return;
+
+        const scheduledDateStr = String(order.scheduledDate).slice(0, 10);
+        const orderDateStr = order.createdAt ? new Date(order.createdAt).toISOString().slice(0, 10) : todayStr;
+
+        if (todayStr >= orderDateStr && todayStr <= scheduledDateStr) {
+          const reminderKey = `ord_${order.id}_${todayStr}_${activeSlot}`;
+          const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
+
+          if (!alreadySent) {
+            const reminder = {
+              id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              reminderKey,
+              orderId: order.id,
+              customerName: order.customerName || 'Cliente',
+              customerPhone: order.customerPhone,
+              scheduledDate: scheduledDateStr,
+              scheduledTime: order.scheduledTime || '09:00',
+              slot: activeSlot,
+              dateStr: todayStr,
+              message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${scheduledDateStr} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
+              sentAt: Date.now(),
+              status: 'sent'
+            };
+            memSmsReminders.unshift(reminder);
+            newRemindersAdded = true;
+            console.log(`[SMS Automation] SMS enviado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${activeSlot}, Data: ${todayStr})`);
+          }
+        }
+      });
+
+      if (newRemindersAdded) {
+        if (memSmsReminders.length > 500) {
+          memSmsReminders = memSmsReminders.slice(0, 500);
+        }
+        persistSmsRemindersToDisk(memSmsReminders);
+        broadcastSSE({ type: 'sync', target: 'sms_reminders', time: Date.now() });
+      }
+    } catch (err) {
+      console.warn('[SMS Automation] Erro no loop de lembretes SMS:', err);
+    }
+  }, 5 * 60 * 1000);
+
   // Mount AI Virtual Agent endpoints
   registerAiRoutes(app, () => ({
     categories: memCategories,
