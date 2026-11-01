@@ -104,6 +104,10 @@ const DEFAULT_STORE_INFO = {
   deliveryEstimatedTimeMax: 50,
   showSystemIntroButton: false,
   minOrderValue: 150,
+  smsReminderTime1: '09:00',
+  smsReminderTime2: '12:00',
+  smsReminderTime3: '15:00',
+  smsRemindersEnabled: true,
 };
 
 export function sanitizeStoreInfoPrinters(info: any) {
@@ -1070,31 +1074,48 @@ export async function hydrateFromPostgres(): Promise<void> {
       // 1. Hidratar Store Info
       try {
         const storeList = await withDbRetry(() => db.select().from(storeInfo).where(eq(storeInfo.id, 'default')));
+        const diskVal: any = loadJsonFile(STORE_INFO_FILE, {});
+        const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
+        let backupStoreInfo = null;
+        if (fs.existsSync(autoBackupPath)) {
+          try {
+            const autoJson = JSON.parse(fs.readFileSync(autoBackupPath, 'utf8'));
+            if (autoJson && autoJson.storeInfo) backupStoreInfo = autoJson.storeInfo;
+          } catch {}
+        }
+
+        const dbRow: any = storeList.length > 0 ? storeList[0] : {};
+        const merged: any = { 
+          ...DEFAULT_STORE_INFO, 
+          ...dbRow, 
+          ...(backupStoreInfo || {}),
+          ...diskVal,
+          id: 'default' 
+        };
+
+        if (dbRow.weeklySchedule && (!diskVal.weeklySchedule || diskVal.weeklySchedule === '[]' || diskVal.weeklySchedule === DEFAULT_STORE_INFO.weeklySchedule)) {
+          merged.weeklySchedule = dbRow.weeklySchedule;
+        } else if (diskVal.weeklySchedule && diskVal.weeklySchedule !== '[]') {
+          merged.weeklySchedule = diskVal.weeklySchedule;
+        } else if (backupStoreInfo?.weeklySchedule) {
+          merged.weeklySchedule = backupStoreInfo.weeklySchedule;
+        }
+
+        merged.deliveryEnabled = false;
+        merged.kioskEnabled = false;
+        merged.requireQrCodeForOrdering = false;
+        memStoreInfo = sanitizeStoreInfoPrinters(merged);
+        persistStoreInfoToDisk(memStoreInfo);
+
         if (storeList.length > 0) {
-          const dbRow = storeList[0];
-          const merged: any = { ...DEFAULT_STORE_INFO, ...memStoreInfo };
-          for (const [key, val] of Object.entries(dbRow)) {
-            if (val !== null && val !== undefined) {
-              if (typeof val === 'string' && val.trim() === '' && merged[key] && merged[key] !== '') {
-                // keep existing
-              } else if (val === '[]' && merged[key] && merged[key] !== '[]') {
-                // keep existing
-              } else {
-                merged[key] = val;
-              }
-            }
-          }
-          // Regras fixas deste projeto: apenas retirada (delivery, totem e QR Code de mesa desabilitados)
-          merged.deliveryEnabled = false;
-          merged.kioskEnabled = false;
-          merged.requireQrCodeForOrdering = false;
-          memStoreInfo = sanitizeStoreInfoPrinters(merged);
-          persistStoreInfoToDisk(memStoreInfo);
-          console.log(`[DB Hydrate] StoreInfo carregada com sucesso do PostgreSQL: "${memStoreInfo.name}"`);
+          try {
+            await withDbRetry(() => db.update(storeInfo).set(memStoreInfo).where(eq(storeInfo.id, 'default')));
+          } catch {}
         } else {
           await withDbRetry(() => db.insert(storeInfo).values({ ...DEFAULT_STORE_INFO, ...memStoreInfo, deliveryEnabled: false, kioskEnabled: false, requireQrCodeForOrdering: false, id: 'default' }).onConflictDoNothing());
           console.log('[DB Hydrate] Criada linha default em store_info no PostgreSQL.');
         }
+        console.log(`[DB Hydrate] StoreInfo carregada e sincronizada com sucesso: "${memStoreInfo.name}"`);
       } catch (storeErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
       }
@@ -2447,6 +2468,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (body.tvShowCaptions !== undefined) sanitized.tvShowCaptions = Boolean(body.tvShowCaptions);
       if (body.isMaintenance !== undefined) sanitized.isMaintenance = Boolean(body.isMaintenance);
       if (body.maintenanceMessage !== undefined) sanitized.maintenanceMessage = String(body.maintenanceMessage);
+      if (body.smsReminderTime1 !== undefined) sanitized.smsReminderTime1 = String(body.smsReminderTime1);
+      if (body.smsReminderTime2 !== undefined) sanitized.smsReminderTime2 = String(body.smsReminderTime2);
+      if (body.smsReminderTime3 !== undefined) sanitized.smsReminderTime3 = String(body.smsReminderTime3);
+      if (body.smsRemindersEnabled !== undefined) sanitized.smsRemindersEnabled = Boolean(body.smsRemindersEnabled);
       if (body.weeklySchedule !== undefined) {
         sanitized.weeklySchedule = typeof body.weeklySchedule === 'string'
           ? body.weeklySchedule
@@ -4889,8 +4914,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     res.json({ success: true, reminder: testReminder });
   });
 
-  // Background Loop for SMS Reminders (3 SMS per day spaced by 3 hours: ~09:00, ~12:00, ~15:00)
-  setInterval(() => {
+  const checkAndTriggerSmsReminders = () => {
     try {
       const now = new Date();
       let brazilDate = now;
@@ -4904,12 +4928,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const todayStr = `${currentYear}-${currentMonth}-${currentDay}`;
       const currentHour = brazilDate.getHours();
 
-      let activeSlot = null;
+      let activeSlot = 'slot_2_12h';
       if (currentHour >= 9 && currentHour < 12) activeSlot = 'slot_1_09h';
       else if (currentHour >= 12 && currentHour < 15) activeSlot = 'slot_2_12h';
-      else if (currentHour >= 15 && currentHour <= 22) activeSlot = 'slot_3_15h';
-
-      if (!activeSlot) return;
+      else if (currentHour >= 15) activeSlot = 'slot_3_15h';
+      else activeSlot = 'slot_1_09h';
 
       let newRemindersAdded = false;
 
@@ -4920,28 +4943,30 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         const orderDateStr = order.createdAt ? new Date(order.createdAt).toISOString().slice(0, 10) : todayStr;
 
         if (todayStr >= orderDateStr && todayStr <= scheduledDateStr) {
-          const reminderKey = `ord_${order.id}_${todayStr}_${activeSlot}`;
-          const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
+          ['slot_1_09h', 'slot_2_12h', 'slot_3_15h'].forEach(slot => {
+            const reminderKey = `ord_${order.id}_${todayStr}_${slot}`;
+            const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
 
-          if (!alreadySent) {
-            const reminder = {
-              id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              reminderKey,
-              orderId: order.id,
-              customerName: order.customerName || 'Cliente',
-              customerPhone: order.customerPhone,
-              scheduledDate: scheduledDateStr,
-              scheduledTime: order.scheduledTime || '09:00',
-              slot: activeSlot,
-              dateStr: todayStr,
-              message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${scheduledDateStr} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
-              sentAt: Date.now(),
-              status: 'sent'
-            };
-            memSmsReminders.unshift(reminder);
-            newRemindersAdded = true;
-            console.log(`[SMS Automation] SMS enviado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${activeSlot}, Data: ${todayStr})`);
-          }
+            if (!alreadySent && (slot === activeSlot || slot <= activeSlot)) {
+              const reminder = {
+                id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                reminderKey,
+                orderId: order.id,
+                customerName: order.customerName || 'Cliente',
+                customerPhone: order.customerPhone,
+                scheduledDate: scheduledDateStr,
+                scheduledTime: order.scheduledTime || '09:00',
+                slot,
+                dateStr: todayStr,
+                message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${scheduledDateStr} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
+                sentAt: Date.now(),
+                status: 'sent'
+              };
+              memSmsReminders.unshift(reminder);
+              newRemindersAdded = true;
+              console.log(`[SMS Automation] SMS enviado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${todayStr})`);
+            }
+          });
         }
       });
 
@@ -4955,7 +4980,18 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     } catch (err) {
       console.warn('[SMS Automation] Erro no loop de lembretes SMS:', err);
     }
-  }, 5 * 60 * 1000);
+  };
+
+  setInterval(checkAndTriggerSmsReminders, 60 * 1000);
+
+  app.post('/api/db/sms-reminders/trigger-now', (req: Request, res: Response) => {
+    try {
+      checkAndTriggerSmsReminders();
+      res.json({ success: true, reminders: memSmsReminders });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // Mount AI Virtual Agent endpoints
   registerAiRoutes(app, () => ({

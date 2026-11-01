@@ -9,6 +9,70 @@ export const SmsRemindersTab: React.FC = () => {
   const [testOrderId, setTestOrderId] = useState('0001');
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [isTriggeringNow, setIsTriggeringNow] = useState(false);
+  const [time1, setTime1] = useState('09:00');
+  const [time2, setTime2] = useState('12:00');
+  const [time3, setTime3] = useState('15:00');
+  const [isSavingTimes, setIsSavingTimes] = useState(false);
+  const [timesSaveResult, setTimesSaveResult] = useState<string | null>(null);
+
+  const fetchStoreSettings = async () => {
+    try {
+      const res = await fetch('/api/db/store-info');
+      if (res.ok) {
+        const info = await res.json();
+        if (info.smsReminderTime1) setTime1(info.smsReminderTime1);
+        if (info.smsReminderTime2) setTime2(info.smsReminderTime2);
+        if (info.smsReminderTime3) setTime3(info.smsReminderTime3);
+      }
+    } catch {}
+  };
+
+  const handleTriggerNow = async () => {
+    if (isTriggeringNow) return;
+    setIsTriggeringNow(true);
+    try {
+      const res = await fetch('/api/db/sms-reminders/trigger-now', { method: 'POST' });
+      if (res.ok) {
+        await fetchReminders();
+        alert('Lembretes SMS disparados e verificados com sucesso!');
+      } else {
+        alert('Erro ao disparar lembretes SMS.');
+      }
+    } catch (err) {
+      console.error('Erro ao acionar lembretes SMS:', err);
+      alert('Erro de conexão.');
+    } finally {
+      setIsTriggeringNow(false);
+    }
+  };
+
+  const handleSaveTimes = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingTimes(true);
+    setTimesSaveResult(null);
+    try {
+      const res = await fetch('/api/db/store-info', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smsReminderTime1: time1,
+          smsReminderTime2: time2,
+          smsReminderTime3: time3
+        })
+      });
+      if (res.ok) {
+        setTimesSaveResult('Horários de disparo atualizados com sucesso!');
+        setTimeout(() => setTimesSaveResult(null), 3000);
+      } else {
+        setTimesSaveResult('Erro ao salvar horários.');
+      }
+    } catch (err) {
+      setTimesSaveResult('Erro de conexão ao salvar.');
+    } finally {
+      setIsSavingTimes(false);
+    }
+  };
 
   const fetchReminders = async () => {
     setIsLoading(true);
@@ -27,6 +91,7 @@ export const SmsRemindersTab: React.FC = () => {
 
   useEffect(() => {
     fetchReminders();
+    fetchStoreSettings();
     const interval = setInterval(fetchReminders, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -74,15 +139,26 @@ export const SmsRemindersTab: React.FC = () => {
             O sistema dispara automaticamente 3 SMSs de 3 em 3 horas (Manhã ~09h, Almoço ~12h, Tarde ~15h) para os clientes a cada dia que antecede a retirada, inclusive no dia do agendamento.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={fetchReminders}
-          disabled={isLoading}
-          className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer w-fit"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Atualizar Histórico</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleTriggerNow}
+            disabled={isTriggeringNow}
+            className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-orange-600/30"
+          >
+            <Send className={`w-4 h-4 ${isTriggeringNow ? 'animate-spin' : ''}`} />
+            <span>{isTriggeringNow ? 'Disparando...' : 'Disparar Lembretes SMS Agora 🚀'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={fetchReminders}
+            disabled={isLoading}
+            className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer w-fit"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Atualizar Histórico</span>
+          </button>
+        </div>
       </div>
 
       {/* Caixa de Teste de Envio */}
@@ -142,6 +218,60 @@ export const SmsRemindersTab: React.FC = () => {
             <span>{testResult}</span>
           </div>
         )}
+      </div>
+
+      {/* Configuração dos Horários de Disparo */}
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+        <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+          <span>⏰</span> Configurar Horários dos 3 Disparos Diários de SMS
+        </h3>
+        <p className="text-xs text-stone-500">
+          Defina abaixo os 3 horários em que o sistema deve disparar automaticamente os lembretes de retirada para os clientes.
+        </p>
+        <form onSubmit={handleSaveTimes} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div>
+            <label className="block text-[11px] font-bold text-stone-700 mb-1">1º Horário (Manhã)</label>
+            <input
+              type="time"
+              value={time1}
+              onChange={(e) => setTime1(e.target.value)}
+              required
+              className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono font-bold text-stone-800"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-stone-700 mb-1">2º Horário (Almoço)</label>
+            <input
+              type="time"
+              value={time2}
+              onChange={(e) => setTime2(e.target.value)}
+              required
+              className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono font-bold text-stone-800"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-stone-700 mb-1">3º Horário (Tarde)</label>
+            <input
+              type="time"
+              value={time3}
+              onChange={(e) => setTime3(e.target.value)}
+              required
+              className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono font-bold text-stone-800"
+            />
+          </div>
+          <div className="sm:col-span-3 flex items-center justify-between gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={isSavingTimes}
+              className="py-2.5 px-6 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all"
+            >
+              {isSavingTimes ? 'Salvando...' : 'Salvar Horários de Disparo 💾'}
+            </button>
+            {timesSaveResult && (
+              <span className="text-xs font-bold text-emerald-600 animate-in fade-in">{timesSaveResult}</span>
+            )}
+          </div>
+        </form>
       </div>
 
       {/* Histórico de Lembretes Disparados */}
