@@ -91,3 +91,42 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// Click em notificação do sistema
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
+  );
+});
+
+// Push notification para smartphone com tela bloqueada / app em segundo plano
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'BALBEC Salgados', message: event.data ? event.data.text() : 'Atualização do seu pedido!' };
+  }
+  const title = data.title || 'BALBEC - Atualização do Pedido';
+  const options = {
+    body: data.message || data.body || 'Seu pedido teve uma nova atualização!',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [250, 100, 250],
+    data: data,
+    tag: data.orderId ? `order-${data.orderId}` : 'balbec-notification',
+    renotify: true,
+    requireInteraction: true
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});

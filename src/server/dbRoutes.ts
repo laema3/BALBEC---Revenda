@@ -2330,8 +2330,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     memOrders = memOrders.map(o => o.id === id ? { ...o, ...data } : o);
     persistOrdersToDisk(memOrders);
 
+    const orderData = memOrders.find(o => o.id === id) || { id, ...data };
+
     if (data.status === 'ready' || data.status === 'ready_for_pickup') {
-      const orderData = memOrders.find(o => o.id === id) || { id, ...data };
       latestTvCall = {
         id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         orderId: id,
@@ -2348,10 +2349,65 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       target: 'orders',
       action: 'status_updated',
       orderId: id,
-      status: data.status,
-      deliveryStatus: data.deliveryStatus,
+      status: data.status || orderData.status,
+      deliveryStatus: data.deliveryStatus || orderData.deliveryStatus,
+      customerName: orderData.customerName || 'Cliente',
+      customerPhone: orderData.customerPhone || '',
       time: Date.now()
     });
+
+    // Disparo automático via NTFY se ativado (alcance mesmo com app/tela fechada)
+    if (data.status && data.status !== 'pending' && memStoreInfo.ntfyEnabled !== false) {
+      try {
+        const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
+        const statusLabels: Record<string, string> = {
+          preparing: '👨‍🍳 Em Preparo na Cozinha',
+          ready: '📦 Pronto no Balcão',
+          ready_for_pickup: '🛍️ Pronto para Retirada',
+          ready_for_delivery: '📦 Pronto para Entrega',
+          out_for_delivery: '🛵 Saiu para Entrega',
+          completed: '🎉 Concluído / Finalizado',
+          cancelled: '⚠️ Cancelado'
+        };
+        const label = statusLabels[data.status] || `Status: ${data.status}`;
+        const cleanPhone = String(orderData.customerPhone || '').replace(/\D/g, '');
+        fetch(`https://ntfy.sh/${topic}`, {
+          method: 'POST',
+          headers: {
+            'Title': `🔔 Status Atualizado: Pedido #${String(id).slice(-4)} (${label})`,
+            'Priority': 'urgent',
+            'Tags': 'bell,package,memo',
+            'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(`Olá ${orderData.customerName || 'Cliente'}! Seu pedido #${String(id).slice(-4)} na BALBEC foi atualizado para: ${label}.`)}` : undefined
+          },
+          body: `Pedido #${String(id).slice(-4)} (${orderData.customerName || 'Cliente'})\nNovo Status: ${label}\nTelefone: ${orderData.customerPhone || 'Não informado'}`
+        }).catch(() => {});
+      } catch (ntfyErr) {}
+    }
+
+    // Disparo automático via Webhook se configurado
+    if (data.status && memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
+      try {
+        const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
+        const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
+        fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+          },
+          body: JSON.stringify({
+            event: 'order_status_updated',
+            orderId: id,
+            status: data.status,
+            customerName: orderData.customerName || 'Cliente',
+            customerPhone: orderData.customerPhone || '',
+            phone: orderData.customerPhone || '',
+            number: String(orderData.customerPhone || '').replace(/\D/g, ''),
+            message: `Olá ${orderData.customerName || 'Cliente'}! Seu pedido #${String(id).slice(-4)} teve seu status atualizado para: ${data.status}.`
+          })
+        }).catch(() => {});
+      } catch (whErr) {}
+    }
 
     if (isDatabaseConfigured()) {
       try {
@@ -4560,7 +4616,18 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         } catch (e) {}
       }
 
-      broadcastSSE({ type: 'sync', target: 'orders', action: 'order_accepted', orderId: id, time: Date.now() });
+      broadcastSSE({ 
+        type: 'sync', 
+        target: 'orders', 
+        action: 'status_updated', 
+        orderId: id, 
+        status: 'out_for_delivery', 
+        deliveryStatus: 'in_transit',
+        customerName: updatedOrder.customerName || 'Cliente',
+        customerPhone: updatedOrder.customerPhone || '',
+        driverName: updatedOrder.driverName,
+        time: Date.now() 
+      });
       res.json({ success: true, order: updatedOrder });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao aceitar entrega' });
@@ -4598,7 +4665,17 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         } catch (e) {}
       }
 
-      broadcastSSE({ type: 'sync', target: 'orders', action: 'order_completed', orderId: id, time: Date.now() });
+      broadcastSSE({ 
+        type: 'sync', 
+        target: 'orders', 
+        action: 'status_updated', 
+        orderId: id, 
+        status: 'completed', 
+        deliveryStatus: 'delivered',
+        customerName: updatedOrder.customerName || 'Cliente',
+        customerPhone: updatedOrder.customerPhone || '',
+        time: Date.now() 
+      });
       res.json({ success: true, order: updatedOrder });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao concluir entrega' });
@@ -4642,7 +4719,18 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         } catch (e) {}
       }
 
-      broadcastSSE({ type: 'sync', target: 'orders', action: 'driver_assigned', orderId: id, time: Date.now() });
+      broadcastSSE({ 
+        type: 'sync', 
+        target: 'orders', 
+        action: 'status_updated', 
+        orderId: id, 
+        status: updatedOrder.status, 
+        deliveryStatus: updatedOrder.deliveryStatus,
+        customerName: updatedOrder.customerName || 'Cliente',
+        customerPhone: updatedOrder.customerPhone || '',
+        driverName: updatedOrder.driverName,
+        time: Date.now() 
+      });
       res.json({ success: true, order: updatedOrder });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao atribuir motoboy' });

@@ -2426,6 +2426,65 @@ export default function Menu() {
             {renderMonthlyGoalCard()}
           </div>
 
+          {/* Card de Notificações no Smartphone (Mesmo com tela desligada / app fechado) */}
+          <div className="p-4 sm:p-5 bg-amber-50 border-b border-amber-200">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-amber-200 shadow-sm space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                  <BellRing className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-black text-stone-900 leading-tight">
+                    Acompanhamento do Pedido no Smartphone
+                  </h4>
+                  <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                    Você receberá alertas com aviso sonoro e vibração assim que seu pedido for colocado em preparo e sair para entrega.
+                  </p>
+                </div>
+              </div>
+
+              {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await Notification.requestPermission();
+                      if (res === 'granted') {
+                        try {
+                          if ('serviceWorker' in navigator) {
+                            const reg = await navigator.serviceWorker.ready;
+                            reg.showNotification('BALBEC Salgados', {
+                              body: `Notificações ativadas! Avisaremos você sobre o Pedido #${orderNumber}.`,
+                              icon: '/icon-192.png',
+                              badge: '/icon-192.png',
+                              vibrate: [250, 100, 250]
+                            });
+                          } else {
+                            new Notification('BALBEC Salgados', {
+                              body: `Notificações ativadas! Avisaremos você sobre o Pedido #${orderNumber}.`,
+                              icon: '/icon-192.png'
+                            });
+                          }
+                        } catch {}
+                        alert('✅ Notificações ativadas com sucesso! Você receberá alertas na barra do seu celular.');
+                      }
+                    } catch {}
+                  }}
+                  className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 active:scale-[0.98] text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
+                >
+                  <BellRing className="w-4 h-4" />
+                  <span>Ativar Avisos na Barra de Notificações do Celular</span>
+                </button>
+              )}
+
+              <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-[11px] text-stone-500 leading-relaxed space-y-1">
+                <p className="font-semibold text-stone-700">📱 Como funcionam os alertas:</p>
+                <p>• <strong>Com o site aberto:</strong> A janela de aviso surge na hora e fica fixa na tela com som e vibração até você fechar.</p>
+                <p>• <strong>Se fechar a aba ou bloquear a tela:</strong> Assim que você reabrir o site ou desbloquear o aparelho, a janela de aviso surge imediatamente com o status atualizado!</p>
+              </div>
+            </div>
+          </div>
+
           {/* Cronômetro e Acompanhamento ao Vivo de Entrega (Apenas para Delivery) */}
           {lastPlacedOrder?.type === 'delivery' && (
             <div className="p-5 sm:p-6 bg-gradient-to-b from-stone-50 to-orange-50/50 border-b border-stone-200 space-y-4">
