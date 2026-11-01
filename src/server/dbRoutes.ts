@@ -2327,10 +2327,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }
     }
 
-    memOrders = memOrders.map(o => o.id === id ? { ...o, ...data } : o);
+    const targetId = String(id).trim();
+    memOrders = memOrders.map(o => (String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) ? { ...o, ...data } : o);
     persistOrdersToDisk(memOrders);
 
-    const orderData = memOrders.find(o => o.id === id) || { id, ...data };
+    const orderData = memOrders.find(o => String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) || { id, ...data };
 
     if (data.status === 'ready' || data.status === 'ready_for_pickup') {
       latestTvCall = {

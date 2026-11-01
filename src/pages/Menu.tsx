@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations } from '../lib/utils';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck } from 'lucide-react';
 import { MotorcycleIcon } from '../components/MotorcycleIcon';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
@@ -737,18 +737,104 @@ export default function Menu() {
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
 
-  // Pedido de delivery ativo mais recente para acompanhar rota e status
-  const latestActiveDeliveryOrder = useMemo(() => {
-    if (lastPlacedOrder && (lastPlacedOrder.type === 'delivery' || lastPlacedOrder.deliveryType === 'delivery') && lastPlacedOrder.status !== 'completed' && lastPlacedOrder.status !== 'cancelled') {
+  // Pedido ativo mais recente deste cliente (Delivery ou Retirada) para acompanhar status
+  const latestActiveOrder = useMemo(() => {
+    // 1. Pedido colocado nesta sessão
+    if (lastPlacedOrder && lastPlacedOrder.status !== 'completed' && lastPlacedOrder.status !== 'cancelled') {
       return lastPlacedOrder;
     }
-    const foundInCustomer = customerOrders.find((o: any) => 
-      (o.type === 'delivery' || o.deliveryType === 'delivery') && 
-      o.status !== 'completed' && 
-      o.status !== 'cancelled'
-    );
-    return foundInCustomer || null;
-  }, [lastPlacedOrder, customerOrders]);
+    // 2. Procura nos pedidos da loja aquele que pertence a este cliente/aparelho
+    const savedLastId = (
+      safeStorage.getItem('balbec_last_order_id') || 
+      safeStorage.getItem('balbec_tracking_order_id') || 
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_last_order_id') : null) || 
+      ''
+    ).trim();
+    const savedPhone = (
+      safeStorage.getItem('balbec_customer_phone') || 
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_customer_phone') : null) || 
+      ''
+    ).replace(/\D/g, '');
+    const currentOrders = orders || [];
+    
+    if (savedLastId) {
+      const match = currentOrders.find((o: any) => {
+        const sId = String(o.id).trim();
+        return (sId === savedLastId || sId.endsWith(savedLastId) || savedLastId.endsWith(sId)) && o.status !== 'completed' && o.status !== 'cancelled';
+      });
+      if (match) return match;
+    }
+
+    if (savedPhone.length >= 8) {
+      const match = currentOrders.find((o: any) => {
+        const oPhone = String(o.customerPhone || '').replace(/\D/g, '');
+        return oPhone.length >= 8 && (oPhone === savedPhone || oPhone.slice(-8) === savedPhone.slice(-8)) && o.status !== 'completed' && o.status !== 'cancelled';
+      });
+      if (match) return match;
+    }
+
+    if (activeCustomer?.id) {
+      const match = currentOrders.find((o: any) => o.customerId === activeCustomer.id && o.status !== 'completed' && o.status !== 'cancelled');
+      if (match) return match;
+    }
+
+    return null;
+  }, [lastPlacedOrder, orders, activeCustomer]);
+
+  // Mantém compatibilidade com latestActiveDeliveryOrder para telas específicas de delivery
+  const latestActiveDeliveryOrder = useMemo(() => {
+    if (latestActiveOrder && (latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery')) {
+      return latestActiveOrder;
+    }
+    return null;
+  }, [latestActiveOrder]);
+
+  const [isTrackOrderModalOpen, setIsTrackOrderModalOpen] = useState(false);
+  const [trackSearchInput, setTrackSearchInput] = useState('');
+  const [trackSearchFeedback, setTrackSearchFeedback] = useState<string | null>(null);
+
+  const handleConnectOrder = (searchQuery: string) => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setTrackSearchFeedback('Por favor, informe o número do pedido (ex: 0001) ou seu telefone.');
+      return;
+    }
+    const cleanDigits = query.replace(/\D/g, '');
+    const currentOrders = orders || [];
+    
+    const found = currentOrders.find((o: any) => {
+      const sId = String(o.id).trim();
+      if (sId === query || sId.endsWith(query) || query.endsWith(sId)) return true;
+      if (cleanDigits.length >= 4 && sId.slice(-4) === cleanDigits.slice(-4)) return true;
+      const oPhone = String(o.customerPhone || '').replace(/\D/g, '');
+      if (cleanDigits.length >= 8 && oPhone.length >= 8) {
+        return oPhone === cleanDigits || oPhone.slice(-8) === cleanDigits.slice(-8);
+      }
+      return false;
+    });
+
+    if (found) {
+      safeStorage.setItem('balbec_last_order_id', String(found.id));
+      safeStorage.setItem('balbec_tracking_order_id', String(found.id));
+      if (found.customerPhone) safeStorage.setItem('balbec_customer_phone', String(found.customerPhone));
+      if (found.customerName) safeStorage.setItem('balbec_customer_name', String(found.customerName));
+      try {
+        localStorage.setItem('balbec_last_order_id', String(found.id));
+        if (found.customerPhone) localStorage.setItem('balbec_customer_phone', String(found.customerPhone));
+        if (found.customerName) localStorage.setItem('balbec_customer_name', String(found.customerName));
+      } catch {}
+      setLastPlacedOrder(found);
+      setTrackSearchFeedback(`✅ Pedido #${String(found.id).slice(-4).padStart(4, '0')} conectado com sucesso a este celular!`);
+      if (found.type === 'delivery' || found.deliveryType === 'delivery') {
+        setTimeout(() => {
+          setIsTrackOrderModalOpen(false);
+          setTrackingOrderId(found.id);
+        }, 1200);
+      }
+    } else {
+      setTrackSearchFeedback('Nenhum pedido em aberto encontrado. Verifique o número ou telefone digitado.');
+    }
+  };
 
   const [isLoadingCustomerData, setIsLoadingCustomerData] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -2079,10 +2165,20 @@ export default function Menu() {
         safeStorage.setItem('balbec_last_order_id', String(createdOrder.id));
         safeStorage.setItem('balbec_customer_name', finalCustomerName);
         safeStorage.setItem('balbec_customer_phone', finalCustomerPhone);
+        safeStorage.setItem('balbec_last_order_id', String(createdOrder.id));
         try {
           localStorage.setItem('balbec_last_order_id', String(createdOrder.id));
           localStorage.setItem('balbec_customer_name', finalCustomerName);
           localStorage.setItem('balbec_customer_phone', finalCustomerPhone);
+
+          const rawRecent = safeStorage.getItem('balbec_recent_order_ids') || localStorage.getItem('balbec_recent_order_ids');
+          const recentList: string[] = rawRecent ? JSON.parse(rawRecent) : [];
+          if (!recentList.includes(String(createdOrder.id))) {
+            recentList.unshift(String(createdOrder.id));
+            const trimmedList = recentList.slice(0, 10);
+            safeStorage.setItem('balbec_recent_order_ids', JSON.stringify(trimmedList));
+            localStorage.setItem('balbec_recent_order_ids', JSON.stringify(trimmedList));
+          }
         } catch {}
         if (isDeliveryOrder) {
           safeStorage.setItem('balbec_customer_email', customerEmail.trim());
@@ -5711,6 +5807,20 @@ export default function Menu() {
                   <span>{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setIsTrackOrderModalOpen(true)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer shrink-0 ${
+                    latestActiveOrder 
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' 
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                  title="Acompanhar Pedido / Notificações"
+                >
+                  <BellRing className="w-4 h-4 text-inherit" />
+                  <span>{latestActiveOrder ? `Pedido #${String(latestActiveOrder.id).slice(-4)}` : 'Acompanhar'}</span>
+                </button>
+
                 {showDeliveryFeatures && (
                   (activeCustomer || hasName) ? (
                     <div className="flex items-center gap-2">
@@ -5780,6 +5890,19 @@ export default function Menu() {
                   className="p-2 bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 rounded-xl transition-all shadow-sm flex items-center justify-center disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 text-stone-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTrackOrderModalOpen(true)}
+                  className={`p-2 rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer ${
+                    latestActiveOrder 
+                      ? 'bg-emerald-600 text-white animate-pulse' 
+                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  }`}
+                  title="Acompanhar Pedido / Notificações"
+                >
+                  <BellRing className="w-4 h-4 sm:w-5 sm:h-5 text-inherit" />
                 </button>
 
                 {showDeliveryFeatures && (
@@ -6366,30 +6489,42 @@ export default function Menu() {
           </main>
         </div>
       </div>
-      {/* Barra Flutuante de Pedido Delivery em Rota / Andamento */}
-      {latestActiveDeliveryOrder && !trackingOrderId && !isSuccess && (
+      {/* Barra Flutuante de Pedido Ativo (Delivery ou Retirada) em Andamento */}
+      {latestActiveOrder && !trackingOrderId && !isSuccess && (
         <div className={`fixed ${!isCartOpen && cart.length > 0 ? 'bottom-20' : 'bottom-4'} left-4 right-4 z-40 max-w-lg mx-auto animate-in slide-in-from-bottom duration-300`}>
           <div 
-            onClick={() => setTrackingOrderId(latestActiveDeliveryOrder.id)}
+            onClick={() => {
+              if (latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery') {
+                setTrackingOrderId(latestActiveOrder.id);
+              } else {
+                setIsTrackOrderModalOpen(true);
+              }
+            }}
             className="bg-stone-900/95 backdrop-blur-md text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border-2 border-emerald-500 flex items-center justify-between gap-3 cursor-pointer hover:bg-stone-800 active:scale-98 transition-all"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center font-bold text-white shrink-0 shadow-md animate-pulse">
-                <MotorcycleIcon className="w-5 h-5" />
+                {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? (
+                  <MotorcycleIcon className="w-5 h-5" />
+                ) : (
+                  <PackageCheck className="w-5 h-5" />
+                )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase text-emerald-400">
-                    Pedido #{String(latestActiveDeliveryOrder.id).slice(-4).padStart(4, '0')}
+                    Pedido #{String(latestActiveOrder.id).slice(-4).padStart(4, '0')} • {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
                   </span>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 </div>
                 <div className="text-xs sm:text-sm font-black truncate text-stone-100">
-                  {latestActiveDeliveryOrder.status === 'out_for_delivery' || latestActiveDeliveryOrder.deliveryStatus === 'in_transit'
+                  {latestActiveOrder.status === 'out_for_delivery' || latestActiveOrder.deliveryStatus === 'in_transit'
                     ? '🛵 Motoboy a caminho! Toque para ver mapa'
-                    : latestActiveDeliveryOrder.status === 'ready' || latestActiveDeliveryOrder.status === 'ready_for_delivery'
-                    ? '📦 Pronto! Aguardando saída do motoboy'
-                    : '🥟 Em preparo na loja'}
+                    : latestActiveOrder.status === 'ready' || latestActiveOrder.status === 'ready_for_pickup' || latestActiveOrder.status === 'ready_for_delivery'
+                    ? '🛍️ Pronto no Balcão! Já pode retirar'
+                    : latestActiveOrder.status === 'preparing'
+                    ? '👨‍🍳 Em preparo na cozinha'
+                    : '⏳ Pedido recebido na fila'}
                 </div>
               </div>
             </div>
@@ -6398,8 +6533,8 @@ export default function Menu() {
               type="button"
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shrink-0 shadow-md flex items-center gap-1.5 cursor-pointer"
             >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Ver Rota 📍</span>
+              <BellRing className="w-3.5 h-3.5" />
+              <span>{latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? 'Ver Rota 📍' : 'Ver Status 🔔'}</span>
             </button>
           </div>
         </div>
@@ -7700,6 +7835,156 @@ export default function Menu() {
           orderId={trackingOrderId}
           onClose={() => setTrackingOrderId(null)}
         />
+      )}
+
+      {/* Modal de Acompanhamento e Conexão de Pedido com o Smartphone */}
+      {isTrackOrderModalOpen && (
+        <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="bg-stone-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-bold shadow-md shadow-orange-500/30">
+                  <BellRing className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight">Acompanhar Pedido</h3>
+                  <p className="text-xs text-stone-400">Status em tempo real no seu celular</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsTrackOrderModalOpen(false); setTrackSearchFeedback(null); }}
+                className="p-1.5 text-stone-400 hover:text-white rounded-full hover:bg-stone-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6 space-y-5">
+              {/* Pedido Ativo Atual (se houver) */}
+              {latestActiveOrder ? (
+                <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-200/80 px-2 py-0.5 rounded-md">
+                        Pedido Ativo Conectado
+                      </span>
+                      <h4 className="text-xl font-black text-stone-900 font-mono mt-1">
+                        #{String(latestActiveOrder.id).slice(-4).padStart(4, '0')}
+                      </h4>
+                    </div>
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 text-xs font-semibold text-stone-700 space-y-1">
+                    <p>
+                      <strong>Status Atual: </strong> 
+                      <span className="text-emerald-700 uppercase font-black">
+                        {latestActiveOrder.status === 'out_for_delivery' ? '🛵 Saiu para Entrega' :
+                         latestActiveOrder.status === 'ready' || latestActiveOrder.status === 'ready_for_pickup' ? '🛍️ Pronto para Retirada no Balcão' :
+                         latestActiveOrder.status === 'ready_for_delivery' ? '📦 Pronto para Entrega' :
+                         latestActiveOrder.status === 'preparing' ? '👨‍🍳 Em Preparo na Cozinha' :
+                         '⏳ Pedido Recebido na Fila'}
+                      </span>
+                    </p>
+                    <p className="text-stone-500 text-[11px]">
+                      Cliente: {latestActiveOrder.customerName || 'Cliente'} • {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
+                    </p>
+                  </div>
+
+                  {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTrackOrderModalOpen(false);
+                        setTrackingOrderId(latestActiveOrder.id);
+                      }}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      <span>Ver Motoboy no Mapa ao Vivo 📍</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Formulário para buscar e conectar outro pedido */}
+              <div className="space-y-3">
+                <label className="block text-xs font-black uppercase text-stone-700 tracking-wider">
+                  Conectar Pedido a este Celular
+                </label>
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  Fez o pedido em outro computador, balcão ou janela? Digite o <strong>número do pedido (ex: 0001)</strong> ou seu <strong>telefone</strong> para vincular a este smartphone e receber os avisos na tela:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={trackSearchInput}
+                    onChange={(e) => setTrackSearchInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleConnectOrder(trackSearchInput)}
+                    placeholder="Ex: 0001 ou (11) 99999-9999"
+                    className="flex-1 p-3 bg-stone-50 border border-stone-300 rounded-xl text-xs sm:text-sm font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleConnectOrder(trackSearchInput)}
+                    className="px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shrink-0 transition-all cursor-pointer shadow-md"
+                  >
+                    Buscar
+                  </button>
+                </div>
+
+                {trackSearchFeedback && (
+                  <p className={`text-xs font-bold p-3 rounded-xl ${
+                    trackSearchFeedback.startsWith('✅') 
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                      : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {trackSearchFeedback}
+                  </p>
+                )}
+              </div>
+
+              {/* Botão de Permissão de Notificações do Smartphone */}
+              <div className="pt-2 border-t border-stone-200 space-y-2">
+                <p className="text-[11px] font-black uppercase text-stone-500 tracking-wider">
+                  Notificações na Barra do Celular
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      if (typeof window !== 'undefined' && 'Notification' in window) {
+                        const res = await Notification.requestPermission();
+                        if (res === 'granted') {
+                          alert('✅ Notificações do smartphone ativadas com sucesso!');
+                        } else {
+                          alert('A permissão foi negada no navegador. Para ativar, toque no ícone de cadeado na barra de endereços do seu navegador e marque Notificações como Permitir.');
+                        }
+                      } else {
+                        alert('Este navegador não tem suporte a notificações web. Mas fique tranquilo: com o site aberto, a janela surge na tela com som e vibração!');
+                      }
+                    } catch (e) {
+                      alert('Toque no cadeado na barra de endereços para permitir notificações.');
+                    }
+                  }}
+                  className="w-full py-3 px-4 bg-stone-100 hover:bg-stone-200 active:scale-98 text-stone-800 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 border border-stone-300 cursor-pointer transition-all"
+                >
+                  <BellRing className="w-4 h-4 text-orange-600" />
+                  <span>
+                    {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
+                      ? '✅ Notificações do Sistema Ativadas'
+                      : 'Ativar Notificações no Sistema'}
+                  </span>
+                </button>
+                <p className="text-[10px] text-stone-400 leading-tight">
+                  No iPhone (iOS), adicione à tela de início (botão Compartilhar ➔ Adicionar à Tela de Início) para ativar avisos na barra do iOS.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast de Sucesso ao Adicionar ao Carrinho */}

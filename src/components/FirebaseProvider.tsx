@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useStore } from '../store/useStore';
 import { BakeryLoader } from './BakeryLoader';
+import { safeStorage } from '../utils/storage';
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const { fetchData, fetchOrdersOnly, setIsOnline, isOnline } = useStore();
@@ -114,26 +115,79 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     const isCustomerOrderOwner = (order: any, dataOrderId?: string | number, dataPhone?: string, dataName?: string) => {
       if (!order && !dataOrderId) return false;
       
-      const savedLastOrderId = localStorage.getItem('balbec_last_order_id') || sessionStorage.getItem('balbec_last_order_id');
-      const savedPhone = localStorage.getItem('balbec_customer_phone') || sessionStorage.getItem('balbec_customer_phone');
-      const savedName = localStorage.getItem('balbec_customer_name') || sessionStorage.getItem('balbec_customer_name');
+      const targetId = String(order?.id || dataOrderId || '').trim();
       
-      const targetId = String(order?.id || dataOrderId || '');
-      if (savedLastOrderId && targetId && (String(savedLastOrderId) === targetId || targetId.endsWith(String(savedLastOrderId)))) {
-        return true;
-      }
+      // 1. Identificador salvo no aparelho (último pedido ou pedido rastreado)
+      const savedLastOrderId = (
+        safeStorage.getItem('balbec_last_order_id') || 
+        safeStorage.getItem('balbec_tracking_order_id') ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_last_order_id') : null) || 
+        (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('balbec_last_order_id') : null) || 
+        ''
+      ).trim();
       
-      const cleanSavedPhone = savedPhone ? String(savedPhone).replace(/\D/g, '') : '';
-      const orderPhone = (order?.customerPhone || dataPhone) ? String(order?.customerPhone || dataPhone).replace(/\D/g, '') : '';
-      if (cleanSavedPhone && orderPhone) {
-        if (cleanSavedPhone === orderPhone || cleanSavedPhone.endsWith(orderPhone) || orderPhone.endsWith(cleanSavedPhone)) {
+      if (savedLastOrderId && targetId) {
+        if (savedLastOrderId === targetId || targetId.endsWith(savedLastOrderId) || savedLastOrderId.endsWith(targetId)) {
           return true;
         }
       }
 
-      const cleanSavedName = savedName ? savedName.trim().toLowerCase() : '';
+      // 2. Lista de múltiplos pedidos recentes salvos neste navegador/aparelho
+      try {
+        const rawRecent = safeStorage.getItem('balbec_recent_order_ids') || (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_recent_order_ids') : null);
+        if (rawRecent) {
+          const recentList = JSON.parse(rawRecent);
+          if (Array.isArray(recentList) && recentList.some((rid: any) => {
+            const sRid = String(rid).trim();
+            return sRid === targetId || targetId.endsWith(sRid) || sRid.endsWith(targetId);
+          })) {
+            return true;
+          }
+        }
+      } catch {}
+
+      // 3. Cliente logado na conta
+      let loggedCustomer: any = null;
+      try {
+        const loggedRaw = safeStorage.getItem('balbec_logged_customer') || (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_logged_customer') : null);
+        if (loggedRaw) loggedCustomer = JSON.parse(loggedRaw);
+      } catch {}
+
+      if (loggedCustomer && loggedCustomer.id && order?.customerId && String(loggedCustomer.id) === String(order.customerId)) {
+        return true;
+      }
+
+      // 4. Comparação ultra-flexível de telefone (ignora 55, DDD, zeros e formatação; compara últimos 8 dígitos)
+      const savedPhone = (
+        safeStorage.getItem('balbec_customer_phone') || 
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_customer_phone') : null) || 
+        (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('balbec_customer_phone') : null) || 
+        (loggedCustomer ? loggedCustomer.phone : '') ||
+        ''
+      );
+      const rawOrderPhone = order?.customerPhone || dataPhone || '';
+      const cleanSavedDigits = String(savedPhone || '').replace(/\D/g, '');
+      const cleanOrderDigits = String(rawOrderPhone || '').replace(/\D/g, '');
+
+      if (cleanSavedDigits.length >= 8 && cleanOrderDigits.length >= 8) {
+        const sPhone = cleanSavedDigits.replace(/^55/, '').replace(/^0/, '');
+        const oPhone = cleanOrderDigits.replace(/^55/, '').replace(/^0/, '');
+        if (sPhone === oPhone || sPhone.slice(-8) === oPhone.slice(-8) || oPhone.endsWith(sPhone) || sPhone.endsWith(oPhone)) {
+          return true;
+        }
+      }
+
+      // 5. Comparação por nome do cliente (se não for genérico)
+      const savedName = (
+        safeStorage.getItem('balbec_customer_name') || 
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_customer_name') : null) || 
+        (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('balbec_customer_name') : null) || 
+        (loggedCustomer ? loggedCustomer.name : '') ||
+        ''
+      );
+      const cleanSavedName = savedName ? String(savedName).trim().toLowerCase() : '';
       const orderName = (order?.customerName || dataName) ? String(order?.customerName || dataName).trim().toLowerCase() : '';
-      if (cleanSavedName && cleanSavedName !== 'cliente' && orderName && cleanSavedName === orderName) {
+      if (cleanSavedName && cleanSavedName !== 'cliente' && cleanSavedName !== 'cliente totem' && orderName && cleanSavedName === orderName) {
         return true;
       }
 
@@ -157,7 +211,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         badge: finalBadge
       });
 
-      localStorage.setItem(`balbec_last_notified_status_${order.id}`, status);
+      const lastNotifiedKey = `balbec_last_notified_status_${order.id}`;
+      safeStorage.setItem(lastNotifiedKey, status);
+      try { localStorage.setItem(lastNotifiedKey, status); } catch {}
 
       // Vibração no smartphone
       try {
@@ -181,9 +237,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     // Disparada quando o cliente desbloqueia a tela ou abre o aplicativo/site de volta
     const checkCustomerPendingOrderStatus = () => {
       try {
-        const savedLastOrderId = localStorage.getItem('balbec_last_order_id') || sessionStorage.getItem('balbec_last_order_id');
-        const savedPhone = localStorage.getItem('balbec_customer_phone') || sessionStorage.getItem('balbec_customer_phone');
-        const savedName = localStorage.getItem('balbec_customer_name') || sessionStorage.getItem('balbec_customer_name');
+        const savedLastOrderId = (
+          safeStorage.getItem('balbec_last_order_id') || 
+          safeStorage.getItem('balbec_tracking_order_id') ||
+          (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_last_order_id') : null) || 
+          (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('balbec_last_order_id') : null) || 
+          ''
+        ).trim();
+        const savedPhone = safeStorage.getItem('balbec_customer_phone') || (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_customer_phone') : null);
+        const savedName = safeStorage.getItem('balbec_customer_name') || (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_customer_name') : null);
 
         if (!savedLastOrderId && !savedPhone && !savedName) return;
 
@@ -194,11 +256,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
         const currentStatus = customerOrder.status || 'pending';
         const lastNotifiedKey = `balbec_last_notified_status_${customerOrder.id}`;
-        const lastNotified = localStorage.getItem(lastNotifiedKey);
+        const lastNotified = safeStorage.getItem(lastNotifiedKey) || (typeof localStorage !== 'undefined' ? localStorage.getItem(lastNotifiedKey) : null);
 
         if (!lastNotified) {
           if (currentStatus === 'pending') {
-            localStorage.setItem(lastNotifiedKey, 'pending');
+            safeStorage.setItem(lastNotifiedKey, 'pending');
+            try { localStorage.setItem(lastNotifiedKey, 'pending'); } catch {}
           } else {
             // O pedido avançou enquanto o aplicativo estava fechado! Dispara a notificação agora que ele abriu.
             showCustomerStatusAlert(customerOrder, currentStatus);
@@ -228,7 +291,11 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
               if (data.target === 'orders') {
                 fetchOrdersOnly().then(() => {
                   const currentOrders = useStore.getState().orders;
-                  const updatedOrder = currentOrders.find(o => String(o.id) === String(data.orderId)) || (data.orderId ? {
+                  const targetId = String(data.orderId || '').trim();
+                  const updatedOrder = currentOrders.find(o => {
+                    const sId = String(o.id).trim();
+                    return sId === targetId || sId.endsWith(targetId) || targetId.endsWith(sId);
+                  }) || (data.orderId ? {
                     id: data.orderId,
                     customerName: data.customerName || 'Cliente',
                     customerPhone: data.customerPhone || '',
