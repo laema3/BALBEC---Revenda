@@ -1325,6 +1325,19 @@ export default function Menu() {
     product: null,
     quantity: 1
   });
+
+  const [frozenNormalQty, setFrozenNormalQty] = useState<number>(0);
+  const [frozenFrozenQty, setFrozenFrozenQty] = useState<number>(0);
+
+  const openFrozenModal = (product: any, qty: number = 1) => {
+    const cartItemsForProd = cart.filter(ci => ci.productId === product.id);
+    const existingNormal = cartItemsForProd.filter(ci => !ci.isFrozen && !ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado')).reduce((s, ci) => s + ci.quantity, 0);
+    const existingFrozen = cartItemsForProd.filter(ci => ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado')).reduce((s, ci) => s + ci.quantity, 0);
+
+    setFrozenNormalQty(existingNormal > 0 ? existingNormal : 0);
+    setFrozenFrozenQty(existingFrozen > 0 ? existingFrozen : (existingNormal === 0 ? qty : 0));
+    setFrozenModal({ isOpen: true, product, quantity: qty });
+  };
   
   const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
@@ -1683,7 +1696,7 @@ export default function Menu() {
     }
 
     if (isSalgadoProduct(product, categories)) {
-      setFrozenModal({ isOpen: true, product, quantity: qty });
+      openFrozenModal(product, qty);
       return;
     }
 
@@ -6846,85 +6859,149 @@ export default function Menu() {
         </div>
       )})()}
 
-      {/* Modal de Opção de Salgado Congelado */}
-      {frozenModal.isOpen && frozenModal.product && (
-        <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-6">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-blue-200">
-                🥟
+      {/* Modal de Variações de Quantidade (Normal vs Congelado) */}
+      {frozenModal.isOpen && frozenModal.product && (() => {
+        const found = products.find(p => p.id === 'prod_congelado');
+        const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
+        const congeladoProd = found || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
+
+        return (
+          <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-stone-200 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-orange-200">
+                  🥟
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight">
+                  Escolher Quantidades: {frozenModal.product.name}
+                </h3>
+                <p className="text-xs text-stone-500 leading-relaxed px-2">
+                  Defina abaixo quantas unidades deseja da versão <strong>Normal (Frita/Assada)</strong> e/ou da versão <strong>Congelada</strong> (acréscimo de {formatCurrency(pVal)} por unidade).
+                </p>
               </div>
-              <h3 className="text-xl font-black text-stone-900 uppercase tracking-tight">
-                Deseja o salgado <span className="text-blue-600 animate-pulse font-black underline">CONGELADO</span>?
-              </h3>
-              <p className="text-xs font-bold text-orange-600 uppercase tracking-wide">
-                {frozenModal.product.name} ({frozenModal.quantity}x)
-              </p>
-              <p className="text-xs text-stone-500 leading-relaxed px-2">
-                Salgados <strong className="text-blue-600 font-bold uppercase">congelados</strong> possuem um acréscimo unitário de <strong className="text-stone-800">
-                  {formatCurrency( (() => {
-                    const found = products.find(p => p.id === 'prod_congelado');
-                    const pVal = found ? Number(found.price) : 0.30;
-                    return (pVal > 0 && pVal < 2.0) ? pVal : 0.30;
-                  })() )}
-                </strong> por unidade.
-              </p>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const found = products.find(p => p.id === 'prod_congelado');
-                  const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
-                  const congeladoProd = found || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
-                  const frozenAddon = {
-                    productId: congeladoProd.id,
-                    name: 'Opção: Congelado',
-                    price: pVal,
-                    externalId: (congeladoProd as any).externalId || '9999',
-                    isFrozen: true
-                  };
-                  setCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && (ci.isFrozen || (ci.addons || []).some((a: any) => a.isFrozen || a.productId === 'prod_congelado')))));
-                  addToCart(frozenModal.product, [frozenAddon], null, frozenModal.quantity);
-                  setFrozenModal({ isOpen: false, product: null, quantity: 1 });
-                }}
-                className="py-4 px-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ring-2 ring-blue-300"
-              >
-                <span className="text-base font-black flex items-center gap-1">
-                  <span>❄️ Sim,</span>
-                  <span className="text-blue-100 animate-pulse underline">CONGELADO</span>
-                </span>
-                <span className="text-[10px] opacity-90">+ {formatCurrency( (() => {
-                  const found = products.find(p => p.id === 'prod_congelado');
-                  const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
-                  return pVal * frozenModal.quantity;
-                })() )}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && !ci.isFrozen && !(ci.addons || []).some((a: any) => a.isFrozen || a.productId === 'prod_congelado'))));
-                  addToCart(frozenModal.product, [], null, frozenModal.quantity);
-                  setFrozenModal({ isOpen: false, product: null, quantity: 1 });
-                }}
-                className="py-4 px-4 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex flex-col items-center justify-center gap-1 border border-amber-300 cursor-pointer shadow-xs"
-              >
-                <span className="text-base font-black">🔥 Não, Normal</span>
-                <span className="text-[10px] text-amber-800 font-bold">Preço padrão (Frito/Assado)</span>
-              </button>
-            </div>
+              <div className="space-y-4">
+                {/* Opção 1: Normal */}
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-amber-900 uppercase flex items-center gap-1.5">
+                      <span>🔥</span> Salgado Normal (Frito/Assado)
+                    </p>
+                    <p className="text-xs text-amber-800 font-bold mt-0.5">
+                      {formatCurrency(frozenModal.product.price)} un
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-amber-300 shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setFrozenNormalQty(Math.max(0, frozenNormalQty - 1))}
+                      className="w-8 h-8 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-black flex items-center justify-center cursor-pointer"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={frozenNormalQty}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                        setFrozenNormalQty(isNaN(val) ? 0 : val);
+                      }}
+                      className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFrozenNormalQty(frozenNormalQty + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              onClick={() => setFrozenModal({ isOpen: false, product: null, quantity: 1 })}
-              className="w-full py-2.5 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
-            >
-              Cancelar
-            </button>
+                {/* Opção 2: Congelado */}
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-blue-900 uppercase flex items-center gap-1.5">
+                      <span>❄️</span> Salgado Congelado
+                    </p>
+                    <p className="text-xs text-blue-800 font-bold mt-0.5">
+                      {formatCurrency(frozenModal.product.price + pVal)} un <span className="text-[10px] opacity-80">(+{formatCurrency(pVal)})</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-blue-300 shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setFrozenFrozenQty(Math.max(0, frozenFrozenQty - 1))}
+                      className="w-8 h-8 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 font-black flex items-center justify-center cursor-pointer"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={frozenFrozenQty}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                        setFrozenFrozenQty(isNaN(val) ? 0 : val);
+                      }}
+                      className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFrozenFrozenQty(frozenFrozenQty + 1)}
+                      className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (frozenNormalQty === 0 && frozenFrozenQty === 0) {
+                      alert('Por favor, informe a quantidade para pelo menos uma das opções (Normal ou Congelado).');
+                      return;
+                    }
+
+                    setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
+
+                    if (frozenNormalQty > 0) {
+                      addToCart(frozenModal.product, [], null, frozenNormalQty);
+                    }
+
+                    if (frozenFrozenQty > 0) {
+                      const frozenAddon = {
+                        productId: congeladoProd.id,
+                        name: 'Opção: Congelado',
+                        price: pVal,
+                        externalId: (congeladoProd as any).externalId || '9999',
+                        isFrozen: true
+                      };
+                      addToCart(frozenModal.product, [frozenAddon], null, frozenFrozenQty);
+                    }
+
+                    setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                  }}
+                  className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Confirmar e Adicionar ao Carrinho 🛒</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFrozenModal({ isOpen: false, product: null, quantity: 1 })}
+                  className="w-full py-2.5 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal de Seleção de Mesa */}
       {showTableSelectModal && (

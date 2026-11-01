@@ -4,6 +4,7 @@ import { MessageSquare, Send, RefreshCw, CheckCircle2, Phone, Calendar, User, Be
 export const SmsRemindersTab: React.FC = () => {
   const [reminders, setReminders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [testPhone, setTestPhone] = useState('(34) 99999-9999');
   const [testName, setTestName] = useState('Cliente Exemplo');
   const [testOrderId, setTestOrderId] = useState('0001');
@@ -109,14 +110,18 @@ export const SmsRemindersTab: React.FC = () => {
 
   const fetchReminders = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/db/sms-reminders?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setReminders(Array.isArray(data) ? data : []);
+      } else {
+        setLoadError('Erro ao carregar histórico de lembretes.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao buscar histórico de SMS:', err);
+      setLoadError(err?.message || 'Erro de conexão.');
     } finally {
       setIsLoading(false);
     }
