@@ -88,7 +88,7 @@ import {
 } from 'lucide-react';
 import { getCurrentPosition } from '../utils/geolocation';
 import { sendNtfyNotification } from '../utils/ntfy';
-import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp, getOrderDateInfo } from '../utils/scheduleHelper';
+import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp, getOrderDateInfo, DayTheme, getDayTheme, ALL_DAYS_THEME } from '../utils/scheduleHelper';
 import { AiAssistantModal } from '../components/AiAssistantModal';
 import { AdminSettingsCollapsible } from '../components/AdminSettingsCollapsible';
 import { CaixaPrinterStationCard } from '../components/CaixaPrinterStationCard';
@@ -4229,14 +4229,29 @@ export default function Admin() {
       )
       .sort((a, b) => getEffectivePickupTimestamp(a) - getEffectivePickupTimestamp(b));
 
-    // Construção dinâmica das Abas por Dia
-    const dateMap = new Map<string, { key: string; label: string; count: number }>();
+    // Construção dinâmica das Abas por Dia com Tema de Cores
+    interface DateTabItem {
+      key: string;
+      label: string;
+      count: number;
+      theme: DayTheme;
+      dayOfWeek: number;
+      dayShortName: string;
+    }
+    const dateMap = new Map<string, DateTabItem>();
     const todayKey = new Date().toISOString().slice(0, 10);
 
     allPendingOrders.forEach(o => {
       const info = getOrderDateInfo(o);
       if (!dateMap.has(info.dateKey)) {
-        dateMap.set(info.dateKey, { key: info.dateKey, label: info.formattedLabel, count: 0 });
+        dateMap.set(info.dateKey, { 
+          key: info.dateKey, 
+          label: info.formattedLabel, 
+          count: 0,
+          theme: info.theme,
+          dayOfWeek: info.dayOfWeek,
+          dayShortName: info.dayShortName
+        });
       }
       const item = dateMap.get(info.dateKey)!;
       item.count += 1;
@@ -4248,9 +4263,16 @@ export default function Admin() {
     const todayTab = sortedDates.find(t => t.key === todayKey);
     const otherTabs = sortedDates.filter(t => t.key !== todayKey);
 
-    const dateTabs = [
+    const dateTabs: DateTabItem[] = [
       ...(todayTab ? [todayTab] : []),
-      { key: 'all', label: 'Todos os Dias', count: allPendingOrders.length },
+      { 
+        key: 'all', 
+        label: 'Todos os Dias', 
+        count: allPendingOrders.length, 
+        theme: ALL_DAYS_THEME,
+        dayOfWeek: -1,
+        dayShortName: 'Todos'
+      },
       ...otherTabs
     ];
 
@@ -4565,20 +4587,30 @@ export default function Admin() {
               <Trash2 className="w-4 h-4" /> Zerar Todos os Pedidos
             </button>
           </div>
-          {/* ABAS SEPARADAS POR DIA */}
-          <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 p-3 rounded-2xl border border-amber-300/80 shadow-xs">
-            <div className="flex items-center justify-between gap-2 mb-2 px-1">
-              <span className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+          {/* ABAS SEPARADAS POR DIA COM CORES ESPECÍFICAS */}
+          <div className="mb-6 bg-stone-50/80 p-3.5 rounded-2xl border border-stone-200/90 shadow-xs">
+            <div className="flex items-center justify-between gap-2 mb-2.5 px-1 flex-wrap">
+              <span className="text-xs font-black uppercase tracking-wider text-stone-900 flex items-center gap-1.5">
                 <CalendarDays className="w-4 h-4 text-orange-600" />
                 <span>Filtrar Pedidos por Dia de Entrega / Retirada ({allPendingOrders.length}):</span>
               </span>
-              <span className="text-[11px] text-stone-500 font-medium hidden sm:inline">
-                Clique no dia para ver apenas os pedidos agendados para a data
-              </span>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-stone-500">
+                <span className="hidden md:inline">Cores por dia:</span>
+                <span className="inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-full border border-stone-200 text-[10px] font-bold text-stone-600">
+                  <span className="w-2 h-2 rounded-full bg-sky-500 inline-block"></span> Seg
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block ml-1"></span> Ter
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block ml-1"></span> Qua
+                  <span className="w-2 h-2 rounded-full bg-purple-500 inline-block ml-1"></span> Qui
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block ml-1"></span> Sex
+                  <span className="w-2 h-2 rounded-full bg-fuchsia-500 inline-block ml-1"></span> Sáb
+                  <span className="w-2 h-2 rounded-full bg-rose-500 inline-block ml-1"></span> Dom
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
               {dateTabs.map(tab => {
                 const isActive = selectedOrderDateTab === tab.key;
+                const theme = tab.theme;
                 return (
                   <button
                     key={tab.key}
@@ -4589,13 +4621,16 @@ export default function Admin() {
                     }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 border select-none ${
                       isActive
-                        ? 'bg-orange-600 text-white border-orange-700 shadow-md scale-102 ring-2 ring-orange-400/50'
-                        : 'bg-white text-stone-700 border-stone-200 hover:bg-amber-50 hover:border-amber-300'
+                        ? `${theme.tabActive} scale-102`
+                        : `${theme.tabInactive}`
                     }`}
                   >
-                    <span>{tab.label}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span>{theme.emoji}</span>
+                      <span>{tab.label}</span>
+                    </span>
                     <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
-                      isActive ? 'bg-white text-orange-700' : 'bg-orange-100 text-orange-800'
+                      isActive ? theme.badgeActive : theme.badgeInactive
                     }`}>
                       {tab.count}
                     </span>
@@ -4630,13 +4665,16 @@ export default function Admin() {
                 // Faltando 30 minutos ou menos para a entrega (ou já no horário/atrasado)
                 const isDueWithin30Mins = diffMinutes <= 30 && order.status !== 'completed' && order.status !== 'cancelled';
 
+                const dayInfo = getOrderDateInfo(order);
+                const dayTheme = dayInfo.theme;
+
                 return (
                   <div 
                     key={order.id} 
-                    className={`bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col transition-all ${
+                    className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden flex flex-col transition-all ${
                       isDueWithin30Mins 
                         ? 'border-4 border-red-600 ring-4 ring-red-500/50 bg-red-50 shadow-2xl scale-[1.02] z-10 animate-pulse' 
-                        : (order.type === 'kiosk' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-orange-200 shadow-xs')
+                        : (order.type === 'kiosk' ? 'border-blue-400 ring-2 ring-blue-100' : `${dayTheme.cardBorder}`)
                     }`}
                     style={isDueWithin30Mins ? { animationDuration: '1s' } : {}}
                   >
@@ -4655,32 +4693,24 @@ export default function Admin() {
                   <div className={`p-4 text-white font-bold flex justify-between items-center ${
                     order.type === 'kiosk' 
                       ? 'bg-blue-600' 
-                      : order.status === 'pending'
-                        ? 'bg-amber-600'
-                        : order.status === 'preparing'
-                          ? 'bg-orange-600'
-                          : order.status === 'ready_for_delivery'
-                            ? 'bg-purple-600'
-                            : (order.status === 'ready' || order.status === 'ready_for_pickup')
-                              ? 'bg-blue-600'
-                              : order.status === 'out_for_delivery'
-                                ? 'bg-indigo-600'
-                                : order.status === 'cancelled'
-                                  ? 'bg-red-600'
-                                  : 'bg-emerald-600'
+                      : dayTheme.cardHeaderBg
                   }`}>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span>Pedido #{String(order.id).slice(-4).padStart(4, '0')}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-extrabold tracking-wide">Pedido #{String(order.id).slice(-4).padStart(4, '0')}</span>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-white border border-white/30 flex items-center gap-1 shadow-xs">
+                          <span>{dayTheme.emoji}</span>
+                          <span>{dayInfo.isToday ? `Hoje (${dayInfo.formattedDate})` : dayInfo.isTomorrow ? `Amanhã (${dayInfo.formattedDate})` : `${dayInfo.dayShortName}, ${dayInfo.formattedDate}`}</span>
+                        </span>
                         {order.tableNumber && (
                           <span className="text-xs bg-amber-400 text-stone-900 font-black px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
                             🍽️ Mesa {order.tableNumber}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs opacity-90 font-normal mt-0.5">Cliente: {order.customerName}</div>
+                      <div className="text-xs opacity-95 font-medium mt-1">Cliente: {order.customerName}</div>
                     </div>
-                    <span className="text-xs bg-white/25 backdrop-blur-xs px-2.5 py-1 rounded-full font-bold">
+                    <span className="text-xs bg-white/25 backdrop-blur-xs px-2.5 py-1 rounded-full font-bold shadow-xs">
                       {order.status === 'pending' ? '🟡 Pendente' :
                        order.status === 'preparing' ? '🟠 Preparando' :
                        order.status === 'ready_for_delivery' ? '🟣 Pronto p/ Entrega' :
@@ -4695,9 +4725,14 @@ export default function Admin() {
                       {new Date(order.createdAt).toLocaleTimeString()} • {order.paymentMethod}
                     </div>
                     {(order.scheduledTime || (order as any).scheduled_time) && (
-                      <div className="mb-3 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 flex items-center gap-2 text-xs font-bold">
-                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>Agendamento: <strong className="font-mono text-amber-950 font-black">{formatDateBR(order.scheduledDay || order.scheduledDate) || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</strong></span>
+                      <div className={`mb-3 px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-xs font-bold border ${dayTheme.cardScheduleBg}`}>
+                        <div className="flex items-center gap-2">
+                          <Clock className={`w-4 h-4 shrink-0 ${dayTheme.cardScheduleIcon}`} />
+                          <span>Agendamento: <strong className="font-mono font-black">{formatDateBR(order.scheduledDay || order.scheduledDate) || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</strong></span>
+                        </div>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border shadow-xs ${dayTheme.accentBadge}`}>
+                          {dayTheme.shortName}
+                        </span>
                       </div>
                     )}
                     <ul className="space-y-2 mb-4">
