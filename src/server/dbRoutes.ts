@@ -286,7 +286,7 @@ try {
         syncItem('users', 'users_data.json');
         syncItem('tvMedia', 'tv_media_data.json');
         syncItem('tables', 'tables_data.json');
-        syncItem('orders', 'orders_data.json');
+        // NOTA: Pedidos nunca são sobrescritos por backups estáticos no boot. Pedidos são transacionais e gerenciados pelo PostgreSQL / disco vivo.
         syncItem('totemBackups', 'totem_backups_data.json');
         syncItem('drivers', 'drivers_data.json');
         syncItem('deliveryZones', 'delivery_zones_data.json');
@@ -549,12 +549,10 @@ try {
       : (baseStore.weeklySchedule || diskStoreInfo.weeklySchedule || DEFAULT_STORE_INFO.weeklySchedule)
   };
   const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
-  const initialBackupOrders = loadJsonFile(ORDERS_BACKUP_FILE, []);
   const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []);
-  const initialPublicOrders = loadJsonFile<any>(path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json'), {})?.orders || [];
-  const initialMasterOrders = masterState?.orders || [];
+  // Pedidos são transacionais: carregamos inicialmente do disco local; a fonte autoritativa definitiva é o PostgreSQL via hydrateFromPostgres()
   const initOrderMap = new Map<string, any>();
-  [...initialPublicOrders, ...initialSeedOrders, ...initialMasterOrders, ...initialDiskOrders, ...initialBackupOrders].forEach((o: any) => {
+  [...initialSeedOrders, ...initialDiskOrders].forEach((o: any) => {
     if (o && o.id) initOrderMap.set(String(o.id), { ...(initOrderMap.get(String(o.id)) || {}), ...o });
   });
   memOrders = Array.from(initOrderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
@@ -659,12 +657,12 @@ function syncPublicBackupAssets(key: string, data: any) {
       } catch {}
     }
     autoData[key] = data;
-    autoData.storeInfo = autoData.storeInfo || memStoreInfo;
-    autoData.categories = autoData.categories || memCategories;
-    autoData.products = autoData.products || memProducts;
-    autoData.customers = autoData.customers || memCustomers;
-    autoData.orders = autoData.orders || memOrders;
-    autoData.users = autoData.users || memUsers;
+    autoData.storeInfo = (key === 'storeInfo') ? data : (autoData.storeInfo || memStoreInfo);
+    autoData.categories = (key === 'categories') ? data : (autoData.categories || memCategories);
+    autoData.products = (key === 'products') ? data : (autoData.products || memProducts);
+    autoData.customers = (key === 'customers') ? data : (autoData.customers || memCustomers);
+    autoData.orders = (key === 'orders') ? data : (autoData.orders || memOrders);
+    autoData.users = (key === 'users') ? data : (autoData.users || memUsers);
     autoData.updatedAt = new Date().toISOString();
     fs.writeFileSync(autoBackupPath, JSON.stringify(autoData, null, 2), 'utf8');
   } catch (e) {
@@ -706,11 +704,86 @@ function persistUsersToDisk(data: any[]) {
   syncPublicBackupAssets('users', data);
 }
 
+export function formatOrderForDb(order: any) {
+  return {
+    id: String(order.id),
+    items: typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []),
+    total: Number(order.total) || 0,
+    status: String(order.status || 'pending'),
+    createdAt: Number(order.createdAt) || Date.now(),
+    type: order.type || 'kiosk',
+    paymentMethod: order.paymentMethod || '',
+    customerName: order.customerName || '',
+    customerPhone: order.customerPhone || null,
+    customerId: order.customerId || null,
+    customerEmail: order.customerEmail || '',
+    customerCpf: order.customerCpf || '',
+    deliveryType: order.deliveryType || null,
+    deliveryAddress: order.deliveryAddress || null,
+    deliveryCep: order.deliveryCep || '',
+    deliveryNeighborhood: order.deliveryNeighborhood || '',
+    deliveryFee: Number(order.deliveryFee) || 0,
+    tableNumber: order.tableNumber ? String(order.tableNumber) : null,
+    tableId: order.tableId || null,
+    driverId: order.driverId || null,
+    driverName: order.driverName || null,
+    deliveryStatus: order.deliveryStatus || 'pending',
+    deliveryAcceptedAt: order.deliveryAcceptedAt ? Number(order.deliveryAcceptedAt) : null,
+    deliveryCompletedAt: order.deliveryCompletedAt ? Number(order.deliveryCompletedAt) : null,
+    scheduledTime: order.scheduledTime || null,
+    scheduledDate: order.scheduledDate || null,
+    scheduledDay: order.scheduledDay || null,
+    scheduledPickupTime: order.scheduledPickupTime || null
+  };
+}
+
 function persistOrdersToDisk(data: any[]) {
+  if (!Array.isArray(data)) return;
   writeJsonFile(ORDERS_FILE, data);
   writeJsonFile(ORDERS_BACKUP_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('orders', data);
+
+  // CRÍTICO: Persiste diretamente nos arquivos de seed para que novos deploys e reinicializações NUNCA percam pedidos nem tragam pedidos antigos fictícios!
+  try {
+    const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
+    if (!fs.existsSync(seedDir)) {
+      fs.mkdirSync(seedDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(seedDir, 'orders_data.json'), JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(path.join(seedDir, 'orders.json'), JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(path.join(seedDir, 'orders_backup.json'), JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(path.join(seedDir, 'orders_backup_data.json'), JSON.stringify(data, null, 2), 'utf8');
+
+    const persistentStatePath = path.join(seedDir, 'app_persistent_state.json');
+    if (fs.existsSync(persistentStatePath)) {
+      try {
+        const pState = JSON.parse(fs.readFileSync(persistentStatePath, 'utf8')) || {};
+        pState.orders = data;
+        fs.writeFileSync(persistentStatePath, JSON.stringify(pState, null, 2), 'utf8');
+      } catch {}
+    }
+
+    const persistentStateDataPath = path.join(seedDir, 'app_persistent_state_data.json');
+    if (fs.existsSync(persistentStateDataPath)) {
+      try {
+        const pState = JSON.parse(fs.readFileSync(persistentStateDataPath, 'utf8')) || {};
+        pState.orders = data;
+        fs.writeFileSync(persistentStateDataPath, JSON.stringify(pState, null, 2), 'utf8');
+      } catch {}
+    }
+
+    const masterStatePath = path.join(seedDir, 'master_state.json');
+    if (fs.existsSync(masterStatePath)) {
+      try {
+        const mState = JSON.parse(fs.readFileSync(masterStatePath, 'utf8')) || {};
+        mState.orders = data;
+        fs.writeFileSync(masterStatePath, JSON.stringify(mState, null, 2), 'utf8');
+      } catch {}
+    }
+  } catch (err) {
+    console.warn('[Persist Seed Orders] Erro ao persistir arquivos seed de pedidos:', err);
+  }
 }
 
 function persistStoreInfoToDisk(data: any) {
@@ -1199,41 +1272,25 @@ export async function hydrateFromPostgres(): Promise<void> {
 
       // 3.2. Hidratar Pedidos
       try {
-        console.log('[DB Hydrate] Consultando últimos 5000 pedidos do PostgreSQL para restauração...');
+        console.log('[DB Hydrate] Consultando pedidos do PostgreSQL para restauração autoritativa...');
         const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
         
-        const orderMap = new Map<string, any>();
-        const initialMemCount = memOrders.length;
-        
-        // 1. Prioriza o que já está na memória (vindo de arquivos de backup locais / public assets)
-        memOrders.forEach(o => { if (o && o.id) orderMap.set(String(o.id), o); });
-        
-        // 2. Mescla com o que está no PostgreSQL (Railway)
-        let dbAddedCount = 0;
-        let dbTotalCount = ordList?.length || 0;
-        
         if (ordList && ordList.length > 0) {
-          ordList.forEach(o => { 
-            if (o && o.id) {
-              const orderId = String(o.id);
-              if (!orderMap.has(orderId)) {
-                dbAddedCount++;
-                orderMap.set(orderId, o);
-              } else {
-                // Se já existe na memória, mescla os dados mas mantém as propriedades do DB como autoritativas para o estado persistente
-                orderMap.set(orderId, { ...(orderMap.get(orderId) || {}), ...o });
-              }
-            }
-          });
+          // Quando o PostgreSQL possui pedidos, ele é a FONTE AUTORITATIVA DEFINITIVA!
+          const parsedDbOrders = ordList.map(o => ({
+            ...o,
+            items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+          }));
+          memOrders = parsedDbOrders.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+          persistOrdersToDisk(memOrders);
+          console.log(`[DB Hydrate] SUCESSO: ${memOrders.length} pedidos reais carregados diretamente do PostgreSQL.`);
+        } else {
+          // Quando o PostgreSQL está vazio (nenhum pedido ou pedidos zerados pelo admin), mantém o estado rigorosamente limpo
+          // NUNCA re-injete pedidos antigos ou fictícios no banco de dados!
+          memOrders = [];
+          persistOrdersToDisk([]);
+          console.log('[DB Hydrate] Nenhum pedido cadastrado no PostgreSQL. Memória e arquivos mantidos limpos.');
         }
-        
-        memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-        persistOrdersToDisk(memOrders);
-        console.log(`[DB Hydrate] Sincronização de Pedidos CONCLUÍDA:`);
-        console.log(` - Pedidos no DB PostgreSQL: ${dbTotalCount}`);
-        console.log(` - Pedidos no Disco/Memória: ${initialMemCount}`);
-        console.log(` - Novos pedidos restaurados do DB: ${dbAddedCount}`);
-        console.log(` - Total final em memória: ${memOrders.length}`);
       } catch (ordHydrateErr: any) {
         console.error('[DB Hydrate] ERRO CRÍTICO ao carregar pedidos do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
       }
@@ -2045,23 +2102,16 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
     try {
       const list = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
-      
-      const orderMap = new Map<string, any>();
-      (memOrders || []).forEach(o => {
-        if (o && o.id) orderMap.set(String(o.id), o);
-      });
-      list.forEach(o => {
-        if (o && o.id) {
-          const existing = orderMap.get(String(o.id));
-          orderMap.set(String(o.id), { ...existing, ...o });
-        }
-      });
-      const mergedOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-      memOrders = mergedOrders;
+      const parsedOrders = (list || []).map(o => ({
+        ...o,
+        items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+      }));
+      memOrders = parsedOrders;
       persistOrdersToDisk(memOrders);
 
       return res.json(memOrders);
     } catch (error: any) {
+      console.warn('[DB API] Aviso ao buscar pedidos do PostgreSQL:', error?.message);
       return res.json(memOrders);
     }
   });
@@ -2228,7 +2278,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       try {
         console.log(`[DB Order] Tentando salvar pedido #${orderForDb.id} no PostgreSQL...`);
         const result = await withDbRetry(async () => {
-          return await db.insert(orders).values(orderForDb).returning();
+          return await db.insert(orders).values(orderForDb).onConflictDoUpdate({
+            target: orders.id,
+            set: orderForDb
+          }).returning();
         });
         if (result && result.length > 0) {
           console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
@@ -2268,7 +2321,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (isDatabaseConfigured()) {
         for (const item of items) {
           try {
-            await db.insert(orders).values(item).onConflictDoNothing();
+            const formatted = formatOrderForDb(item);
+            await withDbRetry(() => db.insert(orders).values(formatted).onConflictDoUpdate({
+              target: orders.id,
+              set: formatted
+            }));
           } catch (_) {}
         }
       }
@@ -2412,16 +2469,41 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     if (isDatabaseConfigured()) {
       try {
-        const result = await db.update(orders).set(data).where(eq(orders.id, id)).returning();
-        onUpdate?.('orders');
-        return res.json(result[0] || { id, ...data });
+        const allowedKeys = [
+          'status', 'deliveryStatus', 'driverId', 'driverName',
+          'deliveryAcceptedAt', 'deliveryCompletedAt', 'scheduledTime',
+          'scheduledDate', 'scheduledDay', 'scheduledPickupTime', 'items', 'total',
+          'paymentMethod', 'customerName', 'customerPhone', 'customerEmail', 'customerCpf',
+          'deliveryType', 'deliveryAddress', 'deliveryCep', 'deliveryNeighborhood', 'deliveryFee',
+          'tableNumber', 'tableId'
+        ];
+        const updatePayload: any = {};
+        for (const k of allowedKeys) {
+          if (data[k] !== undefined) {
+            if (k === 'items') {
+              updatePayload.items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
+            } else if (k === 'total' || k === 'deliveryFee') {
+              updatePayload[k] = Number(data[k]) || 0;
+            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt') {
+              updatePayload[k] = data[k] ? Number(data[k]) : null;
+            } else {
+              updatePayload[k] = data[k];
+            }
+          }
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          const result = await withDbRetry(() => db.update(orders).set(updatePayload).where(eq(orders.id, targetId)).returning());
+          onUpdate?.('orders');
+          return res.json(result[0] || { id: targetId, ...data });
+        }
       } catch (error: any) {
+        console.warn(`[DB Order Update] Erro ao atualizar pedido #${targetId} no PostgreSQL:`, error?.message);
         onUpdate?.('orders');
-        return res.json({ id, ...data });
+        return res.json({ id: targetId, ...data });
       }
     }
     onUpdate?.('orders');
-    res.json({ id, ...data });
+    res.json({ id: targetId, ...data });
   });
 
   app.delete('/api/db/orders', async (req: Request, res: Response) => {
@@ -2431,7 +2513,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     if (isDatabaseConfigured()) {
       try {
-        await db.delete(orders);
+        await withDbRetry(() => db.delete(orders));
+        console.log('[DB Orders] Todos os pedidos foram apagados do PostgreSQL com sucesso.');
       } catch (error: any) {
         console.warn('Erro ao limpar todos os pedidos no DB:', error);
       }
@@ -2457,7 +2540,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
       if (isDatabaseConfigured()) {
         try {
-          const deleted = await db.delete(orders).where(eq(orders.id, targetId)).returning();
+          const deleted = await withDbRetry(() => db.delete(orders).where(eq(orders.id, targetId)).returning());
           console.log(`[API] DB delete result:`, deleted);
         } catch (error: any) {
           console.error(`[API] DB delete error:`, error.message);
