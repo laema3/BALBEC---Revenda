@@ -198,6 +198,14 @@ export const storeInfo = pgTable('store_info', {
   onlinePaymentPublicKey: text('online_payment_public_key').default(''),
   onlinePaymentSecretKey: text('online_payment_secret_key').default(''),
   showSystemIntroButton: boolean('show_system_intro_button').default(true),
+  smsReminderTime1: text('sms_reminder_time_1').default('09:00'),
+  smsReminderTime2: text('sms_reminder_time_2').default('12:00'),
+  smsReminderTime3: text('sms_reminder_time_3').default('15:00'),
+  smsRemindersEnabled: boolean('sms_reminders_enabled').default(true),
+  autoSmsWebhookUrl: text('auto_sms_webhook_url').default(''),
+  autoSmsApiKey: text('auto_sms_api_key').default(''),
+  orderSoundEnabled: boolean('order_sound_enabled').default(true),
+  orderChimeEnabled: boolean('order_chime_enabled').default(true),
 });
 
 // TV Media Playlist table for Smart TV Indoor Signage

@@ -611,5 +611,13 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_prep_time_normal_minutes INTEGER DEFAULT 40;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_prep_time_frozen_minutes INTEGER DEFAULT 90;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS show_system_intro_button BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS sms_reminder_time_1 TEXT DEFAULT '09:00';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS sms_reminder_time_2 TEXT DEFAULT '12:00';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS sms_reminder_time_3 TEXT DEFAULT '15:00';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS sms_reminders_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS auto_sms_webhook_url TEXT DEFAULT '';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS auto_sms_api_key TEXT DEFAULT '';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_sound_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_chime_enabled BOOLEAN DEFAULT TRUE;
   `);
 }

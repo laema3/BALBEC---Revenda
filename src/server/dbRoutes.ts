@@ -322,10 +322,7 @@ if (fs.existsSync(DRIVERS_FILE)) {
   } catch (e) {}
 }
 
-function persistDriversToDisk(data: any[]) {
-  writeJsonFile(DRIVERS_FILE, data);
-  persistAllStateToMasterFile();
-}
+
 
 const DELIVERY_ZONES_FILE = path.join(STORAGE_DIR, '.delivery_zones_data.json');
 const DEFAULT_DELIVERY_ZONES: any[] = [];
@@ -340,6 +337,8 @@ if (fs.existsSync(DELIVERY_ZONES_FILE)) {
 function persistDeliveryZonesToDisk(data: any[]) {
   writeJsonFile(DELIVERY_ZONES_FILE, data);
   persistAllStateToMasterFile();
+  syncPublicBackupAssets('deliveryZones', data);
+  syncSeedFiles('deliveryZones', data);
 }
 
 const DEFAULT_USERS = [
@@ -670,10 +669,65 @@ function syncPublicBackupAssets(key: string, data: any) {
   }
 }
 
+function syncSeedFiles(key: string, data: any) {
+  try {
+    const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
+    if (!fs.existsSync(seedDir)) {
+      fs.mkdirSync(seedDir, { recursive: true });
+    }
+    const mapping: Record<string, string> = {
+      storeInfo: 'store_info',
+      categories: 'categories',
+      products: 'products',
+      users: 'users',
+      customers: 'customers',
+      tables: 'tables',
+      totemBackups: 'totem_backups',
+      drivers: 'drivers',
+      deliveryZones: 'delivery_zones',
+      tvMedia: 'tv_media',
+      orders: 'orders'
+    };
+    const baseName = mapping[key] || key;
+    fs.writeFileSync(path.join(seedDir, `${baseName}_data.json`), JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(path.join(seedDir, `${baseName}.json`), JSON.stringify(data, null, 2), 'utf8');
+
+    const appStatePath = path.join(seedDir, 'app_persistent_state.json');
+    if (fs.existsSync(appStatePath)) {
+      try {
+        const json = JSON.parse(fs.readFileSync(appStatePath, 'utf8')) || {};
+        json[key] = data;
+        fs.writeFileSync(appStatePath, JSON.stringify(json, null, 2), 'utf8');
+      } catch {}
+    }
+
+    const appStateDataPath = path.join(seedDir, 'app_persistent_state_data.json');
+    if (fs.existsSync(appStateDataPath)) {
+      try {
+        const json = JSON.parse(fs.readFileSync(appStateDataPath, 'utf8')) || {};
+        json[key] = data;
+        fs.writeFileSync(appStateDataPath, JSON.stringify(json, null, 2), 'utf8');
+      } catch {}
+    }
+
+    const masterStatePath = path.join(seedDir, 'master_state.json');
+    if (fs.existsSync(masterStatePath)) {
+      try {
+        const json = JSON.parse(fs.readFileSync(masterStatePath, 'utf8')) || {};
+        json[key] = data;
+        fs.writeFileSync(masterStatePath, JSON.stringify(json, null, 2), 'utf8');
+      } catch {}
+    }
+  } catch (err) {
+    console.warn(`[Sync Seed Files] Erro ao sincronizar seed de ${key}:`, err);
+  }
+}
+
 function persistTotemBackupsToDisk(data: any[]) {
   writeJsonFile(TOTEM_BACKUPS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('totemBackups', data);
+  syncSeedFiles('totemBackups', data);
 }
 
 function persistCategoriesToDisk(data: any[]) {
@@ -682,6 +736,7 @@ function persistCategoriesToDisk(data: any[]) {
   writeJsonFile(CATEGORIES_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('categories', data);
+  syncSeedFiles('categories', data);
 }
 
 function persistProductsToDisk(data: any[]) {
@@ -690,18 +745,21 @@ function persistProductsToDisk(data: any[]) {
   writeJsonFile(PRODUCTS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('products', data);
+  syncSeedFiles('products', data);
 }
 
 function persistTvMediaToDisk(data: any[]) {
   writeJsonFile(TV_MEDIA_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('tvMedia', data);
+  syncSeedFiles('tvMedia', data);
 }
 
 function persistUsersToDisk(data: any[]) {
   writeJsonFile(USERS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('users', data);
+  syncSeedFiles('users', data);
 }
 
 export function formatOrderForDb(order: any) {
@@ -743,47 +801,7 @@ function persistOrdersToDisk(data: any[]) {
   writeJsonFile(ORDERS_BACKUP_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('orders', data);
-
-  // CRÍTICO: Persiste diretamente nos arquivos de seed para que novos deploys e reinicializações NUNCA percam pedidos nem tragam pedidos antigos fictícios!
-  try {
-    const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
-    if (!fs.existsSync(seedDir)) {
-      fs.mkdirSync(seedDir, { recursive: true });
-    }
-    fs.writeFileSync(path.join(seedDir, 'orders_data.json'), JSON.stringify(data, null, 2), 'utf8');
-    fs.writeFileSync(path.join(seedDir, 'orders.json'), JSON.stringify(data, null, 2), 'utf8');
-    fs.writeFileSync(path.join(seedDir, 'orders_backup.json'), JSON.stringify(data, null, 2), 'utf8');
-    fs.writeFileSync(path.join(seedDir, 'orders_backup_data.json'), JSON.stringify(data, null, 2), 'utf8');
-
-    const persistentStatePath = path.join(seedDir, 'app_persistent_state.json');
-    if (fs.existsSync(persistentStatePath)) {
-      try {
-        const pState = JSON.parse(fs.readFileSync(persistentStatePath, 'utf8')) || {};
-        pState.orders = data;
-        fs.writeFileSync(persistentStatePath, JSON.stringify(pState, null, 2), 'utf8');
-      } catch {}
-    }
-
-    const persistentStateDataPath = path.join(seedDir, 'app_persistent_state_data.json');
-    if (fs.existsSync(persistentStateDataPath)) {
-      try {
-        const pState = JSON.parse(fs.readFileSync(persistentStateDataPath, 'utf8')) || {};
-        pState.orders = data;
-        fs.writeFileSync(persistentStateDataPath, JSON.stringify(pState, null, 2), 'utf8');
-      } catch {}
-    }
-
-    const masterStatePath = path.join(seedDir, 'master_state.json');
-    if (fs.existsSync(masterStatePath)) {
-      try {
-        const mState = JSON.parse(fs.readFileSync(masterStatePath, 'utf8')) || {};
-        mState.orders = data;
-        fs.writeFileSync(masterStatePath, JSON.stringify(mState, null, 2), 'utf8');
-      } catch {}
-    }
-  } catch (err) {
-    console.warn('[Persist Seed Orders] Erro ao persistir arquivos seed de pedidos:', err);
-  }
+  syncSeedFiles('orders', data);
 }
 
 function persistStoreInfoToDisk(data: any) {
@@ -791,36 +809,28 @@ function persistStoreInfoToDisk(data: any) {
   writeJsonFile(STORE_INFO_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('storeInfo', data);
-
-  // Persist directly to seed files so future deployments keep user settings!
-  try {
-    const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
-    if (!fs.existsSync(seedDir)) {
-      fs.mkdirSync(seedDir, { recursive: true });
-    }
-    fs.writeFileSync(path.join(seedDir, 'store_info_data.json'), JSON.stringify(data, null, 2), 'utf8');
-    
-    const persistentStatePath = path.join(seedDir, 'app_persistent_state.json');
-    if (fs.existsSync(persistentStatePath)) {
-      const pState = JSON.parse(fs.readFileSync(persistentStatePath, 'utf8')) || {};
-      pState.storeInfo = data;
-      fs.writeFileSync(persistentStatePath, JSON.stringify(pState, null, 2), 'utf8');
-    }
-  } catch (err) {
-    console.warn('[Persist Seed StoreInfo] Aviso ao atualizar arquivos seed:', err);
-  }
+  syncSeedFiles('storeInfo', data);
 }
 
 function persistCustomersToDisk(data: any[]) {
   writeJsonFile(CUSTOMERS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('customers', data);
+  syncSeedFiles('customers', data);
 }
 
 function persistTablesToDisk(data: any[]) {
   writeJsonFile(TABLES_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('tables', data);
+  syncSeedFiles('tables', data);
+}
+
+function persistDriversToDisk(data: any[]) {
+  writeJsonFile(DRIVERS_FILE, data);
+  persistAllStateToMasterFile();
+  syncPublicBackupAssets('drivers', data);
+  syncSeedFiles('drivers', data);
 }
 
 function persistAppInstallsToDisk(data: any[]) {
@@ -1159,38 +1169,50 @@ export async function hydrateFromPostgres(): Promise<void> {
           } catch {}
         }
 
-        const dbRow: any = storeList.length > 0 ? storeList[0] : {};
-        const merged: any = { 
-          ...DEFAULT_STORE_INFO, 
-          ...dbRow, 
-          ...(backupStoreInfo || {}),
-          ...diskVal,
-          id: 'default' 
-        };
+        if (storeList && storeList.length > 0) {
+          const dbRow: any = storeList[0];
+          // O PostgreSQL é a autoridade máxima! dbRow sobrescreve qualquer arquivo ou backup estático local.
+          const merged: any = { 
+            ...DEFAULT_STORE_INFO, 
+            ...(backupStoreInfo || {}),
+            ...diskVal,
+            ...dbRow,
+            id: 'default' 
+          };
 
-        if (dbRow.weeklySchedule && (!diskVal.weeklySchedule || diskVal.weeklySchedule === '[]' || diskVal.weeklySchedule === DEFAULT_STORE_INFO.weeklySchedule)) {
-          merged.weeklySchedule = dbRow.weeklySchedule;
-        } else if (diskVal.weeklySchedule && diskVal.weeklySchedule !== '[]') {
-          merged.weeklySchedule = diskVal.weeklySchedule;
-        } else if (backupStoreInfo?.weeklySchedule) {
-          merged.weeklySchedule = backupStoreInfo.weeklySchedule;
-        }
+          // Garante que o weeklySchedule gravado no PostgreSQL é o utilizado
+          if (dbRow.weeklySchedule && dbRow.weeklySchedule !== '[]') {
+            merged.weeklySchedule = dbRow.weeklySchedule;
+          } else if (dbRow.weekly_schedule && dbRow.weekly_schedule !== '[]') {
+            merged.weeklySchedule = dbRow.weekly_schedule;
+          }
 
-        merged.deliveryEnabled = false;
-        merged.kioskEnabled = false;
-        merged.requireQrCodeForOrdering = false;
-        memStoreInfo = sanitizeStoreInfoPrinters(merged);
-        persistStoreInfoToDisk(memStoreInfo);
+          if (dbRow.hours) {
+            merged.hours = dbRow.hours;
+          }
 
-        if (storeList.length > 0) {
-          try {
-            await withDbRetry(() => db.update(storeInfo).set(memStoreInfo).where(eq(storeInfo.id, 'default')));
-          } catch {}
+          if (dbRow.deliveryScheduleSlots && dbRow.deliveryScheduleSlots !== '[]') {
+            merged.deliveryScheduleSlots = dbRow.deliveryScheduleSlots;
+          } else if (dbRow.delivery_schedule_slots && dbRow.delivery_schedule_slots !== '[]') {
+            merged.deliveryScheduleSlots = dbRow.delivery_schedule_slots;
+          }
+
+          memStoreInfo = sanitizeStoreInfoPrinters(merged);
+          persistStoreInfoToDisk(memStoreInfo);
+          console.log(`[DB Hydrate] StoreInfo carregada AUTORITATIVAMENTE do PostgreSQL: "${memStoreInfo.name}" | Horários preservados!`);
         } else {
-          await withDbRetry(() => db.insert(storeInfo).values({ ...DEFAULT_STORE_INFO, ...memStoreInfo, deliveryEnabled: false, kioskEnabled: false, requireQrCodeForOrdering: false, id: 'default' }).onConflictDoNothing());
+          // Apenas se o banco ainda não possuir registro nenhum, insere os valores iniciais
+          const merged: any = { 
+            ...DEFAULT_STORE_INFO, 
+            ...(backupStoreInfo || {}),
+            ...diskVal,
+            id: 'default' 
+          };
+          memStoreInfo = sanitizeStoreInfoPrinters(merged);
+          persistStoreInfoToDisk(memStoreInfo);
+          await withDbRetry(() => db.insert(storeInfo).values(memStoreInfo).onConflictDoNothing());
           console.log('[DB Hydrate] Criada linha default em store_info no PostgreSQL.');
         }
-        console.log(`[DB Hydrate] StoreInfo carregada e sincronizada com sucesso: "${memStoreInfo.name}"`);
       } catch (storeErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
       }
