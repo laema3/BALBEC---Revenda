@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
-import { formatCurrency, formatCapitalized, expandAbbreviations } from '../lib/utils';
+import { formatCurrency, formatCapitalized, expandAbbreviations, formatDateBR, formatAllDatesBR } from '../lib/utils';
 import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck } from 'lucide-react';
 import { MotorcycleIcon } from '../components/MotorcycleIcon';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
@@ -780,6 +780,47 @@ export default function Menu() {
 
     return null;
   }, [lastPlacedOrder, orders, activeCustomer]);
+
+  // Lista de todos os pedidos ativos deste cliente para contagem no sininho
+  const customerActiveOrders = useMemo(() => {
+    const savedLastId = (
+      safeStorage.getItem('balbec_last_order_id') || 
+      safeStorage.getItem('balbec_tracking_order_id') || 
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_last_order_id') : null) || 
+      ''
+    ).trim();
+    const savedPhone = (
+      safeStorage.getItem('balbec_customer_phone') || 
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_customer_phone') : null) || 
+      ''
+    ).replace(/\D/g, '');
+    const currentOrders = orders || [];
+
+    const activeList = currentOrders.filter((o: any) => {
+      if (!o || o.status === 'completed' || o.status === 'cancelled') return false;
+      const sId = String(o.id || '').trim();
+      if (lastPlacedOrder && String(lastPlacedOrder.id).trim() === sId) return true;
+      if (savedLastId && (sId === savedLastId || sId.endsWith(savedLastId) || savedLastId.endsWith(sId))) return true;
+      if (savedPhone.length >= 8) {
+        const oPhone = String(o.customerPhone || '').replace(/\D/g, '');
+        if (oPhone.length >= 8 && (oPhone === savedPhone || oPhone.slice(-8) === savedPhone.slice(-8))) return true;
+      }
+      if (activeCustomer?.id && o.customerId === activeCustomer.id) return true;
+      return false;
+    });
+
+    if (lastPlacedOrder && lastPlacedOrder.status !== 'completed' && lastPlacedOrder.status !== 'cancelled') {
+      if (!activeList.some((o: any) => String(o.id) === String(lastPlacedOrder.id))) {
+        activeList.unshift(lastPlacedOrder);
+      }
+    }
+
+    return activeList;
+  }, [lastPlacedOrder, orders, activeCustomer]);
+
+  const activeOrdersCount = customerActiveOrders.length > 0 
+    ? customerActiveOrders.length 
+    : (latestActiveOrder ? 1 : 0);
 
   // Mantém compatibilidade com latestActiveDeliveryOrder para telas específicas de delivery
   const latestActiveDeliveryOrder = useMemo(() => {
@@ -2469,7 +2510,7 @@ export default function Menu() {
                   <div className="text-left">
                     <p className="text-[10px] font-black uppercase tracking-widest text-orange-700">Data e Horário Agendado</p>
                     <p className="text-base sm:text-lg font-black text-stone-950 uppercase">
-                      {lastPlacedOrder.scheduledDay ? `${lastPlacedOrder.scheduledDay} às ` : ''}{lastPlacedOrder.scheduledTime}{lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}
+                      {lastPlacedOrder.scheduledDay ? `${formatDateBR(lastPlacedOrder.scheduledDay)} às ` : ''}{lastPlacedOrder.scheduledTime}{lastPlacedOrder.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}
                     </p>
                   </div>
                 </div>
@@ -2501,7 +2542,7 @@ export default function Menu() {
                   <div className="mt-4 inline-flex flex-col gap-1">
                     <div className="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-2 shadow-md">
                       <Clock className="w-4 h-4" />
-                      <span>{lastPlacedOrder?.scheduledDay ? `${lastPlacedOrder.scheduledDay} ` : ''}{lastPlacedOrder?.scheduledTime}{lastPlacedOrder?.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}</span>
+                      <span>{lastPlacedOrder?.scheduledDay ? `${formatDateBR(lastPlacedOrder.scheduledDay)} ` : ''}{lastPlacedOrder?.scheduledTime}{lastPlacedOrder?.scheduledPickupTime ? ` (Retirada às ${lastPlacedOrder.scheduledPickupTime})` : ''}</span>
                     </div>
                     <span className="text-xs font-bold text-stone-500 ml-1 mt-1">Cliente: {clientNameDisplay}</span>
                   </div>
@@ -2554,7 +2595,7 @@ export default function Menu() {
                               icon: '/icon-192.png',
                               badge: '/icon-192.png',
                               vibrate: [250, 100, 250]
-                            });
+                            } as any);
                           } else {
                             new Notification('BALBEC Salgados', {
                               body: `Notificações ativadas! Avisaremos você sobre o Pedido #${orderNumber}.`,
@@ -5810,8 +5851,8 @@ export default function Menu() {
                 <button
                   type="button"
                   onClick={() => setIsTrackOrderModalOpen(true)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer shrink-0 ${
-                    latestActiveOrder 
+                  className={`relative flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer shrink-0 ${
+                    activeOrdersCount > 0 
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' 
                       : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                   }`}
@@ -5819,6 +5860,11 @@ export default function Menu() {
                 >
                   <BellRing className="w-4 h-4 text-inherit" />
                   <span>{latestActiveOrder ? `Pedido #${String(latestActiveOrder.id).slice(-4)}` : 'Acompanhar'}</span>
+                  {activeOrdersCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center shadow-md border-2 border-white animate-bounce">
+                      {activeOrdersCount}
+                    </span>
+                  )}
                 </button>
 
                 {showDeliveryFeatures && (
@@ -5895,14 +5941,19 @@ export default function Menu() {
                 <button
                   type="button"
                   onClick={() => setIsTrackOrderModalOpen(true)}
-                  className={`p-2 rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer ${
-                    latestActiveOrder 
+                  className={`relative p-2 rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer ${
+                    activeOrdersCount > 0 
                       ? 'bg-emerald-600 text-white animate-pulse' 
                       : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
                   }`}
                   title="Acompanhar Pedido / Notificações"
                 >
                   <BellRing className="w-4 h-4 sm:w-5 sm:h-5 text-inherit" />
+                  {activeOrdersCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md border-2 border-white animate-bounce">
+                      {activeOrdersCount}
+                    </span>
+                  )}
                 </button>
 
                 {showDeliveryFeatures && (
@@ -6489,56 +6540,6 @@ export default function Menu() {
           </main>
         </div>
       </div>
-      {/* Barra Flutuante de Pedido Ativo (Delivery ou Retirada) em Andamento */}
-      {latestActiveOrder && !trackingOrderId && !isSuccess && (
-        <div className={`fixed ${!isCartOpen && cart.length > 0 ? 'bottom-20' : 'bottom-4'} left-4 right-4 z-40 max-w-lg mx-auto animate-in slide-in-from-bottom duration-300`}>
-          <div 
-            onClick={() => {
-              if (latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery') {
-                setTrackingOrderId(latestActiveOrder.id);
-              } else {
-                setIsTrackOrderModalOpen(true);
-              }
-            }}
-            className="bg-stone-900/95 backdrop-blur-md text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border-2 border-emerald-500 flex items-center justify-between gap-3 cursor-pointer hover:bg-stone-800 active:scale-98 transition-all"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center font-bold text-white shrink-0 shadow-md animate-pulse">
-                {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? (
-                  <MotorcycleIcon className="w-5 h-5" />
-                ) : (
-                  <PackageCheck className="w-5 h-5" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase text-emerald-400">
-                    Pedido #{String(latestActiveOrder.id).slice(-4).padStart(4, '0')} • {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
-                  </span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                </div>
-                <div className="text-xs sm:text-sm font-black truncate text-stone-100">
-                  {latestActiveOrder.status === 'out_for_delivery' || latestActiveOrder.deliveryStatus === 'in_transit'
-                    ? '🛵 Motoboy a caminho! Toque para ver mapa'
-                    : latestActiveOrder.status === 'ready' || latestActiveOrder.status === 'ready_for_pickup' || latestActiveOrder.status === 'ready_for_delivery'
-                    ? '🛍️ Pronto no Balcão! Já pode retirar'
-                    : latestActiveOrder.status === 'preparing'
-                    ? '👨‍🍳 Em preparo na cozinha'
-                    : '⏳ Pedido recebido na fila'}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shrink-0 shadow-md flex items-center gap-1.5 cursor-pointer"
-            >
-              <BellRing className="w-3.5 h-3.5" />
-              <span>{latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? 'Ver Rota 📍' : 'Ver Status 🔔'}</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Sticky Bottom Red Checkout Bar (For All Screens: Mobile, Tablet & Desktop) */}
       {!isCartOpen && cart.length > 0 && !isCheckout && (
@@ -7862,16 +7863,16 @@ export default function Menu() {
             </div>
 
             <div className="p-5 sm:p-6 space-y-5">
-              {/* Pedido Ativo Atual (se houver) */}
-              {latestActiveOrder ? (
-                <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 space-y-3">
+              {/* Pedidos Ativos Conectados (se houver) */}
+              {(customerActiveOrders.length > 0 ? customerActiveOrders : (latestActiveOrder ? [latestActiveOrder] : [])).map((order: any) => (
+                <div key={order.id} className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-200/80 px-2 py-0.5 rounded-md">
                         Pedido Ativo Conectado
                       </span>
                       <h4 className="text-xl font-black text-stone-900 font-mono mt-1">
-                        #{String(latestActiveOrder.id).slice(-4).padStart(4, '0')}
+                        #{String(order.id).slice(-4).padStart(4, '0')}
                       </h4>
                     </div>
                     <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
@@ -7881,24 +7882,24 @@ export default function Menu() {
                     <p>
                       <strong>Status Atual: </strong> 
                       <span className="text-emerald-700 uppercase font-black">
-                        {latestActiveOrder.status === 'out_for_delivery' ? '🛵 Saiu para Entrega' :
-                         latestActiveOrder.status === 'ready' || latestActiveOrder.status === 'ready_for_pickup' ? '🛍️ Pronto para Retirada no Balcão' :
-                         latestActiveOrder.status === 'ready_for_delivery' ? '📦 Pronto para Entrega' :
-                         latestActiveOrder.status === 'preparing' ? '👨‍🍳 Em Preparo na Cozinha' :
+                        {order.status === 'out_for_delivery' || order.deliveryStatus === 'in_transit' ? '🛵 Saiu para Entrega' :
+                         order.status === 'ready' || order.status === 'ready_for_pickup' ? '🛍️ Pronto para Retirada no Balcão' :
+                         order.status === 'ready_for_delivery' ? '📦 Pronto para Entrega' :
+                         order.status === 'preparing' ? '👨‍🍳 Em Preparo na Cozinha' :
                          '⏳ Pedido Recebido na Fila'}
                       </span>
                     </p>
                     <p className="text-stone-500 text-[11px]">
-                      Cliente: {latestActiveOrder.customerName || 'Cliente'} • {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
+                      Cliente: {order.customerName || 'Cliente'} • {order.type === 'delivery' || order.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
                     </p>
                   </div>
 
-                  {latestActiveOrder.type === 'delivery' || latestActiveOrder.deliveryType === 'delivery' ? (
+                  {order.type === 'delivery' || order.deliveryType === 'delivery' ? (
                     <button
                       type="button"
                       onClick={() => {
                         setIsTrackOrderModalOpen(false);
-                        setTrackingOrderId(latestActiveOrder.id);
+                        setTrackingOrderId(order.id);
                       }}
                       className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
@@ -7907,7 +7908,7 @@ export default function Menu() {
                     </button>
                   ) : null}
                 </div>
-              ) : null}
+              ))}
 
               {/* Formulário para buscar e conectar outro pedido */}
               <div className="space-y-3">

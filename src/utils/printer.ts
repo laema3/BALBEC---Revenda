@@ -1,4 +1,5 @@
 import { Order, StoreInfo, useStore } from '../store/useStore';
+import { formatDateBR } from '../lib/utils';
 
 /**
  * Utilitário de impressão de cupom térmico (58mm e 80mm).
@@ -839,7 +840,8 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
 
         ${(() => {
           const sTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
-          const sDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+          const rawDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+          const sDay = formatDateBR(rawDay);
           if (!sTime) return '';
           return `
           <div style="margin: 6px 0; padding: 6px 4px; background-color: #000 !important; color: #fff !important; text-align: center; border-radius: 4px; font-weight: 900; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
@@ -861,7 +863,8 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
                 : (order.deliveryType === 'delivery' ? 'Canal: Entrega em Domicílio' : 'Canal: Celular (QR Code Balcão)'))}
           ${(() => {
             const sTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
-            const sDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+            const rawDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+            const sDay = formatDateBR(rawDay);
             if (!sTime) return '';
             return `<br><span style="font-size: 13px; font-weight: 900; background-color: #000; color: #fff; padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 3px;">⏰ RETIRADA: ${sDay ? sDay + ' às ' : ''}${sTime}</span>`;
           })()}
@@ -1109,7 +1112,8 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
       lines.push(`End: ${normalizeEscPosText(order.deliveryAddress)}\n`);
     }
     const escScheduledTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
-    const escScheduledDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+    const rawEscDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
+    const escScheduledDay = formatDateBR(rawEscDay);
     if (escScheduledTime) {
       lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11');
       lines.push(`*** HORARIO RETIRADA ***\n`);

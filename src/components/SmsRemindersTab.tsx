@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Send, RefreshCw, CheckCircle2, Phone, Calendar, User, BellRing } from 'lucide-react';
+import { formatDateBR, formatAllDatesBR } from '../lib/utils';
 
 export const SmsRemindersTab: React.FC = () => {
   const [reminders, setReminders] = useState<any[]>([]);
@@ -583,7 +584,7 @@ export const SmsRemindersTab: React.FC = () => {
                     <td className="p-3 text-stone-700 whitespace-nowrap">
                       <div className="flex items-center gap-1 font-medium">
                         <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                        <span>{r.scheduledDate} às {r.scheduledTime}</span>
+                        <span>{formatDateBR(r.scheduledDate)} às {r.scheduledTime}</span>
                       </div>
                     </td>
                     <td className="p-3 whitespace-nowrap">
@@ -591,8 +592,8 @@ export const SmsRemindersTab: React.FC = () => {
                         {r.slot === 'slot_1_09h' ? 'Manhã (09h)' : r.slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)'}
                       </span>
                     </td>
-                    <td className="p-3 text-stone-700 max-w-xs truncate" title={r.message}>
-                      {r.message}
+                    <td className="p-3 text-stone-700 max-w-xs truncate" title={formatAllDatesBR(r.message)}>
+                      {formatAllDatesBR(r.message)}
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
@@ -602,7 +603,7 @@ export const SmsRemindersTab: React.FC = () => {
                         </span>
                         {r.customerPhone && (
                           <a
-                            href={`https://wa.me/55${r.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(r.message)}`}
+                            href={`https://wa.me/55${r.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(formatAllDatesBR(r.message))}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-sm transition-all cursor-pointer"

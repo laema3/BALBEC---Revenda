@@ -3,7 +3,7 @@ import { db, auth } from '../firebase';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, Category, Product, Order, User, AiTrainingExample, DEFAULT_AI_TRAINING_EXAMPLES } from '../store/useStore';
 import { printReceipt, resolveItemCode, resolveAddonCode, resolveOrderModality } from '../utils/printer';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, formatDateBR, formatAllDatesBR } from '../lib/utils';
 import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode } from '../constants';
 import { getCollectionPath, getDocPath } from '../lib/tenants';
 import { getSmartProductImage } from '../utils/imageHelper';
@@ -997,7 +997,10 @@ export default function Admin() {
   ]);
   const [productImagePreview, setProductImagePreview] = useState('');
   
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(() => {
+    const saved = safeStorage.getItem('balbec_sound_enabled') || (typeof localStorage !== 'undefined' ? localStorage.getItem('balbec_sound_enabled') : null);
+    return saved !== null ? saved === 'true' : true;
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ 
@@ -1131,6 +1134,7 @@ export default function Admin() {
   }, []);
 
   const playBeep = () => {
+    if (!isSoundEnabled) return;
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => console.log('Audio play blocked by browser:', e));
@@ -1992,6 +1996,7 @@ export default function Admin() {
     }
   };
   const startAlarm = () => {
+    if (!isSoundEnabled) return;
     if (!intervalRef.current) {
       playBeep();
       intervalRef.current = window.setInterval(() => {
@@ -2008,6 +2013,23 @@ export default function Admin() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+    }
+  };
+
+  const handleToggleSound = (forcedState?: boolean) => {
+    const newState = typeof forcedState === 'boolean' ? forcedState : !isSoundEnabled;
+    setIsSoundEnabled(newState);
+    safeStorage.setItem('balbec_sound_enabled', String(newState));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('balbec_sound_enabled', String(newState));
+    }
+    if (newState) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(e => console.log('Audio play unlock:', e));
+      }
+    } else {
+      stopAlarm();
     }
   };
 
@@ -4347,22 +4369,16 @@ export default function Admin() {
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => {
-                const newState = !isSoundEnabled;
-                setIsSoundEnabled(newState);
-                if (newState) {
-                  playBeep();
-                }
-              }}
+              onClick={() => handleToggleSound()}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all shadow-xs cursor-pointer ${
                 isSoundEnabled 
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 ring-1 ring-emerald-400/30' 
                   : 'bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200'
               }`}
-              title="Clique para ativar/desativar e testar o alarme sonoro de novos pedidos"
+              title="Clique para ativar/desativar o alarme sonoro de novos pedidos"
             >
               {isSoundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <VolumeX className="w-4 h-4 text-stone-500 shrink-0" />}
-              <span>Alarme de Pedidos: {isSoundEnabled ? 'ON (Testar)' : 'OFF'}</span>
+              <span>Alarme de Pedidos: <strong className={isSoundEnabled ? 'text-emerald-700' : 'text-stone-600'}>{isSoundEnabled ? 'ON (Ativado)' : 'OFF (Mudo)'}</strong></span>
             </button>
 
             {!isOnline && (
@@ -4681,7 +4697,7 @@ export default function Admin() {
                     {(order.scheduledTime || (order as any).scheduled_time) && (
                       <div className="mb-3 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 flex items-center gap-2 text-xs font-bold">
                         <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>Agendamento: <strong className="font-mono text-amber-950 font-black">{order.scheduledDay || order.scheduledDate || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</strong></span>
+                        <span>Agendamento: <strong className="font-mono text-amber-950 font-black">{formatDateBR(order.scheduledDay || order.scheduledDate) || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</strong></span>
                       </div>
                     )}
                     <ul className="space-y-2 mb-4">
@@ -4908,7 +4924,7 @@ export default function Admin() {
                       <div>{new Date(order.createdAt).toLocaleTimeString()}</div>
                       {(order.scheduledTime || (order as any).scheduled_time) && (
                         <div className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300 mt-1 inline-flex items-center gap-1 shadow-2xs">
-                          <span>⏰ {order.scheduledDay || order.scheduledDate || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</span>
+                          <span>⏰ {formatDateBR(order.scheduledDay || order.scheduledDate) || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</span>
                         </div>
                       )}
                     </td>
@@ -8502,6 +8518,29 @@ export default function Admin() {
               <span>{orders.filter(o => o.status === 'pending').length}</span>
             </button>
           )}
+
+          {/* Botão de Ativar / Desativar Aviso Sonoro de Pedidos */}
+          <button
+            type="button"
+            onClick={() => handleToggleSound()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs ${
+              isSoundEnabled 
+                ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-600/30 ring-1 ring-emerald-500/30' 
+                : 'bg-stone-800 text-stone-400 border-stone-700 hover:text-stone-200'
+            }`}
+            title={isSoundEnabled ? 'Aviso sonoro ATIVADO. Clique para desativar o som quando chegam pedidos.' : 'Aviso sonoro DESATIVADO. Clique para ativar o som de novos pedidos.'}
+          >
+            {isSoundEnabled ? (
+              <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
+            ) : (
+              <VolumeX className="w-4 h-4 text-stone-400 shrink-0" />
+            )}
+            <span className="hidden sm:inline">Aviso Sonoro:</span>
+            <span className={`text-[11px] font-black uppercase tracking-wider ${isSoundEnabled ? 'text-emerald-300' : 'text-stone-400'}`}>
+              {isSoundEnabled ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => handleToggleShowSystemIntroButton(!showSystemIntroButtonState)}
@@ -8791,20 +8830,19 @@ export default function Admin() {
         </nav>
         <div className="p-4 border-t border-stone-800 space-y-2 shrink-0">
           <button type="button" 
-            onClick={() => {
-              const newState = !isSoundEnabled;
-              setIsSoundEnabled(newState);
-              if (newState) {
-                playBeep(); // Play a test beep when turning on
-              }
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors text-stone-300 hover:bg-stone-800 hover:text-white"
+            onClick={() => handleToggleSound()}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all cursor-pointer border ${
+              isSoundEnabled 
+                ? 'bg-emerald-950/40 text-emerald-200 border-emerald-800/60 hover:bg-emerald-900/40' 
+                : 'bg-stone-900/60 text-stone-400 border-stone-800 hover:bg-stone-800 hover:text-stone-200'
+            }`}
+            title="Ativar ou desativar o alarme sonoro de novos pedidos"
           >
-            <span className="flex items-center gap-3 text-sm">
-              {isSoundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            <span className="flex items-center gap-3 text-sm font-bold">
+              {isSoundEnabled ? <Volume2 className="w-5 h-5 text-emerald-400" /> : <VolumeX className="w-5 h-5 text-stone-400" />}
               Som de Pedido
             </span>
-            <span className={`text-xs px-2 py-1 rounded-full ${isSoundEnabled ? 'bg-green-500/20 text-green-400' : 'bg-stone-700 text-stone-400'}`}>
+            <span className={`text-xs px-2.5 py-1 rounded-full font-black ${isSoundEnabled ? 'bg-emerald-500 text-stone-950 shadow-xs' : 'bg-stone-800 text-stone-400'}`}>
               {isSoundEnabled ? 'ON' : 'OFF'}
             </span>
           </button>

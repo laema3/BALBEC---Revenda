@@ -274,7 +274,8 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
     }
 
     const scheduledTime = order?.scheduledTime || order?.scheduled_time || order?.scheduleTime;
-    const scheduledDay = order?.scheduledDay || order?.scheduled_day || order?.scheduledDate || order?.scheduled_date;
+    const rawScheduledDay = order?.scheduledDay || order?.scheduled_day || order?.scheduledDate || order?.scheduled_date;
+    const scheduledDay = rawScheduledDay ? String(rawScheduledDay).replace(/^(\d{4})-(\d{2})-(\d{2})/, '$3-$2-$1') : '';
     if (scheduledTime) {
       lines.push(Buffer.from('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11', 'ascii'));
       lines.push(Buffer.from(`*** HORARIO RETIRADA ***\n`, 'latin1'));

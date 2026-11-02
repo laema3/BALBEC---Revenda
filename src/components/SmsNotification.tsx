@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { MessageSquare, X, Bell, CheckCircle2, Clock, ChefHat, Bike, AlertTriangle } from 'lucide-react';
+import { formatAllDatesBR } from '../lib/utils';
 
 export const SmsNotification: React.FC = () => {
   const { currentNotification, setCurrentNotification } = useStore();
@@ -80,10 +81,10 @@ export const SmsNotification: React.FC = () => {
 
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-black text-stone-900 leading-tight">
-                {currentNotification.title}
+                {formatAllDatesBR(currentNotification.title)}
               </h3>
               <p className="mt-2 text-stone-700 text-sm sm:text-base font-medium leading-relaxed">
-                {currentNotification.message}
+                {formatAllDatesBR(currentNotification.message)}
               </p>
             </div>
           </div>

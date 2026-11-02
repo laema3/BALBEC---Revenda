@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sms_1793624971911_xwhw",
+    "reminderKey": "ord_0001_2026-11-02_slot_1_09h",
+    "orderId": "0001",
+    "customerName": "LS GUARATO LTDA",
+    "customerPhone": "(34) 99978-3261",
+    "scheduledDate": "03-11-2026",
+    "scheduledTime": "09:00",
+    "slot": "slot_1_09h",
+    "dateStr": "02-11-2026",
+    "message": "Olá LS GUARATO LTDA! Lembrete BALBEC: Seu pedido #0001 está agendado para 03-11-2026 às 09:00. Estamos te aguardando!",
+    "sentAt": 1793624971911,
+    "status": "sent"
+  }
+]

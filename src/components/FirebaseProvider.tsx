@@ -4,6 +4,7 @@ import { auth } from '../firebase';
 import { useStore } from '../store/useStore';
 import { BakeryLoader } from './BakeryLoader';
 import { safeStorage } from '../utils/storage';
+import { formatAllDatesBR } from '../lib/utils';
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const { fetchData, fetchOrdersOnly, setIsOnline, isOnline } = useStore();
@@ -309,7 +310,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                       showCustomerStatusAlert(
                         updatedOrder, 
                         updatedOrder.status || 'preparing', 
-                        data.message || `Faltam menos de 90 minutos para a entrega/retirada do seu Pedido #${String(updatedOrder.id).slice(-4)} agendado para às ${updatedOrder.scheduledTime || '09:00'}. Nossa equipe já começou os preparativos!`, 
+                        data.message || `Faltam menos de 90 minutos para a entrega/retirada do seu Pedido #${String(updatedOrder.id).slice(-4)} agendado para às ${(updatedOrder as any).scheduledTime || '09:00'}. Nossa equipe já começou os preparativos!`, 
                         'reminder_90min'
                       );
                     } else if (data.status) {
@@ -327,7 +328,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   const isOwner = isCustomerOrderOwner(null, data.orderId, data.customerPhone, data.customerName);
 
                   if (isOwner) {
-                    const reminderMsg = data.message || `Olá ${data.customerName || 'Cliente'}, temos um aviso sobre o seu pedido agendado!`;
+                    const rawMsg = data.message || `Olá ${data.customerName || 'Cliente'}, temos um aviso sobre o seu pedido agendado!`;
+                    const reminderMsg = formatAllDatesBR(rawMsg);
                     useStore.getState().setCurrentNotification({
                       id: `notif_reminder_${Date.now()}`,
                       title: `⏰ Lembrete do Pedido #${String(data.orderId).slice(-4)}`,

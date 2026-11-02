@@ -5025,9 +5025,20 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     writeJsonFile(SMS_REMINDERS_FILE, data);
   };
 
+  const formatIsoDateToBR = (str: any): string => {
+    if (!str) return '';
+    return String(str).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3-$2-$1');
+  };
+
   app.get('/api/db/sms-reminders', (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache');
-    res.json(memSmsReminders);
+    const sanitized = (memSmsReminders || []).map((r: any) => ({
+      ...r,
+      scheduledDate: formatIsoDateToBR(r.scheduledDate),
+      dateStr: formatIsoDateToBR(r.dateStr),
+      message: formatIsoDateToBR(r.message)
+    }));
+    res.json(sanitized);
   });
 
   app.post('/api/db/sms-reminders/test', async (req: Request, res: Response) => {
@@ -5143,23 +5154,24 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
 
             if (!alreadySent && isSlotDue(slot)) {
+              const displayDateBR = formatIsoDateToBR(scheduledDateStr);
               const reminder = {
                 id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                 reminderKey,
                 orderId: order.id,
                 customerName: order.customerName || 'Cliente',
                 customerPhone: order.customerPhone,
-                scheduledDate: scheduledDateStr,
+                scheduledDate: displayDateBR,
                 scheduledTime: order.scheduledTime || '09:00',
                 slot,
-                dateStr: todayStr,
-                message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${scheduledDateStr} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
+                dateStr: formatIsoDateToBR(todayStr),
+                message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${displayDateBR} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
                 sentAt: Date.now(),
                 status: 'sent'
               };
               memSmsReminders.unshift(reminder);
               newRemindersAdded = true;
-              console.log(`[SMS Automation] SMS gerado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${todayStr})`);
+              console.log(`[SMS Automation] SMS gerado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${displayDateBR})`);
 
               // Disparo SSE direto para a tela do smartphone do cliente
               broadcastSSE({
@@ -5188,7 +5200,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                     'Tags': 'alarm_clock,warning,package',
                     'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : undefined
                   },
-                  body: `Lembrete Automático [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} para ${scheduledDateStr} às ${order.scheduledTime || '09:00'}.\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
+                  body: `Lembrete Automático [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} para ${displayDateBR} às ${order.scheduledTime || '09:00'}.\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
                 }).then(() => {
                   console.log(`[Auto NTFY Reminder] Alerta automático de lembrete enviado para ntfy.sh/${topic}`);
                 }).catch(err => {
@@ -5213,7 +5225,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                     orderId: order.id,
                     customerName: order.customerName || 'Cliente',
                     slot: slot,
-                    scheduledDate: scheduledDateStr,
+                    scheduledDate: displayDateBR,
                     scheduledTime: order.scheduledTime || '09:00'
                   })
                 }).then(resp => {
