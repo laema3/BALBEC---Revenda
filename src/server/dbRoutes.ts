@@ -1171,37 +1171,33 @@ export async function hydrateFromPostgres(): Promise<void> {
 
         if (storeList && storeList.length > 0) {
           const dbRow: any = storeList[0];
-          // O PostgreSQL é a autoridade máxima! dbRow sobrescreve qualquer arquivo ou backup estático local.
+          // Se o banco estiver com weeklySchedule vazio ou padrão mas tivermos backup, prioriza o backup/disco!
+          const hasValidDbSchedule = dbRow.weeklySchedule && dbRow.weeklySchedule !== '[]' && dbRow.weeklySchedule !== DEFAULT_STORE_INFO.weeklySchedule;
+          const chosenStoreSource = (!hasValidDbSchedule && backupStoreInfo?.weeklySchedule && backupStoreInfo.weeklySchedule !== '[]') 
+            ? backupStoreInfo 
+            : (diskVal?.weeklySchedule && diskVal.weeklySchedule !== '[]' ? diskVal : dbRow);
+
           const merged: any = { 
             ...DEFAULT_STORE_INFO, 
             ...(backupStoreInfo || {}),
             ...diskVal,
             ...dbRow,
+            ...chosenStoreSource,
             id: 'default' 
           };
 
-          // Garante que o weeklySchedule gravado no PostgreSQL é o utilizado
-          if (dbRow.weeklySchedule && dbRow.weeklySchedule !== '[]') {
-            merged.weeklySchedule = dbRow.weeklySchedule;
-          } else if (dbRow.weekly_schedule && dbRow.weekly_schedule !== '[]') {
-            merged.weeklySchedule = dbRow.weekly_schedule;
+          if (chosenStoreSource.weeklySchedule && chosenStoreSource.weeklySchedule !== '[]') {
+            merged.weeklySchedule = chosenStoreSource.weeklySchedule;
           }
-
-          if (dbRow.hours) {
-            merged.hours = dbRow.hours;
-          }
-
-          if (dbRow.deliveryScheduleSlots && dbRow.deliveryScheduleSlots !== '[]') {
-            merged.deliveryScheduleSlots = dbRow.deliveryScheduleSlots;
-          } else if (dbRow.delivery_schedule_slots && dbRow.delivery_schedule_slots !== '[]') {
-            merged.deliveryScheduleSlots = dbRow.delivery_schedule_slots;
+          if (chosenStoreSource.hours) {
+            merged.hours = chosenStoreSource.hours;
           }
 
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
           persistStoreInfoToDisk(memStoreInfo);
-          console.log(`[DB Hydrate] StoreInfo carregada AUTORITATIVAMENTE do PostgreSQL: "${memStoreInfo.name}" | Horários preservados!`);
+          console.log(`[DB Hydrate] StoreInfo carregada AUTORITATIVAMENTE (com fallback inteligente): "${memStoreInfo.name}"`);
         } else {
-          // Apenas se o banco ainda não possuir registro nenhum, insere os valores iniciais
+          // Se a tabela store_info estiver vazia, injeta imediatamente os dados do backup automático ou disco!
           const merged: any = { 
             ...DEFAULT_STORE_INFO, 
             ...(backupStoreInfo || {}),
@@ -1211,7 +1207,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
           persistStoreInfoToDisk(memStoreInfo);
           await withDbRetry(() => db.insert(storeInfo).values(memStoreInfo).onConflictDoNothing());
-          console.log('[DB Hydrate] Criada linha default em store_info no PostgreSQL.');
+          console.log('[DB Hydrate] Restaurada linha default em store_info no PostgreSQL a partir do backup.');
         }
       } catch (storeErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
