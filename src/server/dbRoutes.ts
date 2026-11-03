@@ -3600,15 +3600,105 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         });
       }
 
+      // Regra de Primeiro Acesso:
+      // Se a senha utilizada foi os 5 primeiros dígitos do CNPJ/CPF, ou se a senha cadastrada é a padrão provisória,
+      // ou se o cliente nunca alterou a senha (!passwordChangedAt ou mustChangePassword === true),
+      // exige troca obrigatória de senha.
+      const isDefaultInitialPassword =
+        (first5Cpf.length >= 5 && (cleanPass === first5Cpf || cleanPassDigits === first5Cpf)) ||
+        (first5Input.length >= 5 && (cleanPass === first5Input || cleanPassDigits === first5Input)) ||
+        storedPass === first5Cpf ||
+        storedPass === first5Input ||
+        storedPass === '123456';
+
+      const mustChangePassword = Boolean(
+        isDefaultInitialPassword ||
+        (custByIdentifier as any).mustChangePassword === true ||
+        !(custByIdentifier as any).passwordChangedAt
+      );
+
+      if (mustChangePassword) {
+        (custByIdentifier as any).mustChangePassword = true;
+      }
+
       const currentMonthSpent = calculateCustomerCurrentMonthSpent(custByIdentifier);
 
       res.json({
         success: true,
         customer: custByIdentifier,
+        mustChangePassword,
         currentMonthSpent
       });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao realizar login' });
+    }
+  });
+
+  app.post('/api/db/customer-change-password', async (req: Request, res: Response) => {
+    try {
+      const { customerId, identifier, newPassword, confirmPassword } = req.body;
+      if (!newPassword || typeof newPassword !== 'string') {
+        return res.status(400).json({ error: 'Informe a nova senha.' });
+      }
+
+      const trimmedNewPass = newPassword.trim();
+      if (trimmedNewPass.length < 5) {
+        return res.status(400).json({ error: 'A nova senha deve ter no mínimo 5 caracteres.' });
+      }
+
+      if (confirmPassword && confirmPassword.trim() !== trimmedNewPass) {
+        return res.status(400).json({ error: 'A confirmação de senha não coincide com a nova senha digitada.' });
+      }
+
+      const cleanDigits = String(identifier || '').replace(/\D/g, '');
+      const cust = memCustomers.find(c => {
+        if (customerId && (c.id === customerId || String(c.externalId) === String(customerId))) return true;
+        const cCpf = String(c.cpf || '').replace(/\D/g, '');
+        if (cleanDigits.length >= 5 && cCpf.length >= 5) {
+          if (cCpf === cleanDigits) return true;
+          if (cCpf.replace(/^0+/, '') === cleanDigits.replace(/^0+/, '')) return true;
+        }
+        return false;
+      });
+
+      if (!cust) {
+        return res.status(404).json({ error: 'Cliente não encontrado.' });
+      }
+
+      const cCpfDigits = String(cust.cpf || '').replace(/\D/g, '');
+      const first5Cpf = cCpfDigits.slice(0, 5);
+
+      // A nova senha não pode ser igual aos 5 primeiros dígitos do CNPJ ou CPF
+      if (first5Cpf.length >= 5 && trimmedNewPass === first5Cpf) {
+        return res.status(400).json({
+          error: 'A nova senha deve ser diferente dos 5 primeiros dígitos do seu CNPJ ou CPF.'
+        });
+      }
+
+      // Atualiza a senha e marca que a troca obrigatória foi concluída com sucesso
+      cust.password = trimmedNewPass;
+      (cust as any).mustChangePassword = false;
+      (cust as any).passwordChangedAt = Date.now();
+
+      persistCustomersToDisk(memCustomers);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await db.update(customers).set({ password: trimmedNewPass }).where(eq(customers.id, cust.id));
+        } catch (dbErr) {
+          console.warn('[DB Change Password Warning]:', dbErr);
+        }
+      }
+
+      onUpdate?.('catalog');
+
+      return res.json({
+        success: true,
+        message: 'Senha alterada com sucesso! Seu acesso está liberado.',
+        customer: cust
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao alterar a senha do cliente.' });
     }
   });
 

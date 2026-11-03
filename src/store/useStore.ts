@@ -390,6 +390,8 @@ export interface Customer {
   status?: 'pending' | 'approved' | 'rejected';
   minOrderValue?: number;
   monthlyGoal?: number;
+  mustChangePassword?: boolean;
+  passwordChangedAt?: number;
 }
 
 export interface CustomerAddress {
