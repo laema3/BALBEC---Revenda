@@ -1462,7 +1462,7 @@ export default function Menu() {
     const existingFrozen = cartItemsForProd.filter(ci => ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado')).reduce((s, ci) => s + ci.quantity, 0);
 
     setFrozenNormalQty(existingNormal > 0 ? existingNormal : 0);
-    setFrozenFrozenQty(existingFrozen > 0 ? existingFrozen : (existingNormal === 0 ? qty : 0));
+    setFrozenFrozenQty(existingFrozen > 0 ? existingFrozen : 0);
     setFrozenModal({ isOpen: true, product, quantity: qty });
   };
   
