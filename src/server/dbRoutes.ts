@@ -1307,11 +1307,44 @@ export async function hydrateFromPostgres(): Promise<void> {
           persistOrdersToDisk(memOrders);
           console.log(`[DB Hydrate] SUCESSO: ${memOrders.length} pedidos reais carregados diretamente do PostgreSQL.`);
         } else {
-          // Quando o PostgreSQL está vazio (nenhum pedido ou pedidos zerados pelo admin), mantém o estado rigorosamente limpo
-          // NUNCA re-injete pedidos antigos ou fictícios no banco de dados!
-          memOrders = [];
-          persistOrdersToDisk([]);
-          console.log('[DB Hydrate] Nenhum pedido cadastrado no PostgreSQL. Memória e arquivos mantidos limpos.');
+          // Se o banco PostgreSQL está vazio, mas temos pedidos salvos no disco local ou backups automáticos, restaura-os para o PostgreSQL!
+          const diskOrders = loadJsonFile(ORDERS_FILE, []);
+          const backupOrders = loadJsonFile(ORDERS_BACKUP_FILE, []);
+          const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
+          let backupOrdersList = [];
+          if (fs.existsSync(autoBackupPath)) {
+            try {
+              const autoJson = JSON.parse(fs.readFileSync(autoBackupPath, 'utf8'));
+              if (Array.isArray(autoJson?.orders)) backupOrdersList = autoJson.orders;
+            } catch {}
+          }
+
+          const combinedMap = new Map<string, any>();
+          [...backupOrdersList, ...diskOrders, ...memOrders].forEach((o: any) => {
+            if (o && o.id) combinedMap.set(String(o.id), o);
+          });
+          const restoredOrders = Array.from(combinedMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+
+          if (restoredOrders.length > 0) {
+            memOrders = restoredOrders;
+            persistOrdersToDisk(memOrders);
+            console.log(`[DB Hydrate] PostgreSQL sem pedidos; restaurando ${memOrders.length} pedidos do backup local/disco para o PostgreSQL...`);
+            for (const ord of memOrders) {
+              try {
+                const orderForDb = formatOrderForDb(ord);
+                await withDbRetry(() => db.insert(orders).values(orderForDb).onConflictDoUpdate({
+                  target: orders.id,
+                  set: orderForDb
+                }));
+              } catch (insErr: any) {
+                console.warn('[DB Hydrate] Erro ao sincronizar pedido restaurado para o DB:', insErr?.message);
+              }
+            }
+          } else {
+            memOrders = [];
+            persistOrdersToDisk([]);
+            console.log('[DB Hydrate] Nenhum pedido cadastrado no PostgreSQL ou disco. Memória zerada.');
+          }
         }
       } catch (ordHydrateErr: any) {
         console.error('[DB Hydrate] ERRO CRÍTICO ao carregar pedidos do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);

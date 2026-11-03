@@ -85,7 +85,9 @@
     "onlinePaymentEnabled": false,
     "onlinePaymentOperator": "mercadopago",
     "onlinePaymentPublicKey": "",
-    "onlinePaymentSecretKey": ""
+    "onlinePaymentSecretKey": "",
+    "orderSoundEnabled": true,
+    "orderChimeEnabled": true
   },
   "tvMedia": [
     {
@@ -10382,5 +10384,5 @@
   "deliveryZones": [],
   "exportedAt": "2026-10-30T16:57:42.191Z",
   "version": "2.0.0",
-  "updatedAt": "2026-11-02T21:02:27.998Z"
+  "updatedAt": "2026-11-03T00:55:23.236Z"
 }

@@ -84,5 +84,7 @@
   "onlinePaymentEnabled": false,
   "onlinePaymentOperator": "mercadopago",
   "onlinePaymentPublicKey": "",
-  "onlinePaymentSecretKey": ""
+  "onlinePaymentSecretKey": "",
+  "orderSoundEnabled": true,
+  "orderChimeEnabled": true
 }
