@@ -543,16 +543,16 @@ try {
   memStoreInfo = {
     ...baseStore,
     ...diskStoreInfo,
-    weeklySchedule: (diskStoreInfo.weeklySchedule && diskStoreInfo.weeklySchedule !== '[]' && diskStoreInfo.weeklySchedule !== DEFAULT_STORE_INFO.weeklySchedule)
+    weeklySchedule: (diskStoreInfo.weeklySchedule && diskStoreInfo.weeklySchedule !== '[]')
       ? diskStoreInfo.weeklySchedule
-      : (baseStore.weeklySchedule || diskStoreInfo.weeklySchedule || DEFAULT_STORE_INFO.weeklySchedule)
+      : (baseStore.weeklySchedule || DEFAULT_STORE_INFO.weeklySchedule)
   };
   const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
   const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []);
-  // Pedidos são transacionais: carregamos inicialmente do disco local; a fonte autoritativa definitiva é o PostgreSQL via hydrateFromPostgres()
   const initOrderMap = new Map<string, any>();
+  // initialSeedOrders primeiro, depois initialDiskOrders sobrescreve para priorizar dados do usuário salvos em disco
   [...initialSeedOrders, ...initialDiskOrders].forEach((o: any) => {
-    if (o && o.id) initOrderMap.set(String(o.id), { ...(initOrderMap.get(String(o.id)) || {}), ...o });
+    if (o && o.id) initOrderMap.set(String(o.id), o);
   });
   memOrders = Array.from(initOrderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
   const rawCustomers = (Array.isArray(diskCustomers) && diskCustomers.length > 0)
