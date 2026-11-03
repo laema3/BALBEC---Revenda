@@ -250,15 +250,14 @@ try {
               const backupList: any[] = Array.isArray(val) ? val : [];
 
               const map = new Map<string, any>();
-              // Load backup items
-              for (const item of backupList) {
+              // Carrega primeiro os itens existentes em disco/seed para que eles tenham prioridade absoluta
+              for (const item of existingSeed) {
                 if (item && item.id) map.set(String(item.id), item);
               }
-              // Overlay existing seed/disk items so updated or newly placed orders take precedence
-              for (const item of existingSeed) {
-                if (item && item.id) {
-                  const existing = map.get(String(item.id)) || {};
-                  map.set(String(item.id), { ...existing, ...item });
+              // Adiciona os itens do backup apenas se já não existirem
+              for (const item of backupList) {
+                if (item && item.id && !map.has(String(item.id))) {
+                  map.set(String(item.id), item);
                 }
               }
               finalVal = Array.from(map.values());
