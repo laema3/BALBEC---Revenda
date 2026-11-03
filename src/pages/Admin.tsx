@@ -4176,18 +4176,8 @@ export default function Admin() {
   const todayKey = new Date().toISOString().slice(0, 10);
   const [selectedOrderDateTab, setSelectedOrderDateTab] = useState<string>('all');
 
-  // Auto-select 'Today' tab if it's the first render and we have orders for today
-  useEffect(() => {
-    if (selectedOrderDateTab === 'all' && orders.length > 0) {
-      const hasTodayOrders = orders.some(o => {
-        const info = getOrderDateInfo(o);
-        return info.dateKey === todayKey && (o.status !== 'completed' && o.status !== 'cancelled');
-      });
-      if (hasTodayOrders) {
-        setSelectedOrderDateTab(todayKey);
-      }
-    }
-  }, [orders.length, todayKey]);
+    // Mantém 'all' (Todos os Dias) como posição inicial padrão conforme solicitado
+    useEffect(() => {}, []);
 
   const renderOrders = () => {
     // Filter orders according to channel and search query
@@ -4264,7 +4254,6 @@ export default function Admin() {
     const otherTabs = sortedDates.filter(t => t.key !== todayKey);
 
     const dateTabs: DateTabItem[] = [
-      ...(todayTab ? [todayTab] : []),
       { 
         key: 'all', 
         label: 'Todos os Dias', 
@@ -4273,6 +4262,7 @@ export default function Admin() {
         dayOfWeek: -1,
         dayShortName: 'Todos'
       },
+      ...(todayTab ? [todayTab] : []),
       ...otherTabs
     ];
 
