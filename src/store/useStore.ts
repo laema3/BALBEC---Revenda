@@ -163,6 +163,8 @@ export interface OrderItem {
   description?: string;
   imageUrl?: string;
   isFrozen?: boolean;
+  prepType?: string;
+  prepLabel?: string;
   options?: any[];
   addons?: { productId: string; name: string; price: number; externalId?: string; code?: string; isFrozen?: boolean }[];
   flavor?: { productId: string; name: string; price: number; externalId?: string; code?: string };

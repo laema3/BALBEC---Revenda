@@ -636,22 +636,48 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
 
           {/* Resumo dos Itens do Pedido */}
           <div className="bg-white rounded-3xl p-5 shadow-xs border border-stone-200 space-y-3">
-            <h4 className="text-xs font-black text-stone-900 uppercase tracking-wider">
-              Itens do Pedido #{orderNumber}
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black text-stone-900 uppercase tracking-wider">
+                Itens do Pedido #{orderNumber}
+              </h4>
+              {order.items?.some((it: any) => it.isFrozen || it.prepType?.startsWith('congelado') || (it.prepLabel && it.prepLabel.toLowerCase().includes('congelad'))) && (
+                <span className="text-[10px] bg-blue-100 text-blue-900 font-black px-2 py-0.5 rounded-full uppercase">
+                  ❄️ Salgados Congelados
+                </span>
+              )}
+            </div>
+
+            {order.items?.some((it: any) => it.isFrozen || it.prepType?.startsWith('congelado') || (it.prepLabel && it.prepLabel.toLowerCase().includes('congelad'))) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-xs text-blue-900 leading-relaxed space-y-1">
+                <p className="font-black text-blue-950 flex items-center gap-1.5">
+                  <span>⏱️</span> Prazo de Produção: Até 48 Horas
+                </p>
+                <p className="text-[11px] text-blue-800">
+                  Apesar do prazo de 48h, <strong>o seu pedido pode ficar pronto antes</strong>! Avisaremos você por alertas assim que for liberado.
+                </p>
+              </div>
+            )}
+
             <div className="divide-y divide-stone-100 text-xs">
               {order.items?.map((item: any, idx: number) => {
-                const isHighlight = (item.name || '').toLowerCase().includes('congelado') || (item.name || '').toLowerCase().includes('normal');
+                const isHighlight = item.isFrozen || item.prepType?.startsWith('congelado') || (item.name || '').toLowerCase().includes('congelado');
                 return (
                   <div key={idx} className="py-2.5 border-b border-stone-50 last:border-0">
                     <div className="flex items-center justify-between">
-                      <span className={`font-bold ${isHighlight ? 'text-red-600' : 'text-stone-800'}`}>
+                      <span className={`font-bold ${isHighlight ? 'text-blue-700' : 'text-stone-800'}`}>
                         {item.quantity}x {item.name}
                       </span>
                       <span className="text-stone-500 font-mono">
                         R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
                       </span>
                     </div>
+                    {item.prepLabel && (
+                      <div className="text-[10px] uppercase mt-0.5 ml-4 font-black flex items-center gap-1"
+                           style={{ color: item.isFrozen || item.prepType?.startsWith('congelado') ? '#1d4ed8' : '#b45309' }}>
+                        <span>{item.isFrozen || item.prepType?.startsWith('congelado') ? '❄️' : '🔥'}</span>
+                        <span>{item.prepLabel}</span>
+                      </div>
+                    )}
                     {item.flavor && (
                       <div className={`text-[10px] uppercase mt-0.5 ml-4 ${
                         (item.flavor.name || '').toLowerCase().includes('congelado') || (item.flavor.name || '').toLowerCase().includes('normal')

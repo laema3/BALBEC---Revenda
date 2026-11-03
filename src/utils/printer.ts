@@ -881,6 +881,7 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
               <span class="item-name">${!isClient ? '<span class="check-box">[ ] </span>' : ''}${item.quantity || 1}x ${item.name || ''}</span>
               <span class="item-price">${formatCurrency(itemTotal)}</span>
             </div>
+            ${item.prepLabel ? `<div class="addons" style="font-weight: 900; font-size: 11px; color: #000; text-transform: uppercase;">[ ] OPÇÃO: ${item.prepLabel}</div>` : ''}
             ${itemCode ? `<div style="padding-left: 4px; margin: 1px 0 3px 0;"><span class="item-code-badge">CÓD: ${itemCode}</span></div>` : ''}
             ${item.description && item.description.trim() !== '' ? `<div class="item-description">${item.description.trim()}</div>` : ''}
             ${(() => {
@@ -1141,6 +1142,9 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
       const itemCode = normalizeEscPosText(resolveItemCode(item));
       const checkbox = !isClient ? '[ ] ' : '';
       lines.push(`\x1B\x45\x01${checkbox}${item.quantity || 1}x ${itemName}\x1B\x45\x00\n`);
+      if (item.prepLabel) {
+        lines.push(`   \x1B\x45\x01* OPCAO: ${normalizeEscPosText(item.prepLabel.toUpperCase())}\x1B\x45\x00\n`);
+      }
       if (itemCode) {
         lines.push(`   \x1D\x42\x01 COD: ${itemCode} \x1D\x42\x00\n`);
       }

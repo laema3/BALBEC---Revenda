@@ -4734,6 +4734,16 @@ export default function Admin() {
                               <span>
                                 <span className="font-bold">{item.quantity}x</span> {item.name}
                               </span>
+                              {item.prepLabel && (
+                                <div className={`text-[10px] font-black pl-2 py-0.5 rounded-sm my-0.5 flex items-center gap-1 ${
+                                  item.isFrozen || item.prepType?.startsWith('congelado')
+                                    ? 'text-blue-700 bg-blue-50 border-l-2 border-blue-500'
+                                    : 'text-amber-800 bg-amber-50 border-l-2 border-amber-500'
+                                }`}>
+                                  <span>{item.isFrozen || item.prepType?.startsWith('congelado') ? '❄️' : '🔥'}</span>
+                                  <span>{item.prepLabel}</span>
+                                </div>
+                              )}
                               {itemCode && (
                                 <span className="ml-1.5 inline-block px-1.5 py-0.2 bg-stone-100 border border-stone-300 rounded text-[10px] font-mono font-bold text-stone-700">
                                   CÓD: {itemCode}
@@ -4957,13 +4967,14 @@ export default function Admin() {
                       const code = resolveItemCode(item);
                       const flavorStr = item.flavor ? ` (Sabor: ${item.flavor.name}${resolveAddonCode(item.flavor) ? ` [CÓD: ${resolveAddonCode(item.flavor)}]` : ''})` : '';
                       const addonsStr = item.addons && item.addons.length > 0 ? ` (+ ${item.addons.map(a => `${a.name}${resolveAddonCode(a) ? ` [CÓD: ${resolveAddonCode(a)}]` : ''}`).join(', ')})` : '';
-                      return `${item.quantity}x ${item.name}${code ? ` [CÓD: ${code}]` : ''}${flavorStr}${addonsStr}`;
+                      return `${item.quantity}x ${item.name}${item.prepLabel ? ` [${item.prepLabel}]` : ''}${code ? ` [CÓD: ${code}]` : ''}${flavorStr}${addonsStr}`;
                     }).join(', ')}>
                       {order.items.map(item => {
                         const code = resolveItemCode(item);
+                        const prepStr = item.prepLabel ? ` [${item.prepLabel}]` : '';
                         const flavorStr = item.flavor ? ` (Sabor: ${item.flavor.name}${resolveAddonCode(item.flavor) ? ` [CÓD: ${resolveAddonCode(item.flavor)}]` : ''})` : '';
                         const addonsStr = item.addons && item.addons.length > 0 ? ` (+ ${item.addons.map(a => `${a.name}${resolveAddonCode(a) ? ` [CÓD: ${resolveAddonCode(a)}]` : ''}`).join(', ')})` : '';
-                        return `${item.quantity}x ${item.name}${code ? ` [CÓD: ${code}]` : ''}${flavorStr}${addonsStr}`;
+                        return `${item.quantity}x ${item.name}${prepStr}${code ? ` [CÓD: ${code}]` : ''}${flavorStr}${addonsStr}`;
                       }).join(', ')}
                     </td>
                     <td className="p-4 capitalize">

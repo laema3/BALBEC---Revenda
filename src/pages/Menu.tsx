@@ -662,6 +662,25 @@ export default function Menu() {
   });
   const [isSendingOrder, setIsSendingOrder] = useState(false);
 
+  // Helper central para detecção de itens congelados no carrinho
+  const isCartItemFrozen = useCallback((item: any): boolean => {
+    if (!item) return false;
+    if (item.isFrozen === true) return true;
+    if (item.prepType && String(item.prepType).startsWith('congelado')) return true;
+    if (item.prepLabel && String(item.prepLabel).toLowerCase().includes('congelad')) return true;
+    if (Array.isArray(item.addons) && item.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) return true;
+    if (Array.isArray(item.options) && item.options.some((o: any) => o.isFrozen || (o.name && o.name.toLowerCase().includes('congelad')))) return true;
+    return false;
+  }, []);
+
+  const hasFrozenInCart = useMemo(() => {
+    return cart.some(isCartItemFrozen);
+  }, [cart, isCartItemFrozen]);
+
+  const hasNormalInCart = useMemo(() => {
+    return cart.some(it => !isCartItemFrozen(it));
+  }, [cart, isCartItemFrozen]);
+
   // Persistir carrinho no localStorage sempre que houver alterações
   useEffect(() => {
     try {
@@ -1491,16 +1510,55 @@ export default function Menu() {
     quantity: 1
   });
 
-  const [frozenNormalQty, setFrozenNormalQty] = useState<number>(0);
-  const [frozenFrozenQty, setFrozenFrozenQty] = useState<number>(0);
+  // Modal active group tab: 'pronto' | 'congelado' | null
+  const [frozenModalActiveTab, setFrozenModalActiveTab] = useState<'pronto' | 'congelado' | null>(null);
+
+  // 4 Quantidades de Preparo (todas iniciando rigorosamente em 0):
+  // 1. Salgados Prontos (Normais):
+  const [prontoFritoQty, setProntoFritoQty] = useState<number>(0);
+  const [prontoCruQty, setProntoCruQty] = useState<number>(0);
+  // 2. Salgados Congelados (Prazo até 48h):
+  const [congeladoCruQty, setCongeladoCruQty] = useState<number>(0);
+  const [congeladoFritoQty, setCongeladoFritoQty] = useState<number>(0);
+
+  // Modal de Conflito de Carrinho (quando tenta misturar normal e congelado)
+  const [cartConflictModal, setCartConflictModal] = useState<{
+    isOpen: boolean;
+    type: 'has_frozen_blocked_normal' | 'has_normal_blocked_frozen';
+    product?: any;
+    qty?: number;
+  }>({
+    isOpen: false,
+    type: 'has_frozen_blocked_normal'
+  });
 
   const openFrozenModal = (product: any, qty: number = 1) => {
+    // Buscar se já existem itens deste produto no carrinho para exibir quantidades atuais
     const cartItemsForProd = cart.filter(ci => ci.productId === product.id);
-    const existingNormal = cartItemsForProd.filter(ci => !ci.isFrozen && !ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado')).reduce((s, ci) => s + ci.quantity, 0);
-    const existingFrozen = cartItemsForProd.filter(ci => ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado')).reduce((s, ci) => s + ci.quantity, 0);
+    const exProntoFrito = cartItemsForProd.filter(ci => ci.prepType === 'pronto_frito' || (!ci.isFrozen && !ci.prepType && !ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado'))).reduce((s, ci) => s + ci.quantity, 0);
+    const exProntoCru = cartItemsForProd.filter(ci => ci.prepType === 'pronto_cru').reduce((s, ci) => s + ci.quantity, 0);
+    const exCongeladoCru = cartItemsForProd.filter(ci => ci.prepType === 'congelado_cru' || (ci.isFrozen && !ci.prepType)).reduce((s, ci) => s + ci.quantity, 0);
+    const exCongeladoFrito = cartItemsForProd.filter(ci => ci.prepType === 'congelado_frito').reduce((s, ci) => s + ci.quantity, 0);
 
-    setFrozenNormalQty(existingNormal > 0 ? existingNormal : 0);
-    setFrozenFrozenQty(existingFrozen > 0 ? existingFrozen : 0);
+    // Inicializar quantidades: 0 por padrão ou o que já estiver salvo no carrinho para este produto
+    setProntoFritoQty(exProntoFrito > 0 ? exProntoFrito : 0);
+    setProntoCruQty(exProntoCru > 0 ? exProntoCru : 0);
+    setCongeladoCruQty(exCongeladoCru > 0 ? exCongeladoCru : 0);
+    setCongeladoFritoQty(exCongeladoFrito > 0 ? exCongeladoFrito : 0);
+
+    // Se o carrinho já tiver congelados de outros produtos, trava diretamente em congelado
+    if (hasFrozenInCart) {
+      setFrozenModalActiveTab('congelado');
+    } else if (hasNormalInCart) {
+      setFrozenModalActiveTab('pronto');
+    } else if (exCongeladoCru > 0 || exCongeladoFrito > 0) {
+      setFrozenModalActiveTab('congelado');
+    } else if (exProntoFrito > 0 || exProntoCru > 0) {
+      setFrozenModalActiveTab('pronto');
+    } else {
+      setFrozenModalActiveTab(null);
+    }
+
     setFrozenModal({ isOpen: true, product, quantity: qty });
   };
   
@@ -1790,23 +1848,28 @@ export default function Menu() {
     }
   };
 
-  const addToCart = (product: any, addons: any[] = [], flavor: any = null, quantity: number = 1) => {
-    const isFrozenChoice = (addons || []).some((a: any) => 
-      a.isFrozen || 
-      a.productId === 'prod_congelado' || 
-      (a.name && a.name.toLowerCase().includes('congelad'))
+  const addToCart = (product: any, addons: any[] = [], flavor: any = null, quantity: number = 1, prepType?: string, prepLabel?: string) => {
+    const isFrozenChoice = Boolean(
+      (prepType && prepType.startsWith('congelado')) ||
+      (prepLabel && prepLabel.toLowerCase().includes('congelad')) ||
+      (addons || []).some((a: any) => 
+        a.isFrozen || 
+        a.productId === 'prod_congelado' || 
+        (a.name && a.name.toLowerCase().includes('congelad'))
+      )
     );
     setCart(prev => {
       const existing = prev.find(item => 
         item.productId === product.id && 
+        (item.prepType || '') === (prepType || '') &&
         Boolean(item.isFrozen) === isFrozenChoice &&
         JSON.stringify(item.addons) === JSON.stringify(addons) &&
         JSON.stringify(item.flavor) === JSON.stringify(flavor)
       );
       if (existing) {
         return prev.map(item => 
-          (item.productId === product.id && Boolean(item.isFrozen) === isFrozenChoice && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor))
-            ? { ...item, quantity: item.quantity + quantity, isFrozen: isFrozenChoice } 
+          (item.productId === product.id && (item.prepType || '') === (prepType || '') && Boolean(item.isFrozen) === isFrozenChoice && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor))
+            ? { ...item, quantity: item.quantity + quantity, isFrozen: isFrozenChoice, prepType: prepType || item.prepType, prepLabel: prepLabel || item.prepLabel } 
             : item
         );
       }
@@ -1836,6 +1899,8 @@ export default function Menu() {
         quantity: Math.max(1, quantity), 
         imageUrl: product.imageUrl, 
         isFrozen: isFrozenChoice,
+        prepType,
+        prepLabel,
         addons: enrichedAddons, 
         flavor: enrichedFlavor 
       }];
@@ -1862,6 +1927,17 @@ export default function Menu() {
 
     if (isSalgadoProduct(product, categories)) {
       openFrozenModal(product, qty);
+      return;
+    }
+
+    // Regra BALBEC: Se o carrinho já contém congelados (prazo até 48h), o cliente NÃO pode adicionar itens normais/prontos!
+    if (hasFrozenInCart) {
+      setCartConflictModal({
+        isOpen: true,
+        type: 'has_frozen_blocked_normal',
+        product,
+        qty
+      });
       return;
     }
 
@@ -1981,9 +2057,9 @@ export default function Menu() {
     initiateAddToCartWithQty(product, 1);
   };
 
-  const updateQuantity = (productId: string, addons: any[] | undefined, flavor: any | undefined, delta: number) => {
+  const updateQuantity = (productId: string, addons: any[] | undefined, flavor: any | undefined, delta: number, prepType?: string) => {
     setCart(prev => prev.map(item => {
-      if (item.productId === productId && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor)) {
+      if (item.productId === productId && (item.prepType || '') === (prepType || '') && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor)) {
         const newQuantity = Math.max(0, item.quantity + delta);
         return { ...item, quantity: newQuantity };
       }
@@ -2517,6 +2593,13 @@ export default function Menu() {
     const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
     const clientNameDisplay = (lastPlacedOrder?.customerName || customerName || safeStorage.getItem('balbec_customer_name') || 'CLIENTE').trim().toUpperCase();
 
+    const orderHasFrozen = lastPlacedOrder?.items?.some((it: any) => 
+      Boolean(it.isFrozen) || 
+      (it.prepType && String(it.prepType).startsWith('congelado')) ||
+      (it.prepLabel && String(it.prepLabel).toLowerCase().includes('congelad')) ||
+      (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad'))))
+    );
+
     return (
       <div id="success-order-screen" className="min-h-screen bg-stone-900 text-stone-100 flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 pt-2 sm:pt-6">
         <div className="bg-white text-stone-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-stone-200 animate-in fade-in zoom-in duration-200 my-0 sm:my-auto">
@@ -2561,6 +2644,26 @@ export default function Menu() {
                       : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.`)}
               </p>
             </div>
+
+            {/* Aviso Especial de Salgados Congelados (Prazo até 48 horas / Pode ficar pronto antes) */}
+            {orderHasFrozen && (
+              <div className="w-full bg-blue-950/90 border-2 border-blue-400 rounded-3xl p-5 sm:p-6 shadow-xl mb-6 space-y-2 text-center text-white animate-in zoom-in-95">
+                <div className="flex items-center justify-center gap-2 text-2xl mb-1">
+                  <span>❄️</span>
+                  <span>⏱️</span>
+                </div>
+                <h4 className="text-base sm:text-lg font-black uppercase tracking-tight text-blue-200">
+                  Prazo de Produção: Salgados Congelados (Até 48 Horas)
+                </h4>
+                <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed">
+                  Os salgados congelados têm prazo estimado de produção e congelamento de <strong>até 48 horas</strong>.<br/>
+                  <strong className="text-white bg-blue-800 px-2 py-0.5 rounded-md inline-block my-1.5 border border-blue-600">
+                    Apesar deste prazo, o seu pedido pode ficar pronto antes!
+                  </strong><br/>
+                  Assim que estiver pronto para retirada ou sair para entrega, você será avisado aqui na tela e via notificações no seu celular!
+                </p>
+              </div>
+            )}
 
             <div className="inline-flex items-center gap-2 bg-black/30 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/20 shadow-lg animate-pulse">
               <Printer className="w-4 h-4 text-white" />
@@ -3354,9 +3457,20 @@ export default function Menu() {
         <div className="flex-1 max-w-3xl w-full mx-auto p-3.5 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
           <div>
             <h2 className="text-xl font-bold mb-4">Resumo do Pedido</h2>
+            {hasFrozenInCart && (
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-2xl p-4 text-blue-950 mb-3 space-y-1 shadow-xs animate-in fade-in">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-blue-900 uppercase">
+                  <span>❄️</span>
+                  <span>Pedido de Salgados Congelados (Prazo até 48h)</span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-blue-800 font-medium leading-relaxed">
+                  Os salgados congelados têm prazo estimado de produção e congelamento de <strong>até 48 horas</strong>, mas <strong>o seu pedido pode ficar pronto antes</strong>! Você receberá avisos assim que estiver disponível.
+                </p>
+              </div>
+            )}
             <div className="bg-white rounded-xl shadow-sm p-4 space-y-4">
               {cart.map(item => (
-                <div key={item.productId + JSON.stringify(item.addons) + JSON.stringify(item.flavor)} className="flex gap-4 items-center">
+                <div key={item.productId + (item.prepType || '') + JSON.stringify(item.addons) + JSON.stringify(item.flavor)} className="flex gap-4 items-center">
                   <div className="w-16 h-16 bg-stone-50 rounded-xl overflow-hidden shrink-0 border border-stone-100">
                     <ProductImage 
                       src={item.imageUrl} 
@@ -3367,12 +3481,21 @@ export default function Menu() {
                   <div className="flex-1 flex justify-between items-center">
                     <div>
                       <span className="font-medium">{item.quantity}x</span> <span className="uppercase font-bold">{item.name}</span>
-                      {(item.isFrozen || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) && (
+                      {item.prepLabel ? (
+                        <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-black uppercase tracking-wider my-1 border ${
+                          item.isFrozen || item.prepType?.startsWith('congelado')
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-amber-50 border-amber-200 text-amber-800'
+                        }`}>
+                          <span>{item.isFrozen || item.prepType?.startsWith('congelado') ? '❄️' : '🔥'}</span>
+                          <span>{item.prepLabel}</span>
+                        </div>
+                      ) : (item.isFrozen || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) ? (
                         <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 animate-pulse text-xs font-black uppercase tracking-wider my-1">
                           <span>❄️</span>
                           <span>CONGELADO</span>
                         </div>
-                      )}
+                      ) : null}
                       {item.description && (
                         <div className="text-xs text-red-600 italic font-medium mt-0.5">
                           {formatCapitalized(item.description)}
@@ -3412,7 +3535,7 @@ export default function Menu() {
                       <button
                         type="button"
                         onClick={() => {
-                          setCart(prev => prev.filter(ci => !(ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
+                          setCart(prev => prev.filter(ci => !(ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
                         }}
                         className="p-1 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                         title="Excluir item do pedido"
@@ -6666,126 +6789,149 @@ export default function Menu() {
               </button>
             </div>
           ) : (
-            cart.map(item => (
-              <div key={item.productId + JSON.stringify(item.addons) + JSON.stringify(item.flavor)} className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex gap-4 items-center">
-                <div className="w-16 h-16 bg-stone-50 rounded-xl overflow-hidden shrink-0 border border-stone-100">
-                  <ProductImage 
-                    src={item.imageUrl} 
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between font-bold mb-1">
-                    <span className="line-clamp-1 pr-2 text-stone-900">{formatCapitalized(item.name)}</span>
-                    <span className="text-orange-600 font-black">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</span>
+            <>
+              {hasFrozenInCart && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 font-medium space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-blue-950">
+                    <span>❄️</span>
+                    <span>Carrinho de Congelados (Prazo até 48h)</span>
                   </div>
-                  {(item.isFrozen || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) && (
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 animate-pulse text-[11px] font-black uppercase tracking-wider my-0.5">
-                      <span>❄️</span>
-                      <span>CONGELADO (+R$ 0,30/un)</span>
-                    </div>
-                  )}
-                  {item.description && (
-                    <div className="text-xs text-red-600 italic font-medium line-clamp-1 mb-0.5">
-                      {formatCapitalized(item.description)}
-                    </div>
-                  )}
-                  {item.flavor && (
-                    <div className="text-xs text-stone-500 mb-0.5 truncate">
-                      Sabor: {formatCapitalized(item.flavor.name)}
-                      {resolveAddonCode(item.flavor) && (
-                        <span className="font-mono text-[10px] font-bold text-stone-700 ml-1">[CÓD: {resolveAddonCode(item.flavor)}]</span>
-                      )}
-                    </div>
-                  )}
-                  {item.addons && item.addons.length > 0 && (
-                    <div className="text-xs text-stone-500 mb-0.5 space-y-0.5">
-                      {item.addons.map((a, aIdx) => {
-                        const aCode = a.externalId || a.code || resolveAddonCode(a);
-                        return (
-                          <div key={aIdx} className="truncate">
-                            + {formatCapitalized(a.name)}
-                            {aCode && (
-                              <span className="font-mono text-[10px] font-bold text-stone-700 ml-1">[CÓD: {aCode}]</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
-                    <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0))} un</span>
-                     <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          setCart(prev => prev.filter(ci => !(ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
-                        }}
-                        className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                        title="Excluir item do pedido"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => updateQuantity(item.productId, item.addons, item.flavor, -1)}
-                        className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
-                        title="Diminuir"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={cartItemInputMap[item.productId + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null)] ?? item.quantity}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/\D/g, '');
-                          const key = item.productId + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null);
-                          setCartItemInputMap(prev => ({ ...prev, [key]: raw }));
-                          if (raw !== '') {
-                            const val = parseInt(raw, 10);
-                            if (!isNaN(val) && val > 0) {
-                              setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: val } : ci));
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          const key = item.productId + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null);
-                          const raw = cartItemInputMap[key];
-                          const parsed = parseInt(String(raw ?? item.quantity), 10);
-                          const safe = isNaN(parsed) || parsed < 1 ? 1 : parsed;
-                          setCart(prev => prev.map(ci => (ci.productId === item.productId && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: safe } : ci));
-                          setCartItemInputMap(prev => {
-                            const next = { ...prev };
-                            delete next[key];
-                            return next;
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                        placeholder="1"
-                        className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
-                        title="Digite a quantidade diretamente (pode apagar tudo)"
+                  <p className="text-[11px] text-blue-800 leading-snug">
+                    Este pedido contém salgados congelados com prazo de produção de até 48h (podendo ficar pronto antes).
+                  </p>
+                </div>
+              )}
+              {cart.map(item => {
+                const itemKey = item.productId + (item.prepType || '') + JSON.stringify(item.addons || []) + JSON.stringify(item.flavor || null);
+                return (
+                  <div key={itemKey} className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex gap-4 items-center">
+                    <div className="w-16 h-16 bg-stone-50 rounded-xl overflow-hidden shrink-0 border border-stone-100">
+                      <ProductImage 
+                        src={item.imageUrl} 
+                        alt={item.name}
+                        className="w-full h-full object-cover"
                       />
-                      <button 
-                        type="button"
-                        onClick={() => updateQuantity(item.productId, item.addons, item.flavor, 1)}
-                        className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
-                        title="Aumentar"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between font-bold mb-1">
+                        <span className="line-clamp-1 pr-2 text-stone-900">{formatCapitalized(item.name)}</span>
+                        <span className="text-orange-600 font-black">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</span>
+                      </div>
+                      {item.prepLabel ? (
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider my-0.5 border ${
+                          item.isFrozen || item.prepType?.startsWith('congelado')
+                            ? 'bg-blue-50 border-blue-200 text-blue-700 animate-pulse'
+                            : 'bg-amber-50 border-amber-200 text-amber-800'
+                        }`}>
+                          <span>{item.isFrozen || item.prepType?.startsWith('congelado') ? '❄️' : '🔥'}</span>
+                          <span>{item.prepLabel} {item.isFrozen ? '(+R$ 0,30/un)' : ''}</span>
+                        </div>
+                      ) : (item.isFrozen || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) ? (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 animate-pulse text-[11px] font-black uppercase tracking-wider my-0.5">
+                          <span>❄️</span>
+                          <span>CONGELADO (+R$ 0,30/un)</span>
+                        </div>
+                      ) : null}
+                      {item.description && (
+                        <div className="text-xs text-red-600 italic font-medium line-clamp-1 mb-0.5">
+                          {formatCapitalized(item.description)}
+                        </div>
+                      )}
+                      {item.flavor && (
+                        <div className="text-xs text-stone-500 mb-0.5 truncate">
+                          Sabor: {formatCapitalized(item.flavor.name)}
+                          {resolveAddonCode(item.flavor) && (
+                            <span className="font-mono text-[10px] font-bold text-stone-700 ml-1">[CÓD: {resolveAddonCode(item.flavor)}]</span>
+                          )}
+                        </div>
+                      )}
+                      {item.addons && item.addons.length > 0 && (
+                        <div className="text-xs text-stone-500 mb-0.5 space-y-0.5">
+                          {item.addons.map((a, aIdx) => {
+                            const aCode = a.externalId || a.code || resolveAddonCode(a);
+                            return (
+                              <div key={aIdx} className="truncate">
+                                + {formatCapitalized(a.name)}
+                                {aCode && (
+                                  <span className="font-mono text-[10px] font-bold text-stone-700 ml-1">[CÓD: {aCode}]</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
+                        <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0))} un</span>
+                        <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setCart(prev => prev.filter(ci => !(ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
+                            }}
+                            className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                            title="Excluir item do pedido"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => updateQuantity(item.productId, item.addons, item.flavor, -1, item.prepType)}
+                            className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                            title="Diminuir"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={cartItemInputMap[itemKey] ?? item.quantity}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, '');
+                              setCartItemInputMap(prev => ({ ...prev, [itemKey]: raw }));
+                              if (raw !== '') {
+                                const val = parseInt(raw, 10);
+                                if (!isNaN(val) && val > 0) {
+                                  setCart(prev => prev.map(ci => (ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: val } : ci));
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              const raw = cartItemInputMap[itemKey];
+                              const parsed = parseInt(String(raw ?? item.quantity), 10);
+                              const safe = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+                              setCart(prev => prev.map(ci => (ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: safe } : ci));
+                              setCartItemInputMap(prev => {
+                                const next = { ...prev };
+                                delete next[itemKey];
+                                return next;
+                              });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            placeholder="1"
+                            className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
+                            title="Digite a quantidade diretamente (pode apagar tudo)"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => updateQuantity(item.productId, item.addons, item.flavor, 1, item.prepType)}
+                            className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                            title="Aumentar"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))
+                );
+              })}
+            </>
           )}
         </div>
 
@@ -7098,137 +7244,345 @@ export default function Menu() {
         </div>
       )})()}
 
-      {/* Modal de Variações de Quantidade (Normal vs Congelado) */}
+      {/* Modal de Variações de Quantidade (Salgados Prontos vs Salgados Congelados) */}
       {frozenModal.isOpen && frozenModal.product && (() => {
         const found = products.find(p => p.id === 'prod_congelado');
         const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
         const congeladoProd = found || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
 
+        const totalProntoSelected = prontoFritoQty + prontoCruQty;
+        const totalCongeladoSelected = congeladoCruQty + congeladoFritoQty;
+        const grandTotalSelected = totalProntoSelected + totalCongeladoSelected;
+
+        // Regras de Bloqueio Mútuo:
+        // 1. Salgados Prontos ficam bloqueados se o carrinho já tiver congelados ou se houver quantidades congeladas selecionadas
+        const isProntosBlocked = hasFrozenInCart || totalCongeladoSelected > 0;
+        // 2. Salgados Congelados ficam bloqueados se o carrinho já tiver produtos prontos ou se houver quantidades prontas selecionadas
+        const isCongeladosBlocked = hasNormalInCart || totalProntoSelected > 0;
+
         return (
-          <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-stone-200 space-y-6">
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-orange-200">
+          <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-2xl border border-stone-200 space-y-5 my-auto max-h-[94vh] overflow-y-auto">
+              {/* Header do Modal */}
+              <div className="text-center space-y-1.5">
+                <div className="w-14 h-14 bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner border border-orange-200">
                   🥟
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight">
-                  Escolher Quantidades: {frozenModal.product.name}
+                <h3 className="text-lg sm:text-xl font-black text-stone-900 uppercase tracking-tight">
+                  {frozenModal.product.name}
                 </h3>
-                <p className="text-xs text-stone-500 leading-relaxed px-2">
-                  Defina abaixo quantas unidades deseja da versão <strong>Normal (Frita/Assada)</strong> e/ou da versão <strong>Congelada</strong> (acréscimo de {formatCurrency(pVal)} por unidade).
+                <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
+                  Escolha abaixo o tipo de preparo desejado. Devido aos prazos especiais, <strong>não é permitido misturar itens normais e congelados no mesmo pedido</strong>.
                 </p>
               </div>
 
-              <div className="space-y-4">
-                {/* Opção 1: Normal */}
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-black text-amber-900 uppercase flex items-center gap-1.5">
-                      <span>🔥</span> Salgado Normal (Frito/Assado)
-                    </p>
-                    <p className="text-xs text-amber-800 font-bold mt-0.5">
-                      {formatCurrency(frozenModal.product.price)} un
-                    </p>
+              {/* GRUPO 1: SALGADOS PRONTOS (NORMAIS) */}
+              <div className={`rounded-2xl border-2 transition-all p-4 ${
+                isProntosBlocked 
+                  ? 'border-stone-200 bg-stone-50/70 opacity-60' 
+                  : 'border-amber-300 bg-amber-50/40 shadow-xs'
+              }`}>
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-amber-200/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔥</span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-tight">
+                        Salgados Prontos (Normais)
+                      </h4>
+                      <p className="text-[10px] text-amber-800 font-medium">
+                        Preparo rápido para consumo imediato
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-amber-300 shadow-xs">
-                    <button
-                      type="button"
-                      onClick={() => setFrozenNormalQty(Math.max(0, frozenNormalQty - 1))}
-                      className="w-8 h-8 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-black flex items-center justify-center cursor-pointer"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={frozenNormalQty}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
-                        setFrozenNormalQty(isNaN(val) ? 0 : val);
-                      }}
-                      className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFrozenNormalQty(frozenNormalQty + 1)}
-                      className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <span className="text-[10px] bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-black uppercase">
+                    {formatCurrency(frozenModal.product.price)} un
+                  </span>
                 </div>
 
-                {/* Opção 2: Congelado */}
-                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-black text-blue-900 uppercase flex items-center gap-1.5">
-                      <span>❄️</span> Salgado Congelado
+                {isProntosBlocked ? (
+                  <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2">
+                    <p className="text-[11px] font-bold text-stone-600 leading-snug">
+                      🔒 {hasFrozenInCart 
+                        ? 'Opção bloqueada: seu carrinho atual contém itens congelados (prazo até 48h).' 
+                        : 'Opção bloqueada: você já selecionou itens congelados. Zere as quantidades congeladas para pedir prontos.'}
                     </p>
-                    <p className="text-xs text-blue-800 font-bold mt-0.5">
-                      {formatCurrency(frozenModal.product.price + pVal)} un <span className="text-[10px] opacity-80">(+{formatCurrency(pVal)})</span>
-                    </p>
+                    {hasFrozenInCart && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCart([]);
+                          safeStorage.removeItem('balbec_active_cart');
+                          setCongeladoCruQty(0);
+                          setCongeladoFritoQty(0);
+                        }}
+                        className="text-[11px] font-black text-orange-600 hover:text-orange-700 underline cursor-pointer"
+                      >
+                        Limpar carrinho para pedir produtos prontos
+                      </button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-blue-300 shadow-xs">
-                    <button
-                      type="button"
-                      onClick={() => setFrozenFrozenQty(Math.max(0, frozenFrozenQty - 1))}
-                      className="w-8 h-8 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 font-black flex items-center justify-center cursor-pointer"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={frozenFrozenQty}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
-                        setFrozenFrozenQty(isNaN(val) ? 0 : val);
-                      }}
-                      className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFrozenFrozenQty(frozenFrozenQty + 1)}
-                      className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    {/* Opção 1.1: Salgado Pronto FRITO/ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Pronto FRITO/ASSADO
+                        </p>
+                        <p className="text-[11px] text-amber-800 font-bold">
+                          {formatCurrency(frozenModal.product.price)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-amber-50 rounded-xl p-1 border border-amber-200">
+                        <button
+                          type="button"
+                          onClick={() => setProntoFritoQty(Math.max(0, prontoFritoQty - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-black flex items-center justify-center cursor-pointer border border-amber-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={prontoFritoQty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setProntoFritoQty(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setProntoFritoQty(prontoFritoQty + 1)}
+                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Opção 1.2: Salgado Pronto CRU/PRÉ-ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Pronto CRU/PRÉ-ASSADO
+                        </p>
+                        <p className="text-[11px] text-amber-800 font-bold">
+                          {formatCurrency(frozenModal.product.price)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-amber-50 rounded-xl p-1 border border-amber-200">
+                        <button
+                          type="button"
+                          onClick={() => setProntoCruQty(Math.max(0, prontoCruQty - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-black flex items-center justify-center cursor-pointer border border-amber-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={prontoCruQty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setProntoCruQty(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setProntoCruQty(prontoCruQty + 1)}
+                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="space-y-2 pt-2">
+              {/* GRUPO 2: SALGADOS CONGELADOS */}
+              <div className={`rounded-2xl border-2 transition-all p-4 ${
+                isCongeladosBlocked 
+                  ? 'border-stone-200 bg-stone-50/70 opacity-60' 
+                  : 'border-blue-300 bg-blue-50/40 shadow-xs'
+              }`}>
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-blue-200/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">❄️</span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-blue-950 uppercase tracking-tight">
+                        Salgados Congelados
+                      </h4>
+                      <p className="text-[10px] text-blue-700 font-bold">
+                        ⏱️ Prazo de preparo de até 48 horas (pode ficar pronto antes)
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded-full font-black uppercase">
+                    {formatCurrency(frozenModal.product.price + pVal)} un
+                  </span>
+                </div>
+
+                {isCongeladosBlocked ? (
+                  <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2">
+                    <p className="text-[11px] font-bold text-stone-600 leading-snug">
+                      🔒 {hasNormalInCart 
+                        ? 'Opção bloqueada: seu carrinho já contém produtos prontos para consumo imediato.' 
+                        : 'Opção bloqueada: você já selecionou itens prontos. Zere as quantidades de prontos para pedir congelados.'}
+                    </p>
+                    {hasNormalInCart && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCart([]);
+                          safeStorage.removeItem('balbec_active_cart');
+                          setProntoFritoQty(0);
+                          setProntoCruQty(0);
+                        }}
+                        className="text-[11px] font-black text-blue-600 hover:text-blue-700 underline cursor-pointer"
+                      >
+                        Limpar carrinho para pedir produtos congelados
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    {/* Opção 2.1: Salgado Congelado CRU/PRÉ-ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-blue-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Congelado CRU/PRÉ-ASSADO
+                        </p>
+                        <p className="text-[11px] text-blue-800 font-bold">
+                          {formatCurrency(frozenModal.product.price + pVal)} <span className="text-[10px] opacity-80 font-normal">(+{formatCurrency(pVal)})</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
+                        <button
+                          type="button"
+                          onClick={() => setCongeladoCruQty(Math.max(0, congeladoCruQty - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={congeladoCruQty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setCongeladoCruQty(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCongeladoCruQty(congeladoCruQty + 1)}
+                          className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Opção 2.2: Salgado Congelado FRITO/ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-blue-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Congelado FRITO/ASSADO
+                        </p>
+                        <p className="text-[11px] text-blue-800 font-bold">
+                          {formatCurrency(frozenModal.product.price + pVal)} <span className="text-[10px] opacity-80 font-normal">(+{formatCurrency(pVal)})</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
+                        <button
+                          type="button"
+                          onClick={() => setCongeladoFritoQty(Math.max(0, congeladoFritoQty - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={congeladoFritoQty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setCongeladoFritoQty(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCongeladoFritoQty(congeladoFritoQty + 1)}
+                          className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Botões de Ação do Modal */}
+              <div className="space-y-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
-                    if (frozenNormalQty === 0 && frozenFrozenQty === 0) {
-                      alert('Por favor, informe a quantidade para pelo menos uma das opções (Normal ou Congelado).');
+                    if (grandTotalSelected === 0) {
+                      alert('Por favor, defina a quantidade para pelo menos uma das opções acima.');
                       return;
                     }
 
+                    // Limpa versões anteriores deste produto no carrinho para aplicar a nova seleção
                     setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
 
-                    if (frozenNormalQty > 0) {
-                      addToCart(frozenModal.product, [], null, frozenNormalQty);
+                    // 1. Salgado Pronto FRITO/ASSADO
+                    if (prontoFritoQty > 0) {
+                      addToCart(frozenModal.product, [], null, prontoFritoQty, 'pronto_frito', 'Salgado Pronto FRITO/ASSADO');
                     }
 
-                    if (frozenFrozenQty > 0) {
+                    // 2. Salgado Pronto CRU/PRÉ-ASSADO
+                    if (prontoCruQty > 0) {
+                      addToCart(frozenModal.product, [], null, prontoCruQty, 'pronto_cru', 'Salgado Pronto CRU/PRÉ-ASSADO');
+                    }
+
+                    // 3. Salgado Congelado CRU/PRÉ-ASSADO
+                    if (congeladoCruQty > 0) {
                       const frozenAddon = {
                         productId: congeladoProd.id,
-                        name: 'Opção: Congelado',
+                        name: 'Salgado Congelado CRU/PRÉ-ASSADO',
                         price: pVal,
                         externalId: (congeladoProd as any).externalId || '9999',
                         isFrozen: true
                       };
-                      addToCart(frozenModal.product, [frozenAddon], null, frozenFrozenQty);
+                      addToCart(frozenModal.product, [frozenAddon], null, congeladoCruQty, 'congelado_cru', 'Salgado Congelado CRU/PRÉ-ASSADO');
+                    }
+
+                    // 4. Salgado Congelado FRITO/ASSADO
+                    if (congeladoFritoQty > 0) {
+                      const frozenAddon = {
+                        productId: congeladoProd.id,
+                        name: 'Salgado Congelado FRITO/ASSADO',
+                        price: pVal,
+                        externalId: (congeladoProd as any).externalId || '9999',
+                        isFrozen: true
+                      };
+                      addToCart(frozenModal.product, [frozenAddon], null, congeladoFritoQty, 'congelado_frito', 'Salgado Congelado FRITO/ASSADO');
                     }
 
                     setFrozenModal({ isOpen: false, product: null, quantity: 1 });
                   }}
-                  className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  disabled={grandTotalSelected === 0}
+                  className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Confirmar e Adicionar ao Carrinho 🛒</span>
+                  <span>Confirmar e Adicionar ({grandTotalSelected} un) 🛒</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setFrozenModal({ isOpen: false, product: null, quantity: 1 })}
@@ -7241,6 +7595,72 @@ export default function Menu() {
           </div>
         );
       })()}
+
+      {/* Modal de Conflito de Carrinho (Tentativa de adicionar produto normal com carrinho congelado) */}
+      {cartConflictModal.isOpen && (
+        <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-blue-200">
+              ❄️
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-stone-900 uppercase tracking-tight">
+                Carrinho com Produtos Congelados
+              </h3>
+              <p className="text-xs text-stone-600 leading-relaxed">
+                Seu carrinho atual possui <strong>Salgados Congelados</strong> com prazo de produção de <strong>até 48 horas</strong>.<br/>
+                Não é permitido misturar itens normais/prontos com congelados no mesmo pedido.
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 text-xs text-blue-900 text-left font-medium">
+              💡 <strong>Deseja finalizar o pedido de congelados ou iniciar um novo pedido?</strong><br/>
+              Você pode enviar seu pedido de congelados primeiro, ou esvaziar o carrinho agora para pedir itens prontos para consumo imediato.
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCartConflictModal({ isOpen: false, type: 'has_frozen_blocked_normal' });
+                  setIsCartOpen(true);
+                }}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+              >
+                Ver Meu Carrinho de Congelados 🛒
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const targetProd = cartConflictModal.product;
+                  const targetQty = cartConflictModal.qty || 1;
+                  setCart([]);
+                  safeStorage.removeItem('balbec_active_cart');
+                  setCartConflictModal({ isOpen: false, type: 'has_frozen_blocked_normal' });
+                  if (targetProd) {
+                    setTimeout(() => {
+                      initiateAddToCartWithQty(targetProd, targetQty);
+                    }, 100);
+                  }
+                }}
+                className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
+              >
+                Limpar Carrinho e Pedir Itens Prontos
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCartConflictModal({ isOpen: false, type: 'has_frozen_blocked_normal' })}
+                className="w-full py-2 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Seleção de Mesa */}
       {showTableSelectModal && (
