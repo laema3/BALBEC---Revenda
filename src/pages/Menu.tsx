@@ -756,6 +756,7 @@ export default function Menu() {
   const [newCustPassword, setNewCustPassword] = useState('');
   const [confirmCustPassword, setConfirmCustPassword] = useState('');
   const [showNewCustPassword, setShowNewCustPassword] = useState(false);
+  const [showConfirmCustPassword, setShowConfirmCustPassword] = useState(false);
   const [changePassLoading, setChangePassLoading] = useState(false);
   const [changePassError, setChangePassError] = useState('');
   const [changePassSuccess, setChangePassSuccess] = useState('');
@@ -5436,168 +5437,6 @@ export default function Menu() {
     );
   };
 
-  // Modal de Troca Obrigatória de Senha (Primeiro Acesso)
-  const MustChangePasswordModal = () => {
-    if (!mustChangePasswordModal || !activeCustomer) return null;
-
-    const cleanCpfDigits = String(activeCustomer.cpf || '').replace(/\D/g, '');
-    const first5 = cleanCpfDigits.slice(0, 5);
-
-    return (
-      <div 
-        className="fixed inset-0 z-[99999] bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border-2 border-orange-500/30 text-center relative overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
-          {/* Faixa decorativa superior */}
-          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600" />
-
-          {/* Ícone */}
-          <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner border border-orange-200">
-            <Lock className="w-8 h-8" />
-          </div>
-
-          {/* Título e Subtítulo */}
-          <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight">
-            Primeiro Acesso
-          </h2>
-          <p className="text-[13px] font-black text-orange-600 uppercase tracking-wider mt-0.5">
-            Troca Obrigatória de Senha
-          </p>
-
-          <p className="text-xs text-stone-600 font-medium mt-3 leading-relaxed">
-            Olá, <strong className="text-stone-900">{activeCustomer.name}</strong>! Por questões de segurança, você realizou seu login com a senha provisória padrão (5 primeiros dígitos do seu CNPJ/CPF) e precisa criar uma nova senha pessoal definitiva para continuar.
-          </p>
-
-          {/* Badge do Usuário */}
-          <div className="mt-4 p-3 bg-stone-50 border border-stone-200 rounded-2xl flex items-center justify-between text-left">
-            <div>
-              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Usuário Conectado</span>
-              <span className="text-xs font-black text-stone-800 truncate block max-w-[220px]">{activeCustomer.name}</span>
-            </div>
-            <span className="text-[11px] font-mono font-bold text-stone-600 bg-white px-2 py-1 rounded-lg border border-stone-200">
-              {activeCustomer.cpf || 'CNPJ/CPF'}
-            </span>
-          </div>
-
-          {/* Feedback de erro e sucesso */}
-          {changePassError && (
-            <div className="mt-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-700 text-left flex items-start gap-2 animate-in fade-in">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{changePassError}</span>
-            </div>
-          )}
-
-          {changePassSuccess && (
-            <div className="mt-4 p-3.5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl text-xs font-bold text-emerald-800 text-left flex items-start gap-2 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span>{changePassSuccess}</span>
-            </div>
-          )}
-
-          {/* Formulário */}
-          <form onSubmit={handleCustomerChangePassword} className="mt-5 space-y-4 text-left">
-            <div>
-              <label className="block text-[11px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">
-                Nova Senha Pessoal *
-              </label>
-              <div className="relative">
-                <input
-                  type={showNewCustPassword ? 'text' : 'password'}
-                  value={newCustPassword}
-                  onChange={(e) => {
-                    setNewCustPassword(e.target.value);
-                    if (changePassError) setChangePassError('');
-                  }}
-                  placeholder="Mínimo 5 caracteres"
-                  className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
-                  required
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewCustPassword(!showNewCustPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-stone-600 cursor-pointer"
-                >
-                  {showNewCustPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">
-                Confirmar Nova Senha *
-              </label>
-              <div className="relative">
-                <input
-                  type={showNewCustPassword ? 'text' : 'password'}
-                  value={confirmCustPassword}
-                  onChange={(e) => {
-                    setConfirmCustPassword(e.target.value);
-                    if (changePassError) setChangePassError('');
-                  }}
-                  placeholder="Digite a nova senha novamente"
-                  className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewCustPassword(!showNewCustPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-stone-600 cursor-pointer"
-                >
-                  {showNewCustPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium space-y-1">
-              <p className="font-bold flex items-center gap-1.5 text-amber-950">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-700" /> Regras da sua nova senha:
-              </p>
-              <ul className="list-disc pl-4 space-y-0.5 text-[10px] text-amber-800">
-                <li>Deve conter no mínimo 5 caracteres;</li>
-                <li>Não pode ser os 5 primeiros dígitos do seu CNPJ ou CPF ({first5 || '*****'}).</li>
-              </ul>
-            </div>
-
-            <button
-              type="submit"
-              disabled={changePassLoading || Boolean(changePassSuccess)}
-              className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-105 active:scale-98"
-              style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}
-            >
-              {changePassLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Salvando nova senha...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Salvar Nova Senha e Continuar</span>
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm('Deseja realmente desconectar e sair?')) {
-                  handleCustomerLogout();
-                  setMustChangePasswordModal(false);
-                }
-              }}
-              className="w-full py-2.5 text-stone-400 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer text-center"
-            >
-              Sair da conta / Desconectar
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
   const hasBypassMaintenance = typeof window !== 'undefined' && (
     window.location.search.includes('bypass_maintenance=1') || 
     window.location.search.includes('admin_preview=1')
@@ -8798,7 +8637,162 @@ export default function Menu() {
       <ProfileModal />
 
       {/* Troca Obrigatória de Senha (Primeiro Acesso) */}
-      <MustChangePasswordModal />
+      {mustChangePasswordModal && activeCustomer && (
+        <div 
+          className="fixed inset-0 z-[99999] bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border-2 border-orange-500/30 text-center relative overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+            {/* Faixa decorativa superior */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600" />
+
+            {/* Ícone */}
+            <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner border border-orange-200">
+              <Lock className="w-8 h-8" />
+            </div>
+
+            {/* Título e Subtítulo */}
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight">
+              Primeiro Acesso
+            </h2>
+            <p className="text-[13px] font-black text-orange-600 uppercase tracking-wider mt-0.5">
+              Troca Obrigatória de Senha
+            </p>
+
+            <p className="text-xs text-stone-600 font-medium mt-3 leading-relaxed">
+              Olá, <strong className="text-stone-900">{activeCustomer.name}</strong>! Por questões de segurança, você realizou seu login com a senha provisória padrão (5 primeiros dígitos do seu CNPJ/CPF) e precisa criar uma nova senha pessoal definitiva para continuar.
+            </p>
+
+            {/* Badge do Usuário */}
+            <div className="mt-4 p-3 bg-stone-50 border border-stone-200 rounded-2xl flex items-center justify-between text-left">
+              <div>
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Usuário Conectado</span>
+                <span className="text-xs font-black text-stone-800 truncate block max-w-[220px]">{activeCustomer.name}</span>
+              </div>
+              <span className="text-[11px] font-mono font-bold text-stone-600 bg-white px-2 py-1 rounded-lg border border-stone-200">
+                {activeCustomer.cpf || 'CNPJ/CPF'}
+              </span>
+            </div>
+
+            {/* Feedback de erro e sucesso */}
+            {changePassError && (
+              <div className="mt-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-700 text-left flex items-start gap-2 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{changePassError}</span>
+              </div>
+            )}
+
+            {changePassSuccess && (
+              <div className="mt-4 p-3.5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl text-xs font-bold text-emerald-800 text-left flex items-start gap-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{changePassSuccess}</span>
+              </div>
+            )}
+
+            {/* Formulário */}
+            <form onSubmit={handleCustomerChangePassword} className="mt-5 space-y-4 text-left">
+              <div>
+                <label htmlFor="new-customer-password" className="block text-[11px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">
+                  Nova Senha Pessoal *
+                </label>
+                <div className="relative">
+                  <input
+                    id="new-customer-password"
+                    name="newPassword"
+                    type={showNewCustPassword ? 'text' : 'password'}
+                    value={newCustPassword}
+                    onChange={(e) => {
+                      setNewCustPassword(e.target.value);
+                      if (changePassError) setChangePassError('');
+                    }}
+                    placeholder="Mínimo 5 caracteres"
+                    className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCustPassword(prev => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-stone-600 cursor-pointer"
+                  >
+                    {showNewCustPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="confirm-customer-password" className="block text-[11px] font-black text-stone-700 mb-1.5 uppercase tracking-wider">
+                  Confirmar Nova Senha *
+                </label>
+                <div className="relative">
+                  <input
+                    id="confirm-customer-password"
+                    name="confirmPassword"
+                    type={showConfirmCustPassword ? 'text' : 'password'}
+                    value={confirmCustPassword}
+                    onChange={(e) => {
+                      setConfirmCustPassword(e.target.value);
+                      if (changePassError) setChangePassError('');
+                    }}
+                    placeholder="Digite a nova senha novamente"
+                    className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmCustPassword(prev => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-stone-600 cursor-pointer"
+                  >
+                    {showConfirmCustPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-700" /> Regras da sua nova senha:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5 text-[10px] text-amber-800">
+                  <li>Deve conter no mínimo 5 caracteres;</li>
+                  <li>Não pode ser os 5 primeiros dígitos do seu CNPJ ou CPF ({String(activeCustomer.cpf || '').replace(/\D/g, '').slice(0, 5) || '*****'}).</li>
+                </ul>
+              </div>
+
+              <button
+                type="submit"
+                disabled={changePassLoading || Boolean(changePassSuccess)}
+                className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-105 active:scale-98"
+                style={{ backgroundColor: storeInfo.themeColor || '#ea580c' }}
+              >
+                {changePassLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Salvando nova senha...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Salvar Nova Senha e Continuar</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Deseja realmente desconectar e sair?')) {
+                    handleCustomerLogout();
+                    setMustChangePasswordModal(false);
+                  }
+                }}
+                className="w-full py-2.5 text-stone-400 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer text-center"
+              >
+                Sair da conta / Desconectar
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
