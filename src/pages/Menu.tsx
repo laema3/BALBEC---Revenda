@@ -830,7 +830,45 @@ export default function Menu() {
     return null;
   }, [latestActiveOrder]);
 
-  const [isTrackOrderModalOpen, setIsTrackOrderModalOpen] = useState(false);
+  const [isTrackOrderModalOpen, setIsTrackOrderModalOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('acompanhar') === '1' || urlParams.get('pedidos') === '1' || urlParams.get('notificacoes') === '1') {
+        return true;
+      }
+      return sessionStorage.getItem('balbec_track_modal_open') === '1';
+    }
+    return false;
+  });
+
+  const openTrackOrderModal = () => {
+    setIsTrackOrderModalOpen(true);
+    setTrackSearchFeedback(null);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('balbec_track_modal_open', '1');
+        const url = new URL(window.location.href);
+        url.searchParams.set('pedidos', '1');
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
+  };
+
+  const closeTrackOrderModal = () => {
+    setIsTrackOrderModalOpen(false);
+    setTrackSearchFeedback(null);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('balbec_track_modal_open');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('pedidos');
+        url.searchParams.delete('acompanhar');
+        url.searchParams.delete('notificacoes');
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
+  };
+
   const [trackSearchInput, setTrackSearchInput] = useState('');
   const [trackSearchFeedback, setTrackSearchFeedback] = useState<string | null>(null);
 
@@ -868,7 +906,7 @@ export default function Menu() {
       setTrackSearchFeedback(`✅ Pedido #${String(found.id).slice(-4).padStart(4, '0')} conectado com sucesso a este celular!`);
       if (found.type === 'delivery' || found.deliveryType === 'delivery') {
         setTimeout(() => {
-          setIsTrackOrderModalOpen(false);
+          closeTrackOrderModal();
           setTrackingOrderId(found.id);
         }, 1200);
       }
@@ -5850,7 +5888,7 @@ export default function Menu() {
 
                 <button
                   type="button"
-                  onClick={() => setIsTrackOrderModalOpen(true)}
+                  onClick={openTrackOrderModal}
                   className={`relative flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer shrink-0 ${
                     activeOrdersCount > 0 
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' 
@@ -5940,7 +5978,7 @@ export default function Menu() {
 
                 <button
                   type="button"
-                  onClick={() => setIsTrackOrderModalOpen(true)}
+                  onClick={openTrackOrderModal}
                   className={`relative p-2 rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer ${
                     activeOrdersCount > 0 
                       ? 'bg-emerald-600 text-white animate-pulse' 
@@ -7840,10 +7878,15 @@ export default function Menu() {
 
       {/* Modal de Acompanhamento e Conexão de Pedido com o Smartphone */}
       {isTrackOrderModalOpen && (
-        <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150">
-            {/* Header */}
-            <div className="bg-stone-900 text-white p-5 flex items-center justify-between">
+        <div 
+          className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeTrackOrderModal();
+          }}
+        >
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden my-auto">
+            {/* Header Fixo */}
+            <div className="bg-stone-900 text-white p-4 sm:p-5 flex items-center justify-between shrink-0 shadow-sm z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-bold shadow-md shadow-orange-500/30">
                   <BellRing className="w-5 h-5 animate-pulse" />
@@ -7853,16 +7896,53 @@ export default function Menu() {
                   <p className="text-xs text-stone-400">Status em tempo real no seu celular</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => { setIsTrackOrderModalOpen(false); setTrackSearchFeedback(null); }}
-                className="p-1.5 text-stone-400 hover:text-white rounded-full hover:bg-stone-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleManualSync();
+                    setTrackSearchFeedback('✅ Status dos pedidos atualizados com sucesso!');
+                    setTimeout(() => setTrackSearchFeedback(null), 3000);
+                  }}
+                  title="Atualizar status dos pedidos agora"
+                  className="p-2 text-stone-400 hover:text-white rounded-xl hover:bg-stone-800 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+                >
+                  <RefreshCw className={`w-4 h-4 text-orange-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={closeTrackOrderModal}
+                  className="p-1.5 text-stone-400 hover:text-white rounded-full hover:bg-stone-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-5">
+            {/* Conteúdo rolável com scroll suave no mobile */}
+            <div className="p-4 sm:p-6 space-y-5 overflow-y-auto overscroll-contain flex-1 touch-pan-y">
+              {/* Barra de ação rápida de atualização */}
+              <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                <span className="text-xs font-bold text-stone-600">
+                  {customerActiveOrders.length > 0 
+                    ? `${customerActiveOrders.length} pedido(s) conectado(s)` 
+                    : (latestActiveOrder ? '1 pedido conectado' : 'Nenhum pedido conectado')}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleManualSync();
+                    setTrackSearchFeedback('✅ Pedidos sincronizados!');
+                    setTimeout(() => setTrackSearchFeedback(null), 3000);
+                  }}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 active:scale-95 text-orange-700 font-black rounded-lg text-xs transition-all cursor-pointer border border-orange-200"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-orange-600' : ''}`} />
+                  <span>{isRefreshing ? 'Atualizando...' : 'Atualizar Pedidos'}</span>
+                </button>
+              </div>
+
               {/* Pedidos Ativos Conectados (se houver) */}
               {(customerActiveOrders.length > 0 ? customerActiveOrders : (latestActiveOrder ? [latestActiveOrder] : [])).map((order: any) => (
                 <div key={order.id} className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 space-y-3">
@@ -7898,7 +7978,7 @@ export default function Menu() {
                     <button
                       type="button"
                       onClick={() => {
-                        setIsTrackOrderModalOpen(false);
+                        closeTrackOrderModal();
                         setTrackingOrderId(order.id);
                       }}
                       className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
