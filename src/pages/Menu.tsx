@@ -2377,20 +2377,17 @@ export default function Menu() {
 
   const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
   const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
-  const isDeliveryOrder = !isKioskMode && !isTableOrder && deliveryType === 'delivery';
+  // Delivery desabilitado: operação exclusivamente voltada para Retirada no Balcão
+  const isDeliveryOrder = false;
   const showDeliveryFeatures = !isTotemPath && selectedTableNumber === null;
 
-  const currentDeliveryFee = isDeliveryOrder ? deliveryFee : 0;
-  const total = subtotal + currentDeliveryFee;
+  const currentDeliveryFee = 0;
+  const total = subtotal;
 
-  // Validação de CEP para Delivery
+  // Validação de CEP para Delivery (Desabilitado)
   const isCustomerWithSavedAddress = Boolean(activeCustomer?.address || customerAddresses.length > 0);
-  const isCepVerified = Boolean(
-    safeStorage.getItem('balbec_delivery_cep_verified') === 'true' || 
-    safeStorage.getSession('balbec_delivery_cep_verified') === 'true' ||
-    isCustomerWithSavedAddress
-  );
-  const requireCepStep = Boolean(hasChosenChannel && salesChannel === 'delivery' && !isCepVerified && isCheckout);
+  const isCepVerified = true;
+  const requireCepStep = false;
 
   // Adiciona ao carrinho o produto pendente assim que a identificação e canal/CEP forem concluídos
   useEffect(() => {
@@ -4012,23 +4009,23 @@ export default function Menu() {
                   </div>
                 )}
 
-                {/* Opções de Entrega (Apenas quando NÃO estiver em Consumo na Loja / Mesa) */}
+                {/* Modalidade do Pedido (Exclusivo Retirada no Balcão) */}
                 {!selectedTableNumber && (
-                  <div>
-                    <h2 className="text-xl font-bold mb-4">Opções de Entrega</h2>
-                    <div className="flex gap-4 mb-6">
-                      {isInStoreActive && (
-                        <label className={`flex-1 flex items-center justify-center p-4 border rounded-xl cursor-pointer transition-colors ${deliveryType === 'pickup' ? 'border-orange-600 bg-orange-50 text-orange-700 font-bold' : 'border-stone-200 bg-white hover:bg-stone-50 font-medium'}`}>
-                          <input type="radio" name="deliveryType" value="pickup" checked={deliveryType === 'pickup'} onChange={() => setDeliveryType('pickup')} className="hidden" />
-                          <span>Retirada no Balcão</span>
-                        </label>
-                      )}
-                      {isDeliveryActive && (
-                        <label className={`flex-1 flex items-center justify-center p-4 border rounded-xl cursor-pointer transition-colors ${deliveryType === 'delivery' ? 'border-orange-600 bg-orange-50 text-orange-700 font-bold' : 'border-stone-200 bg-white hover:bg-stone-50 font-medium'}`}>
-                          <input type="radio" name="deliveryType" value="delivery" checked={deliveryType === 'delivery'} onChange={() => setDeliveryType('delivery')} className="hidden" />
-                          <span>Entrega (Delivery)</span>
-                        </label>
-                      )}
+                  <div className="mb-6">
+                    <h2 className="text-xl font-bold mb-3 flex items-center gap-2 text-stone-800">
+                      <Store className="w-5 h-5 text-orange-600" />
+                      <span>Modalidade do Pedido</span>
+                    </h2>
+                    <div className="p-4 bg-orange-50 border-2 border-orange-500 rounded-2xl flex items-center gap-3.5 shadow-xs">
+                      <div className="w-11 h-11 rounded-2xl bg-orange-600 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-sm shadow-orange-600/30">
+                        🛍️
+                      </div>
+                      <div>
+                        <p className="font-black text-stone-900 text-sm uppercase tracking-tight">Retirada no Balcão da Loja</p>
+                        <p className="text-xs text-stone-600 font-medium mt-0.5">
+                          Seu pedido será preparado e embalado com todo o cuidado para você retirar diretamente no balcão da loja.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -4207,22 +4204,15 @@ export default function Menu() {
                               <div>
                                 <p className="font-bold">Você está fora do raio da loja ({formatDistance(gpsDistance)})</p>
                                 <p className="text-red-700 text-[11px] mt-0.5">
-                                  O consumo na loja só é permitido para quem está a até {formatDistance(storeInfo.inStoreMaxRadiusMeters || 150)} do local. Por favor, mude para "Entrega (Delivery)" ou venha até a loja.
+                                  O consumo na mesa requer que você esteja no estabelecimento (até {formatDistance(storeInfo.inStoreMaxRadiusMeters || 150)}). Aproxime-se do local ou faça seu pedido diretamente para retirada no balcão.
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => setDeliveryType('delivery')}
-                                className="px-3 py-1 bg-red-600 text-white rounded-lg font-bold text-[11px] hover:bg-red-700 transition-colors cursor-pointer"
-                              >
-                                Mudar para Entrega (Delivery)
-                              </button>
-                              <button
-                                type="button"
                                 onClick={() => verifyInStoreGps()}
-                                className="px-2.5 py-1 bg-white border border-red-300 text-red-700 rounded-lg font-bold text-[11px] hover:bg-stone-50 transition-colors cursor-pointer"
+                                className="px-3 py-1.5 bg-red-600 text-white rounded-lg font-bold text-xs hover:bg-red-700 transition-colors cursor-pointer"
                               >
                                 Tentar GPS Novamente
                               </button>
@@ -4237,7 +4227,7 @@ export default function Menu() {
                               <div>
                                 <p className="font-bold">Permissão de GPS necessária</p>
                                 <p className="text-red-700 text-[11px] mt-0.5">
-                                  {gpsError || 'Não foi possível obter sua localização. Autorize a localização no navegador para confirmar que você está na loja, ou escolha "Entrega (Delivery)".'}
+                                  {gpsError || 'Não foi possível obter sua localização. Autorize a localização no navegador para confirmar que você está na loja.'}
                                 </p>
                               </div>
                             </div>
@@ -4249,13 +4239,6 @@ export default function Menu() {
                               >
                                 <LocateFixed className="w-3.5 h-3.5" />
                                 <span>Autorizar e Tentar Novamente</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeliveryType('delivery')}
-                                className="px-3 py-1.5 bg-white border border-stone-300 text-stone-700 rounded-lg font-bold text-xs hover:bg-stone-50 transition-colors cursor-pointer"
-                              >
-                                Mudar para Entrega
                               </button>
                             </div>
                           </div>
@@ -4303,7 +4286,7 @@ export default function Menu() {
 
                 <h2 ref={checkoutCustomerRef} className="text-xl font-bold mb-4 flex items-center gap-2 text-stone-800">
                   <UserIcon className="w-5 h-5 text-orange-600" />
-                  {deliveryType === 'delivery' ? 'Identificação do Cliente & Entrega' : 'Identificação do Cliente (Preparo)'}
+                  Identificação do Cliente (Preparo & Retirada)
                 </h2>
                 <div className="bg-orange-50/60 border border-orange-200 rounded-xl shadow-sm p-4 mb-8 space-y-4">
                   {/* Status da Conta do Cliente */}
@@ -4574,7 +4557,7 @@ export default function Menu() {
                         />
                         <span className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
                           <UserPlus className="w-4 h-4 text-orange-600 shrink-0" />
-                          Criar senha para salvar sua conta e facilitar compras futuras (Delivery)
+                          Criar senha para salvar sua conta e agilizar pedidos futuros
                         </span>
                       </label>
 
@@ -4593,7 +4576,7 @@ export default function Menu() {
                             />
                           </div>
                           <p className="text-[11px] text-stone-500 leading-relaxed italic">
-                            💡 Ao cadastrar sua senha, seus dados (Nome e WhatsApp) ficarão salvos. Em compras futuras com <strong>Entrega (Delivery)</strong>, você só precisará fazer login e informar seu endereço!
+                            💡 Ao cadastrar sua senha, seus dados (Nome e WhatsApp) ficarão salvos com segurança para facilitar todos os seus próximos pedidos!
                           </p>
                         </div>
                       )}
@@ -5581,41 +5564,35 @@ export default function Menu() {
                         </div>
                       </div>
 
-                      {/* Rastreamento do Motoboy no Mapa e Status ao Vivo (Delivery) */}
-                      {(order.deliveryType === 'delivery' || order.type === 'delivery') && (
-                        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 p-3.5 rounded-2xl space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
-                                <MotorcycleIcon className="w-4 h-4 animate-pulse" />
-                              </div>
-                              <div>
-                                <span className="text-xs font-black text-emerald-950 uppercase tracking-tight block">
-                                  {order.status === 'out_for_delivery' || order.deliveryStatus === 'in_transit'
-                                    ? '🛵 Motoboy a caminho!'
-                                    : order.status === 'completed' || order.deliveryStatus === 'delivered'
-                                    ? '✅ Pedido Entregue'
-                                    : '📦 Pedido em Andamento'}
-                                </span>
-                                <span className="text-[10px] text-emerald-700 font-medium">
-                                  {order.driverName ? `Entregador: ${order.driverName}` : 'Aguardando saída da loja'}
-                                  {order.driverVehicle ? ` (${order.driverVehicle})` : ''}
-                                </span>
-                              </div>
+                      {/* Acompanhamento do Pedido (Retirada no Balcão) */}
+                      {(order.status === 'pending' || order.status === 'preparing' || order.status === 'ready' || order.status === 'ready_for_pickup') && (
+                        <div className="bg-amber-50 border border-amber-300 p-3 rounded-2xl flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                              🛍️
                             </div>
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            <div>
+                              <span className="text-xs font-black text-stone-900 uppercase tracking-tight block">
+                                {order.status === 'ready' || order.status === 'ready_for_pickup'
+                                  ? 'Pronto para Retirada no Balcão'
+                                  : order.status === 'preparing'
+                                  ? 'Em Preparo na Cozinha'
+                                  : 'Pedido Recebido na Fila'}
+                              </span>
+                              <span className="text-[10px] text-stone-500 font-medium">
+                                Retirada na loja • Pedido #{String(order.id).slice(-4).padStart(4, '0')}
+                              </span>
+                            </div>
                           </div>
-
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               setIsProfileModalOpen(false);
                               setTrackingOrderId(order.id);
                             }}
-                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-99 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer"
                           >
-                            <Navigation className="w-3.5 h-3.5" />
-                            <span>Rastrear Rota e Ver Status ao Vivo 📍</span>
+                            Ver Status
                           </button>
                         </div>
                       )}
@@ -6552,23 +6529,7 @@ export default function Menu() {
             <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-stone-400 font-semibold">Modo de Pedido:</span>
-                {salesChannel === 'delivery' ? (
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-xs ${
-                      canBuy 
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
-                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${canBuy ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                      🛵 Delivery {canBuy ? '(Entrega em Domicílio)' : '(Apenas Visualização 👁️)'}
-                    </span>
-                    {deliveryNeighborhood && (
-                      <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-stone-800 text-[11px] text-stone-300 border border-stone-700">
-                        📍 {deliveryNeighborhood} {deliveryFee === 0 ? '• Frete Grátis' : `• Taxa: ${formatCurrency(deliveryFee)}`}
-                      </span>
-                    )}
-                  </div>
-                ) : salesChannel === 'kiosk' ? (
+                {salesChannel === 'kiosk' ? (
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-xs ${
                     canBuy 
                       ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40' 
@@ -6588,7 +6549,7 @@ export default function Menu() {
                       {selectedTableNumber ? (
                         <>🍽️ Mesa {selectedTableNumber}</>
                       ) : (
-                        <>🛍️ RETIRADA {!canBuy && '(Apenas Visualização 👁️)'}</>
+                        <>🛍️ RETIRADA NO BALCÃO {!canBuy && '(Apenas Visualização 👁️)'}</>
                       )}
                     </span>
                     {selectedTableNumber && (
@@ -9102,15 +9063,14 @@ export default function Menu() {
                     <p>
                       <strong>Status Atual: </strong> 
                       <span className="text-emerald-700 uppercase font-black">
-                        {order.status === 'out_for_delivery' || order.deliveryStatus === 'in_transit' ? '🛵 Saiu para Entrega' :
-                         order.status === 'ready' || order.status === 'ready_for_pickup' ? '🛍️ Pronto para Retirada no Balcão' :
-                         order.status === 'ready_for_delivery' ? '📦 Pronto para Entrega' :
+                        {order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' ? '🛍️ Pronto para Retirada no Balcão' :
                          order.status === 'preparing' ? '👨‍🍳 Em Preparo na Cozinha' :
+                         order.status === 'completed' || order.deliveryStatus === 'delivered' ? '✅ Concluído / Retirado' :
                          '⏳ Pedido Recebido na Fila'}
                       </span>
                     </p>
                     <p className="text-stone-500 text-[11px]">
-                      Cliente: {order.customerName || 'Cliente'} • {order.type === 'delivery' || order.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
+                      Cliente: {order.customerName || 'Cliente'} • Retirada no Balcão
                     </p>
                     <p className="text-stone-500 text-[11px]">
                       Pagamento: <strong className="text-stone-700">{order.paymentMethod || 'Na Retirada'}</strong> • Total: <strong className="text-emerald-700">{formatCurrency(order.total)}</strong>
@@ -9129,19 +9089,16 @@ export default function Menu() {
                     </button>
                   )}
 
-                  {order.type === 'delivery' || order.deliveryType === 'delivery' ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        closeTrackOrderModal();
-                        setTrackingOrderId(order.id);
-                      }}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Navigation className="w-4 h-4" />
-                      <span>Ver Motoboy no Mapa ao Vivo 📍</span>
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeTrackOrderModal();
+                      setTrackingOrderId(order.id);
+                    }}
+                    className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>Ver Detalhes da Retirada 📋</span>
+                  </button>
                 </div>
               ))}
 

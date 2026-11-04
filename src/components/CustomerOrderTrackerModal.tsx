@@ -322,13 +322,12 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
     );
   }
 
-  // Determine active step index (0 to 4)
+  // Determine active step index (0 to 3)
   const getStepIndex = () => {
     const st = order.status;
     const dst = order.deliveryStatus;
-    if (st === 'completed' || dst === 'delivered') return 4;
-    if (st === 'out_for_delivery' || dst === 'in_transit') return 3;
-    if (st === 'ready' || st === 'ready_for_delivery' || dst === 'ready') return 2;
+    if (st === 'completed' || dst === 'delivered') return 3;
+    if (st === 'ready' || st === 'ready_for_pickup' || st === 'ready_for_delivery' || dst === 'ready') return 2;
     if (st === 'preparing') return 1;
     return 0; // pending
   };
@@ -339,7 +338,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
   const steps = [
     {
       title: 'Pendente',
-      desc: 'Pedido recebido e confirmado',
+      desc: 'Pedido recebido e confirmado na fila',
       icon: Clock,
       color: 'bg-amber-500',
       activeColor: 'text-amber-600 bg-amber-50 border-amber-300'
@@ -352,25 +351,18 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
       activeColor: 'text-orange-600 bg-orange-50 border-orange-300'
     },
     {
-      title: 'Pronto p/ Entrega',
-      desc: 'Embalado e aguardando motoboy',
+      title: 'Pronto p/ Retirada',
+      desc: 'Embalado e pronto para você retirar no balcão!',
       icon: PackageCheck,
-      color: 'bg-purple-500',
-      activeColor: 'text-purple-600 bg-purple-50 border-purple-300'
-    },
-    {
-      title: 'Saiu para Entrega',
-      desc: 'Motoboy a caminho do seu endereço',
-      icon: MotorcycleIcon,
-      color: 'bg-blue-600',
-      activeColor: 'text-blue-600 bg-blue-50 border-blue-300'
-    },
-    {
-      title: 'Entregue',
-      desc: 'Pedido entregue com sucesso!',
-      icon: CheckCircle2,
       color: 'bg-emerald-600',
-      activeColor: 'text-emerald-600 bg-emerald-50 border-emerald-300'
+      activeColor: 'text-emerald-700 bg-emerald-50 border-emerald-300'
+    },
+    {
+      title: 'Concluído',
+      desc: 'Pedido retirado no balcão com sucesso!',
+      icon: CheckCircle2,
+      color: 'bg-emerald-700',
+      activeColor: 'text-emerald-800 bg-emerald-50 border-emerald-300'
     }
   ];
 
@@ -398,19 +390,19 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
         <div className="bg-stone-900 text-white p-4 sm:p-5 flex items-center justify-between shrink-0 shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-orange-600 rounded-2xl flex items-center justify-center font-bold text-white shadow-md shadow-orange-600/30">
-              <MotorcycleIcon className="w-6 h-6 animate-pulse" />
+              <Store className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 bg-orange-950/60 px-2 py-0.5 rounded-md border border-orange-800/40">
-                  Rastreamento Delivery
+                  Retirada no Balcão
                 </span>
                 <span className="text-[11px] font-mono font-bold text-stone-400">
                   Pedido #{orderNumber}
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-black tracking-tight leading-snug">
-                {activeStep === 3 ? 'Motoboy a Caminho!' : activeStep === 4 ? 'Pedido Entregue!' : 'Acompanhamento ao Vivo'}
+                {activeStep === 2 ? 'Pronto para Retirada no Balcão! 🛍️' : activeStep === 3 ? 'Pedido Concluído!' : 'Acompanhamento ao Vivo'}
               </h2>
             </div>
           </div>
@@ -448,7 +440,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Progresso do Pedido</span>
                 <h4 className="text-sm font-black text-stone-900">
-                  Etapa {activeStep + 1} de 5: <span className="text-orange-600">{steps[activeStep].title}</span>
+                  Etapa {activeStep + 1} de 4: <span className="text-orange-600">{steps[activeStep].title}</span>
                 </h4>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-black uppercase">
@@ -509,131 +501,61 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
             </div>
           </div>
 
-          {/* Interactive Live Map Section (Leaflet / OpenStreetMap) */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-stone-200 space-y-3">
+          {/* Card com Informações da Loja e Ponto de Retirada no Balcão */}
+          <div className="bg-white rounded-3xl p-5 shadow-xs border border-stone-200 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Navigation className="w-5 h-5 text-emerald-600" />
-                <h4 className="text-sm font-black text-stone-900 uppercase tracking-tight">
-                  Trajetória do Motoboy no Mapa
-                </h4>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-orange-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shadow-orange-600/30">
+                  🏪
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-stone-900 uppercase tracking-tight">
+                    Ponto de Retirada no Balcão
+                  </h4>
+                  <p className="text-[11px] text-stone-500 font-medium">
+                    {storeInfo?.name || 'BALBEC - REVENDA'}
+                  </p>
+                </div>
               </div>
-              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                {activeStep === 3 ? '🛵 Rota em Andamento' : '📍 Rota Traçada'}
+              <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${activeStep === 2 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse' : 'bg-stone-100 text-stone-700 border border-stone-200'}`}>
+                {activeStep === 2 ? '🛍️ Pronto p/ Retirar!' : '⏳ Em Andamento'}
               </span>
             </div>
 
-            {/* Map Container */}
-            <div className="relative rounded-2xl overflow-hidden border border-stone-200 shadow-inner h-64 sm:h-72 w-full bg-stone-100">
-              <div ref={mapContainerRef} className="w-full h-full z-10" />
-
-              {/* Floating Overlay Badge on Map */}
-              <div className="absolute bottom-3 left-3 right-3 z-20 bg-stone-900/90 backdrop-blur-xs text-white p-2.5 rounded-xl border border-white/20 text-xs flex items-center justify-between gap-2 shadow-lg">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                  <span className="truncate text-[11px] font-bold">
-                    {driver?.name ? `Entregador: ${driver.name}` : 'Aguardando atribuição de motoboy'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (mapInstanceRef.current && driver?.coords) {
-                      mapInstanceRef.current.setView([driver.coords.lat, driver.coords.lng], 16);
-                    }
-                  }}
-                  className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[10px] font-black uppercase shrink-0 transition-colors"
-                >
-                  Centralizar 🎯
-                </button>
-              </div>
-            </div>
-
-            {/* Addresses Legend */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-              <div className="flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl border border-stone-200/70">
-                <Store className="w-4 h-4 text-amber-600 shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-[9px] font-black text-stone-400 uppercase">Origem</div>
-                  <div className="text-[11px] font-bold text-stone-800 truncate">{storeInfo?.name || 'BALBEC - REVENDA'}</div>
+            <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 space-y-2.5 text-xs">
+              <div className="flex items-start gap-2.5 text-stone-700">
+                <MapPin className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-stone-900 block font-black">Endereço para Retirada:</strong>
+                  <p className="text-stone-600">{storeInfo?.address || 'Rua São Benedito'}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl border border-stone-200/70">
-                <Home className="w-4 h-4 text-rose-600 shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-[9px] font-black text-stone-400 uppercase">Seu Endereço</div>
-                  <div className="text-[11px] font-bold text-stone-800 truncate">{order.deliveryAddress || 'Endereço cadastrado'}</div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Motoboy Profile & Direct Contact Card */}
-          {driver ? (
-            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-3xl p-5 shadow-lg space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur-xs rounded-2xl flex items-center justify-center font-black text-xl border border-white/30">
-                    🛵
-                  </div>
+              {storeInfo?.hours && (
+                <div className="flex items-start gap-2.5 text-stone-700 pt-1 border-t border-stone-200/60">
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-emerald-200">
-                      Seu Entregador BALBEC
-                    </div>
-                    <h3 className="text-base sm:text-lg font-black leading-tight">
-                      {driver.name}
-                    </h3>
-                    <div className="text-xs text-emerald-100 font-medium">
-                      {driver.vehicle || 'Motocicleta de Entrega'}
-                    </div>
+                    <strong className="text-stone-900 block font-black">Horário de Funcionamento:</strong>
+                    <p className="text-stone-600">{storeInfo.hours}</p>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-200 block">Previsão</span>
-                  <span className="text-lg sm:text-xl font-black font-mono">
-                    {activeStep === 3 ? '10-20 min' : activeStep === 4 ? 'Entregue' : '35-50 min'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/20">
-                {driver.phone ? (
-                  <>
-                    <a
-                      href={`tel:${driver.phone}`}
-                      className="py-2.5 bg-white text-emerald-900 hover:bg-emerald-50 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all"
-                    >
-                      <Phone className="w-4 h-4 text-emerald-600" />
-                      <span>Ligar</span>
-                    </a>
-                    <a
-                      href={`https://wa.me/55${driver.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${driver.name}, estou acompanhando meu pedido #${orderNumber} da BALBEC pelo aplicativo!`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-2.5 bg-emerald-950/40 hover:bg-emerald-950/60 text-white rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-white/20 shadow-sm transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4 text-emerald-300" />
-                      <span>WhatsApp</span>
-                    </a>
-                  </>
-                ) : (
-                  <div className="col-span-2 text-center text-xs text-emerald-200 py-1">
-                    Entregador em trânsito com segurança.
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          ) : (
-            <div className="bg-white rounded-3xl p-5 border border-stone-200 text-center space-y-2">
-              <MotorcycleIcon className="w-8 h-8 text-stone-300 mx-auto" />
-              <h4 className="text-xs font-black text-stone-700 uppercase">Aguardando Atribuição do Motoboy</h4>
-              <p className="text-[11px] text-stone-400">
-                Assim que a loja despachar o pedido para a rota, as informações e o contato do entregador aparecerão aqui.
-              </p>
-            </div>
-          )}
+
+            {storeInfo?.whatsapp && (
+              <div className="pt-1">
+                <a
+                  href={`https://wa.me/55${storeInfo.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Gostaria de informações sobre o meu pedido de retirada #${orderNumber} na BALBEC.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 text-white" />
+                  <span>Falar com o Balcão via WhatsApp</span>
+                </a>
+              </div>
+            )}
+          </div>
 
           {/* Resumo dos Itens do Pedido */}
           <div className="bg-white rounded-3xl p-5 shadow-xs border border-stone-200 space-y-3">
