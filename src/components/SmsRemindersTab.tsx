@@ -607,8 +607,10 @@ export const SmsRemindersTab: React.FC = () => {
                         {r.slot === 'slot_1_09h' ? 'Manhã (09h)' : r.slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)'}
                       </span>
                     </td>
-                    <td className="p-3 text-stone-700 max-w-xs truncate" title={formatAllDatesBR(r.message)}>
-                      {formatAllDatesBR(r.message)}
+                    <td className="p-3 text-stone-700 min-w-[280px] max-w-md whitespace-normal break-words leading-relaxed">
+                      <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200/60 text-stone-800 text-xs font-medium">
+                        {formatAllDatesBR(r.message)}
+                      </div>
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">

@@ -5698,7 +5698,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                       'Tags': 'snowflake,alarm_clock,package',
                       'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : undefined
                     },
-                    body: `Aviso Congelados 48h [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} contém salgados congelados.\nPrazo de até 48 horas a partir do envio, podendo ficar pronto antes (atendentes avisarão se adiantar).\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
+                    body: `Aviso Congelados 48h [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} (${order.customerName} - ${order.customerPhone})\n\n${reminder.message}`
                   }).then(() => {
                     console.log(`[Auto NTFY Frozen Reminder] Enviado para ntfy.sh/${topic}`);
                   }).catch(err => {
