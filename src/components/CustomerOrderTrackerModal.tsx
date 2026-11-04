@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, Navigation, Clock, CheckCircle2, Phone, MessageCircle, 
   Volume2, VolumeX, X, Store, Home, Compass, RefreshCw, ChefHat, 
-  PackageCheck, AlertCircle, ChevronRight, ShieldCheck
+  PackageCheck, AlertCircle, ChevronRight, ShieldCheck, Plus
 } from 'lucide-react';
 import { MotorcycleIcon } from './MotorcycleIcon';
 import L from 'leaflet';
@@ -11,9 +11,10 @@ import { Order } from '../store/useStore';
 interface CustomerOrderTrackerModalProps {
   orderId: string;
   onClose: () => void;
+  onStartAppend?: (order: Order) => void;
 }
 
-export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps> = ({ orderId, onClose }) => {
+export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps> = ({ orderId, onClose, onStartAppend }) => {
   const [order, setOrder] = useState<Order | null>(null);
   const [driver, setDriver] = useState<any>(null);
   const [storeInfo, setStoreInfo] = useState<any>(null);
@@ -710,6 +711,34 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
                 R$ {Number(order.total || 0).toFixed(2).replace('.', ',')}
               </span>
             </div>
+
+            {/* Opção de Fazer Acréscimo no Pedido (se ainda na fila e pagamento na retirada) */}
+            {order && order.status === 'pending' && !((order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved') && onStartAppend && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-orange-300 rounded-2xl p-4 space-y-2.5 shadow-xs">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+                    ➕
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-orange-950 uppercase tracking-tight">
+                      Deseja fazer um acréscimo neste pedido?
+                    </h5>
+                    <p className="text-[11px] text-orange-800 font-medium leading-relaxed">
+                      Seu pedido ainda está na fila aguardando início do preparo e o pagamento é na retirada. Você pode adicionar mais itens agora!
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onStartAppend(order)}
+                  className="w-full py-3 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-orange-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Fazer Acréscimo / Adicionar Mais Itens</span>
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

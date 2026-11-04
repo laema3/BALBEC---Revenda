@@ -2556,6 +2556,143 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     res.json({ id: targetId, ...data });
   });
 
+  app.post('/api/db/orders/:id/append-items', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { newItems } = req.body;
+      const targetId = String(id).trim();
+
+      const existingOrderIndex = memOrders.findIndex(o => 
+        String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))
+      );
+
+      if (existingOrderIndex === -1) {
+        return res.status(404).json({ error: 'Pedido não encontrado.' });
+      }
+
+      const existingOrder = memOrders[existingOrderIndex];
+
+      // Regra 1: Status não pode ter mudado para preparando ou posterior
+      if (existingOrder.status !== 'pending') {
+        return res.status(400).json({ 
+          error: 'O pedido já entrou em preparo pela cozinha ou foi finalizado, portanto não é mais possível fazer acréscimos.' 
+        });
+      }
+
+      // Regra 2: Condição de pagamento deve ser pagamento na retirada
+      const isOnlinePaid = (existingOrder.paymentMethod && existingOrder.paymentMethod.includes('Online')) || existingOrder.paymentStatus === 'approved';
+      if (isOnlinePaid) {
+        return res.status(400).json({ 
+          error: 'Acréscimos só são permitidos para pedidos com pagamento presencial na retirada.' 
+        });
+      }
+
+      if (!Array.isArray(newItems) || newItems.length === 0) {
+        return res.status(400).json({ error: 'Nenhum item informado para acréscimo.' });
+      }
+
+      // Regra 3: Mesma modalidade (Congelados vs Prontos)
+      const existingItems = Array.isArray(existingOrder.items) 
+        ? existingOrder.items 
+        : (typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : []);
+      
+      const orderIsFrozen = existingItems.some((it: any) => 
+        it.isFrozen || (it.prepType && it.prepType.startsWith('congelado')) || (it.prepLabel && it.prepLabel.toLowerCase().includes('congelad'))
+      );
+
+      const anyNewItemFrozen = newItems.some((it: any) => 
+        it.isFrozen || (it.prepType && it.prepType.startsWith('congelado')) || (it.prepLabel && it.prepLabel.toLowerCase().includes('congelad'))
+      );
+      const anyNewItemNormal = newItems.some((it: any) => 
+        !(it.isFrozen || (it.prepType && it.prepType.startsWith('congelado')) || (it.prepLabel && it.prepLabel.toLowerCase().includes('congelad')))
+      );
+
+      if (orderIsFrozen && anyNewItemNormal) {
+        return res.status(400).json({ 
+          error: 'Este pedido é exclusivo de Salgados Congelados (prazo até 48h). Não é permitido acrescentar itens prontos. Caso queira itens prontos, inicie um novo pedido separado.' 
+        });
+      }
+
+      if (!orderIsFrozen && anyNewItemFrozen) {
+        return res.status(400).json({ 
+          error: 'Este pedido é de Salgados Prontos. Não é permitido acrescentar itens congelados (prazo até 48h). Caso queira congelados, inicie um novo pedido separado.' 
+        });
+      }
+
+      // Mescla os itens: se for o mesmo produto, prepType, sabor e adicionais, soma a quantidade; senão adiciona novo
+      const mergedItems = [...existingItems];
+      for (const newItem of newItems) {
+        const existingIdx = mergedItems.findIndex((it: any) => 
+          it.productId === newItem.productId &&
+          (it.prepType || '') === (newItem.prepType || '') &&
+          JSON.stringify(it.addons || []) === JSON.stringify(newItem.addons || []) &&
+          JSON.stringify(it.flavor || {}) === JSON.stringify(newItem.flavor || {})
+        );
+
+        if (existingIdx >= 0) {
+          mergedItems[existingIdx] = {
+            ...mergedItems[existingIdx],
+            quantity: Number(mergedItems[existingIdx].quantity || 0) + Number(newItem.quantity || 1)
+          };
+        } else {
+          mergedItems.push(newItem);
+        }
+      }
+
+      // Recalcula o total do pedido
+      const itemsTotal = mergedItems.reduce((acc: number, it: any) => {
+        const itPrice = Number(it.price) || 0;
+        const itQty = Number(it.quantity) || 1;
+        const addonsPrice = Array.isArray(it.addons) ? it.addons.reduce((aSum: number, a: any) => aSum + (Number(a.price) || 0), 0) : 0;
+        const flavorPrice = it.flavor?.price ? Number(it.flavor.price) : 0;
+        return acc + ((itPrice + addonsPrice + flavorPrice) * itQty);
+      }, 0);
+
+      const deliveryFee = Number(existingOrder.deliveryFee) || 0;
+      const finalTotal = itemsTotal + deliveryFee;
+
+      const updatedOrder = {
+        ...existingOrder,
+        items: mergedItems,
+        total: finalTotal
+      };
+
+      memOrders[existingOrderIndex] = updatedOrder;
+      persistOrdersToDisk(memOrders);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await withDbRetry(() => db.update(orders).set({
+            items: JSON.stringify(mergedItems),
+            total: finalTotal
+          }).where(eq(orders.id, existingOrder.id)));
+        } catch (dbErr) {
+          console.warn('[DB Append Order Error]:', dbErr);
+        }
+      }
+
+      onUpdate?.('orders');
+
+      broadcastSSE({
+        type: 'sync',
+        target: 'orders',
+        action: 'order_appended',
+        orderId: existingOrder.id,
+        items: mergedItems,
+        total: finalTotal,
+        time: Date.now()
+      });
+
+      return res.json({
+        success: true,
+        order: updatedOrder,
+        message: `Acréscimo realizado com sucesso no Pedido #${String(existingOrder.id).slice(-4)}!`
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao processar acréscimo no pedido.' });
+    }
+  });
+
   app.delete('/api/db/orders', async (req: Request, res: Response) => {
     memOrders = [];
     persistOrdersToDisk(memOrders);

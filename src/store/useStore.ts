@@ -477,6 +477,7 @@ interface StoreState {
 
   placeOrder: (order: Omit<Order, 'id' | 'createdAt' | 'status'> & { status?: Order['status']; deliveryStatus?: Order['deliveryStatus'] }) => Promise<Order>;
   updateOrderStatus: (id: string, status: Order['status']) => Promise<void>;
+  appendItemsToOrder: (orderId: string, newItems: OrderItem[]) => Promise<{ success: boolean; order?: Order; error?: string }>;
   deleteOrder: (id: string) => Promise<void>;
   clearAllOrders: () => Promise<void>;
   
@@ -1635,6 +1636,28 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     } catch (error) {
       console.error('Error updating order status:', error);
+    }
+  },
+
+  appendItemsToOrder: async (orderId: string, newItems: OrderItem[]): Promise<{ success: boolean; order?: Order; error?: string }> => {
+    try {
+      const res = await fetch(`/api/db/orders/${orderId}/append-items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newItems })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.order) {
+        set(state => ({
+          orders: state.orders.map(o => String(o.id) === String(data.order.id) ? data.order : o)
+        }));
+        saveOrdersToStorage(get().orders);
+        return { success: true, order: data.order };
+      } else {
+        return { success: false, error: data.error || 'Erro ao acrescentar itens ao pedido.' };
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Erro de conexão ao acrescentar itens.' };
     }
   },
   

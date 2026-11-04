@@ -29,13 +29,32 @@ function detectCardBrand(num: string): string {
 }
 
 export default function Menu() {
-  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData } = useStore();
+  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData, appendItemsToOrder } = useStore();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [productQuantities, setProductQuantities] = useState<Record<string, number | string>>({});
   const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
   const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
+
+  // Estados para Modo Acréscimo no Pedido (Status 'pending' e Pagamento na Retirada)
+  const [appendOrderTarget, setAppendOrderTarget] = useState<Order | null>(null);
+  const [appendCart, setAppendCart] = useState<OrderItem[]>([]);
+  const [isAppendReviewModalOpen, setIsAppendReviewModalOpen] = useState(false);
+  const [isSubmittingAppend, setIsSubmittingAppend] = useState(false);
+  const [appendErrorMessage, setAppendErrorMessage] = useState<string | null>(null);
+
+  // Modal para avisar sobre incompatibilidade de modalidade (congelados vs normais/prontos)
+  const [modalidadeConflictModal, setModalidadeConflictModal] = useState<{
+    isOpen: boolean;
+    productName?: string;
+    targetOrderIsFrozen: boolean;
+    attemptedIsFrozen: boolean;
+  }>({
+    isOpen: false,
+    targetOrderIsFrozen: false,
+    attemptedIsFrozen: false
+  });
 
   useEffect(() => {
     fetchData();
@@ -680,6 +699,58 @@ export default function Menu() {
   const hasNormalInCart = useMemo(() => {
     return cart.some(it => !isCartItemFrozen(it));
   }, [cart, isCartItemFrozen]);
+
+  // Validador de elegibilidade para acréscimo:
+  // 1. Status ainda não mudou para preparando (apenas 'pending')
+  // 2. Condição de pagamento é presencial na retirada (não pagamento online aprovado)
+  const isOrderEligibleForAppend = useCallback((order: any): boolean => {
+    if (!order) return false;
+    if (order.status !== 'pending') return false;
+    const isOnlineApproved = (order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved';
+    if (isOnlineApproved) return false;
+    return true;
+  }, []);
+
+  const targetOrderIsFrozen = useMemo(() => {
+    if (!appendOrderTarget || !Array.isArray(appendOrderTarget.items)) return false;
+    return appendOrderTarget.items.some(isCartItemFrozen);
+  }, [appendOrderTarget, isCartItemFrozen]);
+
+  const appendCartSubtotal = useMemo(() => {
+    return appendCart.reduce((sum, item) => {
+      const addonsTotal = item.addons?.reduce((addonSum, addon) => addonSum + addon.price, 0) || 0;
+      const flavorTotal = item.flavor?.price || 0;
+      return sum + ((item.price + flavorTotal + addonsTotal) * item.quantity);
+    }, 0);
+  }, [appendCart]);
+
+  const handleStartAppendOrder = useCallback((order: Order) => {
+    if (!isOrderEligibleForAppend(order)) {
+      alert('Este pedido não está disponível para acréscimo (já está em preparo ou com pagamento online aprovado).');
+      return;
+    }
+    setAppendOrderTarget(order);
+    setAppendCart([]);
+    setIsTrackOrderModalOpen(false);
+    setIsProfileModalOpen(false);
+    setTrackingOrderId(null);
+    setIsCartOpen(false);
+    setIsAppendReviewModalOpen(false);
+    setAppendErrorMessage(null);
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
+  }, [isOrderEligibleForAppend]);
+
+  const handleCancelAppendOrder = useCallback(() => {
+    if (appendCart.length > 0) {
+      if (!confirm('Deseja cancelar o modo de acréscimo e descartar os itens adicionados?')) return;
+    }
+    setAppendOrderTarget(null);
+    setAppendCart([]);
+    setIsAppendReviewModalOpen(false);
+    setAppendErrorMessage(null);
+  }, [appendCart.length]);
 
   // Persistir carrinho no localStorage sempre que houver alterações
   useEffect(() => {
@@ -1654,30 +1725,40 @@ export default function Menu() {
   });
 
   const openFrozenModal = (product: any, qty: number = 1) => {
-    // Buscar se já existem itens deste produto no carrinho para exibir quantidades atuais
-    const cartItemsForProd = cart.filter(ci => ci.productId === product.id);
+    // Buscar se já existem itens deste produto no carrinho ou no appendCart
+    const sourceList = appendOrderTarget ? appendCart : cart;
+    const cartItemsForProd = sourceList.filter(ci => ci.productId === product.id);
     const exProntoFrito = cartItemsForProd.filter(ci => ci.prepType === 'pronto_frito' || (!ci.isFrozen && !ci.prepType && !ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado'))).reduce((s, ci) => s + ci.quantity, 0);
     const exProntoCru = cartItemsForProd.filter(ci => ci.prepType === 'pronto_cru').reduce((s, ci) => s + ci.quantity, 0);
     const exCongeladoCru = cartItemsForProd.filter(ci => ci.prepType === 'congelado_cru' || (ci.isFrozen && !ci.prepType)).reduce((s, ci) => s + ci.quantity, 0);
     const exCongeladoFrito = cartItemsForProd.filter(ci => ci.prepType === 'congelado_frito').reduce((s, ci) => s + ci.quantity, 0);
 
-    // Inicializar quantidades: 0 por padrão ou o que já estiver salvo no carrinho para este produto
+    // Inicializar quantidades: 0 por padrão ou o que já estiver selecionado para este produto
     setProntoFritoQty(exProntoFrito > 0 ? exProntoFrito : 0);
     setProntoCruQty(exProntoCru > 0 ? exProntoCru : 0);
     setCongeladoCruQty(exCongeladoCru > 0 ? exCongeladoCru : 0);
     setCongeladoFritoQty(exCongeladoFrito > 0 ? exCongeladoFrito : 0);
 
-    // Se o carrinho já tiver congelados de outros produtos, trava diretamente em congelado
-    if (hasFrozenInCart) {
-      setFrozenModalActiveTab('congelado');
-    } else if (hasNormalInCart) {
-      setFrozenModalActiveTab('pronto');
-    } else if (exCongeladoCru > 0 || exCongeladoFrito > 0) {
-      setFrozenModalActiveTab('congelado');
-    } else if (exProntoFrito > 0 || exProntoCru > 0) {
-      setFrozenModalActiveTab('pronto');
+    // Se estiver em modo de acréscimo no pedido:
+    if (appendOrderTarget) {
+      if (targetOrderIsFrozen) {
+        setFrozenModalActiveTab('congelado');
+      } else {
+        setFrozenModalActiveTab('pronto');
+      }
     } else {
-      setFrozenModalActiveTab(null);
+      // Modo normal de compras:
+      if (hasFrozenInCart) {
+        setFrozenModalActiveTab('congelado');
+      } else if (hasNormalInCart) {
+        setFrozenModalActiveTab('pronto');
+      } else if (exCongeladoCru > 0 || exCongeladoFrito > 0) {
+        setFrozenModalActiveTab('congelado');
+      } else if (exProntoFrito > 0 || exProntoCru > 0) {
+        setFrozenModalActiveTab('pronto');
+      } else {
+        setFrozenModalActiveTab(null);
+      }
     }
 
     setFrozenModal({ isOpen: true, product, quantity: qty });
@@ -1979,6 +2060,94 @@ export default function Menu() {
         (a.name && a.name.toLowerCase().includes('congelad'))
       )
     );
+
+    // FLUXO DO MODO ACRÉSCIMO EM PEDIDO EXISTENTE:
+    if (appendOrderTarget) {
+      // Validação Estrita de Modalidade:
+      // Se o pedido original é de congelados, só pode acrescentar congelados!
+      if (targetOrderIsFrozen && !isFrozenChoice) {
+        setModalidadeConflictModal({
+          isOpen: true,
+          productName: product.name,
+          targetOrderIsFrozen: true,
+          attemptedIsFrozen: false
+        });
+        return;
+      }
+      // Se o pedido original é de salgados prontos, só pode acrescentar prontos!
+      if (!targetOrderIsFrozen && isFrozenChoice) {
+        setModalidadeConflictModal({
+          isOpen: true,
+          productName: product.name,
+          targetOrderIsFrozen: false,
+          attemptedIsFrozen: true
+        });
+        return;
+      }
+
+      const prodCode = (product.externalId || product.code || '').toString().trim();
+      const descWithCode = formatProductDescriptionWithCode(product.description, prodCode);
+
+      const enrichedFlavor = flavor ? {
+        ...flavor,
+        externalId: flavor.externalId || flavor.code || (products.find(p => p.id === flavor.productId)?.externalId) || '',
+        code: flavor.code || flavor.externalId || (products.find(p => p.id === flavor.productId)?.externalId) || ''
+      } : null;
+
+      const enrichedAddons = (addons || []).map((a: any) => ({
+        ...a,
+        externalId: a.externalId || a.code || (products.find(p => p.id === a.productId)?.externalId) || '',
+        code: a.code || a.externalId || (products.find(p => p.id === a.productId)?.externalId) || '',
+        isFrozen: a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad'))
+      }));
+
+      setAppendCart(prev => {
+        const existing = prev.find(item => 
+          item.productId === product.id && 
+          (item.prepType || '') === (prepType || '') &&
+          Boolean(item.isFrozen) === isFrozenChoice &&
+          JSON.stringify(item.addons) === JSON.stringify(addons) &&
+          JSON.stringify(item.flavor) === JSON.stringify(flavor)
+        );
+        if (existing) {
+          return prev.map(item => 
+            (item.productId === product.id && (item.prepType || '') === (prepType || '') && Boolean(item.isFrozen) === isFrozenChoice && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor))
+              ? { ...item, quantity: item.quantity + quantity, isFrozen: isFrozenChoice, prepType: prepType || item.prepType, prepLabel: prepLabel || item.prepLabel } 
+              : item
+          );
+        }
+
+        return [...prev, { 
+          productId: product.id, 
+          externalId: prodCode, 
+          code: prodCode, 
+          name: product.name, 
+          description: descWithCode, 
+          price: product.price, 
+          quantity: Math.max(1, quantity), 
+          imageUrl: product.imageUrl, 
+          isFrozen: isFrozenChoice,
+          prepType,
+          prepLabel,
+          addons: enrichedAddons, 
+          flavor: enrichedFlavor 
+        }];
+      });
+
+      setProductQuantities(prev => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+
+      const orderDisplayNum = `#${String(appendOrderTarget.id).slice(-4).padStart(4, '0')}`;
+      setCartToastMessage(`"${product.name}" acrescentado ao Pedido ${orderDisplayNum}! ➕🛒`);
+      setTimeout(() => setCartToastMessage(null), 3000);
+      setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
+      return;
+    }
+
+    // FLUXO NORMAL DO CARRINHO:
     setCart(prev => {
       const existing = prev.find(item => 
         item.productId === product.id && 
@@ -2051,8 +2220,20 @@ export default function Menu() {
       return;
     }
 
-    // Regra BALBEC: Se o carrinho já contém congelados (prazo até 48h), o cliente NÃO pode adicionar itens normais/prontos!
-    if (hasFrozenInCart) {
+    // Regra no Modo Acréscimo: se o pedido for de congelados, produtos que não são salgados
+    // (ex: lanches, chapa, bebidas, doces) são prontos e NÃO podem ser acrescentados a pedido congelado!
+    if (appendOrderTarget && targetOrderIsFrozen) {
+      setModalidadeConflictModal({
+        isOpen: true,
+        productName: product.name,
+        targetOrderIsFrozen: true,
+        attemptedIsFrozen: false
+      });
+      return;
+    }
+
+    // Regra BALBEC Normal: Se o carrinho já contém congelados (prazo até 48h), o cliente NÃO pode adicionar itens normais/prontos!
+    if (hasFrozenInCart && !appendOrderTarget) {
       setCartConflictModal({
         isOpen: true,
         type: 'has_frozen_blocked_normal',
@@ -5378,14 +5559,26 @@ export default function Menu() {
                         {order.items.length > 2 && <p className="text-[10px] text-stone-400 italic">+ {order.items.length - 2} itens</p>}
                       </div>
 
-                      <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
+                      <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-2 flex-wrap">
                         <div className="text-stone-900 font-black text-sm">Total: {formatCurrency(order.total)}</div>
-                        <button 
-                          onClick={() => handleReorder(order)}
-                          className="px-4 py-2 bg-stone-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-orange-600 transition-colors shadow-sm"
-                        >
-                          Repetir Pedido
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {isOrderEligibleForAppend(order) && (
+                            <button 
+                              type="button"
+                              onClick={() => handleStartAppendOrder(order)}
+                              className="px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1 cursor-pointer active:scale-95"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Fazer Acréscimo</span>
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleReorder(order)}
+                            className="px-4 py-2 bg-stone-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-orange-600 transition-colors shadow-sm"
+                          >
+                            Repetir Pedido
+                          </button>
+                        </div>
                       </div>
 
                       {/* Rastreamento do Motoboy no Mapa e Status ao Vivo (Delivery) */}
@@ -6525,6 +6718,59 @@ export default function Menu() {
           </div>
         )}
 
+        {/* Banner do Modo Acréscimo no Pedido */}
+        {appendOrderTarget && (
+          <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 text-white px-3 sm:px-6 py-2.5 shrink-0 z-30 shadow-md border-b border-orange-800 animate-in slide-in-from-top-3 duration-200">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 text-left w-full sm:w-auto">
+                <span className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">
+                  {targetOrderIsFrozen ? '❄️' : '🥐'}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-black/30 text-amber-200 text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider">
+                      Modo Acréscimo
+                    </span>
+                    <strong className="text-xs sm:text-sm font-black uppercase tracking-tight font-mono">
+                      Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
+                    </strong>
+                    <span className="text-[11px] text-orange-100 hidden md:inline">
+                      • Pagamento Presencial na Retirada
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-white/90 font-medium truncate">
+                    {targetOrderIsFrozen ? (
+                      <>Exclusivo: <strong>Salgados Congelados (até 48h)</strong>. Não adicione itens prontos neste pedido.</>
+                    ) : (
+                      <>Exclusivo: <strong>Salgados Prontos (Consumo Imediato)</strong>. Não adicione congelados neste pedido.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+                {appendCart.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAppendReviewModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span>Revisar Acréscimo ({appendCart.reduce((s, it) => s + it.quantity, 0)})</span>
+                    <span className="bg-black/20 px-1.5 py-0.5 rounded text-[10px]">+{formatCurrency(appendCartSubtotal)}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCancelAppendOrder}
+                  className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-white/25"
+                >
+                  Cancelar Acréscimo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Categories Bar (Sticky sub-header on Top for All Devices) */}
         <div 
           ref={categoryBarRef}
@@ -6840,7 +7086,7 @@ export default function Menu() {
       </div>
 
       {/* Sticky Bottom Red Checkout Bar (For All Screens: Mobile, Tablet & Desktop) */}
-      {!isCartOpen && cart.length > 0 && !isCheckout && (
+      {!isCartOpen && cart.length > 0 && !isCheckout && !appendOrderTarget && (
         <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 z-[40] max-w-xl mx-auto pointer-events-auto">
           <button
             onClick={() => setIsCartOpen(true)}
@@ -6854,6 +7100,34 @@ export default function Menu() {
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-base sm:text-xl font-black">{formatCurrency(total)}</span>
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Sticky Bottom Append Mode Review Bar (Quando em Modo Acréscimo e com itens) */}
+      {appendOrderTarget && appendCart.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 z-[40] max-w-xl mx-auto pointer-events-auto animate-in slide-in-from-bottom-3 duration-200">
+          <button
+            onClick={() => setIsAppendReviewModalOpen(true)}
+            className="w-full h-14 sm:h-16 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl shadow-2xl flex items-center justify-between px-4 sm:px-6 transform active:scale-[0.98] transition-all cursor-pointer border-2 border-emerald-400/60"
+          >
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-emerald-950/70 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs sm:text-sm font-black tracking-wide border border-emerald-400/40">
+                +{appendCart.reduce((sum, item) => sum + item.quantity, 0)} {appendCart.reduce((sum, item) => sum + item.quantity, 0) === 1 ? 'item' : 'itens'}
+              </div>
+              <div className="text-left">
+                <span className="font-extrabold text-xs sm:text-base uppercase tracking-tight block leading-tight">
+                  Revisar Acréscimo
+                </span>
+                <span className="text-[10px] text-emerald-100 font-mono block">
+                  Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-base sm:text-xl font-black">+{formatCurrency(appendCartSubtotal)}</span>
               <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </button>
@@ -7392,10 +7666,10 @@ export default function Menu() {
         const grandTotalSelected = totalProntoSelected + totalCongeladoSelected;
 
         // Regras de Bloqueio Mútuo:
-        // 1. Salgados Prontos ficam bloqueados se o carrinho já tiver congelados ou se houver quantidades congeladas selecionadas
-        const isProntosBlocked = hasFrozenInCart || totalCongeladoSelected > 0;
-        // 2. Salgados Congelados ficam bloqueados se o carrinho já tiver produtos prontos ou se houver quantidades prontas selecionadas
-        const isCongeladosBlocked = hasNormalInCart || totalProntoSelected > 0;
+        // 1. Salgados Prontos ficam bloqueados se o carrinho já tiver congelados ou se o pedido alvo for de congelados
+        const isProntosBlocked = (appendOrderTarget ? targetOrderIsFrozen : hasFrozenInCart) || totalCongeladoSelected > 0;
+        // 2. Salgados Congelados ficam bloqueados se o carrinho já tiver produtos prontos ou se o pedido alvo for de prontos
+        const isCongeladosBlocked = (appendOrderTarget ? !targetOrderIsFrozen : hasNormalInCart) || totalProntoSelected > 0;
 
         return (
           <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
@@ -7409,7 +7683,9 @@ export default function Menu() {
                   {frozenModal.product.name}
                 </h3>
                 <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-                  Escolha abaixo o tipo de preparo desejado. Devido aos prazos especiais, <strong>não é permitido misturar itens normais e congelados no mesmo pedido</strong>.
+                  {appendOrderTarget 
+                    ? `Acréscimo no Pedido #${String(appendOrderTarget.id).slice(-4).padStart(4, '0')}: escolha a quantidade na modalidade correspondente.`
+                    : <>Escolha abaixo o tipo de preparo desejado. Devido aos prazos especiais, <strong>não é permitido misturar itens normais e congelados no mesmo pedido</strong>.</>}
                 </p>
               </div>
 
@@ -7439,11 +7715,15 @@ export default function Menu() {
                 {isProntosBlocked ? (
                   <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2">
                     <p className="text-[11px] font-bold text-stone-600 leading-snug">
-                      🔒 {hasFrozenInCart 
-                        ? 'Opção bloqueada: seu carrinho atual contém itens congelados (prazo até 48h).' 
-                        : 'Opção bloqueada: você já selecionou itens congelados. Zere as quantidades congeladas para pedir prontos.'}
+                      🔒 {appendOrderTarget ? (
+                        <>Opção bloqueada: o Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')} é de Salgados Congelados. Só é permitido acrescentar congelados.</>
+                      ) : hasFrozenInCart ? (
+                        'Opção bloqueada: seu carrinho atual contém itens congelados (prazo até 48h).'
+                      ) : (
+                        'Opção bloqueada: você já selecionou itens congelados. Zere as quantidades congeladas para pedir prontos.'
+                      )}
                     </p>
-                    {hasFrozenInCart && (
+                    {!appendOrderTarget && hasFrozenInCart && (
                       <button
                         type="button"
                         onClick={() => {
@@ -7565,11 +7845,15 @@ export default function Menu() {
                 {isCongeladosBlocked ? (
                   <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2">
                     <p className="text-[11px] font-bold text-stone-600 leading-snug">
-                      🔒 {hasNormalInCart 
-                        ? 'Opção bloqueada: seu carrinho já contém produtos prontos para consumo imediato.' 
-                        : 'Opção bloqueada: você já selecionou itens prontos. Zere as quantidades de prontos para pedir congelados.'}
+                      🔒 {appendOrderTarget ? (
+                        <>Opção bloqueada: o Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')} é de Salgados Prontos. Só é permitido acrescentar itens prontos.</>
+                      ) : hasNormalInCart ? (
+                        'Opção bloqueada: seu carrinho já contém produtos prontos para consumo imediato.' 
+                      ) : (
+                        'Opção bloqueada: você já selecionou itens prontos. Zere as quantidades de prontos para pedir congelados.'
+                      )}
                     </p>
-                    {hasNormalInCart && (
+                    {!appendOrderTarget && hasNormalInCart && (
                       <button
                         type="button"
                         onClick={() => {
@@ -7675,8 +7959,12 @@ export default function Menu() {
                       return;
                     }
 
-                    // Limpa versões anteriores deste produto no carrinho para aplicar a nova seleção
-                    setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
+                    // Limpa versões anteriores deste produto no carrinho ou no appendCart para aplicar a nova seleção
+                    if (appendOrderTarget) {
+                      setAppendCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
+                    } else {
+                      setCart(prev => prev.filter(ci => ci.productId !== frozenModal.product.id));
+                    }
 
                     // 1. Salgado Pronto FRITO/ASSADO
                     if (prontoFritoQty > 0) {
@@ -7798,7 +8086,301 @@ export default function Menu() {
           </div>
         </div>
       )}
+      {/* Modal de Bloqueio por Incompatibilidade de Modalidade no Modo Acréscimo */}
+      {modalidadeConflictModal.isOpen && appendOrderTarget && (
+        <div className="fixed inset-0 z-[140] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border ${
+              modalidadeConflictModal.targetOrderIsFrozen 
+                ? 'bg-blue-100 text-blue-600 border-blue-200' 
+                : 'bg-amber-100 text-amber-600 border-amber-200'
+            }`}>
+              {modalidadeConflictModal.targetOrderIsFrozen ? '❄️' : '🔥'}
+            </div>
 
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-600 bg-orange-100 px-2.5 py-0.5 rounded-full">
+                Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
+              </span>
+              <h3 className="text-lg font-black text-stone-900 uppercase tracking-tight">
+                Modalidade Incompatível com este Pedido
+              </h3>
+              <p className="text-xs text-stone-600 leading-relaxed">
+                {modalidadeConflictModal.targetOrderIsFrozen ? (
+                  <>
+                    O seu Pedido <strong>#{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}</strong> é exclusivo de <strong>Salgados Congelados</strong> (prazo de produção de até 48 horas).<br />
+                    Não é possível acrescentar itens prontos / normais neste mesmo pedido.
+                  </>
+                ) : (
+                  <>
+                    O seu Pedido <strong>#{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}</strong> é exclusivo de <strong>Salgados Prontos</strong> para consumo imediato.<br />
+                    Não é possível acrescentar itens congelados (prazo até 48h) neste mesmo pedido.
+                  </>
+                )}
+              </p>
+            </div>
+
+            {/* Mensagem solicitada pelo usuário */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 text-left font-medium space-y-1">
+              <p className="font-bold">⚠️ Não é possível misturar categorias neste pedido:</p>
+              <p className="text-[11px] leading-relaxed text-amber-800">
+                Caso você queira comprar itens dessa outra modalidade, por favor <strong>inicie um novo pedido separado</strong> para que os prazos e preparos sejam organizados corretamente.
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setModalidadeConflictModal({ isOpen: false, targetOrderIsFrozen: false, attemptedIsFrozen: false })}
+                className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+              >
+                Continuar Acréscimo no Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModalidadeConflictModal({ isOpen: false, targetOrderIsFrozen: false, attemptedIsFrozen: false });
+                  setAppendOrderTarget(null);
+                  setAppendCart([]);
+                  alert('Modo acréscimo cancelado. Você já pode iniciar um novo pedido normalmente!');
+                }}
+                className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
+              >
+                Sair do Acréscimo e Iniciar Novo Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Revisão e Confirmação de Acréscimo no Pedido */}
+      {isAppendReviewModalOpen && appendOrderTarget && (
+        <div className="fixed inset-0 z-[135] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-2xl border border-stone-200 space-y-5 my-auto max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-bold shadow-md shadow-orange-500/20">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-stone-900 uppercase tracking-tight">
+                    Acréscimo no Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
+                  </h3>
+                  <p className="text-[11px] text-stone-500 font-medium">
+                    Pagamento Presencial na Retirada
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAppendReviewModalOpen(false)}
+                className="p-2 text-stone-400 hover:text-stone-700 rounded-full hover:bg-stone-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo Rolável */}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1 overscroll-contain">
+              {/* Aviso da Modalidade */}
+              <div className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 ${
+                targetOrderIsFrozen 
+                  ? 'bg-blue-50 border-blue-200 text-blue-900' 
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}>
+                <span className="text-lg">{targetOrderIsFrozen ? '❄️' : '🥐'}</span>
+                <div>
+                  <strong className="block uppercase text-[11px]">
+                    Modalidade: {targetOrderIsFrozen ? 'Salgados Congelados (até 48h)' : 'Salgados Prontos (Consumo Imediato)'}
+                  </strong>
+                  <span className="text-[10px] opacity-80">
+                    Apenas itens desta mesma modalidade foram permitidos neste acréscimo.
+                  </span>
+                </div>
+              </div>
+
+              {/* Itens Novos do Acréscimo */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase text-orange-600 tracking-wider">
+                    ➕ Novos Itens a Acrescentar ({appendCart.reduce((s, it) => s + it.quantity, 0)} un)
+                  </h4>
+                  <span className="text-xs font-black text-stone-900 font-mono">
+                    +{formatCurrency(appendCartSubtotal)}
+                  </span>
+                </div>
+
+                {appendCart.length === 0 ? (
+                  <p className="text-xs text-stone-400 italic py-3 text-center border border-dashed rounded-xl">
+                    Nenhum novo item adicionado ainda. Escolha produtos no cardápio!
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {appendCart.map((item, idx) => (
+                      <div key={`${item.productId}-${item.prepType}-${idx}`} className="p-3 bg-orange-50/60 rounded-xl border border-orange-200 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-black text-stone-900 uppercase truncate">
+                            {item.name}
+                          </p>
+                          {item.prepLabel && (
+                            <p className="text-[10px] text-orange-700 font-semibold truncate">
+                              {item.prepLabel}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-stone-500 font-mono">
+                            {formatCurrency(item.price)} un
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAppendCart(prev => prev.map((it, i) => i === idx ? { ...it, quantity: it.quantity - 1 } : it).filter(it => it.quantity > 0));
+                            }}
+                            className="w-7 h-7 rounded-lg bg-white hover:bg-stone-100 text-stone-800 font-black flex items-center justify-center border border-stone-200 cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-8 text-center font-black text-xs font-mono text-stone-900">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAppendCart(prev => prev.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it));
+                            }}
+                            className="w-7 h-7 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAppendCart(prev => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="p-1.5 text-stone-400 hover:text-red-600 rounded-lg ml-1 cursor-pointer"
+                            title="Remover item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Itens Já Existentes no Pedido (Leitura) */}
+              <div className="space-y-2 pt-2 border-t border-stone-100">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-black uppercase text-stone-500 tracking-wider">
+                    📋 Itens Originais do Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
+                  </h4>
+                  <span className="text-xs font-bold text-stone-500 font-mono">
+                    {formatCurrency(appendOrderTarget.total)}
+                  </span>
+                </div>
+
+                <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                  {appendOrderTarget.items.map((it, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs p-2 bg-stone-50 rounded-lg text-stone-700">
+                      <span className="truncate max-w-[240px]">
+                        <strong>{it.quantity}x</strong> {it.name} {it.prepLabel ? `(${it.prepLabel.split(' ')[1] || it.prepLabel})` : ''}
+                      </span>
+                      <span className="font-mono text-stone-500 text-[11px]">
+                        {formatCurrency(it.price * it.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Resumo Financeiro */}
+              <div className="p-3.5 bg-stone-900 text-white rounded-2xl space-y-2">
+                <div className="flex justify-between text-xs text-stone-300">
+                  <span>Valor Original:</span>
+                  <span className="font-mono">{formatCurrency(appendOrderTarget.total)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-orange-400 font-bold">
+                  <span>+ Acréscimo Adicional:</span>
+                  <span className="font-mono">+{formatCurrency(appendCartSubtotal)}</span>
+                </div>
+                <div className="pt-2 border-t border-stone-700 flex justify-between items-center text-sm font-black">
+                  <span className="uppercase text-amber-300">Novo Total a Pagar na Retirada:</span>
+                  <span className="text-base font-mono text-emerald-400">
+                    {formatCurrency(Number(appendOrderTarget.total) + appendCartSubtotal)}
+                  </span>
+                </div>
+              </div>
+
+              {appendErrorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{appendErrorMessage}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer com Botões */}
+            <div className="space-y-2 pt-2 border-t border-stone-100 shrink-0">
+              <button
+                type="button"
+                disabled={appendCart.length === 0 || isSubmittingAppend}
+                onClick={async () => {
+                  if (appendCart.length === 0) {
+                    alert('Adicione pelo menos um item para fazer o acréscimo.');
+                    return;
+                  }
+                  setIsSubmittingAppend(true);
+                  setAppendErrorMessage(null);
+                  try {
+                    const result = await appendItemsToOrder(appendOrderTarget.id, appendCart);
+                    if (result.success && result.order) {
+                      const updated = result.order;
+                      const orderNum = `#${String(updated.id).slice(-4).padStart(4, '0')}`;
+                      setAppendOrderTarget(null);
+                      setAppendCart([]);
+                      setIsAppendReviewModalOpen(false);
+                      setCartToastMessage(`✅ Acréscimo confirmado com sucesso no Pedido ${orderNum}! Novo total: ${formatCurrency(updated.total)}`);
+                      setTrackingOrderId(updated.id);
+                    } else {
+                      setAppendErrorMessage(result.error || 'Erro ao acrescentar itens ao pedido.');
+                    }
+                  } catch (err: any) {
+                    setAppendErrorMessage('Erro de conexão ao salvar acréscimo. Tente novamente.');
+                  } finally {
+                    setIsSubmittingAppend(false);
+                  }
+                }}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isSubmittingAppend ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Confirmando Acréscimo...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirmar Acréscimo (+{formatCurrency(appendCartSubtotal)})</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAppendReviewModalOpen(false)}
+                className="w-full py-2.5 text-stone-500 hover:text-stone-800 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+              >
+                Continuar Escolhendo Mais Itens
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Modal de Seleção de Mesa */}
       {showTableSelectModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
@@ -8430,6 +9012,7 @@ export default function Menu() {
         <CustomerOrderTrackerModal 
           orderId={trackingOrderId}
           onClose={() => setTrackingOrderId(null)}
+          onStartAppend={handleStartAppendOrder}
         />
       )}
 
@@ -8529,7 +9112,22 @@ export default function Menu() {
                     <p className="text-stone-500 text-[11px]">
                       Cliente: {order.customerName || 'Cliente'} • {order.type === 'delivery' || order.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
                     </p>
+                    <p className="text-stone-500 text-[11px]">
+                      Pagamento: <strong className="text-stone-700">{order.paymentMethod || 'Na Retirada'}</strong> • Total: <strong className="text-emerald-700">{formatCurrency(order.total)}</strong>
+                    </p>
                   </div>
+
+                  {/* Botão de Acréscimo no Pedido (Status pendente e pagamento presencial na retirada) */}
+                  {isOrderEligibleForAppend(order) && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartAppendOrder(order)}
+                      className="w-full py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Fazer Acréscimo / Adicionar Mais Itens 🛒</span>
+                    </button>
+                  )}
 
                   {order.type === 'delivery' || order.deliveryType === 'delivery' ? (
                     <button
