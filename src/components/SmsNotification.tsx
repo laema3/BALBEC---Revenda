@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
-import { MessageSquare, X, Bell, CheckCircle2, Clock, ChefHat, Bike, AlertTriangle } from 'lucide-react';
+import { MessageSquare, X, Bell, CheckCircle2, Clock, ChefHat, Bike, AlertTriangle, Snowflake } from 'lucide-react';
 import { formatAllDatesBR } from '../lib/utils';
 
 export const SmsNotification: React.FC = () => {
@@ -31,6 +31,9 @@ export const SmsNotification: React.FC = () => {
   // NÃO há auto-dismiss com setTimeout! A mensagem permanece fixa na tela do smartphone até o cliente fechar.
   if (!currentNotification) return null;
 
+  const isFrozen = currentNotification.title?.includes('❄️') || 
+                   currentNotification.badge?.includes('Congelad') || 
+                   currentNotification.message?.toLowerCase().includes('congelad');
   const isSuccess = currentNotification.type === 'success';
   const isWarning = currentNotification.type === 'warning';
 
@@ -43,6 +46,7 @@ export const SmsNotification: React.FC = () => {
       >
         {/* Barra superior de identificação */}
         <div className={`px-5 py-3 flex items-center justify-between text-xs font-black tracking-wider uppercase ${
+          isFrozen ? 'bg-blue-900 text-white' :
           isSuccess ? 'bg-emerald-600 text-white' :
           isWarning ? 'bg-amber-600 text-white' :
           'bg-stone-900 text-white'
@@ -66,11 +70,14 @@ export const SmsNotification: React.FC = () => {
         <div className="p-5 sm:p-6 space-y-4">
           <div className="flex items-start gap-4">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${
+              isFrozen ? 'bg-blue-100 text-blue-700' :
               isSuccess ? 'bg-emerald-100 text-emerald-700' :
               isWarning ? 'bg-amber-100 text-amber-700' :
               'bg-blue-100 text-blue-700'
             }`}>
-              {isSuccess ? (
+              {isFrozen ? (
+                <Snowflake className="w-8 h-8 text-blue-600 animate-pulse" />
+              ) : isSuccess ? (
                 <CheckCircle2 className="w-8 h-8 animate-bounce" />
               ) : isWarning ? (
                 <Clock className="w-8 h-8 animate-pulse" />

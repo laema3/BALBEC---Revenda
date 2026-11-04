@@ -5463,7 +5463,33 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     });
   });
 
-  const checkAndTriggerSmsReminders = () => {
+  const isOrderFrozen = (order: any): boolean => {
+    if (!order) return false;
+    if (order.hasFrozenItems === true || order.isFrozen === true) return true;
+
+    const items = Array.isArray(order.items)
+      ? order.items
+      : (typeof order.items === 'string' ? (() => { try { return JSON.parse(order.items); } catch { return []; } })() : []);
+
+    if (!Array.isArray(items) || items.length === 0) return false;
+
+    return items.some((it: any) => {
+      if (!it) return false;
+      if (it.isFrozen) return true;
+      if (it.productId === 'prod_congelado') return true;
+      const prepType = String(it.prepType || '').toLowerCase();
+      if (prepType.includes('congelad') || prepType.startsWith('congelado')) return true;
+      const prepLabel = String(it.prepLabel || '').toLowerCase();
+      if (prepLabel.includes('congelad')) return true;
+      const name = String(it.name || '').toLowerCase();
+      if (name.includes('congelad')) return true;
+      if (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || String(a.name || '').toLowerCase().includes('congelad'))) return true;
+      if (Array.isArray(it.options) && it.options.some((o: any) => o.isFrozen || String(o.name || '').toLowerCase().includes('congelad'))) return true;
+      return false;
+    });
+  };
+
+  const checkAndTriggerSmsReminders = (forceImmediateSlot: boolean = false) => {
     try {
       const now = new Date();
       let brazilDate = now;
@@ -5494,6 +5520,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const slot3Mins = parseTimeToMinutes(memStoreInfo.smsReminderTime3, 15);
 
       const isSlotDue = (slot: string) => {
+        if (forceImmediateSlot) return true;
         if (slot === 'slot_1_09h') return currentMinutesOfDay >= slot1Mins;
         if (slot === 'slot_2_12h') return currentMinutesOfDay >= slot2Mins;
         if (slot === 'slot_3_15h') return currentMinutesOfDay >= slot3Mins;
@@ -5503,99 +5530,213 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       let newRemindersAdded = false;
 
       (memOrders || []).forEach(order => {
-        if (!order || order.status === 'cancelled' || !order.scheduledDate || !order.customerPhone) return;
+        if (!order || order.status === 'cancelled' || !order.customerPhone) return;
 
-        const scheduledDateStr = String(order.scheduledDate).slice(0, 10);
-        const orderDateStr = order.createdAt ? new Date(order.createdAt).toISOString().slice(0, 10) : todayStr;
+        const isFinished = order.status === 'completed' || order.status === 'ready' || order.status === 'ready_for_pickup';
 
-        if (todayStr >= orderDateStr && todayStr <= scheduledDateStr) {
-          ['slot_1_09h', 'slot_2_12h', 'slot_3_15h'].forEach(slot => {
-            const reminderKey = `ord_${order.id}_${todayStr}_${slot}`;
-            const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
+        // 1. Notificação de Agendamento (pedidos com scheduledDate)
+        if (order.scheduledDate) {
+          const scheduledDateStr = String(order.scheduledDate).slice(0, 10);
+          const orderDateStr = order.createdAt ? new Date(order.createdAt).toISOString().slice(0, 10) : todayStr;
 
-            if (!alreadySent && isSlotDue(slot)) {
-              const displayDateBR = formatIsoDateToBR(scheduledDateStr);
-              const reminder = {
-                id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                reminderKey,
-                orderId: order.id,
-                customerName: order.customerName || 'Cliente',
-                customerPhone: order.customerPhone,
-                scheduledDate: displayDateBR,
-                scheduledTime: order.scheduledTime || '09:00',
-                slot,
-                dateStr: formatIsoDateToBR(todayStr),
-                message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${displayDateBR} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
-                sentAt: Date.now(),
-                status: 'sent'
-              };
-              memSmsReminders.unshift(reminder);
-              newRemindersAdded = true;
-              console.log(`[SMS Automation] SMS gerado para ${order.customerPhone} (${order.customerName}) referente ao Pedido #${order.id} (Slot: ${slot}, Data: ${displayDateBR})`);
+          if (todayStr >= orderDateStr && todayStr <= scheduledDateStr) {
+            ['slot_1_09h', 'slot_2_12h', 'slot_3_15h'].forEach(slot => {
+              const reminderKey = `ord_${order.id}_${todayStr}_${slot}`;
+              const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
 
-              // Disparo SSE direto para a tela do smartphone do cliente
-              broadcastSSE({
-                type: 'sync',
-                target: 'sms_reminders',
-                action: 'reminder_alert',
-                orderId: order.id,
-                customerName: order.customerName,
-                customerPhone: order.customerPhone,
-                message: reminder.message,
-                time: Date.now()
-              });
+              if (!alreadySent && isSlotDue(slot)) {
+                const displayDateBR = formatIsoDateToBR(scheduledDateStr);
+                const reminder = {
+                  id: `sms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                  reminderKey,
+                  orderId: order.id,
+                  customerName: order.customerName || 'Cliente',
+                  customerPhone: order.customerPhone,
+                  scheduledDate: displayDateBR,
+                  scheduledTime: order.scheduledTime || '09:00',
+                  slot,
+                  type: 'scheduled',
+                  dateStr: formatIsoDateToBR(todayStr),
+                  message: `Olá ${order.customerName || 'Cliente'}! Lembrete BALBEC: Seu pedido #${String(order.id).slice(-4)} está agendado para ${displayDateBR} às ${order.scheduledTime || '09:00'}. Estamos te aguardando!`,
+                  sentAt: Date.now(),
+                  status: 'sent'
+                };
+                memSmsReminders.unshift(reminder);
+                newRemindersAdded = true;
+                console.log(`[SMS Automation] SMS agendado gerado para ${order.customerPhone} (${order.customerName}) Pedido #${order.id} (Slot: ${slot}, Data: ${displayDateBR})`);
 
-              // Disparo Automático NTFY (Estilo NTFY 100% gratuito e sem esquecimento)
-              if (memStoreInfo.ntfyEnabled !== false) {
-                const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
-                const cleanPhone = String(order.customerPhone || '').replace(/\D/g, '');
-                const cleanMsg = reminder.message;
-                const slotLabel = slot === 'slot_1_09h' ? 'Manhã (09h)' : slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)';
-
-                fetch(`https://ntfy.sh/${topic}`, {
-                  method: 'POST',
-                  headers: {
-                    'Title': `⏰ LEMBRETE BALBEC: Pedido #${String(order.id).slice(-4)} (${order.customerName})`,
-                    'Priority': 'urgent',
-                    'Tags': 'alarm_clock,warning,package',
-                    'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : undefined
-                  },
-                  body: `Lembrete Automático [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} para ${displayDateBR} às ${order.scheduledTime || '09:00'}.\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
-                }).then(() => {
-                  console.log(`[Auto NTFY Reminder] Alerta automático de lembrete enviado para ntfy.sh/${topic}`);
-                }).catch(err => {
-                  console.warn('[Auto NTFY Reminder Error] Falha ao enviar ntfy:', err?.message);
+                // Disparo SSE direto para a tela do smartphone do cliente
+                broadcastSSE({
+                  type: 'sync',
+                  target: 'sms_reminders',
+                  action: 'reminder_alert',
+                  orderId: order.id,
+                  customerName: order.customerName,
+                  customerPhone: order.customerPhone,
+                  message: reminder.message,
+                  time: Date.now()
                 });
-              }
 
-              if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
-                const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
-                const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
-                fetch(webhookUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
-                  },
-                  body: JSON.stringify({
-                    phone: order.customerPhone,
-                    number: String(order.customerPhone).replace(/\D/g, ''),
-                    message: reminder.message,
-                    text: reminder.message,
-                    orderId: order.id,
-                    customerName: order.customerName || 'Cliente',
-                    slot: slot,
-                    scheduledDate: displayDateBR,
-                    scheduledTime: order.scheduledTime || '09:00'
-                  })
-                }).then(resp => {
-                  console.log(`[Auto SMS Webhook] Disparado para ${order.customerPhone}:`, resp.status);
-                }).catch(err => {
-                  console.warn('[Auto SMS Webhook Error] Falha ao despachar webhook:', err?.message);
-                });
+                // Disparo Automático NTFY (Estilo NTFY 100% gratuito e sem esquecimento)
+                if (memStoreInfo.ntfyEnabled !== false) {
+                  const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
+                  const cleanPhone = String(order.customerPhone || '').replace(/\D/g, '');
+                  const cleanMsg = reminder.message;
+                  const slotLabel = slot === 'slot_1_09h' ? 'Manhã (09h)' : slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)';
+
+                  fetch(`https://ntfy.sh/${topic}`, {
+                    method: 'POST',
+                    headers: {
+                      'Title': `⏰ LEMBRETE BALBEC: Pedido #${String(order.id).slice(-4)} (${order.customerName})`,
+                      'Priority': 'urgent',
+                      'Tags': 'alarm_clock,warning,package',
+                      'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : undefined
+                    },
+                    body: `Lembrete Automático [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} para ${displayDateBR} às ${order.scheduledTime || '09:00'}.\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
+                  }).then(() => {
+                    console.log(`[Auto NTFY Reminder] Alerta automático de lembrete enviado para ntfy.sh/${topic}`);
+                  }).catch(err => {
+                    console.warn('[Auto NTFY Reminder Error] Falha ao enviar ntfy:', err?.message);
+                  });
+                }
+
+                if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
+                  const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
+                  const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
+                  fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+                    },
+                    body: JSON.stringify({
+                      phone: order.customerPhone,
+                      number: String(order.customerPhone).replace(/\D/g, ''),
+                      message: reminder.message,
+                      text: reminder.message,
+                      orderId: order.id,
+                      customerName: order.customerName || 'Cliente',
+                      slot: slot,
+                      scheduledDate: displayDateBR,
+                      scheduledTime: order.scheduledTime || '09:00'
+                    })
+                  }).then(resp => {
+                    console.log(`[Auto SMS Webhook] Disparado para ${order.customerPhone}:`, resp.status);
+                  }).catch(err => {
+                    console.warn('[Auto SMS Webhook Error] Falha ao despachar webhook:', err?.message);
+                  });
+                }
               }
-            }
-          });
+            });
+          }
+        }
+
+        // 2. Notificações Periódicas de Congelados (3 vezes ao dia durante o período de 48 horas a partir do envio)
+        if (isOrderFrozen(order) && !isFinished) {
+          const orderCreatedAtTs = typeof order.createdAt === 'number'
+            ? order.createdAt
+            : (order.createdAt ? new Date(order.createdAt).getTime() : now.getTime());
+
+          const elapsedMs = now.getTime() - orderCreatedAtTs;
+          const elapsedHours = elapsedMs / (1000 * 60 * 60);
+
+          // Válido a partir do envio do pedido (elapsedMs >= 0) e até 48 horas (elapsedHours <= 48)
+          if (elapsedMs >= 0 && elapsedHours <= 48) {
+            ['slot_1_09h', 'slot_2_12h', 'slot_3_15h'].forEach(slot => {
+              const reminderKey = `frozen_${order.id}_${todayStr}_${slot}`;
+              const alreadySent = memSmsReminders.some(r => r && r.reminderKey === reminderKey);
+
+              if (!alreadySent && isSlotDue(slot)) {
+                const hoursRemaining = Math.max(0, Math.round(48 - elapsedHours));
+                const reminderMessage = `Olá ${order.customerName || 'Cliente'}! Informamos que seu pedido #${String(order.id).slice(-4)} contém salgados congelados, que possuem um período de preparo de até 48 horas a partir do envio. Seu pedido pode ficar pronto antes e, caso isso aconteça, nossos atendentes entrarão em contato para avisar!`;
+
+                const reminder = {
+                  id: `sms_froz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                  reminderKey,
+                  orderId: order.id,
+                  customerName: order.customerName || 'Cliente',
+                  customerPhone: order.customerPhone,
+                  scheduledDate: `Até 48h (Envio: ${new Date(orderCreatedAtTs).toLocaleDateString('pt-BR')})`,
+                  scheduledTime: `${hoursRemaining}h restantes`,
+                  slot,
+                  type: 'frozen_48h',
+                  dateStr: formatIsoDateToBR(todayStr),
+                  message: reminderMessage,
+                  sentAt: Date.now(),
+                  status: 'sent'
+                };
+
+                memSmsReminders.unshift(reminder);
+                newRemindersAdded = true;
+                console.log(`[SMS Automation] Lembrete Congelados 48h gerado para ${order.customerPhone} (${order.customerName}) Pedido #${order.id} (Slot: ${slot})`);
+
+                // Disparo SSE direto para a tela do smartphone do cliente
+                broadcastSSE({
+                  type: 'sync',
+                  target: 'sms_reminders',
+                  action: 'reminder_alert',
+                  alertType: 'frozen_48h',
+                  orderId: order.id,
+                  customerName: order.customerName,
+                  customerPhone: order.customerPhone,
+                  message: reminder.message,
+                  time: Date.now()
+                });
+
+                // Disparo Automático NTFY (Push no celular)
+                if (memStoreInfo.ntfyEnabled !== false) {
+                  const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
+                  const cleanPhone = String(order.customerPhone || '').replace(/\D/g, '');
+                  const cleanMsg = reminder.message;
+                  const slotLabel = slot === 'slot_1_09h' ? 'Manhã (09h)' : slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)';
+
+                  fetch(`https://ntfy.sh/${topic}`, {
+                    method: 'POST',
+                    headers: {
+                      'Title': `❄️ [CONGELADOS 48H] Pedido #${String(order.id).slice(-4)} (${order.customerName})`,
+                      'Priority': 'urgent',
+                      'Tags': 'snowflake,alarm_clock,package',
+                      'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : undefined
+                    },
+                    body: `Aviso Congelados 48h [${slotLabel}]:\nPedido #${String(order.id).slice(-4)} contém salgados congelados.\nPrazo de até 48 horas a partir do envio, podendo ficar pronto antes (atendentes avisarão se adiantar).\nCliente: ${order.customerName}\nTelefone: ${order.customerPhone}`
+                  }).then(() => {
+                    console.log(`[Auto NTFY Frozen Reminder] Enviado para ntfy.sh/${topic}`);
+                  }).catch(err => {
+                    console.warn('[Auto NTFY Frozen Reminder Error] Falha:', err?.message);
+                  });
+                }
+
+                // Disparo Automático via Webhook SMS / WhatsApp
+                if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
+                  const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
+                  const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
+                  fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+                    },
+                    body: JSON.stringify({
+                      type: 'frozen_48h',
+                      phone: order.customerPhone,
+                      number: String(order.customerPhone).replace(/\D/g, ''),
+                      message: reminder.message,
+                      text: reminder.message,
+                      orderId: order.id,
+                      customerName: order.customerName || 'Cliente',
+                      slot: slot,
+                      period: '48h',
+                      hoursRemaining
+                    })
+                  }).then(resp => {
+                    console.log(`[Auto SMS Webhook - Frozen] Disparado para ${order.customerPhone}:`, resp.status);
+                  }).catch(err => {
+                    console.warn('[Auto SMS Webhook - Frozen Error] Falha:', err?.message);
+                  });
+                }
+              }
+            });
+          }
         }
       });
 
@@ -5615,7 +5756,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.post('/api/db/sms-reminders/trigger-now', (req: Request, res: Response) => {
     try {
-      checkAndTriggerSmsReminders();
+      const force = req.body?.force === true;
+      checkAndTriggerSmsReminders(force);
       res.json({ success: true, reminders: memSmsReminders });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

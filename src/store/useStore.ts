@@ -216,6 +216,8 @@ export interface Order {
   scheduledDate?: string;
   scheduledDay?: string;
   scheduledPickupTime?: string;
+  hasFrozenItems?: boolean;
+  isFrozen?: boolean;
 }
 
 export interface TvMediaItem {

@@ -328,15 +328,22 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   const isOwner = isCustomerOrderOwner(null, data.orderId, data.customerPhone, data.customerName);
 
                   if (isOwner) {
-                    const rawMsg = data.message || `Olá ${data.customerName || 'Cliente'}, temos um aviso sobre o seu pedido agendado!`;
+                    const isFrozenAlert = data.alertType === 'frozen_48h' || String(data.message || '').toLowerCase().includes('congelad');
+                    const rawMsg = data.message || (isFrozenAlert 
+                      ? `Olá ${data.customerName || 'Cliente'}! Informamos que seu pedido #${String(data.orderId).slice(-4)} contém salgados congelados, que possuem um período de preparo de até 48 horas a partir do envio. Seu pedido pode ficar pronto antes e, caso isso aconteça, nossos atendentes entrarão em contato para avisar!`
+                      : `Olá ${data.customerName || 'Cliente'}, temos um aviso sobre o seu pedido agendado!`);
                     const reminderMsg = formatAllDatesBR(rawMsg);
+                    const notifTitle = isFrozenAlert 
+                      ? `❄️ Aviso Congelados: Pedido #${String(data.orderId).slice(-4)}`
+                      : `⏰ Lembrete do Pedido #${String(data.orderId).slice(-4)}`;
+
                     useStore.getState().setCurrentNotification({
                       id: `notif_reminder_${Date.now()}`,
-                      title: `⏰ Lembrete do Pedido #${String(data.orderId).slice(-4)}`,
+                      title: notifTitle,
                       message: reminderMsg,
                       type: 'info',
                       orderId: data.orderId,
-                      badge: 'Lembrete Automático'
+                      badge: isFrozenAlert ? '❄️ Congelados (Prazo até 48h)' : 'Lembrete Automático'
                     });
 
                     try {
@@ -350,7 +357,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                       audio.play().catch(() => {});
                     } catch {}
 
-                    triggerSystemNotification(`⏰ Lembrete do Pedido #${String(data.orderId).slice(-4)}`, reminderMsg, `reminder-${data.orderId}`);
+                    triggerSystemNotification(notifTitle, reminderMsg, `reminder-${data.orderId}`);
                   }
                 }
               } else {

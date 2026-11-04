@@ -51,10 +51,14 @@ export const SmsRemindersTab: React.FC = () => {
     if (isTriggeringNow) return;
     setIsTriggeringNow(true);
     try {
-      const res = await fetch('/api/db/sms-reminders/trigger-now', { method: 'POST' });
+      const res = await fetch('/api/db/sms-reminders/trigger-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true })
+      });
       if (res.ok) {
         await fetchReminders();
-        alert('Lembretes SMS disparados e verificados com sucesso!');
+        alert('Lembretes SMS e avisos de congelados disparados e verificados com sucesso!');
       } else {
         alert('Erro ao disparar lembretes SMS.');
       }
@@ -198,8 +202,8 @@ export const SmsRemindersTab: React.FC = () => {
             <MessageSquare className="w-7 h-7 text-orange-600" />
             Automação de Lembretes SMS (3x ao Dia)
           </h2>
-          <p className="text-xs text-stone-500 mt-1 max-w-2xl">
-            O sistema dispara automaticamente 3 SMSs de 3 em 3 horas (Manhã ~09h, Almoço ~12h, Tarde ~15h) para os clientes a cada dia que antecede a retirada, inclusive no dia do agendamento.
+          <p className="text-xs text-stone-500 mt-1 max-w-2xl leading-relaxed">
+            O sistema dispara automaticamente lembretes 3 vezes ao dia (Manhã ~09h, Almoço ~12h, Tarde ~15h) para pedidos agendados e também para <strong>pedidos de salgados congelados</strong> (notificando durante o período de até 48 horas a partir do envio, avisando que pode ficar pronto antes e que os atendentes entrarão em contato).
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -582,13 +586,24 @@ export const SmsRemindersTab: React.FC = () => {
                       #{String(r.orderId).slice(-4)}
                     </td>
                     <td className="p-3 text-stone-700 whitespace-nowrap">
-                      <div className="flex items-center gap-1 font-medium">
-                        <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                        <span>{formatDateBR(r.scheduledDate)} às {r.scheduledTime}</span>
-                      </div>
+                      {r.type === 'frozen_48h' || String(r.message || '').toLowerCase().includes('congelad') ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 font-bold text-[11px]">
+                          <span>❄️</span>
+                          <span>Congelados (Prazo 48h)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                          <span>{formatDateBR(r.scheduledDate)} às {r.scheduledTime}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 text-[10px] font-black uppercase">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                        r.type === 'frozen_48h' 
+                          ? 'bg-blue-100 text-blue-900 border border-blue-200' 
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
                         {r.slot === 'slot_1_09h' ? 'Manhã (09h)' : r.slot === 'slot_2_12h' ? 'Almoço (12h)' : 'Tarde (15h)'}
                       </span>
                     </td>

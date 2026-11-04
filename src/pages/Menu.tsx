@@ -2601,6 +2601,8 @@ export default function Menu() {
         scheduledTime: formattedScheduledTime,
         scheduledDate: selectedScheduleDate || undefined,
         scheduledDay: selectedScheduleDay || undefined,
+        hasFrozenItems: hasFrozenInOrder,
+        isFrozen: hasFrozenInOrder,
       });
 
       if (createdOrder) {
