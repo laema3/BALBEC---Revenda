@@ -5671,6 +5671,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                 console.log(`[SMS Automation] Lembrete Congelados 48h gerado para ${order.customerPhone} (${order.customerName}) Pedido #${order.id} (Slot: ${slot})`);
 
                 // Disparo SSE direto para a tela do smartphone do cliente
+                const clientFirstName = String(order.customerName || 'Cliente').trim().split(' ')[0];
                 broadcastSSE({
                   type: 'sync',
                   target: 'sms_reminders',
@@ -5680,6 +5681,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                   customerName: order.customerName,
                   customerPhone: order.customerPhone,
                   message: reminder.message,
+                  shortMessage: `Olá ${clientFirstName}! Prazo de até 48h, podendo adiantar. Se ficar pronto antes, avisaremos você!`,
                   time: Date.now()
                 });
 

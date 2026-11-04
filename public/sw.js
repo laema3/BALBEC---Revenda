@@ -1,5 +1,5 @@
 // Service Worker for BALBEC PWA
-const CACHE_NAME = 'balbec-pwa-v1';
+const CACHE_NAME = 'balbec-pwa-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
@@ -118,8 +118,14 @@ self.addEventListener('push', (event) => {
     data = { title: 'BALBEC Salgados', message: event.data ? event.data.text() : 'Atualização do seu pedido!' };
   }
   const title = data.title || 'BALBEC - Atualização do Pedido';
+  const isFrozen = (data.title && data.title.includes('Congelad')) || (data.alertType === 'frozen_48h') || (data.message && data.message.toLowerCase().includes('congelad'));
+  const firstName = String(data.customerName || 'Cliente').trim().split(' ')[0];
+  const notificationBody = data.shortMessage || (isFrozen 
+    ? `Olá ${firstName}! Prazo de até 48h, podendo adiantar. Se ficar pronto antes, avisaremos você!`
+    : (data.message || data.body || 'Seu pedido teve uma nova atualização!'));
+
   const options = {
-    body: data.message || data.body || 'Seu pedido teve uma nova atualização!',
+    body: notificationBody,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [250, 100, 250],

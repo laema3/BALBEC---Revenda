@@ -357,7 +357,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                       audio.play().catch(() => {});
                     } catch {}
 
-                    triggerSystemNotification(notifTitle, reminderMsg, `reminder-${data.orderId}`);
+                    const firstName = String(data.customerName || 'Cliente').trim().split(' ')[0];
+                    const systemNotificationBody = isFrozenAlert
+                      ? (data.shortMessage || `Olá ${firstName}! Prazo de até 48h, podendo adiantar. Se ficar pronto antes, avisaremos você!`)
+                      : reminderMsg;
+
+                    triggerSystemNotification(notifTitle, systemNotificationBody, `reminder-${data.orderId}`);
                   }
                 }
               } else {

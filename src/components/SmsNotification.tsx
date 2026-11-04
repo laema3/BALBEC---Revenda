@@ -52,7 +52,12 @@ export const SmsNotification: React.FC = () => {
           'bg-stone-900 text-white'
         }`}>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+            <img 
+              src="/icon-192.png" 
+              alt="BALBEC" 
+              className="w-5 h-5 rounded-full object-contain bg-white/20 p-0.5 border border-white/40 shadow-xs" 
+            />
+            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
             <span>{currentNotification.badge || 'Aviso do Seu Pedido'}</span>
           </div>
 
