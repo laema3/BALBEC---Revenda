@@ -1,10 +1,12 @@
 // Service Worker for BALBEC PWA
-const CACHE_NAME = 'balbec-pwa-v2';
+const CACHE_NAME = 'balbec-pwa-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
   '/manifest-tv.json',
   '/manifest-totem.json',
+  '/balbec-logo.png',
+  '/logo.png',
   '/icon-192.png',
   '/icon-512.png',
   '/screenshot-wide.png',
@@ -126,8 +128,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: notificationBody,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/balbec-logo.png?v=3',
+    badge: '/balbec-logo.png?v=3',
     vibrate: [250, 100, 250],
     data: data,
     tag: data.orderId ? `order-${data.orderId}` : 'balbec-notification',

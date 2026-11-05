@@ -27,24 +27,25 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     const triggerSystemNotification = (title: string, body: string, tag?: string) => {
       try {
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          const notificationIcon = '/balbec-logo.png?v=3';
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then((reg) => {
               reg.showNotification(title, {
                 body,
-                icon: '/icon-192.png',
-                badge: '/icon-192.png',
+                icon: notificationIcon,
+                badge: notificationIcon,
                 vibrate: [250, 100, 250],
                 tag: tag || 'balbec-status',
                 renotify: true,
                 requireInteraction: true
               } as any).catch(() => {
-                try { new Notification(title, { body, icon: '/icon-192.png' }); } catch {}
+                try { new Notification(title, { body, icon: notificationIcon }); } catch {}
               });
             }).catch(() => {
-              try { new Notification(title, { body, icon: '/icon-192.png' }); } catch {}
+              try { new Notification(title, { body, icon: notificationIcon }); } catch {}
             });
           } else {
-            new Notification(title, { body, icon: '/icon-192.png' });
+            new Notification(title, { body, icon: notificationIcon });
           }
         }
       } catch {}

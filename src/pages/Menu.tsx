@@ -3034,14 +3034,14 @@ export default function Menu() {
                             const reg = await navigator.serviceWorker.ready;
                             reg.showNotification('BALBEC Salgados', {
                               body: `Notificações ativadas! Avisaremos você sobre o Pedido #${orderNumber}.`,
-                              icon: '/icon-192.png',
-                              badge: '/icon-192.png',
+                              icon: '/balbec-logo.png?v=3',
+                              badge: '/balbec-logo.png?v=3',
                               vibrate: [250, 100, 250]
                             } as any);
                           } else {
                             new Notification('BALBEC Salgados', {
                               body: `Notificações ativadas! Avisaremos você sobre o Pedido #${orderNumber}.`,
-                              icon: '/icon-192.png'
+                              icon: '/balbec-logo.png?v=3'
                             });
                           }
                         } catch {}

@@ -23,7 +23,7 @@ const DEFAULT_STORE_INFO = {
   addButtonColor: '#139f09',
   iconColor: '#e6a800',
   headerPhrase: 'Salgados Especiais e Revenda',
-  logoUrl: '/logo.svg',
+  logoUrl: '/balbec-logo.png',
   address: 'Rua São Benedito',
   hours: 'Dom: 07:00 às 13:00 • Seg a Sáb: 06:00 às 20:00',
   instagram: '@balbecrevenda',
