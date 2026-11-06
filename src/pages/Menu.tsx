@@ -7676,12 +7676,20 @@ export default function Menu() {
                 </div>
 
                 {isProntosBlocked ? (
-                  <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2">
+                  <div 
+                    onClick={() => {
+                      if (!appendOrderTarget && hasFrozenInCart) {
+                        setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                        setCartConflictModal({ isOpen: true, type: 'has_frozen_blocked_normal', product: frozenModal.product });
+                      }
+                    }}
+                    className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2 cursor-pointer hover:bg-stone-200 transition-colors"
+                  >
                     <p className="text-[11px] font-bold text-stone-600 leading-snug">
                       🔒 {appendOrderTarget ? (
                         <>Opção bloqueada: o Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')} é de Salgados Congelados. Só é permitido acrescentar congelados.</>
                       ) : hasFrozenInCart ? (
-                        'Opção bloqueada: seu carrinho atual contém itens congelados (prazo até 48h).'
+                        'Opção bloqueada: seu carrinho atual contém itens congelados (prazo até 48h). Clique para ver aviso.'
                       ) : (
                         'Opção bloqueada: você já selecionou itens congelados. Zere as quantidades congeladas para pedir prontos.'
                       )}
@@ -7689,7 +7697,8 @@ export default function Menu() {
                     {!appendOrderTarget && hasFrozenInCart && (
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setCart([]);
                           safeStorage.removeItem('balbec_active_cart');
                           setCongeladoCruQty(0);
@@ -7806,12 +7815,20 @@ export default function Menu() {
                 </div>
 
                 {isCongeladosBlocked ? (
-                  <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2">
+                  <div 
+                    onClick={() => {
+                      if (!appendOrderTarget && hasNormalInCart) {
+                        setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                        setCartConflictModal({ isOpen: true, type: 'has_normal_blocked_frozen', product: frozenModal.product });
+                      }
+                    }}
+                    className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2 cursor-pointer hover:bg-stone-200 transition-colors"
+                  >
                     <p className="text-[11px] font-bold text-stone-600 leading-snug">
                       🔒 {appendOrderTarget ? (
                         <>Opção bloqueada: o Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')} é de Salgados Prontos. Só é permitido acrescentar itens prontos.</>
                       ) : hasNormalInCart ? (
-                        'Opção bloqueada: seu carrinho já contém produtos prontos para consumo imediato.' 
+                        'Opção bloqueada: seu carrinho já contém produtos prontos para consumo imediato. Clique para ver aviso.' 
                       ) : (
                         'Opção bloqueada: você já selecionou itens prontos. Zere as quantidades de prontos para pedir congelados.'
                       )}
@@ -7819,7 +7836,8 @@ export default function Menu() {
                     {!appendOrderTarget && hasNormalInCart && (
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setCart([]);
                           safeStorage.removeItem('balbec_active_cart');
                           setProntoFritoQty(0);
@@ -7984,39 +8002,53 @@ export default function Menu() {
         );
       })()}
 
-      {/* Modal de Conflito de Carrinho (Tentativa de adicionar produto normal com carrinho congelado) */}
+      {/* Modal de Conflito de Carrinho (Tentativa de misturar normal e congelado) */}
       {cartConflictModal.isOpen && (
         <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-blue-200">
-              ❄️
+            <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border ${
+              cartConflictModal.type === 'has_frozen_blocked_normal'
+                ? 'bg-blue-100 text-blue-600 border-blue-200'
+                : 'bg-amber-100 text-amber-600 border-amber-200'
+            }`}>
+              {cartConflictModal.type === 'has_frozen_blocked_normal' ? '❄️' : '🔥'}
             </div>
             
             <div className="space-y-1.5">
               <h3 className="text-lg font-black text-stone-900 uppercase tracking-tight">
-                Carrinho com Produtos Congelados
+                {cartConflictModal.type === 'has_frozen_blocked_normal'
+                  ? 'Carrinho com Produtos Congelados'
+                  : 'Carrinho com Produtos Prontos (Normais)'}
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                Seu carrinho atual possui <strong>Salgados Congelados</strong> com prazo de produção de <strong>até 48 horas</strong>.<br/>
-                Não é permitido misturar itens normais/prontos com congelados no mesmo pedido.
+                Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.
               </p>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 text-xs text-blue-900 text-left font-medium">
-              💡 <strong>Deseja finalizar o pedido de congelados ou iniciar um novo pedido?</strong><br/>
-              Você pode enviar seu pedido de congelados primeiro, ou esvaziar o carrinho agora para pedir itens prontos para consumo imediato.
+            <div className={`border rounded-2xl p-3.5 text-xs text-left font-medium ${
+              cartConflictModal.type === 'has_frozen_blocked_normal'
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
+              💡 <strong>Deseja finalizar o pedido atual ou iniciar um novo pedido?</strong><br/>
+              Você pode ver seu carrinho atual para finalizá-lo, ou esvaziar o carrinho agora para iniciar um novo pedido com a nova modalidade.
             </div>
 
             <div className="space-y-2 pt-2">
               <button
                 type="button"
                 onClick={() => {
-                  setCartConflictModal({ isOpen: false, type: 'has_frozen_blocked_normal' });
+                  const t = cartConflictModal.type;
+                  setCartConflictModal({ isOpen: false, type: t });
                   setIsCartOpen(true);
                 }}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+                className={`w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md ${
+                  cartConflictModal.type === 'has_frozen_blocked_normal'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
               >
-                Ver Meu Carrinho de Congelados 🛒
+                Ver Meu Carrinho e Finalizar 🛒
               </button>
 
               <button
@@ -8024,9 +8056,14 @@ export default function Menu() {
                 onClick={() => {
                   const targetProd = cartConflictModal.product;
                   const targetQty = cartConflictModal.qty || 1;
+                  const t = cartConflictModal.type;
                   setCart([]);
                   safeStorage.removeItem('balbec_active_cart');
-                  setCartConflictModal({ isOpen: false, type: 'has_frozen_blocked_normal' });
+                  setProntoFritoQty(0);
+                  setProntoCruQty(0);
+                  setCongeladoCruQty(0);
+                  setCongeladoFritoQty(0);
+                  setCartConflictModal({ isOpen: false, type: t });
                   if (targetProd) {
                     setTimeout(() => {
                       initiateAddToCartWithQty(targetProd, targetQty);
@@ -8035,12 +8072,12 @@ export default function Menu() {
                 }}
                 className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
               >
-                Limpar Carrinho e Pedir Itens Prontos
+                Limpar Carrinho e Fazer Novo Pedido
               </button>
 
               <button
                 type="button"
-                onClick={() => setCartConflictModal({ isOpen: false, type: 'has_frozen_blocked_normal' })}
+                onClick={() => setCartConflictModal({ isOpen: false, type: cartConflictModal.type })}
                 className="w-full py-2 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
               >
                 Cancelar
