@@ -7693,8 +7693,9 @@ export default function Menu() {
                     }}
                     className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2 cursor-pointer hover:bg-stone-200 transition-colors"
                   >
-                    <p className="text-[11px] font-bold text-stone-700 leading-relaxed">
-                      🔒 Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.
+                    <p className="text-[11px] font-bold text-stone-700 leading-relaxed space-y-1">
+                      <span>🔒 Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.</span>
+                      <span className="block mt-1 text-red-600 font-extrabold">Obs: Pedidos congelados com entrega em até 48 horas podem ser antecipados e você será avisado pelo aplicativo.</span>
                     </p>
                     {!appendOrderTarget && hasFrozenInCart && (
                       <button
@@ -7834,8 +7835,9 @@ export default function Menu() {
                     }}
                     className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2 cursor-pointer hover:bg-stone-200 transition-colors"
                   >
-                    <p className="text-[11px] font-bold text-stone-700 leading-relaxed">
-                      🔒 Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.
+                    <p className="text-[11px] font-bold text-stone-700 leading-relaxed space-y-1">
+                      <span>🔒 Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.</span>
+                      <span className="block mt-1 text-red-600 font-extrabold">Obs: Pedidos congelados com entrega em até 48 horas podem ser antecipados e você será avisado pelo aplicativo.</span>
                     </p>
                     {!appendOrderTarget && hasNormalInCart && (
                       <button
