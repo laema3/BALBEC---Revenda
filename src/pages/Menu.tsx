@@ -7653,11 +7653,19 @@ export default function Menu() {
               </div>
 
               {/* GRUPO 1: SALGADOS PRONTOS (NORMAIS) */}
-              <div className={`rounded-2xl border-2 transition-all p-4 ${
-                isProntosBlocked 
-                  ? 'border-stone-200 bg-stone-50/70 opacity-60' 
-                  : 'border-amber-300 bg-amber-50/40 shadow-xs'
-              }`}>
+              <div 
+                onClick={() => {
+                  if (isProntosBlocked && !appendOrderTarget && hasFrozenInCart) {
+                    setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                    setCartConflictModal({ isOpen: true, type: 'has_frozen_blocked_normal', product: frozenModal.product });
+                  }
+                }}
+                className={`rounded-2xl border-2 transition-all p-4 ${
+                  isProntosBlocked 
+                    ? 'border-stone-300 bg-stone-50 cursor-pointer hover:border-orange-400' 
+                    : 'border-amber-300 bg-amber-50/40 shadow-xs'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2 pb-2 border-b border-amber-200/60">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">🔥</span>
@@ -7685,14 +7693,8 @@ export default function Menu() {
                     }}
                     className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2 cursor-pointer hover:bg-stone-200 transition-colors"
                   >
-                    <p className="text-[11px] font-bold text-stone-600 leading-snug">
-                      🔒 {appendOrderTarget ? (
-                        <>Opção bloqueada: o Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')} é de Salgados Congelados. Só é permitido acrescentar congelados.</>
-                      ) : hasFrozenInCart ? (
-                        'Opção bloqueada: seu carrinho atual contém itens congelados (prazo até 48h). Clique para ver aviso.'
-                      ) : (
-                        'Opção bloqueada: você já selecionou itens congelados. Zere as quantidades congeladas para pedir prontos.'
-                      )}
+                    <p className="text-[11px] font-bold text-stone-700 leading-relaxed">
+                      🔒 Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.
                     </p>
                     {!appendOrderTarget && hasFrozenInCart && (
                       <button
@@ -7792,11 +7794,19 @@ export default function Menu() {
               </div>
 
               {/* GRUPO 2: SALGADOS CONGELADOS */}
-              <div className={`rounded-2xl border-2 transition-all p-4 ${
-                isCongeladosBlocked 
-                  ? 'border-stone-200 bg-stone-50/70 opacity-60' 
-                  : 'border-blue-300 bg-blue-50/40 shadow-xs'
-              }`}>
+              <div 
+                onClick={() => {
+                  if (isCongeladosBlocked && !appendOrderTarget && hasNormalInCart) {
+                    setFrozenModal({ isOpen: false, product: null, quantity: 1 });
+                    setCartConflictModal({ isOpen: true, type: 'has_normal_blocked_frozen', product: frozenModal.product });
+                  }
+                }}
+                className={`rounded-2xl border-2 transition-all p-4 ${
+                  isCongeladosBlocked 
+                    ? 'border-stone-300 bg-stone-50 cursor-pointer hover:border-orange-400' 
+                    : 'border-blue-300 bg-blue-50/40 shadow-xs'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2 pb-2 border-b border-blue-200/60">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">❄️</span>
@@ -7824,14 +7834,8 @@ export default function Menu() {
                     }}
                     className="p-3 bg-stone-100 rounded-xl border border-stone-200 text-center space-y-2 cursor-pointer hover:bg-stone-200 transition-colors"
                   >
-                    <p className="text-[11px] font-bold text-stone-600 leading-snug">
-                      🔒 {appendOrderTarget ? (
-                        <>Opção bloqueada: o Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')} é de Salgados Prontos. Só é permitido acrescentar itens prontos.</>
-                      ) : hasNormalInCart ? (
-                        'Opção bloqueada: seu carrinho já contém produtos prontos para consumo imediato. Clique para ver aviso.' 
-                      ) : (
-                        'Opção bloqueada: você já selecionou itens prontos. Zere as quantidades de prontos para pedir congelados.'
-                      )}
+                    <p className="text-[11px] font-bold text-stone-700 leading-relaxed">
+                      🔒 Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.
                     </p>
                     {!appendOrderTarget && hasNormalInCart && (
                       <button
