@@ -14,23 +14,23 @@
    - Tablet / Totem (Autoatendimento e Atendimento Presencial): +20% no tamanho da fonte (126%)
    ========================================================================= */
 
-/* Padrão Desktop */
+/* Padrão Desktop com fonte aumentada para melhor legibilidade */
 :root, html {
-  font-size: 100%;
+  font-size: 112.5%;
 }
 
-/* Smartphone: Mantém a escala base estável (100%) para evitar quebra de containers e paddings, com tipografia nítida e legível */
+/* Smartphone: Aumento proporcional de escala para excelente legibilidade */
 @media screen and (max-width: 767px) {
   :root, html {
-    font-size: 100%;
+    font-size: 110%;
     -webkit-text-size-adjust: 100%;
   }
 }
 
-/* Tablet (Retrato e Paisagem): Aumento de 20% no tamanho das fontes para Totem / Autoatendimento / Balcão */
+/* Tablet (Retrato e Paisagem): Aumento para Totem / Autoatendimento / Balcão */
 @media screen and (min-width: 768px) and (max-width: 1024px) {
   :root, html {
-    font-size: 126%;
+    font-size: 130%;
   }
 }
 
