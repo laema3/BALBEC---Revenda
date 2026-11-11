@@ -2280,8 +2280,7 @@ export default function Menu() {
       }
     }
 
-    if (isSalgadoProduct(product, categories) || isFrozenContext) {
-      openFrozenModal(product, qty, isFrozenContext ? 'congelado' : 'pronto');
+    if (isAddonProduct(product)) {
       return;
     }
 
