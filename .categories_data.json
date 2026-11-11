@@ -85,7 +85,8 @@
     "availableForDelivery": false,
     "availableInStore": false,
     "availableForKiosk": false,
-    "modality": "pronto"
+    "modality": "pronto",
+    "updatedAt": 1794400031241
   },
   {
     "id": "wscjzcx",
@@ -108,5 +109,17 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "modality": "pronto"
+  },
+  {
+    "id": "xqs010m",
+    "name": "Salgados Congelados (Crus)",
+    "order": 11,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "congelado",
+    "updatedAt": 1794401699547
   }
 ]

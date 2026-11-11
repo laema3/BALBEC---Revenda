@@ -2454,9 +2454,9 @@ export default function Admin() {
     const formData = new FormData(e.currentTarget);
     const catName = (formData.get('name') as string || '').trim();
     const rawModality = formData.get('modality') as string;
-    const finalModality = rawModality === 'congelado' || rawModality === 'pronto'
-      ? rawModality
-      : (catName.toLowerCase().includes('congelad') ? 'congelado' : 'pronto');
+    const finalModality = catName.toLowerCase().includes('congelad')
+      ? 'congelado'
+      : (rawModality === 'congelado' || rawModality === 'pronto' ? rawModality : 'pronto');
     const data = {
       name: catName,
       order: Number(formData.get('order')),

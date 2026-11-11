@@ -7,7 +7,8 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "hricv6a",
@@ -17,7 +18,8 @@
     "isVisible": true,
     "availableForDelivery": false,
     "availableInStore": false,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "nyww21f",
@@ -27,7 +29,8 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "k790tcu",
@@ -37,7 +40,8 @@
     "isVisible": true,
     "availableForDelivery": false,
     "availableInStore": false,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "e0sv8sp",
@@ -47,7 +51,8 @@
     "isVisible": true,
     "availableForDelivery": false,
     "availableInStore": false,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "80iq08q",
@@ -57,7 +62,8 @@
     "isVisible": true,
     "availableForDelivery": false,
     "availableInStore": false,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "j9pixiq",
@@ -67,7 +73,8 @@
     "isVisible": true,
     "availableForDelivery": false,
     "availableInStore": false,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "wmsqohp",
@@ -77,7 +84,9 @@
     "isVisible": true,
     "availableForDelivery": false,
     "availableInStore": false,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto",
+    "updatedAt": 1794400031241
   },
   {
     "id": "wscjzcx",
@@ -87,7 +96,8 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
   },
   {
     "id": "nwc89q5",
@@ -97,6 +107,19 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false
+    "availableForKiosk": false,
+    "modality": "pronto"
+  },
+  {
+    "id": "xqs010m",
+    "name": "Salgados Congelados (Crus)",
+    "order": 11,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "congelado",
+    "updatedAt": 1794401699547
   }
 ]

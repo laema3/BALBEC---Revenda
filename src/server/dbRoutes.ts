@@ -863,7 +863,10 @@ export function formatProductForDb(p: any) {
 
 export function formatCategoryForDb(c: any) {
   const catName = String(c.name || 'Categoria sem nome').trim();
-  const autoModality = catName.toLowerCase().includes('congelad') ? 'congelado' : 'pronto';
+  const isNameFrozen = catName.toLowerCase().includes('congelad');
+  const finalModality = isNameFrozen
+    ? 'congelado'
+    : (c.modality === 'congelado' || c.modality === 'pronto' ? c.modality : 'pronto');
   return {
     id: String(c.id || `cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
     name: catName,
@@ -873,7 +876,7 @@ export function formatCategoryForDb(c: any) {
     availableForDelivery: c.availableForDelivery !== false && c.available_for_delivery !== false,
     availableInStore: c.availableInStore !== false && c.available_in_store !== false,
     availableForKiosk: c.availableForKiosk !== false && c.available_for_kiosk !== false,
-    modality: c.modality === 'congelado' || c.modality === 'pronto' ? c.modality : autoModality,
+    modality: finalModality,
   };
 }
 
