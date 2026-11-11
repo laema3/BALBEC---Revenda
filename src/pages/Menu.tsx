@@ -2055,7 +2055,8 @@ export default function Menu() {
     }
   };
 
-  const addToCart = (product: any, addons: any[] = [], flavor: any = null, quantity: number = 1, prepType?: string, prepLabel?: string) => {
+  const addToCart = (product: any, addons: any[] = [], flavor: any = null, quantity: number = 1, prepType?: string, prepLabel?: string, bypassConflictCheck: boolean = false) => {
+    const prodCategory = categories.find(c => c.id === product?.categoryId);
     const isFrozenChoice = Boolean(
       (prepType && prepType.startsWith('congelado')) ||
       (prepLabel && prepLabel.toLowerCase().includes('congelad')) ||
@@ -2063,7 +2064,8 @@ export default function Menu() {
         a.isFrozen || 
         a.productId === 'prod_congelado' || 
         (a.name && a.name.toLowerCase().includes('congelad'))
-      )
+      ) ||
+      (!prepType && prodCategory && isCategoryFrozenModality(prodCategory))
     );
 
     // FLUXO DO MODO ACRÉSCIMO EM PEDIDO EXISTENTE:
@@ -2153,6 +2155,29 @@ export default function Menu() {
     }
 
     // FLUXO NORMAL DO CARRINHO:
+    if (!bypassConflictCheck) {
+      if (hasFrozenInCart && !isFrozenChoice) {
+        setCartConflictModal({
+          isOpen: true,
+          type: 'has_frozen_blocked_normal',
+          product,
+          qty: quantity,
+          isFrozenContext: false
+        });
+        return;
+      }
+      if (hasNormalInCart && isFrozenChoice) {
+        setCartConflictModal({
+          isOpen: true,
+          type: 'has_normal_blocked_frozen',
+          product,
+          qty: quantity,
+          isFrozenContext: true
+        });
+        return;
+      }
+    }
+
     setCart(prev => {
       const existing = prev.find(item => 
         item.productId === product.id && 
@@ -2210,7 +2235,7 @@ export default function Menu() {
     setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
   };
 
-  const initiateAddToCartWithQty = (product: any, qty: number = 1, isFrozenContext: boolean = false) => {
+  const initiateAddToCartWithQty = (product: any, qty: number = 1, isFrozenContext: boolean = false, bypassConflictCheck: boolean = false) => {
     if (!hasChosenChannel) {
       setHasChosenChannel(true);
       safeStorage.setSession('selected_sales_channel', salesChannel || 'delivery');
@@ -2231,7 +2256,7 @@ export default function Menu() {
         });
         return;
       }
-    } else {
+    } else if (!bypassConflictCheck) {
       // 2. Verificação de conflito de modalidade no Carrinho Normal:
       if (hasFrozenInCart && !isFrozenContext) {
         setCartConflictModal({
@@ -2369,11 +2394,13 @@ export default function Menu() {
       return;
     }
     
-    addToCart(product, [], null, qty);
+    addToCart(product, [], null, qty, isFrozenContext ? 'congelado_cru' : undefined, isFrozenContext ? 'Produto Congelado' : undefined, bypassConflictCheck);
   };
 
   const initiateAddToCart = (product: any) => {
-    initiateAddToCartWithQty(product, 1);
+    const prodCat = categories.find(c => c.id === product?.categoryId);
+    const isFrozenCat = prodCat ? isCategoryFrozenModality(prodCat) : false;
+    initiateAddToCartWithQty(product, 1, isFrozenCat);
   };
 
   const updateQuantity = (productId: string, addons: any[] | undefined, flavor: any | undefined, delta: number, prepType?: string) => {
@@ -6813,8 +6840,23 @@ export default function Menu() {
                     className="mb-8 sm:mb-12 max-w-4xl lg:max-w-7xl mx-auto scroll-mt-4 md:scroll-mt-8"
                     style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}
                   >
-                    <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
                       <h2 className="text-base sm:text-xl md:text-2xl font-black text-red-600 tracking-wider">{formatCapitalized(category.name)}</h2>
+                      {isCategoryFrozenModality(category) && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wide">
+                          ❄️ Modalidade Congelados (Pedido Separado)
+                        </span>
+                      )}
+                      {!appendOrderTarget && isCategoryFrozenModality(category) && hasNormalInCart && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                          ⚠️ Seu carrinho possui itens prontos (finalize antes de pedir congelados)
+                        </span>
+                      )}
+                      {!appendOrderTarget && !isCategoryFrozenModality(category) && hasFrozenInCart && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold bg-blue-100 text-blue-900 border border-blue-300">
+                          ⚠️ Seu carrinho possui itens congelados (finalize antes de pedir prontos)
+                        </span>
+                      )}
                       <div className="flex-1 h-px bg-stone-200"></div>
                       <span className="text-xs sm:text-sm font-bold text-stone-400 uppercase tracking-widest">{categoryProducts.length} {categoryProducts.length === 1 ? 'item' : 'itens'}</span>
                     </div>
@@ -7914,12 +7956,12 @@ export default function Menu() {
                     if (!isFrozenMode) {
                       // 1. Salgado Pronto FRITO/ASSADO
                       if (prontoFritoQty > 0) {
-                        addToCart(frozenModal.product, [], null, prontoFritoQty, 'pronto_frito', 'Salgado Pronto FRITO/ASSADO');
+                        addToCart(frozenModal.product, [], null, prontoFritoQty, 'pronto_frito', 'Salgado Pronto FRITO/ASSADO', true);
                       }
 
                       // 2. Salgado Pronto CRU/PRÉ-ASSADO
                       if (prontoCruQty > 0) {
-                        addToCart(frozenModal.product, [], null, prontoCruQty, 'pronto_cru', 'Salgado Pronto CRU/PRÉ-ASSADO');
+                        addToCart(frozenModal.product, [], null, prontoCruQty, 'pronto_cru', 'Salgado Pronto CRU/PRÉ-ASSADO', true);
                       }
                     } else {
                       // 3. Salgado Congelado CRU/PRÉ-ASSADO
@@ -7931,7 +7973,7 @@ export default function Menu() {
                           externalId: (congeladoProd as any).externalId || '9999',
                           isFrozen: true
                         };
-                        addToCart(frozenModal.product, [frozenAddon], null, congeladoCruQty, 'congelado_cru', 'Salgado Congelado CRU/PRÉ-ASSADO');
+                        addToCart(frozenModal.product, [frozenAddon], null, congeladoCruQty, 'congelado_cru', 'Salgado Congelado CRU/PRÉ-ASSADO', true);
                       }
 
                       // 4. Salgado Congelado FRITO/ASSADO
@@ -7943,7 +7985,7 @@ export default function Menu() {
                           externalId: (congeladoProd as any).externalId || '9999',
                           isFrozen: true
                         };
-                        addToCart(frozenModal.product, [frozenAddon], null, congeladoFritoQty, 'congelado_frito', 'Salgado Congelado FRITO/ASSADO');
+                        addToCart(frozenModal.product, [frozenAddon], null, congeladoFritoQty, 'congelado_frito', 'Salgado Congelado FRITO/ASSADO', true);
                       }
                     }
 
@@ -8039,7 +8081,7 @@ export default function Menu() {
                       if (isSalgadoProduct(targetProd, categories) || targetIsFrozen) {
                         openFrozenModal(targetProd, targetQty, targetIsFrozen ? 'congelado' : 'pronto');
                       } else {
-                        initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen);
+                        initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true);
                       }
                     }, 100);
                   }

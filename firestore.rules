@@ -182,5 +182,14 @@ service cloud.firestore {
       allow read: if true; // Ajustar conforme necessário, mas pelo menos permitir a leitura base
       allow write: if hasAccess(); // Admin/Operator pode escrever em qualquer tenant
     }
+
+    // Server-side cross-deploy persistence store (validated by syncKey)
+    match /balbec_cloud_store/{docId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['syncKey', 'updatedAt']) &&
+                            request.resource.data.syncKey == 'balbec_server_sync_v1' &&
+                            request.resource.data.updatedAt is number;
+      allow delete: if hasAccess();
+    }
   }
 }

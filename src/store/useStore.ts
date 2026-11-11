@@ -112,6 +112,57 @@ const saveCustomersToStorage = (list: Customer[]): void => {
   } catch {}
 };
 
+const DELETED_IDS_CACHE_KEY = 'balbec_deleted_ids_v1';
+
+interface LocalDeletedRegistry {
+  categories: Record<string, number>;
+  products: Record<string, number>;
+  orders: Record<string, number>;
+  customers: Record<string, number>;
+  ordersClearedAt?: number;
+}
+
+const getLocalDeletedRegistry = (): LocalDeletedRegistry => {
+  try {
+    const raw = safeStorage.getItem(DELETED_IDS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          categories: parsed.categories || {},
+          products: parsed.products || {},
+          orders: parsed.orders || {},
+          customers: parsed.customers || {},
+          ordersClearedAt: parsed.ordersClearedAt || 0,
+        };
+      }
+    }
+  } catch {}
+  return { categories: {}, products: {}, orders: {}, customers: {}, ordersClearedAt: 0 };
+};
+
+const saveLocalDeletedRegistry = (reg: LocalDeletedRegistry): void => {
+  try {
+    safeStorage.setItem(DELETED_IDS_CACHE_KEY, JSON.stringify(reg));
+  } catch {}
+};
+
+const markLocalItemDeleted = (collection: 'categories' | 'products' | 'orders' | 'customers', id: string): void => {
+  if (!id) return;
+  const reg = getLocalDeletedRegistry();
+  reg[collection][String(id)] = Date.now();
+  saveLocalDeletedRegistry(reg);
+};
+
+const unmarkLocalItemDeleted = (collection: 'categories' | 'products' | 'orders' | 'customers', id: string): void => {
+  if (!id) return;
+  const reg = getLocalDeletedRegistry();
+  if (reg[collection] && reg[collection][String(id)]) {
+    delete reg[collection][String(id)];
+    saveLocalDeletedRegistry(reg);
+  }
+};
+
 export interface Category {
   id: string;
   name: string;
@@ -122,6 +173,7 @@ export interface Category {
   availableInStore?: boolean;
   availableForKiosk?: boolean;
   modality?: 'pronto' | 'congelado' | string;
+  updatedAt?: number;
 }
 
 export interface User {
@@ -803,37 +855,69 @@ export const useStore = create<StoreState>((set, get) => ({
           }).finally(() => clearTimeout(id));
         };
 
-        // 1. Fetch Categories
+        const deletedReg = getLocalDeletedRegistry();
+
+        // 1. Fetch Categories (com Smart Merge bidirecional para nunca perder categorias após deploy)
         const pCat = fetchWithTimeout('/api/db/categories', 6000)
           .then(safeParseResponse)
-          .then(async (categories) => {
-            if (Array.isArray(categories)) {
-              if (categories.length > 0) {
-                saveCategoriesToStorage(categories);
-                set({ categories });
-              } else {
-                const localCats = get().categories;
-                if (Array.isArray(localCats) && localCats.length > 0) {
-                  for (const cat of localCats) {
-                    fetch('/api/db/categories', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(cat)
-                    }).catch(() => {});
+          .then(async (serverCategories) => {
+            if (Array.isArray(serverCategories)) {
+              const localCats = get().categories || getInitialCategories();
+              const serverById = new Map<string, Category>();
+              for (const c of serverCategories) {
+                if (c && c.id && !deletedReg.categories[String(c.id)]) {
+                  serverById.set(String(c.id), c);
+                }
+              }
+
+              const missingOnServer: Category[] = [];
+              if (Array.isArray(localCats) && localCats.length > 0) {
+                for (const localCat of localCats) {
+                  if (!localCat || !localCat.id) continue;
+                  const cid = String(localCat.id);
+                  if (deletedReg.categories[cid]) continue;
+                  const existingServer = serverById.get(cid);
+                  if (!existingServer) {
+                    serverById.set(cid, localCat);
+                    missingOnServer.push(localCat);
+                  } else if (Number(localCat.updatedAt || 0) > Number(existingServer.updatedAt || 0)) {
+                    const mergedCat = { ...existingServer, ...localCat };
+                    serverById.set(cid, mergedCat);
+                    missingOnServer.push(mergedCat);
                   }
+                }
+              }
+
+              const mergedCategories = Array.from(serverById.values()).sort(
+                (a, b) => (Number(a.order) || 0) - (Number(b.order) || 0)
+              );
+
+              if (mergedCategories.length > 0) {
+                saveCategoriesToStorage(mergedCategories);
+                set({ categories: mergedCategories });
+              }
+
+              if (missingOnServer.length > 0) {
+                for (const cat of missingOnServer) {
+                  fetch('/api/db/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cat)
+                  }).catch(() => {});
                 }
               }
             }
           })
           .catch(() => {});
 
-        // 2. Fetch Products
+        // 2. Fetch Products (com Smart Merge bidirecional para preservar vínculos e cadastros locais)
         const pProd = fetchWithTimeout('/api/db/products', 6000)
           .then(safeParseResponse)
           .then(async (rawProducts) => {
             if (Array.isArray(rawProducts)) {
+              const localProds = get().products || getInitialProducts();
               if (rawProducts.length > 0) {
-                const products = rawProducts.map((p: any) => {
+                const normalizeProd = (p: any): Product => {
                   let availableForDelivery = p.availableForDelivery !== undefined ? Boolean(p.availableForDelivery) : true;
                   let availableInStore = p.availableInStore !== undefined ? Boolean(p.availableInStore) : true;
                   let availableForKiosk = p.availableForKiosk !== undefined ? Boolean(p.availableForKiosk) : true;
@@ -855,11 +939,56 @@ export const useStore = create<StoreState>((set, get) => ({
                     availableInStore,
                     availableForKiosk,
                   };
-                });
+                };
+
+                const serverById = new Map<string, Product>();
+                for (const raw of rawProducts) {
+                  if (raw && raw.id && !deletedReg.products[String(raw.id)]) {
+                    serverById.set(String(raw.id), normalizeProd(raw));
+                  }
+                }
+
+                const missingOrNewerOnLocal: Product[] = [];
+                if (Array.isArray(localProds) && localProds.length > 0) {
+                  for (const lp of localProds) {
+                    if (!lp || !lp.id) continue;
+                    const pid = String(lp.id);
+                    if (deletedReg.products[pid]) continue;
+                    const sp = serverById.get(pid);
+                    if (!sp) {
+                      serverById.set(pid, lp);
+                      missingOrNewerOnLocal.push(lp);
+                    } else if (Number((lp as any).updatedAt || 0) > Number((sp as any).updatedAt || 0)) {
+                      const mergedProd = {
+                        ...sp,
+                        ...lp,
+                        frozenCategoryId: lp.frozenCategoryId !== undefined ? lp.frozenCategoryId : sp.frozenCategoryId,
+                      };
+                      serverById.set(pid, mergedProd);
+                      missingOrNewerOnLocal.push(mergedProd);
+                    } else if (lp.frozenCategoryId && !sp.frozenCategoryId) {
+                      const mergedProd = { ...sp, frozenCategoryId: lp.frozenCategoryId };
+                      serverById.set(pid, mergedProd);
+                      missingOrNewerOnLocal.push(mergedProd);
+                    }
+                  }
+                }
+
+                const products = Array.from(serverById.values());
                 saveProductsToStorage(products);
                 set({ products, isInitialized: true });
+
+                if (missingOrNewerOnLocal.length > 0) {
+                  for (let i = 0; i < missingOrNewerOnLocal.length; i += 50) {
+                    const chunk = missingOrNewerOnLocal.slice(i, i + 50);
+                    fetch('/api/db/products/batch', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(chunk)
+                    }).catch(() => {});
+                  }
+                }
               } else {
-                const localProds = get().products;
                 if (Array.isArray(localProds) && localProds.length > 0) {
                   for (let i = 0; i < localProds.length; i += 50) {
                     const chunk = localProds.slice(i, i + 50);
@@ -979,18 +1108,59 @@ export const useStore = create<StoreState>((set, get) => ({
           })
           .catch(() => {});
 
-        // 5. Fetch Orders
+        // 5. Fetch Orders (com Smart Merge para nunca perder vendas/pedidos após deploy)
         const pOrders = fetchWithTimeout('/api/db/orders', 6000)
           .then(safeParseResponse)
           .then(ordersData => {
             if (Array.isArray(ordersData)) {
-              const orders = ordersData.map((o: any) => ({
-                ...o,
-                status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
-                items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items
-              }));
-              saveOrdersToStorage(orders);
-              set({ orders, ordersError: null });
+              const serverOrders: Order[] = ordersData
+                .filter((o: any) => o && o.id && !deletedReg.orders[String(o.id)])
+                .map((o: any) => ({
+                  ...o,
+                  status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
+                  items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items
+                }));
+
+              const localOrders = get().orders || getInitialOrders();
+              const orderById = new Map<string, Order>();
+              for (const so of serverOrders) {
+                orderById.set(String(so.id), so);
+              }
+
+              const missingOrdersOnServer: Order[] = [];
+              if (Array.isArray(localOrders) && localOrders.length > 0) {
+                for (const lo of localOrders) {
+                  if (!lo || !lo.id) continue;
+                  const oid = String(lo.id);
+                  if (deletedReg.orders[oid]) continue;
+                  if (deletedReg.ordersClearedAt && Number(lo.createdAt || 0) <= deletedReg.ordersClearedAt) continue;
+                  if (!orderById.has(oid)) {
+                    orderById.set(oid, lo);
+                    missingOrdersOnServer.push(lo);
+                  }
+                }
+              }
+
+              const mergedOrders = Array.from(orderById.values()).sort(
+                (a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)
+              );
+
+              saveOrdersToStorage(mergedOrders);
+              set({ orders: mergedOrders, ordersError: null });
+
+              if (missingOrdersOnServer.length > 0) {
+                (async () => {
+                  const chunkSize = 50;
+                  for (let i = 0; i < missingOrdersOnServer.length; i += chunkSize) {
+                    const chunk = missingOrdersOnServer.slice(i, i + chunkSize);
+                    await fetch('/api/db/orders/batch', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ orders: chunk })
+                    }).catch(() => {});
+                  }
+                })();
+              }
             }
           })
           .catch(() => {
@@ -1034,20 +1204,40 @@ export const useStore = create<StoreState>((set, get) => ({
             .then(safeParseResponse)
             .then(rawCust => {
               if (Array.isArray(rawCust)) {
-                const customers: Customer[] = rawCust.map((c: any) => ({
-                  ...c,
-                  tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
-                }));
+                const serverCustomers: Customer[] = rawCust
+                  .filter((c: any) => c && c.id && !deletedReg.customers[String(c.id)])
+                  .map((c: any) => ({
+                    ...c,
+                    tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
+                  }));
                 const currentCusts = get().customers || getInitialCustomers();
-                if (customers.length > 0 || currentCusts.length === 0) {
-                  saveCustomersToStorage(customers);
-                  set({ customers });
-                } else if (currentCusts.length > 0) {
-                  // Auto-restaurar clientes em cache para o servidor/banco caso tenha zerado no deploy
+                const custById = new Map<string, Customer>();
+                for (const sc of serverCustomers) {
+                  custById.set(String(sc.id), sc);
+                }
+
+                const missingCustsOnServer: Customer[] = [];
+                if (Array.isArray(currentCusts) && currentCusts.length > 0) {
+                  for (const lc of currentCusts) {
+                    if (!lc || !lc.id) continue;
+                    const cid = String(lc.id);
+                    if (deletedReg.customers[cid]) continue;
+                    if (!custById.has(cid)) {
+                      custById.set(cid, lc);
+                      missingCustsOnServer.push(lc);
+                    }
+                  }
+                }
+
+                const mergedCustomers = Array.from(custById.values());
+                saveCustomersToStorage(mergedCustomers);
+                set({ customers: mergedCustomers });
+
+                if (missingCustsOnServer.length > 0) {
                   (async () => {
                     const chunkSize = 50;
-                    for (let i = 0; i < currentCusts.length; i += chunkSize) {
-                      const chunk = currentCusts.slice(i, i + chunkSize);
+                    for (let i = 0; i < missingCustsOnServer.length; i += chunkSize) {
+                      const chunk = missingCustsOnServer.slice(i, i + chunkSize);
                       await fetch('/api/db/customers/batch', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1229,7 +1419,14 @@ export const useStore = create<StoreState>((set, get) => ({
 
   addCategory: async (category) => {
     const id = Math.random().toString(36).substring(2, 9);
-    const newCat = { id, ...category };
+    const newCat: Category = { id, ...category, updatedAt: Date.now() };
+    unmarkLocalItemDeleted('categories', id);
+    // Atualização otimista + persistência imediata no storage local
+    set(state => {
+      const next = [...state.categories.filter(c => c.id !== id), newCat];
+      saveCategoriesToStorage(next);
+      return { categories: next };
+    });
     try {
       const res = await fetch('/api/db/categories', {
         method: 'POST',
@@ -1238,7 +1435,11 @@ export const useStore = create<StoreState>((set, get) => ({
       });
       if (res.ok) {
         const saved = await res.json();
-        set(state => ({ categories: [...state.categories, saved] }));
+        set(state => {
+          const next = state.categories.map(c => c.id === id ? { ...c, ...saved, updatedAt: Date.now() } : c);
+          saveCategoriesToStorage(next);
+          return { categories: next };
+        });
       }
     } catch (error) {
       console.error('Error adding category:', error);
@@ -1246,16 +1447,25 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   
   updateCategory: async (id, category) => {
+    unmarkLocalItemDeleted('categories', id);
+    const payload = { ...category, updatedAt: Date.now() };
+    set(state => {
+      const next = state.categories.map(c => c.id === id ? { ...c, ...payload } : c);
+      saveCategoriesToStorage(next);
+      return { categories: next };
+    });
     try {
       const res = await fetch(`/api/db/categories/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(category)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
-        set(state => ({
-          categories: state.categories.map(c => c.id === id ? { ...c, ...category } : c)
-        }));
+        set(state => {
+          const next = state.categories.map(c => c.id === id ? { ...c, ...payload } : c);
+          saveCategoriesToStorage(next);
+          return { categories: next };
+        });
       }
     } catch (error) {
       console.error('Error updating category:', error);
@@ -1263,14 +1473,19 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   
   deleteCategory: async (id) => {
+    markLocalItemDeleted('categories', id);
+    set(state => {
+      const nextCats = state.categories.filter(c => c.id !== id);
+      const nextProds = state.products.filter(p => p.categoryId !== id);
+      saveCategoriesToStorage(nextCats);
+      saveProductsToStorage(nextProds);
+      return {
+        categories: nextCats,
+        products: nextProds
+      };
+    });
     try {
-      const res = await fetch(`/api/db/categories/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        set(state => ({
-          categories: state.categories.filter(c => c.id !== id),
-          products: state.products.filter(p => p.categoryId !== id)
-        }));
-      }
+      await fetch(`/api/db/categories/${id}`, { method: 'DELETE' });
     } catch (error) {
       console.error('Error deleting category:', error);
     }
@@ -1278,6 +1493,7 @@ export const useStore = create<StoreState>((set, get) => ({
   
   addProduct: async (product) => {
     const id = Math.random().toString(36).substring(2, 9);
+    unmarkLocalItemDeleted('products', id);
     const activeChannels: string[] = [];
     if (product.availableForDelivery !== false) activeChannels.push('delivery');
     if (product.availableInStore !== false) activeChannels.push('in_store');
@@ -1288,7 +1504,7 @@ export const useStore = create<StoreState>((set, get) => ({
       cleanDesc = `${cleanDesc} [channels:${activeChannels.join(',')}]`.trim();
     }
 
-    const payload: any = { id, ...product, description: cleanDesc };
+    const payload: any = { id, ...product, description: cleanDesc, updatedAt: Date.now() };
     delete payload.availableForDelivery;
     delete payload.availableInStore;
     delete payload.availableForKiosk;
@@ -1301,7 +1517,11 @@ export const useStore = create<StoreState>((set, get) => ({
       });
       if (res.ok) {
         const saved = await res.json();
-        set(state => ({ products: [...state.products, { ...saved, ...product, description: cleanDesc }] }));
+        set(state => {
+          const next = [...state.products, { ...saved, ...product, description: cleanDesc, updatedAt: Date.now() }];
+          saveProductsToStorage(next);
+          return { products: next };
+        });
       }
     } catch (error) {
       console.error('Error adding product:', error);
@@ -1309,6 +1529,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   
   updateProduct: async (id, product) => {
+    unmarkLocalItemDeleted('products', id);
     const existing = get().products.find(p => p.id === id);
     const merged = existing ? { ...existing, ...product } : { ...product };
 
@@ -1322,10 +1543,16 @@ export const useStore = create<StoreState>((set, get) => ({
       cleanDesc = `${cleanDesc} [channels:${activeChannels.join(',')}]`.trim();
     }
 
-    const payload: any = { ...product, description: cleanDesc };
+    const payload: any = { ...product, description: cleanDesc, updatedAt: Date.now() };
     delete payload.availableForDelivery;
     delete payload.availableInStore;
     delete payload.availableForKiosk;
+
+    set(state => {
+      const next = state.products.map(p => p.id === id ? { ...p, ...merged, description: cleanDesc, updatedAt: Date.now() } : p);
+      saveProductsToStorage(next);
+      return { products: next };
+    });
 
     try {
       const res = await fetch(`/api/db/products/${id}`, {
@@ -1334,9 +1561,11 @@ export const useStore = create<StoreState>((set, get) => ({
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        set(state => ({
-          products: state.products.map(p => p.id === id ? { ...p, ...merged, description: cleanDesc } : p)
-        }));
+        set(state => {
+          const next = state.products.map(p => p.id === id ? { ...p, ...merged, description: cleanDesc, updatedAt: Date.now() } : p);
+          saveProductsToStorage(next);
+          return { products: next };
+        });
       }
     } catch (error) {
       console.error('Error updating product:', error);
@@ -1358,13 +1587,14 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   deleteProduct: async (id) => {
+    markLocalItemDeleted('products', id);
+    set(state => {
+      const next = state.products.filter(p => p.id !== id);
+      saveProductsToStorage(next);
+      return { products: next };
+    });
     try {
-      const res = await fetch(`/api/db/products/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        set(state => ({
-          products: state.products.filter(p => p.id !== id)
-        }));
-      }
+      await fetch(`/api/db/products/${id}`, { method: 'DELETE' });
     } catch (error) {
       console.error('Error deleting product:', error);
     }
@@ -1577,7 +1807,12 @@ export const useStore = create<StoreState>((set, get) => ({
           items: typeof saved.items === 'string' ? JSON.parse(saved.items) : saved.items
         };
         createdOrder = parsedSaved;
-        set(state => ({ orders: [parsedSaved, ...state.orders.filter(o => o.id !== parsedSaved.id)] }));
+        unmarkLocalItemDeleted('orders', parsedSaved.id);
+        set(state => {
+          const next = [parsedSaved, ...state.orders.filter(o => o.id !== parsedSaved.id)];
+          saveOrdersToStorage(next);
+          return { orders: next };
+        });
 
         // Auto-export to BlueFocus
         try {
@@ -1615,7 +1850,7 @@ export const useStore = create<StoreState>((set, get) => ({
   
   updateOrderStatus: async (id, status) => {
     try {
-      const deliveryStatus = 
+      const deliveryStatus: Order['deliveryStatus'] = 
         status === 'out_for_delivery' ? 'in_transit' :
         status === 'completed' ? 'delivered' :
         status === 'ready_for_delivery' ? 'ready' :
@@ -1630,13 +1865,15 @@ export const useStore = create<StoreState>((set, get) => ({
         })
       });
       if (res.ok) {
-        set(state => ({
-          orders: state.orders.map(o => o.id === id ? { 
+        set(state => {
+          const next: Order[] = state.orders.map(o => o.id === id ? { 
             ...o, 
             status,
             ...(deliveryStatus ? { deliveryStatus } : {})
-          } : o)
-        }));
+          } : o);
+          saveOrdersToStorage(next);
+          return { orders: next };
+        });
       }
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -1668,6 +1905,7 @@ export const useStore = create<StoreState>((set, get) => ({
   deleteOrder: async (id) => {
     if (!id) return;
     const targetId = String(id).trim();
+    markLocalItemDeleted('orders', targetId);
     console.log(`[Store] Deleting order: ${targetId}`);
     
     // 1. Optimistic removal
@@ -1689,7 +1927,6 @@ export const useStore = create<StoreState>((set, get) => ({
       const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
       if (!res.ok) {
         console.warn('Backend returned error when deleting order:', res.status);
-        // We could roll back here if needed, but usually we just log
       }
     } catch (error) {
       console.error('Error deleting order:', error);
@@ -1697,6 +1934,9 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   clearAllOrders: async () => {
+    const reg = getLocalDeletedRegistry();
+    reg.ordersClearedAt = Date.now();
+    saveLocalDeletedRegistry(reg);
     try {
       const res = await fetch('/api/db/orders', { method: 'DELETE' });
       if (res.ok) {
@@ -1810,14 +2050,18 @@ export const useStore = create<StoreState>((set, get) => ({
           ...saved,
           tags: Array.isArray(saved.tags) ? saved.tags : (typeof saved.tags === 'string' ? JSON.parse(saved.tags || '[]') : [])
         };
+        unmarkLocalItemDeleted('customers', parsedSaved.id);
         set(state => {
           const index = state.customers.findIndex(c => c.id === parsedSaved.id);
+          let next: Customer[];
           if (index >= 0) {
-            const updated = [...state.customers];
-            updated[index] = parsedSaved;
-            return { customers: updated };
+            next = [...state.customers];
+            next[index] = parsedSaved;
+          } else {
+            next = [parsedSaved, ...state.customers];
           }
-          return { customers: [parsedSaved, ...state.customers] };
+          saveCustomersToStorage(next);
+          return { customers: next };
         });
         return parsedSaved;
       }
@@ -1828,6 +2072,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   updateCustomer: async (id, customerData) => {
+    unmarkLocalItemDeleted('customers', id);
     try {
       const res = await fetch(`/api/db/customers/${id}`, {
         method: 'PUT',
@@ -1840,9 +2085,11 @@ export const useStore = create<StoreState>((set, get) => ({
           ...updated,
           tags: Array.isArray(updated.tags) ? updated.tags : (typeof updated.tags === 'string' ? JSON.parse(updated.tags || '[]') : [])
         };
-        set(state => ({
-          customers: state.customers.map(c => c.id === id ? { ...c, ...parsedUpdated } : c)
-        }));
+        set(state => {
+          const next = state.customers.map(c => c.id === id ? { ...c, ...parsedUpdated } : c);
+          saveCustomersToStorage(next);
+          return { customers: next };
+        });
         return parsedUpdated;
       }
     } catch (err) {
@@ -1852,12 +2099,15 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   deleteCustomer: async (id) => {
+    markLocalItemDeleted('customers', id);
+    set(state => {
+      const next = state.customers.filter(c => c.id !== id);
+      saveCustomersToStorage(next);
+      return { customers: next };
+    });
     try {
       const res = await fetch(`/api/db/customers/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        set(state => ({
-          customers: state.customers.filter(c => c.id !== id)
-        }));
         return true;
       }
     } catch (err) {

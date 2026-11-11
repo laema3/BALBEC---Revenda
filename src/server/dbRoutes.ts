@@ -11,6 +11,17 @@ import { printOrderToNetworkPrinter } from './printerRoutes';
 import { queueOrderForAgent } from './printerAgentRoutes';
 import { createPixPayment, checkPixStatus, confirmPixPayment, processCardPayment } from './mercadoPagoService';
 import { buildBalbecDocumentationPdf } from '../utils/generateBalbecPdf';
+import {
+  DeletedIdsRegistry,
+  createEmptyDeletedRegistry,
+  mergeDeletedRegistries,
+  saveSingleToCloud,
+  loadSingleFromCloud,
+  saveCollectionToCloud,
+  saveCollectionToCloudDebounced,
+  loadCollectionFromCloud,
+  smartMergeCollectionItems,
+} from './cloudPersistence';
 
 // Initial default data for auto-seeding & in-memory fallback (clean state for new ERP integration)
 const DEFAULT_CATEGORIES: any[] = [];
@@ -189,115 +200,17 @@ try {
       const srcPath = path.join(altDir, fileName);
       if (srcPath !== newPath && fs.existsSync(srcPath) && !fs.existsSync(newPath)) {
         try {
-          fs.copyFileSync(srcPath, newPath);
-          break;
+          const rawContent = fs.readFileSync(srcPath, 'utf8').trim();
+          // Nunca copiar arquivos vazios (ex: "[]") da raiz por cima do diretório persistente
+          if (rawContent && rawContent !== '[]' && rawContent !== '{}') {
+            fs.copyFileSync(srcPath, newPath);
+            break;
+          }
         } catch (e) {}
       }
     }
   });
 } catch (e) {}
-
-// Dynamic auto-import for user uploaded backup files
-try {
-  const assetDir = path.join(process.cwd(), 'public', 'assets', 'aistudio');
-  let latestBackupPath: string | null = null;
-  let latestMtime = 0;
-
-  if (fs.existsSync(assetDir)) {
-    const dirFiles = fs.readdirSync(assetDir);
-    for (const file of dirFiles) {
-      if (file.startsWith('balbec_backup_') && file.endsWith('.json')) {
-        const fullP = path.join(assetDir, file);
-        const stat = fs.statSync(fullP);
-        if (stat.mtimeMs > latestMtime) {
-          latestMtime = stat.mtimeMs;
-          latestBackupPath = fullP;
-        }
-      }
-    }
-  }
-
-  if (latestBackupPath) {
-    const storeInfoPath = path.join(STORAGE_DIR, '.store_info_data.json');
-    let shouldImport = !fs.existsSync(storeInfoPath);
-    if (fs.existsSync(storeInfoPath)) {
-      const existingStat = fs.statSync(storeInfoPath);
-      // Importa apenas se o arquivo de backup for significativamente mais recente que o store_info no disco
-      if (latestMtime > existingStat.mtimeMs + 10000) {
-        shouldImport = true;
-      }
-    }
-
-    if (shouldImport) {
-      const backupRaw = fs.readFileSync(latestBackupPath, 'utf8');
-      const backupData = JSON.parse(backupRaw);
-      if (backupData) {
-        const seedDir = path.join(process.cwd(), 'src', 'data', 'seed');
-        if (!fs.existsSync(seedDir)) {
-          try { fs.mkdirSync(seedDir, { recursive: true }); } catch (e) {}
-        }
-
-        const syncItem = (key: string, fileName: string) => {
-          const val = backupData[key];
-          if (val !== undefined && val !== null) {
-            let finalVal = val;
-
-            // SMART MERGE for orders & customers so existing seed/disk items are NEVER overwritten or lost
-            if (key === 'orders' || key === 'customers') {
-              const baseName = fileName.replace('.json', '');
-              const altName = baseName.includes('_data') ? baseName.replace('_data', '') : baseName + '_data';
-              const seedDirFile = path.join(seedDir, `${baseName}.json`);
-              const existingSeed: any[] = loadJsonFile(seedDirFile, []);
-              const backupList: any[] = Array.isArray(val) ? val : [];
-
-              const map = new Map<string, any>();
-              // Carrega primeiro os itens existentes em disco/seed para que eles tenham prioridade absoluta
-              for (const item of existingSeed) {
-                if (item && item.id) map.set(String(item.id), item);
-              }
-              // Adiciona os itens do backup apenas se já não existirem
-              for (const item of backupList) {
-                if (item && item.id && !map.has(String(item.id))) {
-                  map.set(String(item.id), item);
-                }
-              }
-              finalVal = Array.from(map.values());
-              if (key === 'orders') {
-                finalVal.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-              }
-            }
-
-            try {
-              fs.writeFileSync(path.join(STORAGE_DIR, `.${fileName}`), JSON.stringify(finalVal, null, 2), 'utf8');
-            } catch (e) {}
-            try {
-              const baseName = fileName.replace('.json', '');
-              const altName = baseName.includes('_data') ? baseName.replace('_data', '') : baseName + '_data';
-              fs.writeFileSync(path.join(seedDir, `${baseName}.json`), JSON.stringify(finalVal, null, 2), 'utf8');
-              fs.writeFileSync(path.join(seedDir, `${altName}.json`), JSON.stringify(finalVal, null, 2), 'utf8');
-            } catch (e) {}
-          }
-        };
-
-        syncItem('storeInfo', 'store_info_data.json');
-        syncItem('categories', 'categories_data.json');
-        syncItem('products', 'products_data.json');
-        syncItem('customers', 'customers_data.json');
-        syncItem('users', 'users_data.json');
-        syncItem('tvMedia', 'tv_media_data.json');
-        syncItem('tables', 'tables_data.json');
-        // NOTA: Pedidos nunca são sobrescritos por backups estáticos no boot. Pedidos são transacionais e gerenciados pelo PostgreSQL / disco vivo.
-        syncItem('totemBackups', 'totem_backups_data.json');
-        syncItem('drivers', 'drivers_data.json');
-        syncItem('deliveryZones', 'delivery_zones_data.json');
-
-        console.log(`[Auto-Import Backup] Dados do backup (${path.basename(latestBackupPath)}) importados e mesclados com sucesso para STORAGE_DIR e src/data/seed/!`);
-      }
-    }
-  }
-} catch (e) {
-  console.warn('Aviso: Falha ao importar backup automático:', e);
-}
 
 const STORE_INFO_FILE = path.join(STORAGE_DIR, '.store_info_data.json');
 const TV_MEDIA_FILE = path.join(STORAGE_DIR, '.tv_media_data.json');
@@ -312,6 +225,7 @@ const APP_INSTALLS_FILE = path.join(STORAGE_DIR, '.app_installs_data.json');
 const TOTEM_BACKUPS_FILE = path.join(STORAGE_DIR, '.totem_backups_data.json');
 const MASTER_STATE_FILE = path.join(STORAGE_DIR, '.app_persistent_state.json');
 const DRIVERS_FILE = path.join(STORAGE_DIR, '.drivers_data.json');
+const DELETED_IDS_FILE = path.join(STORAGE_DIR, '.deleted_ids_data.json');
 
 const DEFAULT_DRIVERS: any[] = [];
 
@@ -363,10 +277,12 @@ let memTvMedia: any[] = [];
 let memAppInstalls: any[] = [];
 let memTables: any[] = [...DEFAULT_TABLES];
 let memTotemBackups: any[] = [];
+let memDeletedIds: DeletedIdsRegistry = createEmptyDeletedRegistry();
 
 // Helper functions for safe disk persistence
 function loadJsonFile<T>(filePath: string, fallback: T): T {
   try {
+    const isOrdersPrimary = filePath === ORDERS_FILE || filePath.endsWith('.orders_data.json') || filePath.endsWith('orders_data.json');
     // 1. Prioritize direct primary file path if it exists and is valid
     if (fs.existsSync(filePath)) {
       try {
@@ -374,7 +290,9 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
         const parsed = JSON.parse(raw);
         if (parsed !== undefined && parsed !== null) {
           if (Array.isArray(fallback)) {
-            if (Array.isArray(parsed)) return parsed as unknown as T;
+            if (Array.isArray(parsed) && (parsed.length > 0 || isOrdersPrimary)) {
+              return parsed as unknown as T;
+            }
           } else {
             return parsed as T;
           }
@@ -382,7 +300,7 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
       } catch (_) {}
     }
 
-    // 2. Fall back to seed directories if primary file does not exist
+    // 2. Fall back to seed directories if primary file does not exist or was empty
     const baseName = path.basename(filePath).replace(/^\./, '');
     const altBaseName = baseName.includes('_data.json') 
       ? baseName.replace('_data.json', '.json') 
@@ -404,7 +322,7 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
           const parsed = JSON.parse(raw);
           if (parsed !== undefined && parsed !== null) {
             if (Array.isArray(fallback)) {
-              if (Array.isArray(parsed)) return parsed as unknown as T;
+              if (Array.isArray(parsed) && parsed.length > 0) return parsed as unknown as T;
             } else {
               return parsed as T;
             }
@@ -421,12 +339,19 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
 function writeJsonFile(filePath: string, data: any) {
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    const baseName = path.basename(filePath).replace(/^\./, '');
+    // Sincronizar também o arquivo oculto na raiz se existir (para nunca ficar com "[]" obsoleto)
+    const rootDotFile = path.join(process.cwd(), `.${baseName}`);
+    if (fs.existsSync(rootDotFile)) {
+      try {
+        fs.writeFileSync(rootDotFile, JSON.stringify(data, null, 2), 'utf8');
+      } catch {}
+    }
     // Also keep permanent seed folder synchronized so repo always has latest backup
     // Never overwrite non-empty seed files with an empty array
     if (Array.isArray(data) && data.length === 0) {
       return;
     }
-    const baseName = path.basename(filePath).replace(/^\./, '');
     const altBaseName = baseName.includes('_data.json') 
       ? baseName.replace('_data.json', '.json') 
       : baseName.replace('.json', '_data.json');
@@ -453,6 +378,45 @@ function writeJsonFile(filePath: string, data: any) {
   }
 }
 
+function persistDeletedIdsToDisk(syncCloud = true) {
+  memDeletedIds.updatedAt = Date.now();
+  writeJsonFile(DELETED_IDS_FILE, memDeletedIds);
+  syncSeedFiles('deletedIds', memDeletedIds);
+  if (syncCloud) {
+    saveSingleToCloud('deletedIds', memDeletedIds).catch(() => {});
+  }
+}
+
+function recordDeletedItem(
+  collectionKey: keyof Omit<DeletedIdsRegistry, 'ordersClearedAt' | 'updatedAt'>,
+  id: string | number
+) {
+  const cleanId = String(id || '').trim();
+  if (!cleanId) return;
+  if (!memDeletedIds[collectionKey]) {
+    memDeletedIds[collectionKey] = {};
+  }
+  memDeletedIds[collectionKey][cleanId] = Date.now();
+  persistDeletedIdsToDisk(true);
+}
+
+function unmarkDeletedItem(
+  collectionKey: keyof Omit<DeletedIdsRegistry, 'ordersClearedAt' | 'updatedAt'>,
+  id: string | number
+) {
+  const cleanId = String(id || '').trim();
+  if (!cleanId || !memDeletedIds[collectionKey]) return;
+  if (memDeletedIds[collectionKey][cleanId]) {
+    delete memDeletedIds[collectionKey][cleanId];
+    persistDeletedIdsToDisk(true);
+  }
+}
+
+function recordAllOrdersCleared() {
+  memDeletedIds.ordersClearedAt = Date.now();
+  persistDeletedIdsToDisk(true);
+}
+
 function persistAllStateToMasterFile() {
   const masterPayload = {
     storeInfo: memStoreInfo,
@@ -466,6 +430,7 @@ function persistAllStateToMasterFile() {
     totemBackups: memTotemBackups,
     drivers: memDrivers,
     deliveryZones: memDeliveryZones,
+    deletedIds: memDeletedIds,
     savedAt: new Date().toISOString()
   };
   writeJsonFile(MASTER_STATE_FILE, masterPayload);
@@ -479,30 +444,35 @@ const seedCustomers: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data'
 const seedStoreInfo: any = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'store_info_data.json'), {});
 const seedTvMedia: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'tv_media_data.json'), []);
 const seedTotemBackups: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'totem_backups_data.json'), []);
+const seedDeletedIds: any = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'deleted_ids_data.json'), null);
 
 // 1. Carregar Estado Inicial de Todos os Arquivos Persistidos
 try {
   const masterState = loadJsonFile<any>(MASTER_STATE_FILE, null);
+  const diskDeletedIds = loadJsonFile<any>(DELETED_IDS_FILE, null);
+  memDeletedIds = mergeDeletedRegistries(
+    mergeDeletedRegistries(seedDeletedIds, masterState?.deletedIds),
+    diskDeletedIds
+  );
 
   const diskCategories = loadJsonFile(CATEGORIES_FILE, []);
   const diskProducts = loadJsonFile(PRODUCTS_FILE, []);
   const diskCustomers = loadJsonFile(CUSTOMERS_FILE, []);
 
-  memCategories = (Array.isArray(diskCategories) && diskCategories.length > 0)
-    ? diskCategories
-    : (Array.isArray(masterState?.categories) && masterState.categories.length > 0)
-      ? masterState.categories
-      : (Array.isArray(seedCategories) && seedCategories.length > 0)
-        ? seedCategories
-        : DEFAULT_CATEGORIES;
+  // Smart Merge entre Seed, MasterState e Disco para NUNCA perder categorias ou produtos locais
+  const mergedInitCats = smartMergeCollectionItems(
+    'categories',
+    [seedCategories, masterState?.categories || [], diskCategories],
+    memDeletedIds
+  );
+  memCategories = mergedInitCats.length > 0 ? mergedInitCats : DEFAULT_CATEGORIES;
 
-  memProducts = (Array.isArray(diskProducts) && diskProducts.length > 0)
-    ? diskProducts
-    : (Array.isArray(masterState?.products) && masterState.products.length > 0)
-      ? masterState.products
-      : (Array.isArray(seedProducts) && seedProducts.length > 0)
-        ? seedProducts
-        : DEFAULT_PRODUCTS;
+  const mergedInitProds = smartMergeCollectionItems(
+    'products',
+    [seedProducts, masterState?.products || [], diskProducts],
+    memDeletedIds
+  );
+  memProducts = mergedInitProds.length > 0 ? mergedInitProds : DEFAULT_PRODUCTS;
 
   let congeladoProd = memProducts.find(p => p.id === 'prod_congelado');
   if (!congeladoProd) {
@@ -527,7 +497,11 @@ try {
     congeladoProd.price = 0.30;
     writeJsonFile(PRODUCTS_FILE, memProducts);
   }
-  memTvMedia = loadJsonFile(TV_MEDIA_FILE, masterState?.tvMedia || (Array.isArray(seedTvMedia) && seedTvMedia.length > 0 ? seedTvMedia : []));
+  memTvMedia = smartMergeCollectionItems(
+    'tvMedia',
+    [seedTvMedia, masterState?.tvMedia || [], loadJsonFile(TV_MEDIA_FILE, [])],
+    memDeletedIds
+  );
   const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
   let backupStoreInfo = null;
   if (fs.existsSync(autoBackupPath)) {
@@ -549,19 +523,16 @@ try {
   };
   const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
   const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []);
-  const initOrderMap = new Map<string, any>();
-  // initialSeedOrders primeiro, depois initialDiskOrders sobrescreve para priorizar dados do usuário salvos em disco
-  [...initialSeedOrders, ...initialDiskOrders].forEach((o: any) => {
-    if (o && o.id) initOrderMap.set(String(o.id), o);
-  });
-  memOrders = Array.from(initOrderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-  const rawCustomers = (Array.isArray(diskCustomers) && diskCustomers.length > 0)
-    ? diskCustomers
-    : (Array.isArray(masterState?.customers) && masterState.customers.length > 0)
-      ? masterState.customers
-      : (Array.isArray(seedCustomers) && seedCustomers.length > 0)
-        ? seedCustomers
-        : [];
+  memOrders = smartMergeCollectionItems(
+    'orders',
+    [initialSeedOrders, masterState?.orders || [], initialDiskOrders],
+    memDeletedIds
+  );
+  const rawCustomers = smartMergeCollectionItems(
+    'customers',
+    [seedCustomers, masterState?.customers || [], diskCustomers],
+    memDeletedIds
+  );
   memCustomers = rawCustomers
     .filter((c: any) => c.source !== 'pedido_totem' && c.source !== 'totem' && (c.name || '').toLowerCase() !== 'cliente totem')
     .map((c: any) => ({
@@ -580,9 +551,17 @@ try {
   } else {
     memUsers.push({ id: 4, uid: 'master-4', email: 'admin@balbec.com.br', name: 'Admin Master', role: 'master', password: 'admin123' });
   }
-  memTables = loadJsonFile(TABLES_FILE, masterState?.tables || DEFAULT_TABLES);
+  memTables = smartMergeCollectionItems(
+    'tables',
+    [DEFAULT_TABLES, masterState?.tables || [], loadJsonFile(TABLES_FILE, [])],
+    memDeletedIds
+  );
   memAppInstalls = loadJsonFile(APP_INSTALLS_FILE, []);
-  memTotemBackups = loadJsonFile(TOTEM_BACKUPS_FILE, masterState?.totemBackups || (Array.isArray(seedTotemBackups) ? seedTotemBackups : []));
+  memTotemBackups = smartMergeCollectionItems(
+    'totemBackups',
+    [Array.isArray(seedTotemBackups) ? seedTotemBackups : [], masterState?.totemBackups || [], loadJsonFile(TOTEM_BACKUPS_FILE, [])],
+    memDeletedIds
+  );
 
   // Se não houver backups salvos, cria o primeiro backup padrão automaticamente
   if (memTotemBackups.length === 0 && memCategories.length > 0) {
@@ -614,7 +593,7 @@ try {
   console.warn('Aviso: Falha na inicialização dos dados persistidos:', e);
 }
 
-// A hidratação autoritativa do PostgreSQL é executada sequencialmente pelo server.ts (hydrateFromPostgres)
+// A hidratação autoritativa do PostgreSQL + Cloud Firestore é executada pelo server.ts (hydrateFromPostgres)
 
 
 let productsVersion = Date.now();
@@ -628,26 +607,7 @@ function syncPublicBackupAssets(key: string, data: any) {
       fs.mkdirSync(assetDir, { recursive: true });
     }
 
-    // 1. Synchronize all backup JSON files in public/assets/aistudio/
-    if (fs.existsSync(assetDir)) {
-      const files = fs.readdirSync(assetDir);
-      for (const file of files) {
-        if (file.startsWith('balbec_backup_') && file.endsWith('.json')) {
-          const fullP = path.join(assetDir, file);
-          try {
-            const raw = fs.readFileSync(fullP, 'utf8');
-            const json = JSON.parse(raw);
-            if (json && typeof json === 'object') {
-              json[key] = data;
-              json.updatedAt = new Date().toISOString();
-              fs.writeFileSync(fullP, JSON.stringify(json, null, 2), 'utf8');
-            }
-          } catch (err) {}
-        }
-      }
-    }
-
-    // 2. Also keep a master latest backup asset in public/assets/aistudio
+    // Keep master latest backup asset in public/assets/aistudio updated
     const autoBackupPath = path.join(assetDir, 'balbec_backup_latest_auto.json');
     let autoData: any = {};
     if (fs.existsSync(autoBackupPath)) {
@@ -686,7 +646,8 @@ function syncSeedFiles(key: string, data: any) {
       drivers: 'drivers',
       deliveryZones: 'delivery_zones',
       tvMedia: 'tv_media',
-      orders: 'orders'
+      orders: 'orders',
+      deletedIds: 'deleted_ids'
     };
     const baseName = mapping[key] || key;
     fs.writeFileSync(path.join(seedDir, `${baseName}_data.json`), JSON.stringify(data, null, 2), 'utf8');
@@ -723,43 +684,48 @@ function syncSeedFiles(key: string, data: any) {
   }
 }
 
-function persistTotemBackupsToDisk(data: any[]) {
+function persistTotemBackupsToDisk(data: any[], syncCloud = true) {
   writeJsonFile(TOTEM_BACKUPS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('totemBackups', data);
   syncSeedFiles('totemBackups', data);
+  if (syncCloud) saveCollectionToCloudDebounced('totemBackups', data);
 }
 
-function persistCategoriesToDisk(data: any[]) {
+function persistCategoriesToDisk(data: any[], syncCloud = true) {
   if (!Array.isArray(data)) return;
   categoriesVersion = Date.now();
   writeJsonFile(CATEGORIES_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('categories', data);
   syncSeedFiles('categories', data);
+  if (syncCloud) saveCollectionToCloudDebounced('categories', data, 150);
 }
 
-function persistProductsToDisk(data: any[]) {
+function persistProductsToDisk(data: any[], syncCloud = true) {
   if (!Array.isArray(data)) return;
   productsVersion = Date.now();
   writeJsonFile(PRODUCTS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('products', data);
   syncSeedFiles('products', data);
+  if (syncCloud) saveCollectionToCloudDebounced('products', data, 400);
 }
 
-function persistTvMediaToDisk(data: any[]) {
+function persistTvMediaToDisk(data: any[], syncCloud = true) {
   writeJsonFile(TV_MEDIA_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('tvMedia', data);
   syncSeedFiles('tvMedia', data);
+  if (syncCloud) saveCollectionToCloudDebounced('tvMedia', data);
 }
 
-function persistUsersToDisk(data: any[]) {
+function persistUsersToDisk(data: any[], syncCloud = true) {
   writeJsonFile(USERS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('users', data);
   syncSeedFiles('users', data);
+  if (syncCloud) saveCollectionToCloudDebounced('users', data);
 }
 
 export function formatOrderForDb(order: any) {
@@ -795,42 +761,47 @@ export function formatOrderForDb(order: any) {
   };
 }
 
-function persistOrdersToDisk(data: any[]) {
+function persistOrdersToDisk(data: any[], syncCloud = true) {
   if (!Array.isArray(data)) return;
   writeJsonFile(ORDERS_FILE, data);
   writeJsonFile(ORDERS_BACKUP_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('orders', data);
   syncSeedFiles('orders', data);
+  if (syncCloud) saveCollectionToCloudDebounced('orders', data, 150);
 }
 
-function persistStoreInfoToDisk(data: any) {
+function persistStoreInfoToDisk(data: any, syncCloud = true) {
   storeInfoVersion = Date.now();
   writeJsonFile(STORE_INFO_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('storeInfo', data);
   syncSeedFiles('storeInfo', data);
+  if (syncCloud) saveSingleToCloud('storeInfo', data).catch(() => {});
 }
 
-function persistCustomersToDisk(data: any[]) {
+function persistCustomersToDisk(data: any[], syncCloud = true) {
   writeJsonFile(CUSTOMERS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('customers', data);
   syncSeedFiles('customers', data);
+  if (syncCloud) saveCollectionToCloudDebounced('customers', data, 300);
 }
 
-function persistTablesToDisk(data: any[]) {
+function persistTablesToDisk(data: any[], syncCloud = true) {
   writeJsonFile(TABLES_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('tables', data);
   syncSeedFiles('tables', data);
+  if (syncCloud) saveCollectionToCloudDebounced('tables', data);
 }
 
-function persistDriversToDisk(data: any[]) {
+function persistDriversToDisk(data: any[], syncCloud = true) {
   writeJsonFile(DRIVERS_FILE, data);
   persistAllStateToMasterFile();
   syncPublicBackupAssets('drivers', data);
   syncSeedFiles('drivers', data);
+  if (syncCloud) saveCollectionToCloudDebounced('drivers', data);
 }
 
 function persistAppInstallsToDisk(data: any[]) {
@@ -1135,6 +1106,7 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
  */
 let hydrationPromise: Promise<void> | null = null;
 let isHydrated = false;
+let cloudSyncIntervalStarted = false;
 
 export async function waitForHydration(maxWaitMs = 15000): Promise<void> {
   if (isHydrated) return;
@@ -1150,6 +1122,161 @@ export async function waitForHydration(maxWaitMs = 15000): Promise<void> {
   } catch {}
 }
 
+/**
+ * Sincronização bidirecional inteligente com o Google Cloud Firestore:
+ * Garante que qualquer categoria, produto, pedido, cliente ou configuração criada no link publicado (Cloud Run)
+ * seja automaticamente puxada e mesclada sem perder nenhum dado em novos deploys.
+ */
+export async function syncWithCloudFirestore(): Promise<void> {
+  try {
+    const cloudDeleted = await loadSingleFromCloud<DeletedIdsRegistry | null>('deletedIds', null);
+    if (cloudDeleted) {
+      memDeletedIds = mergeDeletedRegistries(memDeletedIds, cloudDeleted);
+      persistDeletedIdsToDisk(false);
+    } else {
+      await saveSingleToCloud('deletedIds', memDeletedIds);
+    }
+
+    const [
+      cloudStoreInfo,
+      cloudCatsRes,
+      cloudProdsRes,
+      cloudCustsRes,
+      cloudOrdersRes,
+      cloudTablesRes,
+      cloudTvRes,
+      cloudTbRes,
+    ] = await Promise.all([
+      loadSingleFromCloud<any>('storeInfo', null),
+      loadCollectionFromCloud('categories'),
+      loadCollectionFromCloud('products'),
+      loadCollectionFromCloud('customers'),
+      loadCollectionFromCloud('orders'),
+      loadCollectionFromCloud('tables'),
+      loadCollectionFromCloud('tvMedia'),
+      loadCollectionFromCloud('totemBackups'),
+    ]);
+
+    // 1. StoreInfo
+    if (cloudStoreInfo && typeof cloudStoreInfo === 'object') {
+      const cloudTs = Number(cloudStoreInfo.updatedAt || 0);
+      const localTs = Number(memStoreInfo?.updatedAt || 0);
+      if (cloudTs > localTs) {
+        memStoreInfo = sanitizeStoreInfoPrinters({ ...DEFAULT_STORE_INFO, ...memStoreInfo, ...cloudStoreInfo, id: 'default' });
+        persistStoreInfoToDisk(memStoreInfo, false);
+      } else {
+        await saveSingleToCloud('storeInfo', memStoreInfo);
+      }
+    } else if (memStoreInfo) {
+      await saveSingleToCloud('storeInfo', memStoreInfo);
+    }
+
+    // 2. Categories
+    if (cloudCatsRes && Array.isArray(cloudCatsRes.items) && cloudCatsRes.items.length > 0) {
+      const beforeCount = memCategories.length;
+      const mergedCats = smartMergeCollectionItems('categories', [memCategories, cloudCatsRes.items], memDeletedIds);
+      const changed = mergedCats.length !== beforeCount || JSON.stringify(mergedCats) !== JSON.stringify(memCategories);
+      memCategories = mergedCats;
+      if (changed) {
+        persistCategoriesToDisk(memCategories, true);
+        if (isDatabaseConfigured()) {
+          saveCategoriesToPostgresBatch(memCategories).catch(() => {});
+        }
+      } else if (cloudCatsRes.items.length !== memCategories.length) {
+        await saveCollectionToCloud('categories', memCategories);
+      }
+    } else if (memCategories.length > 0) {
+      await saveCollectionToCloud('categories', memCategories);
+    }
+
+    // 3. Products
+    if (cloudProdsRes && Array.isArray(cloudProdsRes.items) && cloudProdsRes.items.length > 0) {
+      const beforeCount = memProducts.length;
+      const mergedProds = smartMergeCollectionItems('products', [memProducts, cloudProdsRes.items], memDeletedIds);
+      const changed = mergedProds.length !== beforeCount || JSON.stringify(mergedProds) !== JSON.stringify(memProducts);
+      memProducts = mergedProds;
+      if (changed) {
+        persistProductsToDisk(memProducts, true);
+        if (isDatabaseConfigured()) {
+          saveProductsToPostgresBatch(memProducts).catch(() => {});
+        }
+      } else if (cloudProdsRes.items.length !== memProducts.length) {
+        await saveCollectionToCloud('products', memProducts);
+      }
+    } else if (memProducts.length > 0) {
+      await saveCollectionToCloud('products', memProducts);
+    }
+
+    // 4. Customers
+    if (cloudCustsRes && Array.isArray(cloudCustsRes.items) && cloudCustsRes.items.length > 0) {
+      const beforeCount = memCustomers.length;
+      const mergedCusts = smartMergeCollectionItems('customers', [memCustomers, cloudCustsRes.items], memDeletedIds);
+      const changed = mergedCusts.length !== beforeCount || JSON.stringify(mergedCusts) !== JSON.stringify(memCustomers);
+      memCustomers = mergedCusts;
+      if (changed) {
+        persistCustomersToDisk(memCustomers, true);
+        if (isDatabaseConfigured()) {
+          saveCustomersToPostgresBatch(memCustomers).catch(() => {});
+        }
+      } else if (cloudCustsRes.items.length !== memCustomers.length) {
+        await saveCollectionToCloud('customers', memCustomers);
+      }
+    } else if (memCustomers.length > 0) {
+      await saveCollectionToCloud('customers', memCustomers);
+    }
+
+    // 5. Orders
+    if (cloudOrdersRes && Array.isArray(cloudOrdersRes.items) && cloudOrdersRes.items.length > 0) {
+      const beforeCount = memOrders.length;
+      const mergedOrders = smartMergeCollectionItems('orders', [memOrders, cloudOrdersRes.items], memDeletedIds);
+      const changed = mergedOrders.length !== beforeCount || JSON.stringify(mergedOrders) !== JSON.stringify(memOrders);
+      memOrders = mergedOrders;
+      if (changed) {
+        persistOrdersToDisk(memOrders, true);
+        if (isDatabaseConfigured()) {
+          for (const ord of memOrders.slice(0, 200)) {
+            try {
+              const orderForDb = formatOrderForDb(ord);
+              await withDbRetry(() => db.insert(orders).values(orderForDb).onConflictDoUpdate({
+                target: orders.id,
+                set: orderForDb
+              }));
+            } catch {}
+          }
+        }
+      } else if (cloudOrdersRes.items.length !== memOrders.length) {
+        await saveCollectionToCloud('orders', memOrders);
+      }
+    } else if (memOrders.length > 0) {
+      await saveCollectionToCloud('orders', memOrders);
+    }
+
+    // 6. Tables, TV Media, Totem Backups
+    if (cloudTablesRes && Array.isArray(cloudTablesRes.items) && cloudTablesRes.items.length > 0) {
+      memTables = smartMergeCollectionItems('tables', [memTables, cloudTablesRes.items], memDeletedIds);
+      persistTablesToDisk(memTables, false);
+    } else if (memTables.length > 0) {
+      await saveCollectionToCloud('tables', memTables);
+    }
+
+    if (cloudTvRes && Array.isArray(cloudTvRes.items) && cloudTvRes.items.length > 0) {
+      memTvMedia = smartMergeCollectionItems('tvMedia', [memTvMedia, cloudTvRes.items], memDeletedIds);
+      persistTvMediaToDisk(memTvMedia, false);
+    } else if (memTvMedia.length > 0) {
+      await saveCollectionToCloud('tvMedia', memTvMedia);
+    }
+
+    if (cloudTbRes && Array.isArray(cloudTbRes.items) && cloudTbRes.items.length > 0) {
+      memTotemBackups = smartMergeCollectionItems('totemBackups', [memTotemBackups, cloudTbRes.items], memDeletedIds);
+      persistTotemBackupsToDisk(memTotemBackups, false);
+    } else if (memTotemBackups.length > 0) {
+      await saveCollectionToCloud('totemBackups', memTotemBackups);
+    }
+  } catch (err: any) {
+    console.warn('[CloudFirestore Sync] Aviso durante sincronização em nuvem:', err?.message || err);
+  }
+}
+
 export async function hydrateFromPostgres(): Promise<void> {
   if (hydrationPromise) {
     return hydrationPromise;
@@ -1157,14 +1284,25 @@ export async function hydrateFromPostgres(): Promise<void> {
   hydrationPromise = (async () => {
     await ensureTablesExist();
 
+    // Sempre sincroniza primeiro com o Google Cloud Firestore (funciona tanto no Preview quanto no Cloud Run publicado!)
+    await syncWithCloudFirestore();
+
+    if (!cloudSyncIntervalStarted) {
+      cloudSyncIntervalStarted = true;
+      setInterval(() => {
+        syncWithCloudFirestore().catch(() => {});
+      }, 25000);
+    }
+
     if (!isDatabaseConfigured()) {
-      console.log('[DB Hydrate] Banco de dados não configurado, mantendo estado do disco/memória.');
+      console.log('[DB Hydrate] Banco PostgreSQL local não configurado; estado hidratado com sucesso via Google Cloud Firestore + Disco.');
+      persistAllStateToMasterFile();
       isHydrated = true;
       return;
     }
 
     try {
-      console.log('[DB Hydrate] Hidratando estado da loja e cadastros diretamente do PostgreSQL / Railway...');
+      console.log('[DB Hydrate] Hidratando e mesclando estado da loja entre Cloud Firestore, PostgreSQL e Seed...');
       
       // 1. Hidratar Store Info
       try {
@@ -1181,7 +1319,6 @@ export async function hydrateFromPostgres(): Promise<void> {
 
         if (storeList && storeList.length > 0) {
           const dbRow: any = storeList[0];
-          // Se o banco estiver com weeklySchedule vazio ou padrão mas tivermos backup, prioriza o backup/disco!
           const hasValidDbSchedule = dbRow.weeklySchedule && dbRow.weeklySchedule !== '[]' && dbRow.weeklySchedule !== DEFAULT_STORE_INFO.weeklySchedule;
           const chosenStoreSource = (!hasValidDbSchedule && backupStoreInfo?.weeklySchedule && backupStoreInfo.weeklySchedule !== '[]') 
             ? backupStoreInfo 
@@ -1193,6 +1330,7 @@ export async function hydrateFromPostgres(): Promise<void> {
             ...diskVal,
             ...dbRow,
             ...chosenStoreSource,
+            ...memStoreInfo,
             id: 'default' 
           };
 
@@ -1205,40 +1343,42 @@ export async function hydrateFromPostgres(): Promise<void> {
 
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
           persistStoreInfoToDisk(memStoreInfo);
-          console.log(`[DB Hydrate] StoreInfo carregada AUTORITATIVAMENTE (com fallback inteligente): "${memStoreInfo.name}"`);
+          console.log(`[DB Hydrate] StoreInfo carregada e mesclada: "${memStoreInfo.name}"`);
         } else {
-          // Se a tabela store_info estiver vazia, injeta imediatamente os dados do backup automático ou disco!
           const merged: any = { 
             ...DEFAULT_STORE_INFO, 
             ...(backupStoreInfo || {}),
             ...diskVal,
+            ...memStoreInfo,
             id: 'default' 
           };
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
           persistStoreInfoToDisk(memStoreInfo);
           await withDbRetry(() => db.insert(storeInfo).values(memStoreInfo).onConflictDoNothing());
-          console.log('[DB Hydrate] Restaurada linha default em store_info no PostgreSQL a partir do backup.');
+          console.log('[DB Hydrate] Restaurada linha default em store_info no PostgreSQL.');
         }
       } catch (storeErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar store_info do PostgreSQL:', storeErr?.message || storeErr);
       }
 
-      // 2. Hidratar Categorias
+      // 2. Hidratar Categorias (Smart Merge entre PostgreSQL, Cloud Firestore e Memória/Seed)
       try {
         const catList = await withDbRetry(() => db.select().from(categories));
         if (catList && catList.length > 0) {
-          memCategories = catList.sort((a, b) => (a.order || 0) - (b.order || 0));
+          memCategories = smartMergeCollectionItems('categories', [seedCategories, catList, memCategories], memDeletedIds);
           persistCategoriesToDisk(memCategories);
-          console.log(`[DB Hydrate] ${memCategories.length} categorias carregadas do PostgreSQL.`);
+          await saveCategoriesToPostgresBatch(memCategories);
+          console.log(`[DB Hydrate] ${memCategories.length} categorias mescladas (PostgreSQL + Cloud Firestore + Seed).`);
         } else if (memCategories.length > 0) {
           const saved = await saveCategoriesToPostgresBatch(memCategories);
-          console.log(`[DB Hydrate] Banco sem categorias; ${saved} categorias restauradas do backup local para o PostgreSQL.`);
+          persistCategoriesToDisk(memCategories);
+          console.log(`[DB Hydrate] Banco sem categorias; ${saved} categorias sincronizadas para o PostgreSQL.`);
         }
       } catch (catErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar categories do PostgreSQL:', catErr?.message || catErr);
       }
 
-      // 3. Hidratar Produtos
+      // 3. Hidratar Produtos (Smart Merge entre PostgreSQL, Cloud Firestore e Memória/Seed)
       try {
         let prodList;
         try {
@@ -1252,225 +1392,213 @@ export async function hydrateFromPostgres(): Promise<void> {
           }
         }
         if (prodList && prodList.length > 0) {
-          memProducts = prodList;
+          memProducts = smartMergeCollectionItems('products', [seedProducts, prodList, memProducts], memDeletedIds);
           persistProductsToDisk(memProducts);
-          console.log(`[DB Hydrate] ${memProducts.length} produtos carregados do PostgreSQL.`);
+          await saveProductsToPostgresBatch(memProducts);
+          console.log(`[DB Hydrate] ${memProducts.length} produtos mesclados (PostgreSQL + Cloud Firestore + Seed).`);
         } else if (memProducts.length > 0) {
           const saved = await saveProductsToPostgresBatch(memProducts);
-          console.log(`[DB Hydrate] Banco sem produtos; ${saved} produtos restauradas do backup local para o PostgreSQL.`);
+          persistProductsToDisk(memProducts);
+          console.log(`[DB Hydrate] Banco sem produtos; ${saved} produtos sincronizados para o PostgreSQL.`);
         }
       } catch (prodErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar products do PostgreSQL:', prodErr?.message || prodErr);
       }
 
-    // 3.0. Hidratar Totem Backups
-    try {
-      const tbList = await withDbRetry(() => db.select().from(totemBackups).orderBy(desc(totemBackups.createdAt)));
-      memTotemBackups = tbList || [];
-      persistTotemBackupsToDisk(memTotemBackups);
-      console.log(`[DB Hydrate] ${memTotemBackups.length} backups do totem carregados do PostgreSQL.`);
-    } catch (tbErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar totem_backups do PostgreSQL:', tbErr?.message || tbErr);
-    }
-
-    // 3.1. Hidratar Clientes
-    try {
-      let custList;
+      // 3.0. Hidratar Totem Backups
       try {
-        custList = await withDbRetry(() => db.select().from(customers));
-      } catch (err: any) {
-        if (err?.message && (err.message.includes('column') || err.message.includes('does not exist'))) {
-          await ensureTablesExist();
+        const tbList = await withDbRetry(() => db.select().from(totemBackups).orderBy(desc(totemBackups.createdAt)));
+        memTotemBackups = smartMergeCollectionItems('totemBackups', [tbList || [], memTotemBackups], memDeletedIds);
+        persistTotemBackupsToDisk(memTotemBackups);
+        console.log(`[DB Hydrate] ${memTotemBackups.length} backups do totem carregados.`);
+      } catch (tbErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar totem_backups do PostgreSQL:', tbErr?.message || tbErr);
+      }
+
+      // 3.1. Hidratar Clientes (Smart Merge entre PostgreSQL, Cloud Firestore e Memória/Seed)
+      try {
+        let custList;
+        try {
           custList = await withDbRetry(() => db.select().from(customers));
-        } else {
-          throw err;
-        }
-      }
-      if (custList && custList.length > 0) {
-        memCustomers = custList;
-        persistCustomersToDisk(memCustomers);
-        console.log(`[DB Hydrate] ${memCustomers.length} clientes carregados do PostgreSQL.`);
-      } else if (memCustomers.length > 0) {
-        const saved = await saveCustomersToPostgresBatch(memCustomers);
-        console.log(`[DB Hydrate] Banco sem clientes; ${saved} clientes restaurados do backup local para o PostgreSQL.`);
-      }
-    } catch (custErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar customers do PostgreSQL:', custErr?.message || custErr);
-    }
-
-      // 3.2. Hidratar Pedidos
-      try {
-        console.log('[DB Hydrate] Consultando pedidos do PostgreSQL para restauração autoritativa...');
-        const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
-        
-        if (ordList && ordList.length > 0) {
-          // Quando o PostgreSQL possui pedidos, ele é a FONTE AUTORITATIVA DEFINITIVA!
-          const parsedDbOrders = ordList.map(o => ({
-            ...o,
-            items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
-          }));
-          memOrders = parsedDbOrders.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-          persistOrdersToDisk(memOrders);
-          console.log(`[DB Hydrate] SUCESSO: ${memOrders.length} pedidos reais carregados diretamente do PostgreSQL.`);
-        } else {
-          // Se o banco PostgreSQL está vazio, mas temos pedidos salvos no disco local ou backups automáticos, restaura-os para o PostgreSQL!
-          const diskOrders = loadJsonFile(ORDERS_FILE, []);
-          const backupOrders = loadJsonFile(ORDERS_BACKUP_FILE, []);
-          const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
-          let backupOrdersList = [];
-          if (fs.existsSync(autoBackupPath)) {
-            try {
-              const autoJson = JSON.parse(fs.readFileSync(autoBackupPath, 'utf8'));
-              if (Array.isArray(autoJson?.orders)) backupOrdersList = autoJson.orders;
-            } catch {}
-          }
-
-          const combinedMap = new Map<string, any>();
-          [...backupOrdersList, ...diskOrders, ...memOrders].forEach((o: any) => {
-            if (o && o.id) combinedMap.set(String(o.id), o);
-          });
-          const restoredOrders = Array.from(combinedMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-
-          if (restoredOrders.length > 0) {
-            memOrders = restoredOrders;
-            persistOrdersToDisk(memOrders);
-            console.log(`[DB Hydrate] PostgreSQL sem pedidos; restaurando ${memOrders.length} pedidos do backup local/disco para o PostgreSQL...`);
-            for (const ord of memOrders) {
-              try {
-                const orderForDb = formatOrderForDb(ord);
-                await withDbRetry(() => db.insert(orders).values(orderForDb).onConflictDoUpdate({
-                  target: orders.id,
-                  set: orderForDb
-                }));
-              } catch (insErr: any) {
-                console.warn('[DB Hydrate] Erro ao sincronizar pedido restaurado para o DB:', insErr?.message);
-              }
-            }
+        } catch (err: any) {
+          if (err?.message && (err.message.includes('column') || err.message.includes('does not exist'))) {
+            await ensureTablesExist();
+            custList = await withDbRetry(() => db.select().from(customers));
           } else {
-            memOrders = [];
-            persistOrdersToDisk([]);
-            console.log('[DB Hydrate] Nenhum pedido cadastrado no PostgreSQL ou disco. Memória zerada.');
+            throw err;
           }
         }
-      } catch (ordHydrateErr: any) {
-        console.error('[DB Hydrate] ERRO CRÍTICO ao carregar pedidos do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
+        if (custList && custList.length > 0) {
+          memCustomers = smartMergeCollectionItems('customers', [seedCustomers, custList, memCustomers], memDeletedIds);
+          persistCustomersToDisk(memCustomers);
+          await saveCustomersToPostgresBatch(memCustomers);
+          console.log(`[DB Hydrate] ${memCustomers.length} clientes mesclados (PostgreSQL + Cloud Firestore + Seed).`);
+        } else if (memCustomers.length > 0) {
+          const saved = await saveCustomersToPostgresBatch(memCustomers);
+          persistCustomersToDisk(memCustomers);
+          console.log(`[DB Hydrate] Banco sem clientes; ${saved} clientes restaurados para o PostgreSQL.`);
+        }
+      } catch (custErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar customers do PostgreSQL:', custErr?.message || custErr);
       }
 
-    // 4. Hidratar Mesas
-    try {
-      const tableList = await db.select().from(restaurantTables);
-      if (tableList && tableList.length > 0) {
-        memTables = tableList;
-        persistTablesToDisk(memTables);
-        console.log(`[DB Hydrate] ${memTables.length} mesas carregadas do PostgreSQL.`);
-      }
-    } catch (tblErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar restaurant_tables do PostgreSQL:', tblErr?.message || tblErr);
-    }
+      // 3.2. Hidratar Pedidos (Smart Merge entre PostgreSQL, Cloud Firestore e Memória/Disco)
+      try {
+        console.log('[DB Hydrate] Consultando pedidos do PostgreSQL e Cloud Firestore...');
+        const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
+        const parsedDbOrders = (ordList || []).map(o => ({
+          ...o,
+          items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+        }));
 
-    // 4.1. Hidratar Motoboys
-    try {
-      const drvList = await db.select().from(drivers);
-      if (drvList && drvList.length > 0) {
-        memDrivers = drvList;
-        persistDriversToDisk(memDrivers);
-        console.log(`[DB Hydrate] ${memDrivers.length} motoboys carregados do PostgreSQL.`);
-      }
-    } catch (drvErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar drivers do PostgreSQL:', drvErr?.message || drvErr);
-    }
-
-    // 4.2. Hidratar Zonas de Entrega
-    try {
-      const zoneList = await db.select().from(deliveryZones);
-      if (zoneList && zoneList.length > 0) {
-        memDeliveryZones = zoneList;
-        persistDeliveryZonesToDisk(memDeliveryZones);
-        console.log(`[DB Hydrate] ${memDeliveryZones.length} zonas de entrega carregadas do PostgreSQL.`);
-      }
-    } catch (zoneErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar delivery_zones do PostgreSQL:', zoneErr?.message || zoneErr);
-    }
-
-    // 5. Hidratar TV Media
-    try {
-      const tvList = await db.select().from(tvMedia);
-      if (tvList && tvList.length > 0) {
-        memTvMedia = tvList.sort((a, b) => (a.order || 0) - (b.order || 0));
-        persistTvMediaToDisk(memTvMedia);
-        console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
-      } else if (memTvMedia.length > 0) {
-        for (const item of memTvMedia) {
+        const diskOrders = loadJsonFile(ORDERS_FILE, []);
+        const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
+        let backupOrdersList: any[] = [];
+        if (fs.existsSync(autoBackupPath)) {
           try {
-            await db.insert(tvMedia).values(item).onConflictDoNothing();
+            const autoJson = JSON.parse(fs.readFileSync(autoBackupPath, 'utf8'));
+            if (Array.isArray(autoJson?.orders)) backupOrdersList = autoJson.orders;
           } catch {}
         }
-      }
-    } catch (tvErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar tv_media do PostgreSQL:', tvErr?.message || tvErr);
-    }
 
-    // 5.1. Hidratar Usuários e garantir usuário Master admin@balbec.com.br (senha admin123)
-    try {
-      let userList = await db.select().from(users);
-      if (userList.length === 0) {
-        for (const u of DEFAULT_USERS) {
-          await db.insert(users).values(u).onConflictDoNothing();
-        }
-        userList = await db.select().from(users);
-      }
-      const existingMasterAdmin = userList.find((u: any) => (u.email || '').trim().toLowerCase() === 'admin@balbec.com.br');
-      if (!existingMasterAdmin) {
-        await db.insert(users).values({
-          uid: 'master-4',
-          email: 'admin@balbec.com.br',
-          name: 'Admin Master',
-          role: 'master',
-          password: 'admin123'
-        }).onConflictDoNothing();
-        userList = await db.select().from(users);
-      } else if (existingMasterAdmin.role !== 'master' || existingMasterAdmin.password !== 'admin123') {
-        await db.update(users)
-          .set({ role: 'master', password: 'admin123', name: 'Admin Master' })
-          .where(eq(users.email, 'admin@balbec.com.br'));
-        userList = await db.select().from(users);
-      }
-      memUsers = userList;
-      persistUsersToDisk(memUsers);
-      console.log(`[DB Hydrate] ${memUsers.length} usuários carregados do PostgreSQL (admin@balbec.com.br configurado como Master).`);
-    } catch (usrErr: any) {
-      console.warn('[DB Hydrate] Aviso ao carregar users do PostgreSQL:', usrErr?.message || usrErr);
-    }
+        memOrders = smartMergeCollectionItems(
+          'orders',
+          [backupOrdersList, diskOrders, parsedDbOrders, memOrders],
+          memDeletedIds
+        );
 
-    // 6. Garantir status padrão 'approved' apenas para clientes sem status ou vindos do ERP (preservando 'pending' para novos cadastros aguardando aprovação)
-    try {
-      let migrationCount = 0;
-      memCustomers = memCustomers.map(c => {
-        const cleanCpf = String(c.cpf || '').replace(/\D/g, '');
-        const defaultPass = cleanCpf.length >= 5 ? cleanCpf.slice(0, 5) : (c.password || '12345');
-        const updatedPass = (!c.password || c.password === '123456') ? defaultPass : c.password;
-        if (!c.status || (c.status === 'pending' && c.source === 'bluefocus_erp')) {
-          migrationCount++;
-          return { ...c, status: 'approved', password: updatedPass };
+        persistOrdersToDisk(memOrders);
+        if (memOrders.length > parsedDbOrders.length) {
+          for (const ord of memOrders) {
+            try {
+              const orderForDb = formatOrderForDb(ord);
+              await withDbRetry(() => db.insert(orders).values(orderForDb).onConflictDoUpdate({
+                target: orders.id,
+                set: orderForDb
+              }));
+            } catch {}
+          }
         }
-        if (updatedPass !== c.password) {
-          migrationCount++;
-          return { ...c, password: updatedPass };
-        }
-        return c;
-      });
-      if (migrationCount > 0) {
-        persistCustomersToDisk(memCustomers);
+        console.log(`[DB Hydrate] SUCESSO: ${memOrders.length} pedidos sincronizados (PostgreSQL + Cloud Firestore).`);
+      } catch (ordHydrateErr: any) {
+        console.error('[DB Hydrate] ERRO ao carregar pedidos do PostgreSQL:', ordHydrateErr?.message || ordHydrateErr);
       }
-    } catch (migErr: any) {
-      console.warn('[Migration] Aviso ao normalizar clientes:', migErr.message);
-    }
+
+      // 4. Hidratar Mesas
+      try {
+        const tableList = await db.select().from(restaurantTables);
+        if (tableList && tableList.length > 0) {
+          memTables = smartMergeCollectionItems('tables', [tableList, memTables], memDeletedIds);
+          persistTablesToDisk(memTables);
+          console.log(`[DB Hydrate] ${memTables.length} mesas carregadas do PostgreSQL.`);
+        }
+      } catch (tblErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar restaurant_tables do PostgreSQL:', tblErr?.message || tblErr);
+      }
+
+      // 4.1. Hidratar Motoboys
+      try {
+        const drvList = await db.select().from(drivers);
+        if (drvList && drvList.length > 0) {
+          memDrivers = drvList;
+          persistDriversToDisk(memDrivers);
+          console.log(`[DB Hydrate] ${memDrivers.length} motoboys carregados do PostgreSQL.`);
+        }
+      } catch (drvErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar drivers do PostgreSQL:', drvErr?.message || drvErr);
+      }
+
+      // 4.2. Hidratar Zonas de Entrega
+      try {
+        const zoneList = await db.select().from(deliveryZones);
+        if (zoneList && zoneList.length > 0) {
+          memDeliveryZones = zoneList;
+          persistDeliveryZonesToDisk(memDeliveryZones);
+          console.log(`[DB Hydrate] ${memDeliveryZones.length} zonas de entrega carregadas do PostgreSQL.`);
+        }
+      } catch (zoneErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar delivery_zones do PostgreSQL:', zoneErr?.message || zoneErr);
+      }
+
+      // 5. Hidratar TV Media
+      try {
+        const tvList = await db.select().from(tvMedia);
+        if (tvList && tvList.length > 0) {
+          memTvMedia = smartMergeCollectionItems('tvMedia', [tvList, memTvMedia], memDeletedIds);
+          persistTvMediaToDisk(memTvMedia);
+          console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
+        } else if (memTvMedia.length > 0) {
+          for (const item of memTvMedia) {
+            try {
+              await db.insert(tvMedia).values(item).onConflictDoNothing();
+            } catch {}
+          }
+        }
+      } catch (tvErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar tv_media do PostgreSQL:', tvErr?.message || tvErr);
+      }
+
+      // 5.1. Hidratar Usuários e garantir usuário Master admin@balbec.com.br (senha admin123)
+      try {
+        let userList = await db.select().from(users);
+        if (userList.length === 0) {
+          for (const u of DEFAULT_USERS) {
+            await db.insert(users).values(u).onConflictDoNothing();
+          }
+          userList = await db.select().from(users);
+        }
+        const existingMasterAdmin = userList.find((u: any) => (u.email || '').trim().toLowerCase() === 'admin@balbec.com.br');
+        if (!existingMasterAdmin) {
+          await db.insert(users).values({
+            uid: 'master-4',
+            email: 'admin@balbec.com.br',
+            name: 'Admin Master',
+            role: 'master',
+            password: 'admin123'
+          }).onConflictDoNothing();
+          userList = await db.select().from(users);
+        } else if (existingMasterAdmin.role !== 'master' || existingMasterAdmin.password !== 'admin123') {
+          await db.update(users)
+            .set({ role: 'master', password: 'admin123', name: 'Admin Master' })
+            .where(eq(users.email, 'admin@balbec.com.br'));
+          userList = await db.select().from(users);
+        }
+        memUsers = userList;
+        persistUsersToDisk(memUsers);
+        console.log(`[DB Hydrate] ${memUsers.length} usuários carregados do PostgreSQL (admin@balbec.com.br configurado como Master).`);
+      } catch (usrErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar users do PostgreSQL:', usrErr?.message || usrErr);
+      }
+
+      // 6. Garantir status padrão 'approved' apenas para clientes sem status ou vindos do ERP
+      try {
+        let migrationCount = 0;
+        memCustomers = memCustomers.map(c => {
+          const cleanCpf = String(c.cpf || '').replace(/\D/g, '');
+          const defaultPass = cleanCpf.length >= 5 ? cleanCpf.slice(0, 5) : (c.password || '12345');
+          const updatedPass = (!c.password || c.password === '123456') ? defaultPass : c.password;
+          if (!c.status || (c.status === 'pending' && c.source === 'bluefocus_erp')) {
+            migrationCount++;
+            return { ...c, status: 'approved', password: updatedPass };
+          }
+          if (updatedPass !== c.password) {
+            migrationCount++;
+            return { ...c, password: updatedPass };
+          }
+          return c;
+        });
+        if (migrationCount > 0) {
+          persistCustomersToDisk(memCustomers);
+        }
+      } catch (migErr: any) {
+        console.warn('[Migration] Aviso ao normalizar clientes:', migErr.message);
+      }
 
       // Persiste o snapshot mestre atualizado em disco
       persistAllStateToMasterFile();
-      console.log('[DB Hydrate] Hidratação do PostgreSQL concluída com sucesso!');
+      console.log('[DB Hydrate] Hidratação completa (Cloud Firestore + PostgreSQL + Seed) concluída com sucesso!');
     } catch (globalHydrateErr: any) {
-      console.error('[DB Hydrate] Erro durante hidratação inicial do PostgreSQL:', globalHydrateErr);
+      console.error('[DB Hydrate] Erro durante hidratação inicial:', globalHydrateErr);
     } finally {
       isHydrated = true;
     }
@@ -1820,7 +1948,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.post('/api/db/categories', async (req: Request, res: Response) => {
     const data = req.body;
-    const newCat = formatCategoryForDb({ ...data, id: data.id || `cat_${Date.now()}` });
+    const newCat = { ...formatCategoryForDb({ ...data, id: data.id || `cat_${Date.now()}` }), updatedAt: Date.now() };
+    unmarkDeletedItem('categories', newCat.id);
     memCategories = [...memCategories.filter(c => c.id !== newCat.id), newCat];
     persistCategoriesToDisk(memCategories);
 
@@ -1838,10 +1967,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.put('/api/db/categories/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const data = req.body;
-    let updatedCat: any = { id, ...data };
+    unmarkDeletedItem('categories', id);
+    let updatedCat: any = { id, ...data, updatedAt: Date.now() };
     memCategories = memCategories.map(c => {
       if (c.id === id) {
-        updatedCat = formatCategoryForDb({ ...c, ...data, id });
+        updatedCat = { ...formatCategoryForDb({ ...c, ...data, id }), updatedAt: Date.now() };
         return updatedCat;
       }
       return c;
@@ -1861,6 +1991,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/categories/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    recordDeletedItem('categories', id);
     memCategories = memCategories.filter(c => c.id !== id);
     persistCategoriesToDisk(memCategories);
 
@@ -1992,6 +2123,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/totem-backups/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    recordDeletedItem('totemBackups', id);
     memTotemBackups = memTotemBackups.filter(b => b.id !== id);
     persistTotemBackupsToDisk(memTotemBackups);
 
@@ -2045,7 +2177,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.post('/api/db/products', async (req: Request, res: Response) => {
     const data = req.body;
-    const newProd = formatProductForDb({ ...data, id: data.id || `prod_${Date.now()}` });
+    const newProd = { ...formatProductForDb({ ...data, id: data.id || `prod_${Date.now()}` }), updatedAt: Date.now() };
+    unmarkDeletedItem('products', newProd.id);
     memProducts = [...memProducts.filter(p => p.id !== newProd.id), newProd];
     persistProductsToDisk(memProducts);
 
@@ -2067,10 +2200,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         return res.json({ success: true, count: 0 });
       }
 
+      const now = Date.now();
       const itemMap = new Map(memProducts.map(p => [p.id, p]));
       const mergedItems: any[] = [];
       for (const item of items) {
-        const merged = formatProductForDb({ ...(itemMap.get(item.id) || {}), ...item });
+        const merged = { ...formatProductForDb({ ...(itemMap.get(item.id) || {}), ...item }), updatedAt: now };
+        unmarkDeletedItem('products', merged.id);
         itemMap.set(merged.id, merged);
         mergedItems.push(merged);
       }
@@ -2092,10 +2227,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.put('/api/db/products/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const data = req.body;
-    let updatedProd: any = { id, ...data };
+    unmarkDeletedItem('products', id);
+    let updatedProd: any = { id, ...data, updatedAt: Date.now() };
     memProducts = memProducts.map(p => {
       if (p.id === id) {
-        updatedProd = formatProductForDb({ ...p, ...data, id });
+        updatedProd = { ...formatProductForDb({ ...p, ...data, id }), updatedAt: Date.now() };
         return updatedProd;
       }
       return p;
@@ -2143,6 +2279,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/products/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    recordDeletedItem('products', id);
     memProducts = memProducts.filter(p => p.id !== id);
     persistProductsToDisk(memProducts);
 
@@ -2167,7 +2304,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         ...o,
         items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
       }));
-      memOrders = parsedOrders;
+      memOrders = smartMergeCollectionItems('orders', [memOrders, parsedOrders], memDeletedIds);
       persistOrdersToDisk(memOrders);
 
       return res.json(memOrders);
@@ -2705,6 +2842,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   });
 
   app.delete('/api/db/orders', async (req: Request, res: Response) => {
+    recordAllOrdersCleared();
     memOrders = [];
     persistOrdersToDisk(memOrders);
     broadcastSSE({ type: 'sync', target: 'orders', action: 'clear_all', time: Date.now() });
@@ -2726,6 +2864,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const { id } = req.params;
       const targetId = String(id).trim();
       console.log(`[API] DELETE order requested: "${targetId}"`);
+      recordDeletedItem('orders', targetId);
       
       const beforeCount = memOrders.length;
       memOrders = memOrders.filter(o => String(o.id).trim() !== targetId);
@@ -3277,6 +3416,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/tv-media/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    recordDeletedItem('tvMedia', id);
     memTvMedia = memTvMedia.filter(m => String(m.id) !== String(id));
     persistTvMediaToDisk(memTvMedia);
 
@@ -3527,6 +3667,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/customers/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    recordDeletedItem('customers', id);
     memCustomers = memCustomers.filter(c => c.id !== id);
     persistCustomersToDisk(memCustomers);
 
@@ -4156,6 +4297,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/tables/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    recordDeletedItem('tables', id);
     memTables = memTables.filter(t => t.id !== id);
     persistTablesToDisk(memTables);
 
