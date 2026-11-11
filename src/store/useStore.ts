@@ -121,6 +121,7 @@ export interface Category {
   availableForDelivery?: boolean;
   availableInStore?: boolean;
   availableForKiosk?: boolean;
+  modality?: 'pronto' | 'congelado' | string;
 }
 
 export interface User {
@@ -135,6 +136,7 @@ export interface User {
 export interface Product {
   id: string;
   categoryId: string;
+  frozenCategoryId?: string | null;
   name: string;
   description: string;
   price: number;

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentação Técnica & Manual do Sistema - BALBEC REVENDA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f5f5f4;
+      color: #1c1917;
+      line-height: 1.6;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e7e5e4;
+    }
+
+    .btn-print {
+      background: #ea580c;
+      color: #ffffff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn-print:hover {
+      background: #c2410c;
+    }
+
+    .hero-section {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 2px solid #f5f5f4;
+    }
+
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: 16px;
+      border: 1px solid #e7e5e4;
+      padding: 4px;
+      background: #ffffff;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #fff7ed;
+      color: #ea580c;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #ffedd5;
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 900;
+      color: #1c1917;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #78716c;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .meta-box {
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      font-size: 12px;
+    }
+
+    .meta-box strong {
+      color: #1c1917;
+    }
+
+    .section {
+      margin-bottom: 36px;
+      page-break-inside: avoid;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f5f5f4;
+    }
+
+    .num-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: #fff7ed;
+      color: #ea580c;
+      font-weight: 900;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 900;
+      color: #1c1917;
+    }
+
+    p {
+      font-size: 13.5px;
+      color: #44403c;
+      margin-bottom: 12px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+    }
+
+    .card-prontos {
+      border-color: #fde68a;
+      background: #fffbeb;
+    }
+
+    .card-congelados {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+    }
+
+    .card h3 {
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    ul, ol {
+      padding-left: 20px;
+      font-size: 13px;
+      color: #44403c;
+      margin-bottom: 12px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    .highlight-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 13px;
+      color: #166534;
+      margin-top: 12px;
+    }
+
+    .footer {
+      text-align: center;
+      padding-top: 24px;
+      border-top: 1px solid #e7e5e4;
+      font-size: 12px;
+      color: #a8a29e;
+      margin-top: 40px;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .header-bar {
+        display: none;
+      }
+      .section {
+        page-break-inside: avoid;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 15mm;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-bar">
+      <span style="font-size: 12px; font-weight: 700; color: #78716c;">Manual & Roteiro do Sistema</span>
+      <button class="btn-print" onclick="window.print()">
+        🖨️ Imprimir / Salvar como PDF
+      </button>
+    </div>
+
+    <div class="hero-section">
+      <img src="/balbec-logo.png" alt="BALBEC Logo" class="logo-img" onerror="this.style.display='none'">
+      <div>
+        <span class="badge">Documentação Oficial do Sistema</span>
+        <h1>Sistema BALBEC - REVENDA</h1>
+        <p class="subtitle">Manual Completo de Funcionalidades, Regras de Negócio e Roteiro de Operação</p>
+      </div>
+    </div>
+
+    <div class="meta-box">
+      <div><strong>Versão:</strong> 2.8.0 Production</div>
+      <div><strong>Data:</strong> Novembro / 2026</div>
+      <div><strong>Plataforma:</strong> Web PWA / Totem / KDS</div>
+      <div><strong>Empresa:</strong> BALBEC - REVENDA</div>
+    </div>
+
+    <!-- Módulo 1 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">1</div>
+        <h2>Visão Geral da Plataforma</h2>
+      </div>
+      <p>
+        O <strong>Sistema BALBEC</strong> é uma plataforma integrada desenvolvida especificamente para a operação ágil de revenda e consumo de salgados especiais, englobando três canais principais:
+      </p>
+      <ul>
+        <li><strong>Cardápio Digital PWA:</strong> Acessível no celular do cliente por link ou QR Code, rápido e responsivo.</li>
+        <li><strong>Totem de Autoatendimento (/totem):</strong> Interface em tela cheia voltada para atendimento presencial rápido na loja.</li>
+        <li><strong>Painel de Gestão e Cozinha (/admin):</strong> KDS de pedidos em tempo real com controle de status, impressão térmica e alarmes sonoros.</li>
+      </ul>
+    </div>
+
+    <!-- Módulo 2 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">2</div>
+        <h2>Regras de Negócio: Congelados vs. Salgados Prontos</h2>
+      </div>
+      <p>
+        Para garantir a pontualidade operacional da fábrica e do balcão, o sistema impõe separação mandatória entre as modalidades:
+      </p>
+
+      <div class="grid-2">
+        <div class="card card-prontos">
+          <h3>🔥 Salgados Prontos (Normais)</h3>
+          <ul>
+            <li>Preparo rápido para consumo imediato.</li>
+            <li>Opções: Frito/Assado e Cru/Pré-Assado.</li>
+            <li>Não podem ser misturados com congelados no mesmo pedido.</li>
+          </ul>
+        </div>
+        <div class="card card-congelados">
+          <h3>❄️ Salgados Congelados</h3>
+          <ul>
+            <li><strong>Prazo de até 48 horas</strong> a partir do envio.</li>
+            <li>Opções: Congelado Cru e Congelado Frito/Assado.</li>
+            <li>Acréscimo automático do valor do congelamento (+R$ 0,30/un).</li>
+            <li><em>Aviso de antecipação comunicado pelo aplicativo.</em></li>
+          </ul>
+        </div>
+      </div>
+      <p>
+        <strong>Tratamento de Conflito:</strong> Ao tentar selecionar itens de modalidades distintas, a opção contrária é bloqueada com aviso em vermelho e o cliente tem a opção de finalizar o pedido atual ou limpar o carrinho para começar um novo.
+      </p>
+    </div>
+
+    <!-- Módulo 3 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">3</div>
+        <h2>Opção de Acréscimo em Pedidos Existentes</h2>
+      </div>
+      <p>
+        O cliente pode acrescentar produtos a um pedido já enviado caso tenha esquecido algum item, sob as seguintes regras:
+      </p>
+      <ol>
+        <li>O pedido original deve estar com status <strong>"Pendente"</strong> (não mudou para preparando).</li>
+        <li>A condição de pagamento selecionada deve ser <strong>Pagamento na Retirada</strong>.</li>
+        <li>O acréscimo é <strong>restrito à mesma modalidade</strong> (pedido congelado aceita apenas congelados; pronto apenas prontos).</li>
+      </ol>
+      <p>
+        O sistema consolida automaticamente os itens, recalcula o valor total e atualiza o KDS da cozinha.
+      </p>
+    </div>
+
+    <!-- Módulo 4 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">4</div>
+        <h2>Notificações Inteligentes & Lembretes Periódicos</h2>
+      </div>
+      <ul>
+        <li><strong>Lembretes 3x ao Dia para Congelados:</strong> Envio automático nos horários programados reforçando o prazo de 48h e avisando sobre antecipação.</li>
+        <li><strong>Logomarca Oficial BALBEC:</strong> Ícones com a identidade visual completa e mensagens sem cortes em qualquer tela ou Chrome/Windows.</li>
+        <li><strong>Alarme Sonoro no Admin:</strong> Aviso sonoro instantâneo ao receber qualquer novo pedido no balcão.</li>
+      </ul>
+    </div>
+
+    <!-- Módulo 5 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">5</div>
+        <h2>Modo Totem / Autoatendimento (/totem)</h2>
+      </div>
+      <p>
+        Interface touch-screen projetada para terminais verticais ou tablets:
+      </p>
+      <ul>
+        <li>Tipografia e botões com aumento de 30% na escala para facilitar toques.</li>
+        <li>Trava administrativa de categorias para exibição controlada de itens.</li>
+        <li>Reinicialização automática de sessão após tempo de inatividade.</li>
+      </ul>
+    </div>
+
+    <!-- Módulo 6 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">6</div>
+        <h2>Painel Smart TV & Chamada de Senhas (/tv)</h2>
+      </div>
+      <p>
+        Exibição de mídia e senhas pronta para Smart TVs na loja:
+      </p>
+      <ul>
+        <li>Chamada audiovisual: o botão <em>"Chamar TV"</em> aciona som de campainha e destaca a senha na tela.</li>
+        <li>Carrossel de fotos dos salgados e letreiro de recados e promoções.</li>
+      </ul>
+    </div>
+
+    <!-- Módulo 7 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">7</div>
+        <h2>Painel Administrativo, KDS e Operação (/admin)</h2>
+      </div>
+      <ul>
+        <li><strong>KDS de Cozinha:</strong> Fila de produção com mudança de status (Pendente → Preparando → Pronto → Finalizado).</li>
+        <li><strong>Impressão Térmica:</strong> Emissão de comprovantes para impressoras térmicas de 80mm/58mm.</li>
+        <li><strong>Gestão de Cardápio:</strong> Cadastro de produtos, categorias, sabores e regras de adicionais na chapa.</li>
+        <li><strong>Sincronização BlueFocus ERP:</strong> Integração com ERP externo e opção de desfazer sincronização.</li>
+      </ul>
+    </div>
+
+    <!-- Módulo 8 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="num-circle">8</div>
+        <h2>Sistema de Backups e Restauração</h2>
+      </div>
+      <ul>
+        <li><strong>Backups Horários Automáticos:</strong> Salvos a cada hora no disco do servidor, permitindo restauração com 1 clique.</li>
+        <li><strong>Exportação/Importação em JSON:</strong> Download de cópias completas das configurações e catálogo.</li>
+        <li><strong>Rollback no Railway:</strong> Histórico de versões de código com reversão imediata.</li>
+      </ul>
+    </div>
+
+    <div class="highlight-box">
+      <strong>Instrução para gerar o arquivo PDF:</strong><br>
+      Abra esta página no Google Chrome, Microsoft Edge ou Safari, clique no botão <em>"Imprimir / Salvar como PDF"</em> no topo da página e selecione como destino <strong>"Salvar como PDF"</strong>. O documento será gerado com cabeçalho limpo, layout A4 e ótima qualidade visual.
+    </div>
+
+    <div class="footer">
+      BALBEC - REVENDA • Salgados Especiais e Tradicionais • Documentação Técnica de Homologação
+    </div>
+  </div>
+
+</body>
+</html>

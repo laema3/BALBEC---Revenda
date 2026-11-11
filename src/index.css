@@ -101,3 +101,33 @@ body.totem-mode,
   z-index: -1;
 }
 
+/* =========================================================================
+   Print to PDF Rules (Documentação & Relatórios)
+   ========================================================================= */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

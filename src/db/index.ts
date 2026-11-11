@@ -545,7 +545,10 @@ export async function ensureTablesExist() {
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS available_for_delivery BOOLEAN DEFAULT TRUE;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS available_in_store BOOLEAN DEFAULT TRUE;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS available_for_kiosk BOOLEAN DEFAULT TRUE;
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'pronto';
 
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS frozen_category_id TEXT;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_frozen BOOLEAN DEFAULT TRUE;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_for_delivery BOOLEAN DEFAULT TRUE;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_in_store BOOLEAN DEFAULT TRUE;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_for_kiosk BOOLEAN DEFAULT TRUE;

@@ -10,6 +10,7 @@ import { cleanProductDescription } from '../constants';
 import { printOrderToNetworkPrinter } from './printerRoutes';
 import { queueOrderForAgent } from './printerAgentRoutes';
 import { createPixPayment, checkPixStatus, confirmPixPayment, processCardPayment } from './mercadoPagoService';
+import { buildBalbecDocumentationPdf } from '../utils/generateBalbecPdf';
 
 // Initial default data for auto-seeding & in-memory fallback (clean state for new ERP integration)
 const DEFAULT_CATEGORIES: any[] = [];
@@ -865,9 +866,11 @@ export function getMemStoreInfo() {
 }
 
 export function formatProductForDb(p: any) {
+  const rawFrozenCat = p.frozenCategoryId !== undefined ? p.frozenCategoryId : p.frozen_category_id;
   return {
     id: String(p.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
     categoryId: p.categoryId ? String(p.categoryId) : (p.category_id ? String(p.category_id) : null),
+    frozenCategoryId: rawFrozenCat ? String(rawFrozenCat) : null,
     name: String(p.name || 'Produto sem nome').trim(),
     description: cleanProductDescription(p.description || '', false),
     price: typeof p.price === 'number' ? (isNaN(p.price) ? 0 : p.price) : (parseFloat(p.price) || 0),
@@ -888,15 +891,18 @@ export function formatProductForDb(p: any) {
 }
 
 export function formatCategoryForDb(c: any) {
+  const catName = String(c.name || 'Categoria sem nome').trim();
+  const autoModality = catName.toLowerCase().includes('congelad') ? 'congelado' : 'pronto';
   return {
     id: String(c.id || `cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
-    name: String(c.name || 'Categoria sem nome').trim(),
+    name: catName,
     order: typeof c.order === 'number' ? c.order : (parseInt(c.order, 10) || 0),
     externalId: c.externalId ? String(c.externalId) : (c.external_id ? String(c.external_id) : null),
     isVisible: c.isVisible !== false && c.is_visible !== false,
     availableForDelivery: c.availableForDelivery !== false && c.available_for_delivery !== false,
     availableInStore: c.availableInStore !== false && c.available_in_store !== false,
     availableForKiosk: c.availableForKiosk !== false && c.available_for_kiosk !== false,
+    modality: c.modality === 'congelado' || c.modality === 'pronto' ? c.modality : autoModality,
   };
 }
 
@@ -918,6 +924,7 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
               set: {
                 name: item.name,
                 categoryId: item.categoryId,
+                frozenCategoryId: item.frozenCategoryId,
                 description: item.description,
                 price: item.price,
                 imageUrl: item.imageUrl,
@@ -928,6 +935,7 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
                 maxAddons: item.maxAddons,
                 flavorIds: item.flavorIds,
                 externalId: item.externalId,
+                allowFrozen: item.allowFrozen,
                 availableForDelivery: item.availableForDelivery,
                 availableInStore: item.availableInStore,
                 availableForKiosk: item.availableForKiosk,
@@ -945,6 +953,8 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
             set: {
               name: item.name,
               categoryId: item.categoryId,
+              frozenCategoryId: item.frozenCategoryId,
+              allowFrozen: item.allowFrozen,
               description: item.description,
               price: item.price,
               imageUrl: item.imageUrl,
@@ -979,6 +989,7 @@ export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promis
             availableForDelivery: cat.availableForDelivery,
             availableInStore: cat.availableInStore,
             availableForKiosk: cat.availableForKiosk,
+            modality: cat.modality,
           }
         })
       );
@@ -5763,6 +5774,22 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       res.json({ success: true, reminders: memSmsReminders });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Endpoint de download nativo do Manual / Documentação em PDF
+  app.get('/api/documentation/pdf', (req: Request, res: Response) => {
+    try {
+      const doc = buildBalbecDocumentationPdf();
+      const arrayBuffer = doc.output('arraybuffer');
+      const buffer = Buffer.from(arrayBuffer);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Manual_Sistema_BALBEC.pdf"');
+      res.setHeader('Content-Length', buffer.length);
+      res.send(buffer);
+    } catch (err: any) {
+      console.error('[Documentation PDF Error]:', err);
+      res.status(500).json({ error: 'Erro ao gerar PDF da documentação: ' + (err?.message || err) });
     }
   });
 

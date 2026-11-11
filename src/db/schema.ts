@@ -22,12 +22,14 @@ export const categories = pgTable('categories', {
   availableForDelivery: boolean('available_for_delivery').default(true),
   availableInStore: boolean('available_in_store').default(true),
   availableForKiosk: boolean('available_for_kiosk').default(true),
+  modality: text('modality').default('pronto'),
 });
 
 // Products table
 export const products = pgTable('products', {
   id: text('id').primaryKey(),
   categoryId: text('category_id'),
+  frozenCategoryId: text('frozen_category_id'),
   name: text('name').notNull(),
   description: text('description').default(''),
   price: doublePrecision('price').notNull().default(0),

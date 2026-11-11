@@ -285,11 +285,21 @@ export const getEnrichedProductDescription = (name: string, externalId?: string,
   return cleanCurrent || '';
 };
 
+export const isCategoryFrozenModality = (category: any): boolean => {
+  if (!category) return false;
+  if (category.modality === 'congelado') return true;
+  if (category.modality === 'pronto') return false;
+  const norm = normalizeText(category.name || '');
+  return norm.includes('congelad');
+};
+
 export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   if (!product) return false;
+  if (product.frozenCategoryId && product.frozenCategoryId !== 'none') return true;
   if (product.allowFrozen === false) return false;
   if (product.allowFrozen === true) return true;
   const category = categories.find(c => c && c.id === product.categoryId);
+  if (category && isCategoryFrozenModality(category)) return true;
   const catName = normalizeText(category?.name || '');
   const prodName = normalizeText(product?.name || '');
   
@@ -304,9 +314,10 @@ export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   
   if (isExcluded) return false;
 
-  // Se a categoria for de salgados / revenda / festa / tipo 2, é salgado
+  // Se a categoria for de salgados / revenda / festa / tipo 2 / congelados, é salgado
   const isSalgadoCat = 
     catName.includes('salgado') || catName.includes('salgados') ||
+    catName.includes('congelad') ||
     catName.includes('revenda') || catName.includes('festa') ||
     catName.includes('tipo') || catName.includes('rev');
 
@@ -327,6 +338,7 @@ export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   
   return isSalgadoName;
 };
+
 
 
 

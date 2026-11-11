@@ -10,6 +10,7 @@ import Menu from './pages/Menu';
 const Admin = lazy(() => import('./pages/Admin'));
 const TvDisplay = lazy(() => import('./pages/TvDisplay'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const DocumentationPage = lazy(() => import('./pages/DocumentationPage'));
 const MotoboyPortal = lazy(() => import('./components/MotoboyPortal').then(m => ({ default: m.MotoboyPortal })));
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
@@ -212,6 +213,9 @@ export default function App() {
               <Route path="/privacidade" element={<PrivacyPolicy />} />
               <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
               <Route path="/cookies" element={<PrivacyPolicy />} />
+              <Route path="/documentacao" element={<DocumentationPage />} />
+              <Route path="/docs" element={<DocumentationPage />} />
+              <Route path="/manual" element={<DocumentationPage />} />
               <Route path="*" element={<Menu />} />
             </Routes>
           </Suspense>

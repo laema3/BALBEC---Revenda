@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, Category, Product, Order, User, AiTrainingExample, DEFAULT_AI_TRAINING_EXAMPLES } from '../store/useStore';
 import { printReceipt, resolveItemCode, resolveAddonCode, resolveOrderModality } from '../utils/printer';
 import { formatCurrency, formatDateBR, formatAllDatesBR } from '../lib/utils';
-import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode } from '../constants';
+import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode, isCategoryFrozenModality } from '../constants';
 import { getCollectionPath, getDocPath } from '../lib/tenants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { ProductImage } from '../components/ProductImage';
@@ -229,6 +229,7 @@ export default function Admin() {
   const [modalType, setModalType] = useState<'category' | 'product' | 'user' | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedFrozenCategoryId, setSelectedFrozenCategoryId] = useState<string>('');
   const [isFlavorInModal, setIsFlavorInModal] = useState(false);
   const [showPrintConfig, setShowPrintConfig] = useState(false);
 
@@ -428,6 +429,7 @@ export default function Admin() {
   // Batch selection state for product transfer
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [targetBatchCategoryId, setTargetBatchCategoryId] = useState<string>('');
+  const [targetBatchFrozenCategoryId, setTargetBatchFrozenCategoryId] = useState<string>('');
   const [isTransferringBatch, setIsTransferringBatch] = useState<boolean>(false);
 
   const handleBatchCategoryTransfer = async () => {
@@ -445,6 +447,32 @@ export default function Admin() {
         isOpen: true,
         title: 'Erro',
         message: 'Erro ao transferir produtos. Tente novamente.',
+        onConfirm: () => setConfirmModal(null)
+      });
+    } finally {
+      setIsTransferringBatch(false);
+    }
+  };
+
+  const handleBatchFrozenCategoryTransfer = async () => {
+    if (!targetBatchFrozenCategoryId || selectedProductIds.length === 0 || isTransferringBatch) return;
+    setIsTransferringBatch(true);
+    try {
+      const finalFrozenCatId = targetBatchFrozenCategoryId === 'none' ? '' : targetBatchFrozenCategoryId;
+      await Promise.all(
+        selectedProductIds.map(id => updateProduct(id, { 
+          frozenCategoryId: finalFrozenCatId,
+          ...(finalFrozenCatId ? { allowFrozen: true } : {})
+        }))
+      );
+      setSelectedProductIds([]);
+      setTargetBatchFrozenCategoryId('');
+    } catch (err) {
+      console.error('Error batch updating product frozen category:', err);
+      setConfirmModal({
+        isOpen: true,
+        title: 'Erro',
+        message: 'Erro ao vincular categoria de congelados. Tente novamente.',
         onConfirm: () => setConfirmModal(null)
       });
     } finally {
@@ -2404,6 +2432,7 @@ export default function Admin() {
     if (type === 'product') {
       setProductImagePreview(item?.imageUrl || '');
       setSelectedCategoryId(item?.categoryId || '');
+      setSelectedFrozenCategoryId(item?.frozenCategoryId || '');
       setIsFlavorInModal(item?.isFlavor || false);
     }
     setIsModalOpen(true);
@@ -2415,6 +2444,7 @@ export default function Admin() {
     setEditingItem(null);
     setProductImagePreview('');
     setSelectedCategoryId('');
+    setSelectedFrozenCategoryId('');
     setIsFlavorInModal(false);
   };
 
@@ -2422,9 +2452,15 @@ export default function Admin() {
     e.preventDefault();
     if (isSaving) return;
     const formData = new FormData(e.currentTarget);
+    const catName = (formData.get('name') as string || '').trim();
+    const rawModality = formData.get('modality') as string;
+    const finalModality = rawModality === 'congelado' || rawModality === 'pronto'
+      ? rawModality
+      : (catName.toLowerCase().includes('congelad') ? 'congelado' : 'pronto');
     const data = {
-      name: (formData.get('name') as string || '').trim(),
+      name: catName,
       order: Number(formData.get('order')),
+      modality: finalModality,
       availableForDelivery: formData.get('availableForDelivery') === 'on',
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
@@ -2457,8 +2493,11 @@ export default function Admin() {
     if (isSaving) return;
     const formData = new FormData(e.currentTarget);
     const externalIdInput = (formData.get('externalId') as string || '').trim();
+    const rawFrozenCat = (formData.get('frozenCategoryId') as string || '').trim();
+    const finalFrozenCat = rawFrozenCat === 'none' ? '' : rawFrozenCat;
     const data = {
-      categoryId: formData.get('categoryId') as string,
+      categoryId: (formData.get('categoryId') as string) || 'none',
+      frozenCategoryId: finalFrozenCat || null,
       name: formData.get('name') as string,
       externalId: externalIdInput || editingItem?.externalId || undefined,
       description: cleanProductDescription(formData.get('description') as string, true),
@@ -2471,7 +2510,7 @@ export default function Admin() {
       flavorIds: formData.getAll('flavorIds') as string[],
       maxAddons: Number(formData.get('maxAddons')) || 2,
       order: Number(formData.get('order') || 0),
-      allowFrozen: formData.get('allowFrozen') === 'on',
+      allowFrozen: finalFrozenCat ? true : (formData.get('allowFrozen') === 'on'),
       availableForDelivery: formData.get('availableForDelivery') === 'on',
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
@@ -5271,7 +5310,7 @@ export default function Admin() {
                         🍽️ Loja
                       </button>
 
-                      <button
+                       <button
                         type="button"
                         title={category.availableForKiosk !== false ? "Clique para desativar esta categoria no Autoatendimento" : "Clique para ativar esta categoria no Autoatendimento"}
                         onClick={async (e) => {
@@ -5289,6 +5328,25 @@ export default function Admin() {
                         }`}
                       >
                         📱 Autoatendimento
+                      </button>
+
+                      <button
+                        type="button"
+                        title="Clique para alternar a modalidade desta categoria entre Salgados Prontos (Normais) e Salgados Congelados (Até 48h)"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const currentlyFrozen = isCategoryFrozenModality(category);
+                          await updateCategory(category.id, {
+                            modality: currentlyFrozen ? 'pronto' : 'congelado'
+                          });
+                        }}
+                        className={`text-[10px] px-2.5 py-0.5 rounded-md border transition-all cursor-pointer font-extrabold flex items-center gap-1 active:scale-95 ${
+                          isCategoryFrozenModality(category)
+                            ? 'bg-cyan-100 text-cyan-900 border-cyan-300 shadow-xs hover:bg-cyan-200'
+                            : 'bg-orange-100 text-orange-900 border-orange-300 shadow-xs hover:bg-orange-200'
+                        }`}
+                      >
+                        {isCategoryFrozenModality(category) ? '❄️ Modalidade: Congelados (+R$ 0,30 • 48h)' : '🔥 Modalidade: Prontos (Normais)'}
                       </button>
                     </div>
                   </div>
@@ -5320,7 +5378,7 @@ export default function Admin() {
     const allValidProducts = products.filter(p => !shouldExcludeProduct(p, categories));
     
     const filteredProducts = allValidProducts.filter(p => {
-      if (productCategoryFilter !== 'all' && p.categoryId !== productCategoryFilter) {
+      if (productCategoryFilter !== 'all' && p.categoryId !== productCategoryFilter && p.frozenCategoryId !== productCategoryFilter) {
         return false;
       }
       if (productStatusFilter === 'active' && !p.isActive) return false;
@@ -5700,39 +5758,83 @@ export default function Admin() {
         )}
 
         {selectedProductIds.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150 shadow-sm">
-            <div className="flex items-center gap-2 text-stone-800 font-bold text-sm">
-              <CheckSquare className="w-5 h-5 text-orange-600" />
-              <span>{selectedProductIds.length} produto(s) selecionado(s)</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-stone-600">Transferir em massa para:</span>
-              <select
-                value={targetBatchCategoryId}
-                onChange={(e) => setTargetBatchCategoryId(e.target.value)}
-                className="p-2 border border-stone-300 rounded-lg text-xs font-bold text-stone-800 bg-white focus:ring-2 focus:ring-orange-500 outline-none max-w-[240px]"
-              >
-                <option value="">Selecione a categoria destino...</option>
-                {categories
-                  .filter(c => !isExcludedCategory(c.name))
-                  .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
-                  .map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
-                    </option>
-                  ))
-                }
-              </select>
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex flex-col gap-3 animate-in fade-in duration-150 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-stone-800 font-bold text-sm">
+                <CheckSquare className="w-5 h-5 text-orange-600" />
+                <span>{selectedProductIds.length} produto(s) selecionado(s)</span>
+              </div>
               <button
                 type="button"
-                disabled={!targetBatchCategoryId || isTransferringBatch}
-                onClick={handleBatchCategoryTransfer}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-lg transition-colors shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                onClick={() => setSelectedProductIds([])}
+                className="px-3 py-1.5 text-xs font-bold text-stone-500 hover:bg-stone-200/60 rounded-lg transition-colors cursor-pointer"
               >
-                {isTransferringBatch ? 'Transferindo...' : 'Aplicar Transferência'}
+                Limpar Seleção
               </button>
+            </div>
 
-              <div className="flex items-center gap-1.5 border-l border-orange-300/80 pl-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-orange-200/70">
+              {/* Vincular em massa à Categoria de Prontos */}
+              <div className="flex flex-wrap items-center gap-2 bg-white/80 p-2 rounded-lg border border-orange-200">
+                <span className="text-xs font-extrabold text-amber-900">🔥 Categoria Prontos:</span>
+                <select
+                  value={targetBatchCategoryId}
+                  onChange={(e) => setTargetBatchCategoryId(e.target.value)}
+                  className="p-1.5 border border-stone-300 rounded-lg text-xs font-bold text-stone-800 bg-white focus:ring-2 focus:ring-orange-500 outline-none max-w-[220px]"
+                >
+                  <option value="">Selecionar categoria Prontos...</option>
+                  <option value="none">🚫 Não exibir em Prontos</option>
+                  {categories
+                    .filter(c => !isExcludedCategory(c.name))
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                    .map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
+                      </option>
+                    ))
+                  }
+                </select>
+                <button
+                  type="button"
+                  disabled={!targetBatchCategoryId || isTransferringBatch}
+                  onClick={handleBatchCategoryTransfer}
+                  className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-lg transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {isTransferringBatch ? 'Salvando...' : 'Vincular Prontos'}
+                </button>
+              </div>
+
+              {/* Vincular em massa à Categoria de Congelados */}
+              <div className="flex flex-wrap items-center gap-2 bg-cyan-50/80 p-2 rounded-lg border border-cyan-200">
+                <span className="text-xs font-extrabold text-cyan-900">❄️ Categoria Congelados:</span>
+                <select
+                  value={targetBatchFrozenCategoryId}
+                  onChange={(e) => setTargetBatchFrozenCategoryId(e.target.value)}
+                  className="p-1.5 border border-cyan-300 rounded-lg text-xs font-bold text-cyan-950 bg-white focus:ring-2 focus:ring-cyan-500 outline-none max-w-[220px]"
+                >
+                  <option value="">Selecionar categoria Congelados...</option>
+                  <option value="none">🚫 Remover vínculo de Congelados</option>
+                  {categories
+                    .filter(c => !isExcludedCategory(c.name))
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                    .map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
+                      </option>
+                    ))
+                  }
+                </select>
+                <button
+                  type="button"
+                  disabled={!targetBatchFrozenCategoryId || isTransferringBatch}
+                  onClick={handleBatchFrozenCategoryTransfer}
+                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs rounded-lg transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {isTransferringBatch ? 'Salvando...' : 'Vincular Congelados'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   disabled={isTransferringBatch}
@@ -5752,14 +5854,6 @@ export default function Admin() {
                   <span>🚫 Sem Congelados</span>
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedProductIds([])}
-                className="px-3 py-2 text-xs font-bold text-stone-500 hover:bg-stone-200/60 rounded-lg transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
             </div>
           </div>
         )}
@@ -5933,29 +6027,71 @@ export default function Admin() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <select
-                          value={product.categoryId}
-                          onChange={async (e) => {
-                            const newCatId = e.target.value;
-                            if (newCatId) {
-                              try {
-                                await updateProduct(product.id, { categoryId: newCatId });
-                              } catch (err) {
-                                console.error('Error updating product category:', err);
-                              }
-                            }
-                          }}
-                          className="bg-stone-50 border border-stone-200 text-stone-700 text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer font-bold max-w-[220px]"
-                        >
-                          {categories
-                            .filter(c => !isExcludedCategory(c.name))
-                            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
-                            .map(c => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
-                              </option>
-                            ))}
-                        </select>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este produto aparece na modalidade Prontos (Normais)">
+                              🔥 Prontos
+                            </span>
+                            <select
+                              value={product.categoryId || 'none'}
+                              onChange={async (e) => {
+                                const newCatId = e.target.value;
+                                try {
+                                  await updateProduct(product.id, { categoryId: newCatId });
+                                } catch (err) {
+                                  console.error('Error updating product category:', err);
+                                }
+                              }}
+                              className="bg-stone-50 border border-stone-200 text-stone-700 text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer font-bold w-full max-w-[210px]"
+                            >
+                              <option value="none">-- Não exibir em Prontos --</option>
+                              {categories
+                                .filter(c => !isExcludedCategory(c.name))
+                                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                                .map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-extrabold text-cyan-900 bg-cyan-100 border border-cyan-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este mesmo produto aparece na modalidade Congelados (+R$ 0,30)">
+                              ❄️ Congelados
+                            </span>
+                            <select
+                              value={product.frozenCategoryId || 'none'}
+                              onChange={async (e) => {
+                                const rawVal = e.target.value;
+                                const newFrozenCatId = rawVal === 'none' ? '' : rawVal;
+                                try {
+                                  await updateProduct(product.id, { 
+                                    frozenCategoryId: newFrozenCatId,
+                                    ...(newFrozenCatId ? { allowFrozen: true } : {})
+                                  });
+                                } catch (err) {
+                                  console.error('Error updating product frozenCategoryId:', err);
+                                }
+                              }}
+                              className={`border text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer font-bold w-full max-w-[210px] ${
+                                product.frozenCategoryId && product.frozenCategoryId !== 'none'
+                                  ? 'bg-cyan-50 border-cyan-300 text-cyan-950'
+                                  : 'bg-stone-50 border-stone-200 text-stone-400'
+                              }`}
+                            >
+                              <option value="none">-- Sem Categoria Congelados --</option>
+                              {categories
+                                .filter(c => !isExcludedCategory(c.name))
+                                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                                .map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-4 font-bold text-orange-600">
                         {product.isFlavor ? '-' : (product.price === 0 ? 'Grátis' : formatCurrency(product.price))}
@@ -8857,12 +8993,20 @@ export default function Admin() {
             </button>
           )}
 
-          {/* Proposta, Orçamento TI e Termo de Entrega: APENAS USUÁRIO MASTER! Removido para Administradores e Padrão */}
-          {isMaster && (
-            <>
-
-            </>
-          )}
+          <Link
+            to="/documentacao"
+            target="_blank"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm text-stone-300 hover:text-white hover:bg-stone-800"
+            title="Abrir a documentação completa e roteiro funcional para visualização e impressão em PDF"
+          >
+            <span className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-orange-400" />
+              <span>Documentação PDF</span>
+            </span>
+            <span className="text-[10px] bg-orange-600/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded font-black uppercase">
+              Manual
+            </span>
+          </Link>
         </nav>
         <div className="p-4 border-t border-stone-800 space-y-2 shrink-0">
           <button type="button" 
@@ -9144,6 +9288,20 @@ export default function Admin() {
                   <label className="block text-sm font-medium text-stone-700 mb-1">Ordem de Exibição</label>
                   <input type="number" name="order" defaultValue={editingItem?.order || categories.length + 1} required className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
                 </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 mb-1">Modalidade dos Produtos nesta Categoria</label>
+                  <select
+                    name="modality"
+                    defaultValue={editingItem ? (isCategoryFrozenModality(editingItem) ? 'congelado' : 'pronto') : 'pronto'}
+                    className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-stone-50"
+                  >
+                    <option value="pronto">🔥 Salgados / Produtos Prontos (Normais - Consumo Imediato)</option>
+                    <option value="congelado">❄️ Salgados Congelados (+R$ 0,30 un • Prazo até 48h)</option>
+                  </select>
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Define se ao clicar em um produto dentro desta categoria o cliente verá as variações de <strong>Prontos</strong> ou de <strong>Congelados</strong>.
+                  </p>
+                </div>
                 
                 <div className="pt-2 border-t border-stone-100">
                   <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Canais de Venda Disponíveis</label>
@@ -9243,21 +9401,43 @@ export default function Admin() {
 
             {modalType === 'product' && (
               <form onSubmit={handleSaveProduct} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">Categoria</label>
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                  <label className="block text-xs font-extrabold text-amber-950 uppercase tracking-wide">
+                    🔥 Categoria para Modalidade PRONTOS (Normais)
+                  </label>
                   <select 
                     name="categoryId" 
-                    value={selectedCategoryId} 
+                    value={selectedCategoryId || 'none'} 
                     onChange={(e) => setSelectedCategoryId(e.target.value)}
-                    required 
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                    className="w-full p-2 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm"
                   >
-                    <option value="">Selecione...</option>
+                    <option value="none">-- Não exibir em categorias de Prontos --</option>
                     {categories
                       .filter(c => !isExcludedCategory(c.name))
                       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
                       .map(c => <option key={c.id} value={c.id}>{c.name} {!c.externalId ? '✏️ (Manual)' : ''}</option>)}
                   </select>
+                </div>
+
+                <div className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-xl space-y-2">
+                  <label className="block text-xs font-extrabold text-cyan-950 uppercase tracking-wide">
+                    ❄️ Categoria para Modalidade CONGELADOS (+R$ 0,30 • Até 48h)
+                  </label>
+                  <select 
+                    name="frozenCategoryId" 
+                    value={selectedFrozenCategoryId || 'none'} 
+                    onChange={(e) => setSelectedFrozenCategoryId(e.target.value === 'none' ? '' : e.target.value)}
+                    className="w-full p-2 bg-white border border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none font-bold text-sm"
+                  >
+                    <option value="none">-- Não vincular a categoria de Congelados --</option>
+                    {categories
+                      .filter(c => !isExcludedCategory(c.name))
+                      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                      .map(c => <option key={c.id} value={c.id}>{c.name} {!c.externalId ? '✏️ (Manual)' : ''}</option>)}
+                  </select>
+                  <p className="text-[11px] text-cyan-800 leading-snug">
+                    Vincule o mesmo produto a uma categoria de Prontos e a uma categoria de Congelados para que ele apareça nas duas categorias com suas respectivas variações.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1">Nome do Produto</label>
