@@ -2511,6 +2511,7 @@ export default function Admin() {
       maxAddons: Number(formData.get('maxAddons')) || 2,
       order: Number(formData.get('order') || 0),
       allowFrozen: finalFrozenCat ? true : (formData.get('allowFrozen') === 'on'),
+      minFrozenQuantity: Number(formData.get('minFrozenQuantity')) || 1,
       availableForDelivery: formData.get('availableForDelivery') === 'on',
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
@@ -9548,6 +9549,23 @@ export default function Admin() {
                 <div className="flex items-center gap-2">
                   <input type="checkbox" name="allowFrozen" id="allowFrozen" defaultChecked={editingItem ? editingItem.allowFrozen !== false : true} className="w-4 h-4 text-orange-600 focus:ring-orange-500 rounded" />
                   <label htmlFor="allowFrozen" className="text-sm font-medium text-stone-700">Permitir opção de Salgado Congelado (+R$ 0,30 / un)</label>
+                </div>
+                <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1">
+                  <label htmlFor="minFrozenQuantity" className="block text-xs font-bold uppercase tracking-wider text-blue-900">
+                    ❄️ Quantidade Mínima para Congelado (unidades)
+                  </label>
+                  <input
+                    type="number"
+                    name="minFrozenQuantity"
+                    id="minFrozenQuantity"
+                    defaultValue={editingItem?.minFrozenQuantity || 1}
+                    min="1"
+                    className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-stone-800 font-bold bg-white"
+                    placeholder="Ex: 10, 20, 50..."
+                  />
+                  <p className="text-[11px] text-blue-700">
+                    Quando o cliente escolher este salgado na modalidade congelado, essa será a quantidade mínima exigida.
+                  </p>
                 </div>
 
                 {/* Sales Channels / Exibição por Local */}

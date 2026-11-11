@@ -340,6 +340,9 @@ export function smartMergeCollectionItems(
           if (merged.frozenCategoryId === undefined && existing.frozenCategoryId) {
             merged.frozenCategoryId = existing.frozenCategoryId;
           }
+          if (merged.minFrozenQuantity === undefined && existing.minFrozenQuantity) {
+            merged.minFrozenQuantity = existing.minFrozenQuantity;
+          }
           if ((!merged.modality || merged.modality === 'pronto') && existing.modality === 'congelado' && !item.updatedAt) {
             merged.modality = existing.modality;
           }
@@ -350,6 +353,9 @@ export function smartMergeCollectionItems(
           if (!merged.imageUrl && item.imageUrl) merged.imageUrl = item.imageUrl;
           if (!merged.frozenCategoryId && item.frozenCategoryId) {
             merged.frozenCategoryId = item.frozenCategoryId;
+          }
+          if (!merged.minFrozenQuantity && item.minFrozenQuantity) {
+            merged.minFrozenQuantity = item.minFrozenQuantity;
           }
           if ((!merged.modality || merged.modality === 'pronto') && item.modality === 'congelado' && !existing.updatedAt) {
             merged.modality = item.modality;

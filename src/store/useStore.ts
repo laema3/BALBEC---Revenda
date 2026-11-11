@@ -202,6 +202,7 @@ export interface Product {
   externalId?: string;
   order?: number;
   allowFrozen?: boolean;
+  minFrozenQuantity?: number;
   availableForDelivery?: boolean;
   availableInStore?: boolean;
   availableForKiosk?: boolean;

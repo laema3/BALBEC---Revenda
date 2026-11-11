@@ -855,6 +855,7 @@ export function formatProductForDb(p: any) {
     externalId: p.externalId ? String(p.externalId) : (p.external_id ? String(p.external_id) : null),
     order: typeof p.order === 'number' ? p.order : (parseInt(p.order, 10) || 0),
     allowFrozen: p.allowFrozen !== false && p.allow_frozen !== false,
+    minFrozenQuantity: typeof p.minFrozenQuantity === 'number' ? (isNaN(p.minFrozenQuantity) ? 1 : p.minFrozenQuantity) : (parseInt(p.minFrozenQuantity || p.min_frozen_quantity, 10) || 1),
     availableForDelivery: p.availableForDelivery !== false && p.available_for_delivery !== false,
     availableInStore: p.availableInStore !== false && p.available_in_store !== false,
     availableForKiosk: p.availableForKiosk !== false && p.available_for_kiosk !== false,
