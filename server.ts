@@ -31,14 +31,9 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Prevent browser caching on DB API routes (ensures instant sync across mobile & desktop)
 app.use('/api/db', (req, res, next) => {
-  // For catalog endpoints, allow revalidation via ETag / 304 Not Modified
-  if (req.path === '/products' || req.path === '/categories' || req.path === '/tables' || req.path === '/store-info' || req.path === '/tv-media') {
-    res.setHeader('Cache-Control', 'no-cache');
-  } else {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   next();
 });
 

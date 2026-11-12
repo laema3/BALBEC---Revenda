@@ -836,6 +836,14 @@ export function getMemStoreInfo() {
   return memStoreInfo || DEFAULT_STORE_INFO;
 }
 
+const parseDbBool = (primary: any, secondary: any, defaultVal = true): boolean => {
+  const val = primary !== undefined ? primary : secondary;
+  if (val === undefined || val === null) return defaultVal;
+  if (val === false || val === 0 || val === '0' || val === 'false') return false;
+  if (val === true || val === 1 || val === '1' || val === 'true') return true;
+  return defaultVal;
+};
+
 export function formatProductForDb(p: any) {
   const rawFrozenCat = p.frozenCategoryId !== undefined ? p.frozenCategoryId : p.frozen_category_id;
   return {
@@ -846,7 +854,7 @@ export function formatProductForDb(p: any) {
     description: cleanProductDescription(p.description || '', false),
     price: typeof p.price === 'number' ? (isNaN(p.price) ? 0 : p.price) : (parseFloat(p.price) || 0),
     imageUrl: p.imageUrl ? String(p.imageUrl) : (p.image_url ? String(p.image_url) : ''),
-    isActive: p.isActive !== false && p.is_active !== false,
+    isActive: parseDbBool(p.isActive, p.is_active, true),
     isAddon: Boolean(p.isAddon || p.is_addon),
     isFlavor: Boolean(p.isFlavor || p.is_flavor),
     addonIds: Array.isArray(p.addonIds) ? p.addonIds : (Array.isArray(p.addon_ids) ? p.addon_ids : []),
@@ -854,11 +862,11 @@ export function formatProductForDb(p: any) {
     flavorIds: Array.isArray(p.flavorIds) ? p.flavorIds : (Array.isArray(p.flavor_ids) ? p.flavor_ids : []),
     externalId: p.externalId ? String(p.externalId) : (p.external_id ? String(p.external_id) : null),
     order: typeof p.order === 'number' ? p.order : (parseInt(p.order, 10) || 0),
-    allowFrozen: p.allowFrozen !== false && p.allow_frozen !== false,
+    allowFrozen: parseDbBool(p.allowFrozen, p.allow_frozen, true),
     minFrozenQuantity: typeof p.minFrozenQuantity === 'number' ? (isNaN(p.minFrozenQuantity) ? 1 : p.minFrozenQuantity) : (parseInt(p.minFrozenQuantity || p.min_frozen_quantity, 10) || 1),
-    availableForDelivery: p.availableForDelivery !== false && p.available_for_delivery !== false,
-    availableInStore: p.availableInStore !== false && p.available_in_store !== false,
-    availableForKiosk: p.availableForKiosk !== false && p.available_for_kiosk !== false,
+    availableForDelivery: parseDbBool(p.availableForDelivery, p.available_for_delivery, true),
+    availableInStore: parseDbBool(p.availableInStore, p.available_in_store, true),
+    availableForKiosk: parseDbBool(p.availableForKiosk, p.available_for_kiosk, true),
   };
 }
 
@@ -873,10 +881,10 @@ export function formatCategoryForDb(c: any) {
     name: catName,
     order: typeof c.order === 'number' ? c.order : (parseInt(c.order, 10) || 0),
     externalId: c.externalId ? String(c.externalId) : (c.external_id ? String(c.external_id) : null),
-    isVisible: c.isVisible !== false && c.is_visible !== false,
-    availableForDelivery: c.availableForDelivery !== false && c.available_for_delivery !== false,
-    availableInStore: c.availableInStore !== false && c.available_in_store !== false,
-    availableForKiosk: c.availableForKiosk !== false && c.available_for_kiosk !== false,
+    isVisible: parseDbBool(c.isVisible, c.is_visible, true),
+    availableForDelivery: parseDbBool(c.availableForDelivery, c.available_for_delivery, true),
+    availableInStore: parseDbBool(c.availableInStore, c.available_in_store, true),
+    availableForKiosk: parseDbBool(c.availableForKiosk, c.available_for_kiosk, true),
     modality: finalModality,
   };
 }
@@ -1109,7 +1117,7 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
  * NUNCA sejam perdidas ao subir novas versões.
  */
 let hydrationPromise: Promise<void> | null = null;
-let isHydrated = false;
+let isHydrated = true;
 let cloudSyncIntervalStarted = false;
 
 export async function waitForHydration(maxWaitMs = 15000): Promise<void> {
@@ -1805,11 +1813,8 @@ setInterval(() => {
 }, 15000);
 
 export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) => void) {
-  // Middleware que garante que nenhuma rota /api/db leia ou sobrescreva dados antes da hidratação do Supabase/PostgreSQL concluir
-  app.use('/api/db', async (req: Request, res: Response, next) => {
-    if (!isHydrated && hydrationPromise) {
-      await waitForHydration(12000);
-    }
+  // In-memory data is loaded immediately from disk on startup; background hydration never blocks HTTP requests
+  app.use('/api/db', (req: Request, res: Response, next) => {
     next();
   });
 
@@ -1946,7 +1951,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   // Categories
   app.get('/api/db/categories', (req: Request, res: Response) => {
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.json(memCategories);
   });
 
@@ -1975,7 +1982,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     let updatedCat: any = { id, ...data, updatedAt: Date.now() };
     memCategories = memCategories.map(c => {
       if (c.id === id) {
-        updatedCat = { ...formatCategoryForDb({ ...c, ...data, id }), updatedAt: Date.now() };
+        const cleanBase = { ...c };
+        if (data.isVisible !== undefined) delete cleanBase.is_visible;
+        if (data.availableInStore !== undefined) delete cleanBase.available_in_store;
+        if (data.availableForDelivery !== undefined) delete cleanBase.available_for_delivery;
+        if (data.availableForKiosk !== undefined) delete cleanBase.available_for_kiosk;
+        updatedCat = { ...formatCategoryForDb({ ...cleanBase, ...data, id }), updatedAt: Date.now() };
         return updatedCat;
       }
       return c;
@@ -2143,7 +2155,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   // Products
   app.get('/api/db/products', (req: Request, res: Response) => {
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     const defaultCodeMap: Record<string, string> = {
       'prod-1': '1001',

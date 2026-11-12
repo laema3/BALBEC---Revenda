@@ -102,6 +102,13 @@ export function mergeDeletedRegistries(
   return result;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms = 2500, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
+
 /**
  * Salva um objeto único (ex: storeInfo ou deletedIds) no Cloud Firestore.
  */
@@ -119,12 +126,16 @@ export async function saveSingleToCloud(key: string, data: any): Promise<boolean
       payloadJson = JSON.stringify(copy);
     }
     const ref = doc(db, COLLECTION_NAME, `single_${key}`);
-    await setDoc(ref, {
-      syncKey: SYNC_KEY,
-      updatedAt: Date.now(),
-      payloadJson,
-    });
-    return true;
+    const writeRes = await withTimeout(
+      setDoc(ref, {
+        syncKey: SYNC_KEY,
+        updatedAt: Date.now(),
+        payloadJson,
+      }),
+      2500,
+      null
+    );
+    return writeRes !== null;
   } catch (err: any) {
     console.warn(`[CloudPersistence] Aviso ao salvar single_${key}:`, err?.message || err);
     return false;
@@ -139,8 +150,8 @@ export async function loadSingleFromCloud<T>(key: string, fallback: T): Promise<
   if (!db) return fallback;
   try {
     const ref = doc(db, COLLECTION_NAME, `single_${key}`);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
+    const snap = await withTimeout(getDoc(ref), 2500, null);
+    if (snap && snap.exists()) {
       const d = snap.data();
       if (d && typeof d.payloadJson === 'string') {
         return JSON.parse(d.payloadJson) as T;
@@ -209,30 +220,40 @@ export async function saveCollectionToCloud(collectionKey: string, items: any[])
     }
 
     const now = Date.now();
-    // Grava cada chunk em paralelo
-    await Promise.all(
-      chunks.map((chunk, idx) => {
-        const chunkRef = doc(db, COLLECTION_NAME, `${collectionKey}_chunk_${idx}`);
-        return setDoc(chunkRef, {
-          syncKey: SYNC_KEY,
-          updatedAt: now,
-          chunkIndex: idx,
-          itemCount: chunk.length,
-          payloadJson: JSON.stringify(chunk),
-        });
-      })
+    // Grava cada chunk em paralelo com timeout de 2500ms
+    const writeRes = await withTimeout(
+      Promise.all(
+        chunks.map((chunk, idx) => {
+          const chunkRef = doc(db, COLLECTION_NAME, `${collectionKey}_chunk_${idx}`);
+          return setDoc(chunkRef, {
+            syncKey: SYNC_KEY,
+            updatedAt: now,
+            chunkIndex: idx,
+            itemCount: chunk.length,
+            payloadJson: JSON.stringify(chunk),
+          });
+        })
+      ),
+      2500,
+      null
     );
 
-    // Grava o metadado da coleção por último (commit atômico lógico)
-    const metaRef = doc(db, COLLECTION_NAME, `${collectionKey}_meta`);
-    await setDoc(metaRef, {
-      syncKey: SYNC_KEY,
-      updatedAt: now,
-      chunkCount: chunks.length,
-      totalItems: items.length,
-    });
+    if (writeRes !== null) {
+      // Grava o metadado da coleção por último (commit atômico lógico)
+      const metaRef = doc(db, COLLECTION_NAME, `${collectionKey}_meta`);
+      await withTimeout(
+        setDoc(metaRef, {
+          syncKey: SYNC_KEY,
+          updatedAt: now,
+          chunkCount: chunks.length,
+          totalItems: items.length,
+        }),
+        2500,
+        null
+      );
+    }
 
-    return true;
+    return writeRes !== null;
   } catch (err: any) {
     console.warn(`[CloudPersistence] Aviso ao salvar coleção ${collectionKey}:`, err?.message || err);
     return false;
@@ -248,8 +269,8 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<{ 
 
   try {
     const metaRef = doc(db, COLLECTION_NAME, `${collectionKey}_meta`);
-    const metaSnap = await getDoc(metaRef);
-    if (!metaSnap.exists()) {
+    const metaSnap = await withTimeout(getDoc(metaRef), 2500, null);
+    if (!metaSnap || !metaSnap.exists()) {
       return null;
     }
 
@@ -261,10 +282,14 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<{ 
       return { items: [], updatedAt };
     }
 
-    const chunkSnaps = await Promise.all(
-      Array.from({ length: chunkCount }, (_, idx) =>
-        getDoc(doc(db, COLLECTION_NAME, `${collectionKey}_chunk_${idx}`))
-      )
+    const chunkSnaps = await withTimeout(
+      Promise.all(
+        Array.from({ length: chunkCount }, (_, idx) =>
+          getDoc(doc(db, COLLECTION_NAME, `${collectionKey}_chunk_${idx}`))
+        )
+      ),
+      2500,
+      []
     );
 
     const allItems: any[] = [];

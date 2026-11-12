@@ -2460,16 +2460,15 @@ export default function Admin() {
     const deliv = formData.get('availableForDelivery') === 'on';
     const store = formData.get('availableInStore') === 'on';
     const kiosk = formData.get('availableForKiosk') === 'on';
-    const allUnchecked = !deliv && !store && !kiosk;
 
     const data = {
       name: catName,
       order: Number(formData.get('order')),
       modality: finalModality,
-      availableForDelivery: allUnchecked ? true : deliv,
-      availableInStore: allUnchecked ? true : store,
-      availableForKiosk: allUnchecked ? true : kiosk,
-      isVisible: true,
+      availableForDelivery: deliv,
+      availableInStore: store,
+      availableForKiosk: kiosk,
+      isVisible: editingItem ? (editingItem.isVisible !== false) : true,
     };
 
     setIsSaving(true);
@@ -2517,9 +2516,9 @@ export default function Admin() {
       order: Number(formData.get('order') || 0),
       allowFrozen: finalFrozenCat ? true : (formData.get('allowFrozen') === 'on'),
       minFrozenQuantity: Number(formData.get('minFrozenQuantity')) || 1,
-      availableForDelivery: (!formData.get('availableForDelivery') && !formData.get('availableInStore') && !formData.get('availableForKiosk')) ? true : (formData.get('availableForDelivery') === 'on'),
-      availableInStore: (!formData.get('availableForDelivery') && !formData.get('availableInStore') && !formData.get('availableForKiosk')) ? true : (formData.get('availableInStore') === 'on'),
-      availableForKiosk: (!formData.get('availableForDelivery') && !formData.get('availableInStore') && !formData.get('availableForKiosk')) ? true : (formData.get('availableForKiosk') === 'on'),
+      availableForDelivery: formData.get('availableForDelivery') === 'on',
+      availableInStore: formData.get('availableInStore') === 'on',
+      availableForKiosk: formData.get('availableForKiosk') === 'on',
     };
 
     // Ensure they are mutually exclusive

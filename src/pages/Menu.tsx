@@ -1854,14 +1854,11 @@ export default function Menu() {
         .filter(c => {
           const isExcluded = isExcludedCategory(c.name) || isAddonCategory(c.name);
           const isVisible = c.isVisible !== false;
-          const allChannelsFalse = c.availableForDelivery === false && c.availableInStore === false && c.availableForKiosk === false;
-          const matchesChannel = allChannelsFalse ? true : (
-            salesChannel === 'delivery'
-              ? c.availableForDelivery !== false
-              : salesChannel === 'kiosk'
-                ? c.availableForKiosk !== false
-                : c.availableInStore !== false
-          );
+          const matchesChannel = salesChannel === 'delivery'
+            ? c.availableForDelivery !== false
+            : salesChannel === 'kiosk'
+              ? c.availableForKiosk !== false
+              : c.availableInStore !== false;
 
           return !isExcluded && 
                  isVisible && 
@@ -1927,8 +1924,6 @@ export default function Menu() {
       const checkCatChannel = (c: any) => {
         if (!c) return true;
         if (c.isVisible === false) return false;
-        const allChannelsFalse = c.availableForDelivery === false && c.availableInStore === false && c.availableForKiosk === false;
-        if (allChannelsFalse) return true;
         return salesChannel === 'delivery'
           ? c.availableForDelivery !== false
           : salesChannel === 'kiosk'
@@ -1941,14 +1936,11 @@ export default function Menu() {
 
       if (!hasValidPrimaryCat && !hasValidFrozenCat) return false;
 
-      const allProdChannelsFalse = p.availableForDelivery === false && p.availableInStore === false && p.availableForKiosk === false;
-      const matchesChannel = allProdChannelsFalse ? true : (
-        salesChannel === 'delivery'
-          ? p.availableForDelivery !== false
-          : salesChannel === 'kiosk'
-            ? p.availableForKiosk !== false
-            : p.availableInStore !== false
-      );
+      const matchesChannel = salesChannel === 'delivery'
+        ? p.availableForDelivery !== false
+        : salesChannel === 'kiosk'
+          ? p.availableForKiosk !== false
+          : p.availableInStore !== false;
       if (!matchesChannel) return false;
 
       if ((p as any).trackStock && ((p as any).stockQuantity ?? 0) <= 0) return false;
@@ -2000,14 +1992,11 @@ export default function Menu() {
       .filter(c => {
         const isExcluded = isExcludedCategory(c.name) || isAddonCategory(c.name);
         const isVisible = c.isVisible !== false;
-        const allChannelsFalse = c.availableForDelivery === false && c.availableInStore === false && c.availableForKiosk === false;
-        const matchesChannel = allChannelsFalse ? true : (
-          salesChannel === 'delivery'
-            ? c.availableForDelivery !== false
-            : salesChannel === 'kiosk'
-              ? c.availableForKiosk !== false
-              : c.availableInStore !== false
-        );
+        const matchesChannel = salesChannel === 'delivery'
+          ? c.availableForDelivery !== false
+          : salesChannel === 'kiosk'
+            ? c.availableForKiosk !== false
+            : c.availableInStore !== false;
 
         return !isExcluded && 
                isVisible && 

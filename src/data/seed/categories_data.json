@@ -7,8 +7,9 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794443668429
   },
   {
     "id": "hricv6a",
@@ -16,10 +17,11 @@
     "order": 2,
     "externalId": "BEBIDA",
     "isVisible": true,
-    "availableForDelivery": false,
-    "availableInStore": false,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "nyww21f",
@@ -29,8 +31,9 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "k790tcu",
@@ -38,10 +41,11 @@
     "order": 4,
     "externalId": "SORVET",
     "isVisible": true,
-    "availableForDelivery": false,
-    "availableInStore": false,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "e0sv8sp",
@@ -49,10 +53,11 @@
     "order": 5,
     "externalId": "GALINH",
     "isVisible": true,
-    "availableForDelivery": false,
-    "availableInStore": false,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "80iq08q",
@@ -60,10 +65,11 @@
     "order": 6,
     "externalId": "MAIONE",
     "isVisible": true,
-    "availableForDelivery": false,
-    "availableInStore": false,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "j9pixiq",
@@ -71,10 +77,11 @@
     "order": 7,
     "externalId": "DOCES",
     "isVisible": true,
-    "availableForDelivery": false,
-    "availableInStore": false,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "wmsqohp",
@@ -82,11 +89,11 @@
     "order": 8,
     "externalId": "DIVERSOS",
     "isVisible": true,
-    "availableForDelivery": false,
-    "availableInStore": false,
-    "availableForKiosk": false,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794400031241
+    "updatedAt": 1794441347935
   },
   {
     "id": "wscjzcx",
@@ -96,8 +103,9 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "nwc89q5",
@@ -107,8 +115,9 @@
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": false,
-    "modality": "pronto"
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794441347935
   },
   {
     "id": "xqs010m",
@@ -120,6 +129,6 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "congelado",
-    "updatedAt": 1794401699547
+    "updatedAt": 1794441347935
   }
 ]

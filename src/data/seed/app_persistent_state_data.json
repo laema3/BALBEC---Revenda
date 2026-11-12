@@ -114,7 +114,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": 1794443668429
     },
     {
       "id": "hricv6a",
@@ -46141,7 +46141,7 @@
     "tvMedia": {},
     "totemBackups": {},
     "ordersClearedAt": 0,
-    "updatedAt": 1794441373360
+    "updatedAt": 1794443649963
   },
-  "savedAt": "2026-11-11T23:52:49.653Z"
+  "savedAt": "2026-11-12T00:34:29.420Z"
 }

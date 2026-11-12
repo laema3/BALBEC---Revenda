@@ -863,8 +863,16 @@ export const useStore = create<StoreState>((set, get) => ({
 
         const deletedReg = getLocalDeletedRegistry();
 
+        const parseClientBool = (v1: any, v2: any, defaultVal = true): boolean => {
+          const v = v1 !== undefined ? v1 : v2;
+          if (v === undefined || v === null) return defaultVal;
+          if (v === false || v === 0 || v === '0' || v === 'false') return false;
+          if (v === true || v === 1 || v === '1' || v === 'true') return true;
+          return defaultVal;
+        };
+
         // 1. Fetch Categories (Autoritativo do servidor com fallback de seed permanente)
-        const pCat = fetchWithTimeout('/api/db/categories', 3500)
+        const pCat = fetchWithTimeout(`/api/db/categories?_t=${Date.now()}`, 6000)
           .then(safeParseResponse)
           .catch(() => null)
           .then(async (serverCategories) => {
@@ -880,14 +888,20 @@ export const useStore = create<StoreState>((set, get) => ({
 
             if (catsToMerge.length > 0) {
               const serverById = new Map<string, Category>();
-              for (const c of catsToMerge) {
+              for (const rawCat of catsToMerge) {
+                const c = rawCat as any;
                 if (c && c.id && !deletedReg.categories[String(c.id)]) {
+                  const isVisible = parseClientBool(c.isVisible, c.is_visible, true);
+                  const availableInStore = parseClientBool(c.availableInStore, c.available_in_store, true);
+                  const availableForDelivery = parseClientBool(c.availableForDelivery, c.available_for_delivery, true);
+                  const availableForKiosk = parseClientBool(c.availableForKiosk, c.available_for_kiosk, true);
+
                   serverById.set(String(c.id), {
                     ...c,
-                    availableInStore: c.availableInStore !== undefined ? c.availableInStore : true,
-                    availableForDelivery: c.availableForDelivery !== undefined ? c.availableForDelivery : true,
-                    availableForKiosk: c.availableForKiosk !== undefined ? c.availableForKiosk : true,
-                    isVisible: c.isVisible !== false,
+                    availableInStore,
+                    availableForDelivery,
+                    availableForKiosk,
+                    isVisible,
                   });
                 }
               }
@@ -914,7 +928,7 @@ export const useStore = create<StoreState>((set, get) => ({
           });
 
         // 2. Fetch Products (Autoritativo do servidor com fallback de seed permanente)
-        const pProd = fetchWithTimeout('/api/db/products', 3500)
+        const pProd = fetchWithTimeout(`/api/db/products?_t=${Date.now()}`, 6000)
           .then(safeParseResponse)
           .catch(() => null)
           .then(async (rawProducts) => {
@@ -930,9 +944,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
             if (prodsToMerge.length > 0) {
               const normalizeProd = (p: any): Product => {
-                let availableForDelivery = p.availableForDelivery !== undefined ? Boolean(p.availableForDelivery) : true;
-                let availableInStore = p.availableInStore !== undefined ? Boolean(p.availableInStore) : true;
-                let availableForKiosk = p.availableForKiosk !== undefined ? Boolean(p.availableForKiosk) : true;
+                let availableForDelivery = parseClientBool(p.availableForDelivery, p.available_for_delivery, true);
+                let availableInStore = parseClientBool(p.availableInStore, p.available_in_store, true);
+                let availableForKiosk = parseClientBool(p.availableForKiosk, p.available_for_kiosk, true);
+                let isVisible = parseClientBool(p.isVisible, p.is_visible, true);
+                let isActive = parseClientBool(p.isActive, p.is_active, true);
 
                 if (p.description && typeof p.description === 'string' && p.description.includes('[channels:')) {
                   const match = p.description.match(/\[channels:(.*?)\]/);
@@ -950,6 +966,8 @@ export const useStore = create<StoreState>((set, get) => ({
                   availableForDelivery,
                   availableInStore,
                   availableForKiosk,
+                  isVisible,
+                  isActive,
                 };
               };
 
