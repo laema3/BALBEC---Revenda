@@ -260,18 +260,29 @@ export async function saveCollectionToCloud(collectionKey: string, items: any[])
   }
 }
 
+export interface CloudCollectionResult {
+  items: any[];
+  updatedAt: number;
+  existsInCloud: boolean;
+}
+
 /**
  * Carrega uma coleção completa do Cloud Firestore remontando todos os seus chunks.
  */
-export async function loadCollectionFromCloud(collectionKey: string): Promise<{ items: any[]; updatedAt: number } | null> {
+export async function loadCollectionFromCloud(collectionKey: string): Promise<CloudCollectionResult | null> {
   const db = getCloudFirestore();
   if (!db) return null;
 
   try {
     const metaRef = doc(db, COLLECTION_NAME, `${collectionKey}_meta`);
     const metaSnap = await withTimeout(getDoc(metaRef), 2500, null);
-    if (!metaSnap || !metaSnap.exists()) {
+    if (!metaSnap) {
+      // Timeout ou erro de rede: retorna null para que o servidor NUNCA sobrescreva a nuvem com seed
       return null;
+    }
+    if (!metaSnap.exists()) {
+      // Coleção confirmadamente ainda não criada no Cloud Firestore
+      return { items: [], updatedAt: 0, existsInCloud: false };
     }
 
     const meta = metaSnap.data();
@@ -279,7 +290,7 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<{ 
     const updatedAt = Number(meta?.updatedAt || 0);
 
     if (chunkCount <= 0) {
-      return { items: [], updatedAt };
+      return { items: [], updatedAt, existsInCloud: true };
     }
 
     const chunkSnaps = await withTimeout(
@@ -307,7 +318,7 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<{ 
       }
     }
 
-    return { items: allItems, updatedAt };
+    return { items: allItems, updatedAt, existsInCloud: true };
   } catch (err: any) {
     console.warn(`[CloudPersistence] Aviso ao carregar coleção ${collectionKey}:`, err?.message || err);
     return null;
@@ -338,9 +349,14 @@ export function smartMergeCollectionItems(
 
       // Verifica se foi explicitamente excluído
       const deletedAt = Number(deletedMap[id] || 0);
+      const isSeedItem = Boolean(item._isSeed);
       const itemUpdatedAt = Number(item.updatedAt || item.createdAt || 0);
-      if (deletedAt > 0 && (itemUpdatedAt === 0 || itemUpdatedAt <= deletedAt)) {
-        continue;
+
+      // Seed estático NUNCA pode ressuscitar um item deletado pelo usuário
+      if (deletedAt > 0) {
+        if (isSeedItem || itemUpdatedAt === 0 || itemUpdatedAt <= deletedAt) {
+          continue;
+        }
       }
 
       // Se a coleção for pedidos e houve limpeza geral, ignora pedidos anteriores à limpeza
@@ -355,11 +371,30 @@ export function smartMergeCollectionItems(
       if (!existing) {
         mergedMap.set(id, { ...item });
       } else {
+        const existingIsSeed = Boolean(existing._isSeed);
         const existingTs = Number(existing.updatedAt || existing.createdAt || 0);
-        const incomingTs = Number(item.updatedAt || item.createdAt || 0);
+        const incomingTs = itemUpdatedAt;
 
-        if (incomingTs > existingTs) {
-          // O registro recebido é mais recente: mescla preservando campos importantes como imagem ou vínculos se não vierem nulos
+        // Regra de ouro da persistência:
+        // 1. Se o existente for Seed e o novo for dado real (banco/nuvem), o novo SEMPRE ganha!
+        // 2. Se o novo for Seed e o existente for dado real, o existente SEMPRE se mantém!
+        // 3. Caso contrário, compara timestamps; se empatar, a fonte mais recente na lista de sources prevalece.
+        let incomingWins = false;
+        if (existingIsSeed && !isSeedItem) {
+          incomingWins = true;
+        } else if (!existingIsSeed && isSeedItem) {
+          incomingWins = false;
+        } else if (incomingTs !== 0 && existingTs !== 0) {
+          incomingWins = incomingTs >= existingTs;
+        } else if (incomingTs !== 0 && existingTs === 0) {
+          incomingWins = true;
+        } else {
+          // Empate de timestamps: a fonte subsequente (mais autoritativa) sobrescreve
+          incomingWins = true;
+        }
+
+        if (incomingWins) {
+          // O registro recebido é mais recente ou prioritário
           const merged = { ...existing, ...item };
           if (!merged.imageUrl && existing.imageUrl) merged.imageUrl = existing.imageUrl;
           if (merged.frozenCategoryId === undefined && existing.frozenCategoryId) {
@@ -371,9 +406,10 @@ export function smartMergeCollectionItems(
           if ((!merged.modality || merged.modality === 'pronto') && existing.modality === 'congelado' && !item.updatedAt) {
             merged.modality = existing.modality;
           }
+          delete merged._isSeed;
           mergedMap.set(id, merged);
         } else {
-          // O registro existente é mais recente ou igual: apenas preenche campos novos que possam existir no item recebido
+          // O registro existente é mais recente ou prioritário
           const merged = { ...item, ...existing };
           if (!merged.imageUrl && item.imageUrl) merged.imageUrl = item.imageUrl;
           if (!merged.frozenCategoryId && item.frozenCategoryId) {
@@ -385,6 +421,7 @@ export function smartMergeCollectionItems(
           if ((!merged.modality || merged.modality === 'pronto') && item.modality === 'congelado' && !existing.updatedAt) {
             merged.modality = item.modality;
           }
+          delete merged._isSeed;
           mergedMap.set(id, merged);
         }
       }

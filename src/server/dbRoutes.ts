@@ -437,13 +437,13 @@ function persistAllStateToMasterFile() {
 }
 
 // 1. Carregar Estado Inicial de Todos os Arquivos Persistidos
-// Permanent bundled seed files (ensures full catalog survives container rebuilds)
-const seedProducts: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'products_data.json'), []);
-const seedCategories: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'categories_data.json'), []);
-const seedCustomers: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'customers_data.json'), []);
-const seedStoreInfo: any = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'store_info_data.json'), {});
-const seedTvMedia: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'tv_media_data.json'), []);
-const seedTotemBackups: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'totem_backups_data.json'), []);
+// Permanent bundled seed files (ensures fallback catalog on fresh zero-state deploy)
+const seedProducts: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'products_data.json'), []).map((p: any) => ({ ...p, _isSeed: true }));
+const seedCategories: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'categories_data.json'), []).map((c: any) => ({ ...c, _isSeed: true }));
+const seedCustomers: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'customers_data.json'), []).map((c: any) => ({ ...c, _isSeed: true }));
+const seedStoreInfo: any = { ...loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'store_info_data.json'), {}), _isSeed: true };
+const seedTvMedia: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'tv_media_data.json'), []).map((t: any) => ({ ...t, _isSeed: true }));
+const seedTotemBackups: any[] = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'totem_backups_data.json'), []).map((tb: any) => ({ ...tb, _isSeed: true }));
 const seedDeletedIds: any = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'deleted_ids_data.json'), null);
 
 // 1. Carregar Estado Inicial de Todos os Arquivos Persistidos
@@ -867,6 +867,7 @@ export function formatProductForDb(p: any) {
     availableForDelivery: parseDbBool(p.availableForDelivery, p.available_for_delivery, true),
     availableInStore: parseDbBool(p.availableInStore, p.available_in_store, true),
     availableForKiosk: parseDbBool(p.availableForKiosk, p.available_for_kiosk, true),
+    updatedAt: Number(p.updatedAt || p.updated_at || Date.now()),
   };
 }
 
@@ -886,6 +887,7 @@ export function formatCategoryForDb(c: any) {
     availableInStore: parseDbBool(c.availableInStore, c.available_in_store, true),
     availableForKiosk: parseDbBool(c.availableForKiosk, c.available_for_kiosk, true),
     modality: finalModality,
+    updatedAt: Number(c.updatedAt || c.updated_at || Date.now()),
   };
 }
 
@@ -922,6 +924,7 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
                 availableForDelivery: item.availableForDelivery,
                 availableInStore: item.availableInStore,
                 availableForKiosk: item.availableForKiosk,
+                updatedAt: item.updatedAt,
               }
             });
         }
@@ -943,6 +946,7 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
               imageUrl: item.imageUrl,
               isActive: item.isActive,
               externalId: item.externalId,
+              updatedAt: item.updatedAt,
             }
           });
           savedCount++;
@@ -973,6 +977,7 @@ export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promis
             availableInStore: cat.availableInStore,
             availableForKiosk: cat.availableForKiosk,
             modality: cat.modality,
+            updatedAt: cat.updatedAt,
           }
         })
       );
@@ -1170,17 +1175,16 @@ export async function syncWithCloudFirestore(): Promise<void> {
     ]);
 
     // 1. StoreInfo
-    if (cloudStoreInfo && typeof cloudStoreInfo === 'object') {
+    if (cloudStoreInfo && typeof cloudStoreInfo === 'object' && cloudStoreInfo.name) {
       const cloudTs = Number(cloudStoreInfo.updatedAt || 0);
       const localTs = Number(memStoreInfo?.updatedAt || 0);
-      if (cloudTs > localTs) {
-        memStoreInfo = sanitizeStoreInfoPrinters({ ...DEFAULT_STORE_INFO, ...memStoreInfo, ...cloudStoreInfo, id: 'default' });
+      const isLocalSeed = Boolean(memStoreInfo?._isSeed);
+      if (isLocalSeed || cloudTs >= localTs) {
+        memStoreInfo = sanitizeStoreInfoPrinters({ ...DEFAULT_STORE_INFO, ...memStoreInfo, ...cloudStoreInfo, id: 'default', _isSeed: false });
         persistStoreInfoToDisk(memStoreInfo, false);
-      } else {
+      } else if (localTs > cloudTs && !isLocalSeed) {
         await saveSingleToCloud('storeInfo', memStoreInfo);
       }
-    } else if (memStoreInfo) {
-      await saveSingleToCloud('storeInfo', memStoreInfo);
     }
 
     // 2. Categories
@@ -1190,14 +1194,12 @@ export async function syncWithCloudFirestore(): Promise<void> {
       const changed = mergedCats.length !== beforeCount || JSON.stringify(mergedCats) !== JSON.stringify(memCategories);
       memCategories = mergedCats;
       if (changed) {
-        persistCategoriesToDisk(memCategories, true);
+        persistCategoriesToDisk(memCategories, false);
         if (isDatabaseConfigured()) {
           saveCategoriesToPostgresBatch(memCategories).catch(() => {});
         }
-      } else if (cloudCatsRes.items.length !== memCategories.length) {
-        await saveCollectionToCloud('categories', memCategories);
       }
-    } else if (memCategories.length > 0) {
+    } else if (cloudCatsRes && !cloudCatsRes.existsInCloud && memCategories.length > 0) {
       await saveCollectionToCloud('categories', memCategories);
     }
 
@@ -1208,14 +1210,12 @@ export async function syncWithCloudFirestore(): Promise<void> {
       const changed = mergedProds.length !== beforeCount || JSON.stringify(mergedProds) !== JSON.stringify(memProducts);
       memProducts = mergedProds;
       if (changed) {
-        persistProductsToDisk(memProducts, true);
+        persistProductsToDisk(memProducts, false);
         if (isDatabaseConfigured()) {
           saveProductsToPostgresBatch(memProducts).catch(() => {});
         }
-      } else if (cloudProdsRes.items.length !== memProducts.length) {
-        await saveCollectionToCloud('products', memProducts);
       }
-    } else if (memProducts.length > 0) {
+    } else if (cloudProdsRes && !cloudProdsRes.existsInCloud && memProducts.length > 0) {
       await saveCollectionToCloud('products', memProducts);
     }
 
@@ -1226,14 +1226,12 @@ export async function syncWithCloudFirestore(): Promise<void> {
       const changed = mergedCusts.length !== beforeCount || JSON.stringify(mergedCusts) !== JSON.stringify(memCustomers);
       memCustomers = mergedCusts;
       if (changed) {
-        persistCustomersToDisk(memCustomers, true);
+        persistCustomersToDisk(memCustomers, false);
         if (isDatabaseConfigured()) {
           saveCustomersToPostgresBatch(memCustomers).catch(() => {});
         }
-      } else if (cloudCustsRes.items.length !== memCustomers.length) {
-        await saveCollectionToCloud('customers', memCustomers);
       }
-    } else if (memCustomers.length > 0) {
+    } else if (cloudCustsRes && !cloudCustsRes.existsInCloud && memCustomers.length > 0) {
       await saveCollectionToCloud('customers', memCustomers);
     }
 
@@ -1244,7 +1242,7 @@ export async function syncWithCloudFirestore(): Promise<void> {
       const changed = mergedOrders.length !== beforeCount || JSON.stringify(mergedOrders) !== JSON.stringify(memOrders);
       memOrders = mergedOrders;
       if (changed) {
-        persistOrdersToDisk(memOrders, true);
+        persistOrdersToDisk(memOrders, false);
         if (isDatabaseConfigured()) {
           for (const ord of memOrders.slice(0, 200)) {
             try {
@@ -1256,32 +1254,85 @@ export async function syncWithCloudFirestore(): Promise<void> {
             } catch {}
           }
         }
-      } else if (cloudOrdersRes.items.length !== memOrders.length) {
-        await saveCollectionToCloud('orders', memOrders);
       }
-    } else if (memOrders.length > 0) {
+    } else if (cloudOrdersRes && !cloudOrdersRes.existsInCloud && memOrders.length > 0) {
       await saveCollectionToCloud('orders', memOrders);
     }
 
-    // 6. Tables, TV Media, Totem Backups
+    // 6. Tables
     if (cloudTablesRes && Array.isArray(cloudTablesRes.items) && cloudTablesRes.items.length > 0) {
       memTables = smartMergeCollectionItems('tables', [memTables, cloudTablesRes.items], memDeletedIds);
       persistTablesToDisk(memTables, false);
-    } else if (memTables.length > 0) {
+    } else if (cloudTablesRes && !cloudTablesRes.existsInCloud && memTables.length > 0) {
       await saveCollectionToCloud('tables', memTables);
     }
 
+    // 7. TV Media
     if (cloudTvRes && Array.isArray(cloudTvRes.items) && cloudTvRes.items.length > 0) {
       memTvMedia = smartMergeCollectionItems('tvMedia', [memTvMedia, cloudTvRes.items], memDeletedIds);
       persistTvMediaToDisk(memTvMedia, false);
-    } else if (memTvMedia.length > 0) {
+      if (isDatabaseConfigured()) {
+        for (const item of memTvMedia) {
+          try {
+            await withDbRetry(() => db.insert(tvMedia).values({
+              id: item.id,
+              title: item.title,
+              type: item.type,
+              url: item.url,
+              durationSeconds: item.durationSeconds || 15,
+              order: item.order || 0,
+              showCaptions: Boolean(item.showCaptions),
+              fitMode: item.fitMode || 'fit',
+              isActive: item.isActive !== false,
+            }).onConflictDoUpdate({
+              target: tvMedia.id,
+              set: {
+                title: item.title,
+                type: item.type,
+                url: item.url,
+                durationSeconds: item.durationSeconds || 15,
+                order: item.order || 0,
+                showCaptions: Boolean(item.showCaptions),
+                fitMode: item.fitMode || 'fit',
+                isActive: item.isActive !== false,
+              }
+            }));
+          } catch {}
+        }
+      }
+    } else if (cloudTvRes && !cloudTvRes.existsInCloud && memTvMedia.length > 0) {
       await saveCollectionToCloud('tvMedia', memTvMedia);
     }
 
+    // 8. Totem Backups
     if (cloudTbRes && Array.isArray(cloudTbRes.items) && cloudTbRes.items.length > 0) {
       memTotemBackups = smartMergeCollectionItems('totemBackups', [memTotemBackups, cloudTbRes.items], memDeletedIds);
       persistTotemBackupsToDisk(memTotemBackups, false);
-    } else if (memTotemBackups.length > 0) {
+      if (isDatabaseConfigured()) {
+        for (const item of memTotemBackups) {
+          try {
+            await withDbRetry(() => db.insert(totemBackups).values({
+              id: item.id,
+              name: item.name,
+              createdAt: String(item.createdAt || new Date().toISOString()),
+              activeCategoriesCount: Number(item.activeCategoriesCount || 0),
+              activeProductsCount: Number(item.activeProductsCount || 0),
+              categories: item.categories || [],
+              products: item.products || [],
+            }).onConflictDoUpdate({
+              target: totemBackups.id,
+              set: {
+                name: item.name,
+                activeCategoriesCount: Number(item.activeCategoriesCount || 0),
+                activeProductsCount: Number(item.activeProductsCount || 0),
+                categories: item.categories || [],
+                products: item.products || [],
+              }
+            }));
+          } catch {}
+        }
+      }
+    } else if (cloudTbRes && !cloudTbRes.existsInCloud && memTotemBackups.length > 0) {
       await saveCollectionToCloud('totemBackups', memTotemBackups);
     }
   } catch (err: any) {
@@ -1338,12 +1389,13 @@ export async function hydrateFromPostgres(): Promise<void> {
 
           const merged: any = { 
             ...DEFAULT_STORE_INFO, 
+            ...memStoreInfo,
             ...(backupStoreInfo || {}),
             ...diskVal,
             ...dbRow,
             ...chosenStoreSource,
-            ...memStoreInfo,
-            id: 'default' 
+            id: 'default',
+            _isSeed: false
           };
 
           if (chosenStoreSource.weeklySchedule && chosenStoreSource.weeklySchedule !== '[]') {
@@ -1359,9 +1411,9 @@ export async function hydrateFromPostgres(): Promise<void> {
         } else {
           const merged: any = { 
             ...DEFAULT_STORE_INFO, 
+            ...memStoreInfo,
             ...(backupStoreInfo || {}),
             ...diskVal,
-            ...memStoreInfo,
             id: 'default' 
           };
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
@@ -1377,7 +1429,7 @@ export async function hydrateFromPostgres(): Promise<void> {
       try {
         const catList = await withDbRetry(() => db.select().from(categories));
         if (catList && catList.length > 0) {
-          memCategories = smartMergeCollectionItems('categories', [seedCategories, catList, memCategories], memDeletedIds);
+          memCategories = smartMergeCollectionItems('categories', [memCategories, catList], memDeletedIds);
           persistCategoriesToDisk(memCategories);
           await saveCategoriesToPostgresBatch(memCategories);
           console.log(`[DB Hydrate] ${memCategories.length} categorias mescladas (PostgreSQL + Cloud Firestore + Seed).`);
@@ -1404,7 +1456,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           }
         }
         if (prodList && prodList.length > 0) {
-          memProducts = smartMergeCollectionItems('products', [seedProducts, prodList, memProducts], memDeletedIds);
+          memProducts = smartMergeCollectionItems('products', [memProducts, prodList], memDeletedIds);
           persistProductsToDisk(memProducts);
           await saveProductsToPostgresBatch(memProducts);
           console.log(`[DB Hydrate] ${memProducts.length} produtos mesclados (PostgreSQL + Cloud Firestore + Seed).`);
@@ -1420,8 +1472,23 @@ export async function hydrateFromPostgres(): Promise<void> {
       // 3.0. Hidratar Totem Backups
       try {
         const tbList = await withDbRetry(() => db.select().from(totemBackups).orderBy(desc(totemBackups.createdAt)));
-        memTotemBackups = smartMergeCollectionItems('totemBackups', [tbList || [], memTotemBackups], memDeletedIds);
+        memTotemBackups = smartMergeCollectionItems('totemBackups', [memTotemBackups, tbList || []], memDeletedIds);
         persistTotemBackupsToDisk(memTotemBackups);
+        if (isDatabaseConfigured() && memTotemBackups.length > 0) {
+          for (const item of memTotemBackups) {
+            try {
+              await withDbRetry(() => db.insert(totemBackups).values({
+                id: item.id,
+                name: item.name,
+                createdAt: String(item.createdAt || new Date().toISOString()),
+                activeCategoriesCount: Number(item.activeCategoriesCount || 0),
+                activeProductsCount: Number(item.activeProductsCount || 0),
+                categories: item.categories || [],
+                products: item.products || [],
+              }).onConflictDoNothing());
+            } catch {}
+          }
+        }
         console.log(`[DB Hydrate] ${memTotemBackups.length} backups do totem carregados.`);
       } catch (tbErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar totem_backups do PostgreSQL:', tbErr?.message || tbErr);
@@ -1441,7 +1508,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           }
         }
         if (custList && custList.length > 0) {
-          memCustomers = smartMergeCollectionItems('customers', [seedCustomers, custList, memCustomers], memDeletedIds);
+          memCustomers = smartMergeCollectionItems('customers', [memCustomers, custList], memDeletedIds);
           persistCustomersToDisk(memCustomers);
           await saveCustomersToPostgresBatch(memCustomers);
           console.log(`[DB Hydrate] ${memCustomers.length} clientes mesclados (PostgreSQL + Cloud Firestore + Seed).`);

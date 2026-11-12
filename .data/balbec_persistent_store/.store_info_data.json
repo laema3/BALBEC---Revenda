@@ -86,5 +86,7 @@
   "onlinePaymentPublicKey": "",
   "onlinePaymentSecretKey": "",
   "orderSoundEnabled": true,
-  "orderChimeEnabled": true
+  "orderChimeEnabled": true,
+  "_isSeed": false,
+  "updatedAt": null
 }

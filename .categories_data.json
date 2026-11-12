@@ -9,7 +9,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794443668429
+    "updatedAt": null
   },
   {
     "id": "hricv6a",
@@ -21,7 +21,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "nyww21f",
@@ -33,7 +33,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "k790tcu",
@@ -45,7 +45,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "e0sv8sp",
@@ -57,7 +57,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "80iq08q",
@@ -69,7 +69,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "j9pixiq",
@@ -81,7 +81,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "wmsqohp",
@@ -93,7 +93,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "wscjzcx",
@@ -105,7 +105,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "nwc89q5",
@@ -117,7 +117,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   },
   {
     "id": "xqs010m",
@@ -129,6 +129,6 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "congelado",
-    "updatedAt": 1794441347935
+    "updatedAt": null
   }
 ]

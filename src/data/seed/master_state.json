@@ -87,7 +87,9 @@
     "onlinePaymentPublicKey": "",
     "onlinePaymentSecretKey": "",
     "orderSoundEnabled": true,
-    "orderChimeEnabled": true
+    "orderChimeEnabled": true,
+    "_isSeed": false,
+    "updatedAt": null
   },
   "tvMedia": [
     {
@@ -114,7 +116,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794443668429
+      "updatedAt": null
     },
     {
       "id": "hricv6a",
@@ -126,7 +128,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "nyww21f",
@@ -138,7 +140,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "k790tcu",
@@ -150,7 +152,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "e0sv8sp",
@@ -162,7 +164,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "80iq08q",
@@ -174,7 +176,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "j9pixiq",
@@ -186,7 +188,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "wmsqohp",
@@ -198,7 +200,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "wscjzcx",
@@ -210,7 +212,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "nwc89q5",
@@ -222,7 +224,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     },
     {
       "id": "xqs010m",
@@ -234,7 +236,7 @@
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "congelado",
-      "updatedAt": 1794441347935
+      "updatedAt": null
     }
   ],
   "products": [
@@ -257,7 +259,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "vjgwwd1",
@@ -278,7 +281,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "3dyyo6p",
@@ -299,7 +303,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ypwsgp8",
@@ -320,7 +325,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "s6k84gn",
@@ -341,7 +347,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1akg7k5",
@@ -362,7 +369,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "u1q3yu3",
@@ -383,7 +391,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "frle5cd",
@@ -404,7 +413,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ph7mn2v",
@@ -425,7 +435,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "x2fw7np",
@@ -446,7 +457,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "sg0ztkv",
@@ -467,7 +479,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "fu9tjx0",
@@ -488,7 +501,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "18grxdk",
@@ -509,7 +523,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ov8bz8s",
@@ -530,7 +545,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4fduzhr",
@@ -551,7 +567,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "gonkx5v",
@@ -572,7 +589,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "vr08ijb",
@@ -593,7 +611,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "j9qyg9v",
@@ -614,7 +633,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ekr65b5",
@@ -635,7 +655,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "s8lkgxy",
@@ -656,7 +677,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v9ml9f7",
@@ -677,7 +699,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "fj3juc1",
@@ -698,7 +721,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "29ti0fc",
@@ -719,7 +743,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "snrs7c4",
@@ -740,7 +765,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "swpro05",
@@ -761,7 +787,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "z2o962v",
@@ -782,7 +809,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "977aaza",
@@ -803,7 +831,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v7vyy9a",
@@ -824,7 +853,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "i9v7c80",
@@ -845,7 +875,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "zs6tqso",
@@ -866,7 +897,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "y5gcjd4",
@@ -887,7 +919,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "shgns0s",
@@ -908,7 +941,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "aj53axn",
@@ -929,7 +963,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "x5j83v5",
@@ -950,7 +985,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "5jc7xzc",
@@ -971,7 +1007,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "u8vtwbx",
@@ -992,7 +1029,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "r1xfgil",
@@ -1013,7 +1051,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "762851f",
@@ -1034,7 +1073,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "rjay1ft",
@@ -1055,7 +1095,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ezvtis6",
@@ -1076,7 +1117,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "riunog4",
@@ -1097,7 +1139,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ivlg8mi",
@@ -1118,7 +1161,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4h9z4p4",
@@ -1139,7 +1183,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "bqbu2dx",
@@ -1160,7 +1205,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4xqskti",
@@ -1181,7 +1227,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ddhs55q",
@@ -1202,7 +1249,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "5jpanfo",
@@ -1223,7 +1271,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "24hd4ec",
@@ -1244,7 +1293,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2m9194n",
@@ -1265,7 +1315,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "mjhzosn",
@@ -1286,7 +1337,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "x032z89",
@@ -1307,7 +1359,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "oq8zimz",
@@ -1328,7 +1381,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ao4xefs",
@@ -1349,7 +1403,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "oxyzdsw",
@@ -1370,7 +1425,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "wcattx2",
@@ -1391,7 +1447,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "6hav354",
@@ -1412,7 +1469,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1vegy1v",
@@ -1433,7 +1491,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "9m2n313",
@@ -1454,7 +1513,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2qop3si",
@@ -1475,7 +1535,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "nh3cr1a",
@@ -1496,7 +1557,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "t5y2sgm",
@@ -1517,7 +1579,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "w2718rh",
@@ -1538,7 +1601,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ubrjqts",
@@ -1559,7 +1623,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "irfuqs2",
@@ -1580,7 +1645,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "32rez9a",
@@ -1601,7 +1667,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "vp06vfm",
@@ -1622,7 +1689,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "6136a86",
@@ -1643,7 +1711,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "bbxz6m4",
@@ -1664,7 +1733,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "gy7jo41",
@@ -1685,7 +1755,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "tevtdpg",
@@ -1706,7 +1777,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "st9tklw",
@@ -1727,7 +1799,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2o0alqs",
@@ -1748,7 +1821,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7t9q99h",
@@ -1769,7 +1843,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "tduu3n2",
@@ -1790,7 +1865,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dsomok8",
@@ -1811,7 +1887,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "l2wpdi0",
@@ -1832,7 +1909,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "04fe7u3",
@@ -1853,7 +1931,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4h4tjem",
@@ -1874,7 +1953,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "w4a3ixp",
@@ -1895,7 +1975,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "qljpp4q",
@@ -1916,7 +1997,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "n2k173h",
@@ -1937,7 +2019,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "j7l2hih",
@@ -1958,7 +2041,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "59hw2kt",
@@ -1979,7 +2063,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ie24h26",
@@ -2000,7 +2085,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "z9vhpgo",
@@ -2021,7 +2107,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "xhbnro2",
@@ -2042,7 +2129,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "d57jpc6",
@@ -2063,7 +2151,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "me82nzy",
@@ -2084,7 +2173,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "99z80bs",
@@ -2105,7 +2195,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "6w4wy6t",
@@ -2126,7 +2217,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "tdxbkpv",
@@ -2147,7 +2239,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "at6do1d",
@@ -2168,7 +2261,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "cvqjmaf",
@@ -2189,7 +2283,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1lnjvr0",
@@ -2210,7 +2305,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "r7odr39",
@@ -2231,7 +2327,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "od59u5a",
@@ -2252,7 +2349,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "tkm40ju",
@@ -2273,7 +2371,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "kyjdvyq",
@@ -2294,7 +2393,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ek5g2d4",
@@ -2315,7 +2415,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "wvnntsc",
@@ -2336,7 +2437,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "fmv0iqi",
@@ -2357,7 +2459,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "b5mzl7i",
@@ -2378,7 +2481,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "na24u3s",
@@ -2399,7 +2503,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ulcr80d",
@@ -2420,7 +2525,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "aa67v4g",
@@ -2441,7 +2547,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "5qp1cuo",
@@ -2462,7 +2569,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "0bt330q",
@@ -2483,7 +2591,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "q7hznf6",
@@ -2504,7 +2613,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "tkinr49",
@@ -2525,7 +2635,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "6c01ksc",
@@ -2546,7 +2657,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "wjtwleu",
@@ -2567,7 +2679,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7xey34p",
@@ -2588,7 +2701,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "iwz7qi6",
@@ -2609,7 +2723,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v8h4wz8",
@@ -2630,7 +2745,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "xoncfzx",
@@ -2651,7 +2767,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "06t7r2t",
@@ -2672,7 +2789,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "n3zcma9",
@@ -2693,7 +2811,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "m4gbbe5",
@@ -2714,7 +2833,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ja63epw",
@@ -2735,7 +2855,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "bk2oukx",
@@ -2756,7 +2877,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "582zxam",
@@ -2777,7 +2899,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8mji3t8",
@@ -2798,7 +2921,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2w3ai5r",
@@ -2819,7 +2943,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "qc9sjox",
@@ -2840,7 +2965,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ecltp8w",
@@ -2861,7 +2987,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "p7dwtr7",
@@ -2882,7 +3009,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "xf0swzm",
@@ -2903,7 +3031,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "uu4yp2w",
@@ -2924,7 +3053,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1v5iir3",
@@ -2945,7 +3075,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "52jlbmu",
@@ -2966,7 +3097,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "17c1woy",
@@ -2987,7 +3119,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hmjw9kf",
@@ -3008,7 +3141,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "s1cyrqt",
@@ -3029,7 +3163,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "oja4y9q",
@@ -3050,7 +3185,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "q6zb5l8",
@@ -3071,7 +3207,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "cbndyx6",
@@ -3092,7 +3229,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hxcfnqe",
@@ -3113,7 +3251,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "s9jf8rk",
@@ -3134,7 +3273,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "3qt1jjr",
@@ -3155,7 +3295,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ooh9awx",
@@ -3176,7 +3317,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4ce488v",
@@ -3197,7 +3339,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8xev4ct",
@@ -3218,7 +3361,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "zv3clqs",
@@ -3239,7 +3383,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8qq167h",
@@ -3260,7 +3405,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "do63sb3",
@@ -3281,7 +3427,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "z2p5iwx",
@@ -3302,7 +3449,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dywzbff",
@@ -3323,7 +3471,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "fjubxe9",
@@ -3344,7 +3493,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7rupfgl",
@@ -3365,7 +3515,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "uds31oo",
@@ -3386,7 +3537,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "bq60q5k",
@@ -3407,7 +3559,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "o2gs7xi",
@@ -3428,7 +3581,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dsvvygg",
@@ -3449,7 +3603,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2j2du6a",
@@ -3470,7 +3625,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "h64h66l",
@@ -3491,7 +3647,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "rzb2lxn",
@@ -3512,7 +3669,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "nslt1vx",
@@ -3533,7 +3691,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "w7me7fz",
@@ -3554,7 +3713,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "q5ga68t",
@@ -3575,7 +3735,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "kjo2dta",
@@ -3596,7 +3757,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "poyy07a",
@@ -3617,7 +3779,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2ne2h6e",
@@ -3638,7 +3801,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "lrh2v78",
@@ -3659,7 +3823,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "vnfha3l",
@@ -3680,7 +3845,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2ekvcw2",
@@ -3701,7 +3867,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "cc5kbth",
@@ -3722,7 +3889,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "9kl2iee",
@@ -3743,7 +3911,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "awd2ncq",
@@ -3764,7 +3933,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "f0lzire",
@@ -3785,7 +3955,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "zf5k4tl",
@@ -3806,7 +3977,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1j8i2jt",
@@ -3827,7 +3999,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "vbrngha",
@@ -3848,7 +4021,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "440grm3",
@@ -3869,7 +4043,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "3g3b1s8",
@@ -3890,7 +4065,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "x3bbamg",
@@ -3911,7 +4087,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "jtqz3v6",
@@ -3932,7 +4109,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "op13b58",
@@ -3953,7 +4131,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4vlifz1",
@@ -3974,7 +4153,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "9ddufcd",
@@ -3995,7 +4175,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "t2dukl1",
@@ -4016,7 +4197,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v23kwmq",
@@ -4037,7 +4219,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "cifr4vu",
@@ -4058,7 +4241,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8z1rn79",
@@ -4079,7 +4263,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hp3ccsx",
@@ -4100,7 +4285,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "wxvt8sx",
@@ -4121,7 +4307,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "xkt4qej",
@@ -4142,7 +4329,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4a2o3s9",
@@ -4163,7 +4351,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1dlepdo",
@@ -4184,7 +4373,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "grx53k4",
@@ -4205,7 +4395,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "g9fnnzh",
@@ -4226,7 +4417,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ec39d1t",
@@ -4247,7 +4439,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "exk4iyj",
@@ -4268,7 +4461,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "vi4dbsm",
@@ -4289,7 +4483,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ej5dqnu",
@@ -4310,7 +4505,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "s4sapwg",
@@ -4331,7 +4527,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "b6jdoa0",
@@ -4352,7 +4549,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "10gigu4",
@@ -4373,7 +4571,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "arrsvf5",
@@ -4394,7 +4593,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "593k96q",
@@ -4415,7 +4615,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "4e2pji2",
@@ -4436,7 +4637,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "0b45thn",
@@ -4457,7 +4659,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "gkdmrho",
@@ -4478,7 +4681,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "lc59yuu",
@@ -4499,7 +4703,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7uqa8gz",
@@ -4520,7 +4725,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "bsyljl1",
@@ -4541,7 +4747,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "sxvfbla",
@@ -4562,7 +4769,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8lbqyo3",
@@ -4583,7 +4791,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hrag5rd",
@@ -4604,7 +4813,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "6dzn37v",
@@ -4625,7 +4835,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "9mip0yp",
@@ -4646,7 +4857,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "01sk6p6",
@@ -4667,7 +4879,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "6pw5c6g",
@@ -4688,7 +4901,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "zl3kji5",
@@ -4709,7 +4923,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2yi3mwk",
@@ -4730,7 +4945,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "e80hnzk",
@@ -4751,7 +4967,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "jyhgo83",
@@ -4772,7 +4989,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dhp1jgg",
@@ -4793,7 +5011,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "cs4yb2c",
@@ -4814,7 +5033,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ufefvow",
@@ -4835,7 +5055,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "zzit2gn",
@@ -4856,7 +5077,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "n8pf0rd",
@@ -4877,7 +5099,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ieabyre",
@@ -4898,7 +5121,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "wsuy1eg",
@@ -4919,7 +5143,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1zwbnjn",
@@ -4940,7 +5165,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "cocacjc",
@@ -4961,7 +5187,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2al3jlf",
@@ -4982,7 +5209,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7bacqvh",
@@ -5003,7 +5231,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "icmwjcj",
@@ -5024,7 +5253,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "rgthhcr",
@@ -5045,7 +5275,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "coxad1z",
@@ -5066,7 +5297,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "2oa0deh",
@@ -5087,7 +5319,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "zw70v2h",
@@ -5108,7 +5341,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "q19eqep",
@@ -5129,7 +5363,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ld8gy1u",
@@ -5150,7 +5385,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "k66q7rz",
@@ -5171,7 +5407,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "3jhhvdi",
@@ -5192,7 +5429,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "gk213zb",
@@ -5213,7 +5451,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "osx3hqm",
@@ -5234,7 +5473,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "esnpyfq",
@@ -5255,7 +5495,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "5o1sh9i",
@@ -5276,7 +5517,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "af5qvfk",
@@ -5297,7 +5539,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8uykprm",
@@ -5318,7 +5561,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "f4oeleu",
@@ -5339,7 +5583,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "l5ajx67",
@@ -5360,7 +5605,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ap4d5ok",
@@ -5381,7 +5627,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8urul2f",
@@ -5402,7 +5649,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v5meliv",
@@ -5423,7 +5671,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "qz98jlc",
@@ -5444,7 +5693,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ficia7a",
@@ -5465,7 +5715,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "u2p84yb",
@@ -5486,7 +5737,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8ysyjdp",
@@ -5507,7 +5759,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ap4q4s2",
@@ -5528,7 +5781,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hqv2v5m",
@@ -5549,7 +5803,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "blf9kt2",
@@ -5570,7 +5825,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8szqm83",
@@ -5591,7 +5847,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ic03a7b",
@@ -5612,7 +5869,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "z8ye8qv",
@@ -5633,7 +5891,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "sfmx0pe",
@@ -5654,7 +5913,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "usy5ka5",
@@ -5675,7 +5935,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "q7nyuw1",
@@ -5696,7 +5957,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "wm3nzlb",
@@ -5717,7 +5979,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1vyaz2z",
@@ -5738,7 +6001,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "fqhkxsc",
@@ -5759,7 +6023,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "j2oduuz",
@@ -5780,7 +6045,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "s7elvpt",
@@ -5801,7 +6067,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "5498pes",
@@ -5822,7 +6089,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "5gclf7c",
@@ -5843,7 +6111,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dzxwf62",
@@ -5864,7 +6133,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "677phqb",
@@ -5885,7 +6155,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "t08npuk",
@@ -5906,7 +6177,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "pcfifa2",
@@ -5927,7 +6199,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "9bg5ja8",
@@ -5948,7 +6221,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1pen64b",
@@ -5969,7 +6243,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "tdbxu7i",
@@ -5990,7 +6265,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ub0po57",
@@ -6011,7 +6287,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "k9rk7me",
@@ -6032,7 +6309,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "8nxejo0",
@@ -6053,7 +6331,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7m4wyat",
@@ -6074,7 +6353,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "232t1ts",
@@ -6095,7 +6375,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "i9ov5sw",
@@ -6116,7 +6397,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v7pyfmy",
@@ -6137,7 +6419,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dnvnj6q",
@@ -6158,7 +6441,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "7ro74dc",
@@ -6179,7 +6463,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ldvz6t5",
@@ -6200,7 +6485,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hbs4mg6",
@@ -6221,7 +6507,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "td74osz",
@@ -6242,7 +6529,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "pce4bx8",
@@ -6263,7 +6551,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "3awbkyt",
@@ -6284,7 +6573,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "busnjmm",
@@ -6305,7 +6595,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "amav5qg",
@@ -6326,7 +6617,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dl46yf1",
@@ -6347,7 +6639,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ea7zthl",
@@ -6368,7 +6661,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "0k4wtru",
@@ -6389,7 +6683,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "r8zr5b9",
@@ -6410,7 +6705,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "ryvi7g0",
@@ -6431,7 +6727,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "1728egs",
@@ -6452,7 +6749,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "65gxnjv",
@@ -6473,7 +6771,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "bo4yetw",
@@ -6494,7 +6793,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "a322yx6",
@@ -6515,7 +6815,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "dnyumny",
@@ -6536,7 +6837,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "gibfiza",
@@ -6557,7 +6859,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "46bkiyl",
@@ -6578,7 +6881,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "odtgr9m",
@@ -6599,7 +6903,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "j7wsjib",
@@ -6620,7 +6925,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hexn1o5",
@@ -6641,7 +6947,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "61gcayr",
@@ -6662,7 +6969,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "v68hvx3",
@@ -6683,7 +6991,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "hexgnnm",
@@ -6704,7 +7013,8 @@
       "allowFrozen": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": false
+      "availableForKiosk": false,
+      "updatedAt": null
     },
     {
       "id": "jhzx6cv",
@@ -6726,7 +7036,7 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": 1794432349610
+      "updatedAt": null
     },
     {
       "id": "prod_congelado",
@@ -6747,7 +7057,8 @@
       "addonIds": [],
       "maxAddons": 0,
       "flavorIds": [],
-      "allowFrozen": true
+      "allowFrozen": true,
+      "updatedAt": null
     }
   ],
   "users": [
@@ -46142,6 +46453,6 @@
     "tvMedia": {},
     "totemBackups": {},
     "ordersClearedAt": 0,
-    "updatedAt": 1794443649963
+    "updatedAt": 1794444745529
   }
 }

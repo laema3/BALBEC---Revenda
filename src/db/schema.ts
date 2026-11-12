@@ -23,6 +23,7 @@ export const categories = pgTable('categories', {
   availableInStore: boolean('available_in_store').default(true),
   availableForKiosk: boolean('available_for_kiosk').default(true),
   modality: text('modality').default('pronto'),
+  updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
 // Products table
@@ -46,6 +47,7 @@ export const products = pgTable('products', {
   availableForDelivery: boolean('available_for_delivery').default(true),
   availableInStore: boolean('available_in_store').default(true),
   availableForKiosk: boolean('available_for_kiosk').default(true),
+  updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
 // Orders table
@@ -208,6 +210,7 @@ export const storeInfo = pgTable('store_info', {
   autoSmsApiKey: text('auto_sms_api_key').default(''),
   orderSoundEnabled: boolean('order_sound_enabled').default(true),
   orderChimeEnabled: boolean('order_chime_enabled').default(true),
+  updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
 // TV Media Playlist table for Smart TV Indoor Signage

@@ -298,7 +298,8 @@ export async function ensureTablesExist() {
       is_visible BOOLEAN DEFAULT TRUE,
       available_for_delivery BOOLEAN DEFAULT TRUE,
       available_in_store BOOLEAN DEFAULT TRUE,
-      available_for_kiosk BOOLEAN DEFAULT TRUE
+      available_for_kiosk BOOLEAN DEFAULT TRUE,
+      updated_at BIGINT
     );
 
     CREATE TABLE IF NOT EXISTS products (
@@ -319,7 +320,8 @@ export async function ensureTablesExist() {
       allow_frozen BOOLEAN DEFAULT TRUE,
       available_for_delivery BOOLEAN DEFAULT TRUE,
       available_in_store BOOLEAN DEFAULT TRUE,
-      available_for_kiosk BOOLEAN DEFAULT TRUE
+      available_for_kiosk BOOLEAN DEFAULT TRUE,
+      updated_at BIGINT
     );
     ALTER TABLE products ADD COLUMN IF NOT EXISTS "order" INTEGER DEFAULT 0;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_frozen BOOLEAN DEFAULT TRUE;
@@ -502,7 +504,8 @@ export async function ensureTablesExist() {
       online_payment_operator TEXT DEFAULT 'mercadopago',
       online_payment_public_key TEXT DEFAULT '',
       online_payment_secret_key TEXT DEFAULT '',
-      show_system_intro_button BOOLEAN DEFAULT TRUE
+      show_system_intro_button BOOLEAN DEFAULT TRUE,
+      updated_at BIGINT
     );
 
     CREATE TABLE IF NOT EXISTS tv_media (
@@ -622,5 +625,8 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS auto_sms_api_key TEXT DEFAULT '';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_sound_enabled BOOLEAN DEFAULT TRUE;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_chime_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS updated_at BIGINT;
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS updated_at BIGINT;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at BIGINT;
   `);
 }
