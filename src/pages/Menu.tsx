@@ -7001,19 +7001,19 @@ export default function Menu() {
                                         <button 
                                           type="button"
                                           onClick={() => {
+                                            const step = minRequired > 1 ? minRequired : 1;
                                             if (totalCartQty > 0) {
                                               if (mainCartItem) {
-                                                const newQ = mainCartItem.quantity - 1;
+                                                const newQ = mainCartItem.quantity - step;
                                                 if (newQ < minRequired) {
-                                                  // Se cair abaixo do mínimo, remove do carrinho
                                                   setCart(prev => prev.filter(ci => !(ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext)));
                                                   setProductQuantities(prev => ({ ...prev, [qtyKey]: minRequired }));
                                                 } else {
-                                                  updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, -1, mainCartItem.prepType);
+                                                  setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: newQ } : ci));
                                                 }
                                               }
                                             } else {
-                                              const next = Math.max(minRequired, numericQty - 1);
+                                              const next = Math.max(minRequired, numericQty - step);
                                               setProductQuantities(prev => ({
                                                 ...prev,
                                                 [qtyKey]: next
@@ -7030,9 +7030,11 @@ export default function Menu() {
                                           type="text"
                                           inputMode="numeric"
                                           pattern="[0-9]*"
+                                          readOnly={minRequired > 1}
                                           value={displayedQty}
-                                          onFocus={(e) => e.target.select()}
+                                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
                                           onChange={(e) => {
+                                            if (minRequired >  1) return;
                                             const raw = e.target.value.replace(/\D/g, '');
                                             setProductQuantities(prev => ({ ...prev, [qtyKey]: raw }));
                                             if (raw !== '') {
@@ -7043,6 +7045,7 @@ export default function Menu() {
                                             }
                                           }}
                                           onBlur={() => {
+                                            if (minRequired > 1) return;
                                             const raw = productQuantities[qtyKey];
                                             if (raw === '' || raw === undefined) {
                                               const safe = totalCartQty > 0 ? totalCartQty : minRequired;
@@ -7059,6 +7062,7 @@ export default function Menu() {
                                           onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                               (e.target as HTMLInputElement).blur();
+                                              if (minRequired > 1) return;
                                               const raw = productQuantities[qtyKey];
                                               const parsed = parseInt(String(raw ?? displayedQty), 10);
                                               const qty = isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
@@ -7068,21 +7072,23 @@ export default function Menu() {
                                             }
                                           }}
                                           placeholder={String(minRequired)}
-                                          className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
-                                          title="Digite a quantidade (pode apagar tudo)"
+                                          className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono ${minRequired > 1 ? 'cursor-not-allowed bg-stone-50' : ''}`}
+                                          title={minRequired > 1 ? `Quantidade mínima de ${minRequired} un (multiplicada pelos botões + / -)` : "Digite a quantidade (pode apagar tudo)"}
                                         />
 
                                         <button 
                                           type="button"
                                           onClick={() => {
+                                            const step = minRequired > 1 ? minRequired : 1;
                                             if (totalCartQty > 0) {
                                               if (mainCartItem) {
-                                                updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, 1, mainCartItem.prepType);
+                                                const newQ = mainCartItem.quantity + step;
+                                                setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: newQ } : ci));
                                               } else {
-                                                initiateAddToCartWithQty(product, 1, isFrozenCategoryContext);
+                                                initiateAddToCartWithQty(product, step, isFrozenCategoryContext);
                                               }
                                             } else {
-                                              initiateAddToCartWithQty(product, numericQty, isFrozenCategoryContext);
+                                              initiateAddToCartWithQty(product, numericQty > 0 ? numericQty : minRequired, isFrozenCategoryContext);
                                             }
                                           }}
                                           className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
@@ -7364,10 +7370,11 @@ export default function Menu() {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
                               const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
-                              if (item.quantity - 1 < minQ) {
+                              const step = minQ > 1 ? minQ : 1;
+                              if (item.quantity - step < minQ) {
                                 setCart(prev => prev.filter(ci => !(ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
                               } else {
-                                updateQuantity(item.productId, item.addons, item.flavor, -1, item.prepType);
+                                updateQuantity(item.productId, item.addons, item.flavor, -step, item.prepType);
                               }
                             }}
                             className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
@@ -7379,27 +7386,40 @@ export default function Menu() {
                             type="text"
                             inputMode="numeric"
                             pattern="[0-9]*"
+                            readOnly={(() => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              return minQ > 1;
+                            })()}
                             value={cartItemInputMap[itemKey] ?? item.quantity}
-                            onFocus={(e) => e.target.select()}
+                            onFocus={(e) => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              if (minQ === 1) e.target.select();
+                            }}
                             onChange={(e) => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              if (minQ > 1) return;
                               const raw = e.target.value.replace(/\D/g, '');
                               setCartItemInputMap(prev => ({ ...prev, [itemKey]: raw }));
                               if (raw !== '') {
                                 const val = parseInt(raw, 10);
-                                const prod = products.find(p => p.id === item.productId);
-                                const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                                const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
                                 if (!isNaN(val) && val >= minQ) {
                                   setCart(prev => prev.map(ci => (ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: val } : ci));
                                 }
                               }
                             }}
                             onBlur={() => {
-                              const raw = cartItemInputMap[itemKey];
-                              const parsed = parseInt(String(raw ?? item.quantity), 10);
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
                               const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              if (minQ > 1) return;
+                              const raw = cartItemInputMap[itemKey];
+                              const parsed = parseInt(String(raw ?? item.quantity), 10);
                               const safe = isNaN(parsed) || parsed < minQ ? minQ : parsed;
                               setCart(prev => prev.map(ci => (ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor)) ? { ...ci, quantity: safe } : ci));
                               setCartItemInputMap(prev => {
@@ -7414,12 +7434,28 @@ export default function Menu() {
                               }
                             }}
                             placeholder="1"
-                            className="font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono"
-                            title="Digite a quantidade diretamente (pode apagar tudo)"
+                            className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono ${(() => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              return minQ > 1 ? 'cursor-not-allowed bg-stone-50' : '';
+                            })()}`}
+                            title={(() => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              return minQ > 1 ? `Mínimo de ${minQ} un (controlado pelos botões + / -)` : "Digite a quantidade diretamente (pode apagar tudo)";
+                            })()}
                           />
                           <button 
                             type="button"
-                            onClick={() => updateQuantity(item.productId, item.addons, item.flavor, 1, item.prepType)}
+                            onClick={() => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const step = minQ > 1 ? minQ : 1;
+                              updateQuantity(item.productId, item.addons, item.flavor, step, item.prepType);
+                            }}
                             className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
                             title="Aumentar"
                           >
@@ -7917,7 +7953,11 @@ export default function Menu() {
                       <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
                         <button
                           type="button"
-                          onClick={() => setCongeladoCruQty(Math.max(0, congeladoCruQty - 1))}
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            const next = congeladoCruQty - step;
+                            setCongeladoCruQty(next < 0 ? 0 : (next < minRequired && next > 0 ? 0 : next));
+                          }}
                           className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -7925,17 +7965,23 @@ export default function Menu() {
                         <input
                           type="text"
                           inputMode="numeric"
+                          readOnly={minRequired > 1}
                           value={congeladoCruQty}
-                          onFocus={(e) => e.target.select()}
+                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
                           onChange={(e) => {
+                            if (minRequired > 1) return;
                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
                             setCongeladoCruQty(isNaN(val) ? 0 : val);
                           }}
-                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                          title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
                         />
                         <button
                           type="button"
-                          onClick={() => setCongeladoCruQty(congeladoCruQty + 1)}
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            setCongeladoCruQty(congeladoCruQty === 0 ? minRequired : congeladoCruQty + step);
+                          }}
                           className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -7956,7 +8002,11 @@ export default function Menu() {
                       <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
                         <button
                           type="button"
-                          onClick={() => setCongeladoFritoQty(Math.max(0, congeladoFritoQty - 1))}
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            const next = congeladoFritoQty - step;
+                            setCongeladoFritoQty(next < 0 ? 0 : (next < minRequired && next > 0 ? 0 : next));
+                          }}
                           className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -7964,17 +8014,23 @@ export default function Menu() {
                         <input
                           type="text"
                           inputMode="numeric"
+                          readOnly={minRequired > 1}
                           value={congeladoFritoQty}
-                          onFocus={(e) => e.target.select()}
+                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
                           onChange={(e) => {
+                            if (minRequired > 1) return;
                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
                             setCongeladoFritoQty(isNaN(val) ? 0 : val);
                           }}
-                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                          title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
                         />
                         <button
                           type="button"
-                          onClick={() => setCongeladoFritoQty(congeladoFritoQty + 1)}
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            setCongeladoFritoQty(congeladoFritoQty === 0 ? minRequired : congeladoFritoQty + step);
+                          }}
                           className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
                         >
                           <Plus className="w-3.5 h-3.5" />
