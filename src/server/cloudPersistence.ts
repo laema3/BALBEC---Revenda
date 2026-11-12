@@ -412,10 +412,10 @@ export function smartMergeCollectionItems(
           // O registro existente é mais recente ou prioritário
           const merged = { ...item, ...existing };
           if (!merged.imageUrl && item.imageUrl) merged.imageUrl = item.imageUrl;
-          if (!merged.frozenCategoryId && item.frozenCategoryId) {
+          if (merged.frozenCategoryId === undefined && item.frozenCategoryId) {
             merged.frozenCategoryId = item.frozenCategoryId;
           }
-          if (!merged.minFrozenQuantity && item.minFrozenQuantity) {
+          if (merged.minFrozenQuantity === undefined && item.minFrozenQuantity) {
             merged.minFrozenQuantity = item.minFrozenQuantity;
           }
           if ((!merged.modality || merged.modality === 'pronto') && item.modality === 'congelado' && !existing.updatedAt) {

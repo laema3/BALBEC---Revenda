@@ -1860,11 +1860,11 @@ export default function Menu() {
               ? c.availableForKiosk !== false
               : c.availableInStore !== false;
 
-          return !isExcluded && 
-                 isVisible && 
-                 matchesChannel &&
-                 Array.isArray(products) && 
-                 products.some(p => (p.categoryId === c.id || (p.frozenCategoryId === c.id && p.allowFrozen !== false)) && p.isActive && !p.isAddon && !p.isFlavor && !isAddonItem(p, categories));
+      return !isExcluded && 
+             isVisible && 
+             matchesChannel &&
+             Array.isArray(products) && 
+             products.some(p => (p.categoryId === c.id || p.frozenCategoryId === c.id) && p.isActive && !p.isAddon && !p.isFlavor && !isAddonItem(p, categories));
         })
         .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))[0];
       if (firstValidCategory) {
@@ -1919,10 +1919,10 @@ export default function Menu() {
       if (shouldExcludeProduct(p, categories)) return false;
 
       const prodCat = (p.categoryId && p.categoryId !== 'none') ? catMap.get(p.categoryId) : undefined;
-      const frozenCat = (p.frozenCategoryId && p.frozenCategoryId !== 'none' && p.allowFrozen !== false) ? catMap.get(p.frozenCategoryId) : undefined;
+      const frozenCat = (p.frozenCategoryId && p.frozenCategoryId !== 'none') ? catMap.get(p.frozenCategoryId) : undefined;
 
       const checkCatChannel = (c: any) => {
-        if (!c) return true;
+        if (!c) return false;
         if (c.isVisible === false) return false;
         return salesChannel === 'delivery'
           ? c.availableForDelivery !== false
@@ -1932,7 +1932,7 @@ export default function Menu() {
       };
 
       const hasValidPrimaryCat = Boolean(p.categoryId && p.categoryId !== 'none' && checkCatChannel(prodCat));
-      const hasValidFrozenCat = Boolean(p.frozenCategoryId && p.frozenCategoryId !== 'none' && p.allowFrozen !== false && checkCatChannel(frozenCat));
+      const hasValidFrozenCat = Boolean(p.frozenCategoryId && p.frozenCategoryId !== 'none' && checkCatChannel(frozenCat));
 
       if (!hasValidPrimaryCat && !hasValidFrozenCat) return false;
 
@@ -1965,7 +1965,7 @@ export default function Menu() {
       }
 
       const frozenCatId = p.frozenCategoryId;
-      if (frozenCatId && frozenCatId !== 'none' && frozenCatId !== catId && p.allowFrozen !== false) {
+      if (frozenCatId && frozenCatId !== 'none' && frozenCatId !== catId) {
         if (!map[frozenCatId]) {
           map[frozenCatId] = [];
         }

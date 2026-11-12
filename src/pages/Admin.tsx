@@ -2460,6 +2460,7 @@ export default function Admin() {
     const deliv = formData.get('availableForDelivery') === 'on';
     const store = formData.get('availableInStore') === 'on';
     const kiosk = formData.get('availableForKiosk') === 'on';
+    const isVisibleChecked = formData.get('isVisible') === 'on';
 
     const data = {
       name: catName,
@@ -2468,7 +2469,7 @@ export default function Admin() {
       availableForDelivery: deliv,
       availableInStore: store,
       availableForKiosk: kiosk,
-      isVisible: editingItem ? (editingItem.isVisible !== false) : true,
+      isVisible: isVisibleChecked,
     };
 
     setIsSaving(true);
@@ -2554,6 +2555,17 @@ export default function Admin() {
           user: currentUser?.name || 'Administrador'
         });
       }
+
+      if (data.isActive) {
+        const assignedCatIds = [data.categoryId, data.frozenCategoryId].filter(cid => cid && cid !== 'none') as string[];
+        for (const cid of assignedCatIds) {
+          const targetCat = categories.find(c => c.id === cid);
+          if (targetCat && !targetCat.externalId && targetCat.isVisible === false) {
+            await updateCategory(targetCat.id, { isVisible: true });
+          }
+        }
+      }
+
       closeModal();
     } catch (error) {
       console.error('Error saving product:', error);
@@ -5269,11 +5281,23 @@ export default function Admin() {
               .filter(c => !isExcludedCategory(c.name))
               .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
               .map(category => (
-              <tr key={category.id} className="hover:bg-stone-50">
+              <tr key={category.id} className={`hover:bg-stone-50 ${category.isVisible === false ? 'bg-orange-50/40' : ''}`}>
                 <td className="p-4 w-20 text-center">{category.order}</td>
                 <td className="p-4 font-medium">
                   <div className="flex flex-col">
-                    <span className="text-stone-900">{category.name}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={category.isVisible === false ? 'text-stone-400 line-through' : 'text-stone-900'}>{category.name}</span>
+                      {category.isVisible === false && (
+                        <button
+                          type="button"
+                          onClick={() => toggleCategoryVisibility(category)}
+                          className="text-[10px] font-black px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 border border-orange-300 hover:bg-orange-200 cursor-pointer"
+                          title="Clique para ativar e exibir esta categoria na tela de vendas"
+                        >
+                          🚫 OCULTA NA TELA DE VENDAS (Clique p/ ativar)
+                        </button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1 mt-1.5 items-center">
                       <button
                         type="button"
@@ -6033,69 +6057,113 @@ export default function Admin() {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este produto aparece na modalidade Prontos (Normais)">
-                              🔥 Prontos
-                            </span>
-                            <select
-                              value={product.categoryId || 'none'}
-                              onChange={async (e) => {
-                                const newCatId = e.target.value;
-                                try {
-                                  await updateProduct(product.id, { categoryId: newCatId });
-                                } catch (err) {
-                                  console.error('Error updating product category:', err);
-                                }
-                              }}
-                              className="bg-stone-50 border border-stone-200 text-stone-700 text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer font-bold w-full max-w-[210px]"
-                            >
-                              <option value="none">-- Não exibir em Prontos --</option>
-                              {categories
-                                .filter(c => !isExcludedCategory(c.name))
-                                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
-                                .map(c => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
-                                  </option>
-                                ))}
-                            </select>
-                          </div>
+                          {(() => {
+                            const selectedPrimaryCat = categories.find(c => c.id === product.categoryId);
+                            const selectedFrozenCat = categories.find(c => c.id === product.frozenCategoryId);
+                            return (
+                              <>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este produto aparece na modalidade Prontos (Normais)">
+                                      🔥 Prontos
+                                    </span>
+                                    <select
+                                      value={product.categoryId || 'none'}
+                                      onChange={async (e) => {
+                                        const newCatId = e.target.value;
+                                        try {
+                                          await updateProduct(product.id, { categoryId: newCatId });
+                                          if (newCatId && newCatId !== 'none' && product.isActive !== false) {
+                                            const targetCat = categories.find(c => c.id === newCatId);
+                                            if (targetCat && !targetCat.externalId && targetCat.isVisible === false) {
+                                              await updateCategory(targetCat.id, { isVisible: true });
+                                            }
+                                          }
+                                        } catch (err) {
+                                          console.error('Error updating product category:', err);
+                                        }
+                                      }}
+                                      className="bg-stone-50 border border-stone-200 text-stone-700 text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer font-bold w-full max-w-[210px]"
+                                    >
+                                      <option value="none">-- Não exibir em Prontos --</option>
+                                      {categories
+                                        .filter(c => !isExcludedCategory(c.name))
+                                        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                                        .map(c => (
+                                          <option key={c.id} value={c.id}>
+                                            {c.name} {!c.externalId ? '✏️ (Manual)' : ''} {c.isVisible === false ? '🚫 (Oculta)' : ''}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </div>
+                                  {selectedPrimaryCat && selectedPrimaryCat.isVisible === false && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateCategory(selectedPrimaryCat.id, { isVisible: true })}
+                                      className="self-end text-[10px] font-bold text-orange-800 bg-orange-50 border border-orange-300 hover:bg-orange-100 px-2 py-0.5 rounded cursor-pointer"
+                                      title="Esta categoria está oculta na tela de vendas. Clique para torná-la visível."
+                                    >
+                                      ⚠️ Categoria &quot;{selectedPrimaryCat.name}&quot; oculta (Ativar)
+                                    </button>
+                                  )}
+                                </div>
 
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-extrabold text-cyan-900 bg-cyan-100 border border-cyan-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este mesmo produto aparece na modalidade Congelados (+R$ 0,30)">
-                              ❄️ Congelados
-                            </span>
-                            <select
-                              value={product.frozenCategoryId || 'none'}
-                              onChange={async (e) => {
-                                const rawVal = e.target.value;
-                                const newFrozenCatId = rawVal === 'none' ? '' : rawVal;
-                                try {
-                                  await updateProduct(product.id, { 
-                                    frozenCategoryId: newFrozenCatId,
-                                    ...(newFrozenCatId ? { allowFrozen: true } : {})
-                                  });
-                                } catch (err) {
-                                  console.error('Error updating product frozenCategoryId:', err);
-                                }
-                              }}
-                              className={`border text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer font-bold w-full max-w-[210px] ${
-                                product.frozenCategoryId && product.frozenCategoryId !== 'none'
-                                  ? 'bg-cyan-50 border-cyan-300 text-cyan-950'
-                                  : 'bg-stone-50 border-stone-200 text-stone-400'
-                              }`}
-                            >
-                              <option value="none">-- Sem Categoria Congelados --</option>
-                              {categories
-                                .filter(c => !isExcludedCategory(c.name))
-                                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
-                                .map(c => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name} {!c.externalId ? '✏️ (Manual)' : ''}
-                                  </option>
-                                ))}
-                            </select>
-                          </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-extrabold text-cyan-900 bg-cyan-100 border border-cyan-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este mesmo produto aparece na modalidade Congelados (+R$ 0,30)">
+                                      ❄️ Congelados
+                                    </span>
+                                    <select
+                                      value={product.frozenCategoryId || 'none'}
+                                      onChange={async (e) => {
+                                        const rawVal = e.target.value;
+                                        const newFrozenCatId = rawVal === 'none' ? '' : rawVal;
+                                        try {
+                                          await updateProduct(product.id, { 
+                                            frozenCategoryId: newFrozenCatId,
+                                            ...(newFrozenCatId ? { allowFrozen: true } : {})
+                                          });
+                                          if (newFrozenCatId && product.isActive !== false) {
+                                            const targetCat = categories.find(c => c.id === newFrozenCatId);
+                                            if (targetCat && !targetCat.externalId && targetCat.isVisible === false) {
+                                              await updateCategory(targetCat.id, { isVisible: true });
+                                            }
+                                          }
+                                        } catch (err) {
+                                          console.error('Error updating product frozenCategoryId:', err);
+                                        }
+                                      }}
+                                      className={`border text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer font-bold w-full max-w-[210px] ${
+                                        product.frozenCategoryId && product.frozenCategoryId !== 'none'
+                                          ? 'bg-cyan-50 border-cyan-300 text-cyan-950'
+                                          : 'bg-stone-50 border-stone-200 text-stone-400'
+                                      }`}
+                                    >
+                                      <option value="none">-- Sem Categoria Congelados --</option>
+                                      {categories
+                                        .filter(c => !isExcludedCategory(c.name))
+                                        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                                        .map(c => (
+                                          <option key={c.id} value={c.id}>
+                                            {c.name} {!c.externalId ? '✏️ (Manual)' : ''} {c.isVisible === false ? '🚫 (Oculta)' : ''}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </div>
+                                  {selectedFrozenCat && selectedFrozenCat.isVisible === false && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateCategory(selectedFrozenCat.id, { isVisible: true })}
+                                      className="self-end text-[10px] font-bold text-orange-800 bg-orange-50 border border-orange-300 hover:bg-orange-100 px-2 py-0.5 rounded cursor-pointer"
+                                      title="Esta categoria está oculta na tela de vendas. Clique para torná-la visível."
+                                    >
+                                      ⚠️ Categoria &quot;{selectedFrozenCat.name}&quot; oculta (Ativar)
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="p-4 font-bold text-orange-600">
@@ -9309,6 +9377,15 @@ export default function Admin() {
                 </div>
                 
                 <div className="pt-2 border-t border-stone-100">
+                  <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 mb-3">
+                    <input
+                      type="checkbox"
+                      name="isVisible"
+                      defaultChecked={editingItem ? editingItem.isVisible !== false : true}
+                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                    />
+                    <span className="text-sm font-extrabold text-emerald-950">👁️ Exibir Categoria na Tela de Vendas (Visível)</span>
+                  </label>
                   <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Canais de Venda Disponíveis</label>
                   <div className="space-y-2 text-sm text-stone-700">
                     <label className="flex items-center gap-2 cursor-pointer">

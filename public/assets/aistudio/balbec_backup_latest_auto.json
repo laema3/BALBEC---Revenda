@@ -98,139 +98,150 @@
       "name": "SALGADO",
       "order": 1,
       "externalId": "SALGAD",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794508629936
     },
     {
       "id": "hricv6a",
       "name": "BEBIDA",
       "order": 2,
       "externalId": "BEBIDA",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794446348070
     },
     {
       "id": "nyww21f",
       "name": "TIPO 2",
       "order": 3,
       "externalId": "REVENDA",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794508645878
     },
     {
       "id": "k790tcu",
       "name": "SORVETE",
       "order": 4,
       "externalId": "SORVET",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794446380240
     },
     {
       "id": "e0sv8sp",
       "name": "GALINHADA",
       "order": 5,
       "externalId": "GALINH",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794446376011
     },
     {
       "id": "80iq08q",
       "name": "MAIONESE",
       "order": 6,
       "externalId": "MAIONE",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794446390312
     },
     {
       "id": "j9pixiq",
       "name": "DOCES",
       "order": 7,
       "externalId": "DOCES",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794446373278
     },
     {
       "id": "wmsqohp",
       "name": "Diversos",
       "order": 8,
       "externalId": "DIVERSOS",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794446360019
     },
     {
       "id": "wscjzcx",
       "name": "REVENDA FESTA",
       "order": 9,
       "externalId": "REVENDA FESTA",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794508630634
     },
     {
       "id": "nwc89q5",
       "name": "SALGADO REV 1",
       "order": 10,
       "externalId": "SALGADO REV 1",
-      "isVisible": true,
+      "isVisible": false,
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": true,
       "modality": "pronto",
-      "updatedAt": null
+      "updatedAt": 1794508629028
     },
     {
       "id": "xqs010m",
-      "name": "Salgados Congelados (Crus)",
+      "name": "Salgados Grandes Congelados (Crus)",
       "order": 11,
       "externalId": null,
       "isVisible": true,
       "availableForDelivery": true,
       "availableInStore": true,
-      "availableForKiosk": true,
+      "availableForKiosk": false,
       "modality": "congelado",
-      "updatedAt": null
+      "updatedAt": 1794509822486
+    },
+    {
+      "id": "rjhc9i7",
+      "name": "Salgados Grandes",
+      "order": 12,
+      "externalId": null,
+      "isVisible": true,
+      "availableForDelivery": true,
+      "availableInStore": true,
+      "availableForKiosk": false,
+      "modality": "pronto",
+      "updatedAt": 1794509149814
     }
   ],
   "products": [
     {
       "id": "zzahj66",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER CHOCOLATE",
       "description": "WAFER CHOCOLATE",
       "price": 2,
@@ -247,12 +258,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "vjgwwd1",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER CHOCOLATE MASSIMO",
       "description": "WAFER CHOCOLATE MASSIMO",
       "price": 1.75,
@@ -269,12 +280,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "3dyyo6p",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER CHOCOLATE BITES",
       "description": "WAFER CHOCOLATE BITES",
       "price": 2.5,
@@ -291,12 +302,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ypwsgp8",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SPRITE PET 600 ML",
       "description": "REFRIGERANTE PET 600 ML SPRITE",
       "price": 0,
@@ -313,12 +324,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "s6k84gn",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "GUARANA PET 600 ML NORMAL",
       "description": "REFRIGERANTE PET 600 ML GUAR.ANTARC.NORM",
       "price": 0,
@@ -335,12 +346,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "1akg7k5",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "GUARANA PET 600 ML DIET",
       "description": "REFRIGERANTE PET 600 ML GUAR.ANTARC.DIET",
       "price": 0,
@@ -357,12 +368,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "u1q3yu3",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA TONICA ANTARCTICA 35",
       "description": "AGUA TONICA ANTARCTICA 350 ML",
       "price": 4.5,
@@ -379,12 +390,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "frle5cd",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA BANANA C",
       "description": "SORVETE VARIATTA BANANA C/ ACAI",
       "price": 31.9,
@@ -401,12 +412,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ph7mn2v",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA CHOCOLAT",
       "description": "SORVETE VARIATTA CHOCOLATE",
       "price": 31.9,
@@ -423,12 +434,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "x2fw7np",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA MARACUJA",
       "description": "SORVETE VARIATTA MARACUJA",
       "price": 31.9,
@@ -445,12 +456,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "sg0ztkv",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA MORANGO",
       "description": "SORVETE VARIATTA MORANGO",
       "price": 31.9,
@@ -467,12 +478,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "fu9tjx0",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA COCO TRU",
       "description": "SORVETE VARIATTA COCO TRUFADO",
       "price": 31.9,
@@ -489,12 +500,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "18grxdk",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA PAPAIA C",
       "description": "SORVETE VARIATTA PAPAIA C/ CASSIS",
       "price": 31.9,
@@ -511,12 +522,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ov8bz8s",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA CHOCOMEL",
       "description": "SORVETE VARIATTA CHOCOMELLOW",
       "price": 31.9,
@@ -533,14 +544,14 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "4fduzhr",
-      "categoryId": "nyww21f",
-      "frozenCategoryId": null,
+      "categoryId": "rjhc9i7",
       "name": "COXINHA DE FRANGO",
-      "description": "COXINHA DE FRANGO",
+      "description": "COXINHA DE FRANGO [channels:delivery,in_store]",
       "price": 4.6,
       "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/101.jpg",
       "isActive": true,
@@ -555,14 +566,15 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794509188099,
+      "minFrozenQuantity": 1
     },
     {
       "id": "gonkx5v",
-      "categoryId": "nyww21f",
-      "frozenCategoryId": null,
+      "categoryId": "rjhc9i7",
       "name": "COXINHA DE BACALHAU",
-      "description": "COXINHA DE BACALHAU",
+      "description": "COXINHA DE BACALHAU [channels:delivery,in_store]",
       "price": 4.6,
       "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/102.jpg",
       "isActive": true,
@@ -577,12 +589,13 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": "xqs010m",
+      "updatedAt": 1794509176805,
+      "minFrozenQuantity": 1
     },
     {
       "id": "vr08ijb",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "QUIBE DE CARNE",
       "description": "QUIBE DE CARNE",
       "price": 4.6,
@@ -599,12 +612,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "j9qyg9v",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "QUIBE DE QUEIJO",
       "description": "QUIBE DE QUEIJO",
       "price": 4.6,
@@ -621,12 +634,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ekr65b5",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "BOLINHO DE MANDIOCA",
       "description": "BOLINHO DE MANDIOCA [channels:in_store]",
       "price": 4.6,
@@ -643,12 +656,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "s8lkgxy",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "BOLINHO DE BACALHAU",
       "description": "BOLINHO DE BACALHAU [channels:in_store]",
       "price": 4.6,
@@ -665,12 +678,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "v9ml9f7",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESPETINHO DE FRANGO",
       "description": "ESPETINHO DE FRANGO",
       "price": 4.6,
@@ -687,12 +700,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "fj3juc1",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "PASTEL DE FRANGO",
       "description": "PASTEL DE FRANGO",
       "price": 4.6,
@@ -709,12 +722,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "29ti0fc",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE CARNE",
       "description": "ESFIRRA DE CARNE",
       "price": 4.6,
@@ -731,12 +744,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "snrs7c4",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE CALABRESA",
       "description": "ESFIRRA DE CALABRESA",
       "price": 4.6,
@@ -753,12 +766,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "swpro05",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE FRANGO",
       "description": "ESFIRRA DE FRANGO",
       "price": 4.6,
@@ -775,12 +788,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "z2o962v",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE CHICORIA",
       "description": "ESFIRRA DE CHICORIA",
       "price": 4.6,
@@ -797,14 +810,14 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "977aaza",
-      "categoryId": "nyww21f",
-      "frozenCategoryId": null,
+      "categoryId": "rjhc9i7",
       "name": "CACHORRO QUENTE",
-      "description": "CACHORRO QUENTE",
+      "description": "CACHORRO QUENTE [channels:delivery,in_store]",
       "price": 4.6,
       "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/113.jpg",
       "isActive": true,
@@ -819,12 +832,13 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": "xqs010m",
+      "updatedAt": 1794509160869,
+      "minFrozenQuantity": 1
     },
     {
       "id": "v7vyy9a",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "PASTEL DE BACALHAU",
       "description": "PASTEL DE BACALHAU",
       "price": 4.6,
@@ -841,12 +855,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "i9v7c80",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "EMPADA DE FRANGO",
       "description": "EMPADA DE FRANGO",
       "price": 4.6,
@@ -863,12 +877,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "zs6tqso",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE BACALHAU",
       "description": "ESFIRRA DE BACALHAU [channels:delivery,in_store]",
       "price": 3.5,
@@ -885,12 +899,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "y5gcjd4",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "RISOLIS DE MILHO",
       "description": "RISOLIS DE MILHO [channels:delivery,in_store]",
       "price": 4.6,
@@ -907,12 +921,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "shgns0s",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE PRESUNTO COM R",
       "description": "ESFIRRA DE PRESUNTO COM REQUEIJAO",
       "price": 4.6,
@@ -929,12 +943,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "aj53axn",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "RISOLE DE CARNE",
       "description": "RISOLE DE CARNE",
       "price": 4,
@@ -951,12 +965,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "x5j83v5",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO UVA NORMAL LATA",
       "description": "SUCO DELL VALLE UVA LT 335 ML",
       "price": 0,
@@ -973,12 +987,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "5jc7xzc",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO UVA LIGHT LATA",
       "description": "SUCO DELL VALLE UVA LIGHT 335ML",
       "price": 0,
@@ -995,12 +1009,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "u8vtwbx",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ESFIHA DE RICOTA",
       "description": "ESFIHA DE RICOTA",
       "price": 4.6,
@@ -1017,12 +1031,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "r1xfgil",
       "categoryId": "e0sv8sp",
-      "frozenCategoryId": null,
       "name": "FRETE",
       "description": "FRETE",
       "price": 16,
@@ -1039,12 +1053,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "762851f",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "CAPPUCCINO C/ CHOCOLATE B",
       "description": "CAPPUCCINO C/ CHOCOLATE BELGA 180 G",
       "price": 0,
@@ -1061,12 +1075,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "rjay1ft",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "CAPPUCCINO C/ CHOCOLATE B",
       "description": "CAPPUCCINO C/ CHOCOLATE BELGA LIGTH 150G",
       "price": 0,
@@ -1083,12 +1097,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ezvtis6",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "VODKA ROSKOF",
       "description": "VODKA ROSKOF",
       "price": 0,
@@ -1105,12 +1119,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "riunog4",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA LEITE TR",
       "description": "SORVETE VARIATTA LEITE TRUFADO",
       "price": 31.9,
@@ -1127,12 +1141,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ivlg8mi",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA ROMEU E",
       "description": "SORVETE VARIATTA ROMEU E JULIETA",
       "price": 31.9,
@@ -1149,12 +1163,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "4h9z4p4",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA AMEIXA",
       "description": "SORVETE VARIATTA AMEIXA",
       "price": 31.9,
@@ -1171,12 +1185,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "bqbu2dx",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO MANGA LT 335ML",
       "description": "SUCO DELL VALLE MANGA LT 335ML",
       "price": 0,
@@ -1193,12 +1207,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "4xqskti",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO MARACUJA LT 335ML",
       "description": "SUCO DELL VALLE MARACUJA LT 335ML",
       "price": 0,
@@ -1215,12 +1229,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "ddhs55q",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO PESSEGO LT 335ML",
       "description": "SUCO DELL VALLE PESSEGO LT 335ML",
       "price": 0,
@@ -1237,12 +1251,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "5jpanfo",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO DE LARANJA NATURELL 300 ML",
       "description": "SUCO DE LARANJA 300ML",
       "price": 6.5,
@@ -1259,12 +1273,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "24hd4ec",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO NATURAL ONE LIMAO PE",
       "description": "SUCO NATURAL ONE LIMAO PET 245ML",
       "price": 0,
@@ -1281,12 +1295,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "2m9194n",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO NATURAL ONE LARANJA/",
       "description": "SUCO NATURAL ONE LARANJA/KIWI PET 245 ML",
       "price": 0,
@@ -1303,12 +1317,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "mjhzosn",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO NATURAL ONE UVA/MACA",
       "description": "SUCO NATURAL ONE UVA/MACA PET 245ML",
       "price": 0,
@@ -1325,12 +1339,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "x032z89",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "COXINHA DE FRANGO",
       "description": "COXINHA DE FRANGO",
       "price": 6.5,
@@ -1347,14 +1361,14 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444806002
     },
     {
       "id": "oq8zimz",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "COXINHA DE BACALHAU",
-      "description": "COXINHA DE BACALHAU",
+      "description": "COXINHA DE BACALHAU [channels:delivery,in_store]",
       "price": 6.5,
       "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/2.jpg",
       "isActive": true,
@@ -1369,12 +1383,13 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": "xqs010m",
+      "updatedAt": 1794509192854,
+      "minFrozenQuantity": 1
     },
     {
       "id": "ao4xefs",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUIBE DE CARNE",
       "description": "QUIBE DE CARNE [channels:delivery,in_store]",
       "price": 6.5,
@@ -1391,12 +1406,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "oxyzdsw",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUIBE DE QUEIJO",
       "description": "QUIBE DE QUEIJO. [channels:delivery,in_store]",
       "price": 6.5,
@@ -1413,12 +1428,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "wcattx2",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "BOLINHO DE MANDIOCA",
       "description": "BOLINHO DE MANDIOCA",
       "price": 6.5,
@@ -1435,12 +1450,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "6hav354",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "BOLINHO DE BACALHAU",
       "description": "BOLINHO DE BACALHAU",
       "price": 6.5,
@@ -1457,12 +1472,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "1vegy1v",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESPETINHO DE FRANGO",
       "description": "ESPETINHO DE FRANGO",
       "price": 6.5,
@@ -1479,12 +1494,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "9m2n313",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "PASTEL DE FRANGO",
       "description": "PASTEL DE FRANGO [channels:delivery,in_store]",
       "price": 6.5,
@@ -1501,12 +1516,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2qop3si",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE CARNE",
       "description": "ESFIRRA DE CARNE",
       "price": 6.5,
@@ -1523,12 +1538,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "nh3cr1a",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE CALABRESA",
       "description": "ESFIRRA DE CALABRESA",
       "price": 6.5,
@@ -1545,12 +1560,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "t5y2sgm",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE FRANGO",
       "description": "ESFIRRA DE FRANGO",
       "price": 6.5,
@@ -1567,12 +1582,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "w2718rh",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE CHICORIA",
       "description": "ESFIRRA DE CHICORIA",
       "price": 6.5,
@@ -1589,12 +1604,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ubrjqts",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "CACHORRO QUENTE",
       "description": "CACHORRO QUENTE",
       "price": 6.5,
@@ -1611,12 +1626,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "irfuqs2",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "PASTEL DE BACALHAU",
       "description": "PASTEL DE BACALHAU [channels:delivery,in_store]",
       "price": 6.5,
@@ -1633,12 +1648,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "32rez9a",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "EMPADA DE FRANGO",
       "description": "EMPADA DE FRANGO",
       "price": 6.5,
@@ -1655,12 +1670,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "vp06vfm",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LATA SABORES",
       "description": "REFRIGERANTE LATA SABORES",
       "price": 4.5,
@@ -1677,12 +1692,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "6136a86",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "RISOLE CARNE",
       "description": "RISOLE CARNE [channels:delivery,in_store]",
       "price": 6.5,
@@ -1699,12 +1714,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "bbxz6m4",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO SPRES COPO SABORES  200 ML",
       "description": "SUCO SPRES COPO SABORES 200 ML",
       "price": 3.5,
@@ -1721,12 +1736,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "gy7jo41",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "QUICHE DE CAMARAO",
       "description": "QUICHE DE CAMARAO",
       "price": 4.6,
@@ -1743,12 +1758,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "tevtdpg",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "KIBE CARNE C/CATUPIRY",
       "description": "KIBE CARNE C/CATUPIRY",
       "price": 6.5,
@@ -1765,12 +1780,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "st9tklw",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUICHE DE CAMARAO",
       "description": "QUICHE DE CAMARAO [channels:delivery,in_store]",
       "price": 6.5,
@@ -1787,12 +1802,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2o0alqs",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "RISOLE DE MILHO",
       "description": "RISOLE DE MILHO [channels:delivery,in_store]",
       "price": 6.5,
@@ -1809,12 +1824,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "7t9q99h",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE PRESUNTO COM R",
       "description": "ESFIRRA DE PRESUNTO COM REQUEIJAO",
       "price": 6.5,
@@ -1831,12 +1846,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "tduu3n2",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUICHE DE ALHO PORO",
       "description": "QUICHE DE ALHO PORO [channels:delivery,in_store]",
       "price": 6.5,
@@ -1853,12 +1868,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "dsomok8",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE  VARIATTA 1,8LTS",
       "description": "SORVETE VARIATTA 1,8LTS",
       "price": 33.9,
@@ -1875,12 +1890,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "l2wpdi0",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA MINERAL S/ GAS PORTO REAL",
       "description": "AGUA MINERAL S/ GAS",
       "price": 2.5,
@@ -1897,12 +1912,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "04fe7u3",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA MINERAL C/ GAS",
       "description": "AGUA MINERAL C/ GAS",
       "price": 2.5,
@@ -1919,12 +1934,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "4h4tjem",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "GUARANA GOLE 250 ML",
       "description": "REFRIGERANTE PET 250 ML GUARANA GOLE",
       "price": 2,
@@ -1941,12 +1956,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "w4a3ixp",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "SANDUICHE NATURAL",
       "description": "SANDUICHE NATURAL [channels:delivery,in_store]",
       "price": 9,
@@ -1963,12 +1978,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "qljpp4q",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO LARANJA 300 ML",
       "description": "SUCO LARANJA 300 ML",
       "price": 6.5,
@@ -1985,12 +2000,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "n2k173h",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "GUARANA GOLE 600 ML",
       "description": "REFRIGERANTE PET 600 ML GOLE GUARANA",
       "price": 4.5,
@@ -2007,12 +2022,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "j7l2hih",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ENROLADINHO PRESUNTO E QUEIJO",
       "description": "ENROLADINHO PRESUNTO E QUEIJO",
       "price": 6.5,
@@ -2029,12 +2044,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "59hw2kt",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "ESFIRRA DE RICOTA",
       "description": "ESFIRRA DE RICOTA",
       "price": 6.5,
@@ -2051,12 +2066,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ie24h26",
       "categoryId": "e0sv8sp",
-      "frozenCategoryId": null,
       "name": "GALINHADA",
       "description": "GALINHADA",
       "price": 10,
@@ -2073,12 +2088,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "z9vhpgo",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "SANDUICHE NATURAL.",
       "description": "SANDUICHE NATURAL REVENDA.",
       "price": 8,
@@ -2095,12 +2110,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "xhbnro2",
       "categoryId": "80iq08q",
-      "frozenCategoryId": null,
       "name": "MAIONESE DE FRANGO",
       "description": "MAIONESE DE FRANGO",
       "price": 9,
@@ -2117,12 +2132,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "d57jpc6",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "RISOLE DE CARNE",
       "description": "RISOLE DE CARNE [channels:delivery,in_store]",
       "price": 6.5,
@@ -2139,12 +2154,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "me82nzy",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "CROQUETE CARNE",
       "description": "CROQUETE CARNE C/ CATUPIRY",
       "price": 5.5,
@@ -2161,12 +2176,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "99z80bs",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "SALGADO CONGELADO REVENDA",
       "description": "SALGADO CONGELADO REVENDA",
       "price": 4.9,
@@ -2183,12 +2198,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "6w4wy6t",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "MINI PIZZA MARGUERITA",
       "description": "MINI PIZZA MARGUERITA",
       "price": 8,
@@ -2205,12 +2220,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "tdxbkpv",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "MINI PIZZA CALABRESA",
       "description": "MINI PIZZA CALABRESA",
       "price": 8,
@@ -2227,12 +2242,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "at6do1d",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "MINI PIZZA FRANGO CATUPIRY",
       "description": "MINI PIZZA FRANGO CATUPIRY",
       "price": 8,
@@ -2249,12 +2264,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "cvqjmaf",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SCHWEPPES NORMAL",
       "description": "SCHWEPPES CITRUS NORMAL 310 ML",
       "price": 4,
@@ -2271,12 +2286,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "1lnjvr0",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML COC",
       "description": "REFRIGERANTE LT 350ML COCA COLA ZERO",
       "price": 0,
@@ -2293,12 +2308,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "r7odr39",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML FAN",
       "description": "REFRIGERANTE LT 350ML FANTA LARANJA",
       "price": 4,
@@ -2315,12 +2330,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "od59u5a",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML SPR",
       "description": "REFRIGERANTE LT 350ML SPRITE",
       "price": 4,
@@ -2337,12 +2352,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "tkm40ju",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SCHWEPPES LIGHT",
       "description": "SCHWEPPES CITRUS LIGHT 310 ML",
       "price": 0,
@@ -2359,12 +2374,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "kyjdvyq",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRESCO COPO 300 ML F.C.",
       "description": "REFRESCO COPO 300 ML F.C.",
       "price": 0,
@@ -2381,12 +2396,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ek5g2d4",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT GUARANA",
       "description": "REFRIGERANTE LT GUARANA",
       "price": 4,
@@ -2403,12 +2418,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "wvnntsc",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LATA ZERO",
       "description": "REFRIGERANTE LATA ZERO",
       "price": 4.5,
@@ -2425,12 +2440,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "fmv0iqi",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER ULTRA WATERMELON LT473ML",
       "description": "MONSTER ULTRA WATERMELON LT473ML",
       "price": 9.9,
@@ -2447,12 +2462,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "b5mzl7i",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER ULTRA FIESTA MANGO LT473ML 6X1",
       "description": "MONSTER ULTRA FIESTA MANGO LT473ML 6X1",
       "price": 9.9,
@@ -2469,12 +2484,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "na24u3s",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER JUICE RIO PUNCH LT473ML",
       "description": "MONSTER JUICE RIO PUNCH LT473ML",
       "price": 9.9,
@@ -2491,12 +2506,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ulcr80d",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER ABSOLUTELY ZERO LT473ML",
       "description": "MONSTER ABSOLUTELY ZERO LT473ML",
       "price": 9.9,
@@ -2513,12 +2528,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "aa67v4g",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER ULTRA VIOLET LT473ML",
       "description": "MONSTER ULTRA VIOLET LT473ML",
       "price": 9.9,
@@ -2535,12 +2550,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "5qp1cuo",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER ULTRA STRAWBERRY LT473ML 6X1",
       "description": "MONSTER ULTRA STRAWBERRY LT473ML 6X1",
       "price": 9.9,
@@ -2557,12 +2572,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "0bt330q",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER KHAOTIC LT473ML 6X1",
       "description": "MONSTER KHAOTIC LT473ML 6X1",
       "price": 9.9,
@@ -2579,12 +2594,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "q7hznf6",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "PRATS PRO  BEBIDA MISTA DE LARANJA E PR",
       "description": "PRATS PRO BEBIDA MISTA DE LARANJA E PR",
       "price": 6.5,
@@ -2601,12 +2616,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "tkinr49",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE PETMINI COCA",
       "description": "REFRIGERANTE PETMINI COCA-COLA 200ML",
       "price": 0,
@@ -2623,12 +2638,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "6c01ksc",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE PETMINI COCA",
       "description": "REFRIGERANTE PETMINI COCA ZERO 200ML",
       "price": 0,
@@ -2645,12 +2660,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "wjtwleu",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE PETMINI FANT",
       "description": "REFRIGERANTE PETMINI FANTA LARAN 200ML",
       "price": 0,
@@ -2667,12 +2682,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "7xey34p",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER QUATTRO CHOC BCO 24",
       "description": "WAFER QUATTRO CHOC BCO 24G",
       "price": 0,
@@ -2689,12 +2704,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "iwz7qi6",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER TRENTO MOSSIMO BCOC",
       "description": "WAFER TRENTO MOSSIMO BCOCOM COOKIES",
       "price": 0,
@@ -2711,12 +2726,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "v8h4wz8",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER TRENTO MASSIMO PACO",
       "description": "WAFER TRENTO MASSIMO PACOCA 30G",
       "price": 0,
@@ -2733,12 +2748,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "xoncfzx",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "COCA COLA ZERO 1 LITRO",
       "description": "COCA COLA ZERO 1 LITRO",
       "price": 7.5,
@@ -2755,12 +2770,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "06t7r2t",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SCHWEPPES TONICA SLEEK 31",
       "description": "SCHWEPPES TONICA SLEEK 310ML",
       "price": 4,
@@ -2777,12 +2792,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "n3zcma9",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA LOVE STORY",
       "description": "SORVETE VARIATTA LOVE STORY",
       "price": 31.9,
@@ -2799,12 +2814,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "m4gbbe5",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "FIGO RAMI 500G",
       "description": "FIGO RAMI 500G",
       "price": 0,
@@ -2821,12 +2836,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ja63epw",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT FANTA UVA",
       "description": "REFRIGERANTE LT FANTA UVA SLEEK 310ML",
       "price": 0,
@@ -2843,12 +2858,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "bk2oukx",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA 3 LEITES",
       "description": "SORVETE VARIATTA 3 LEITES",
       "price": 31.9,
@@ -2865,12 +2880,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "582zxam",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "VINHO A MARE PRIMITIVO",
       "description": "VINHO A MARE PRIMITIVO",
       "price": 44.9,
@@ -2887,12 +2902,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "8mji3t8",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MOLHO HABANERO RED SKINS",
       "description": "MOLHO HABANERO RED SKINS",
       "price": 10.9,
@@ -2909,12 +2924,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2w3ai5r",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "CERVEJA STELLA ARTOIS LON",
       "description": "CERVEJA STELLA ARTOIS LONG NECK 275ML",
       "price": 3.9,
@@ -2931,12 +2946,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "qc9sjox",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "CERVEJA BUDWEISER 330ML",
       "description": "CERVEJA BUDWEISER 330ML",
       "price": 3.9,
@@ -2953,12 +2968,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ecltp8w",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA COXINHA FRANGO",
       "description": "FESTA COXINHA FRANGO [channels:delivery,in_store]",
       "price": 0.5,
@@ -2975,12 +2990,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "p7dwtr7",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA RISOLIS",
       "description": "FESTA RISOLIS [channels:delivery,in_store]",
       "price": 0.5,
@@ -2997,12 +3012,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "xf0swzm",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA BOL. BACALHAU",
       "description": "FESTA BOL. BACALHAU [channels:delivery,in_store]",
       "price": 0.5,
@@ -3019,12 +3034,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "uu4yp2w",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA KIBE CARNE",
       "description": "FESTA KIBE CARNE [channels:delivery,in_store]",
       "price": 0.5,
@@ -3041,12 +3056,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "1v5iir3",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA KIBE QUEIJO",
       "description": "FESTA KIBE QUEIJO [channels:delivery,in_store]",
       "price": 0.5,
@@ -3063,12 +3078,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "52jlbmu",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA BOL. QUEIJO",
       "description": "FESTA BOL. QUEIJO [channels:delivery,in_store]",
       "price": 0.5,
@@ -3085,12 +3100,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "17c1woy",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA CROQUETE",
       "description": "FESTA CROQUETE [channels:delivery,in_store]",
       "price": 0.5,
@@ -3107,12 +3122,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "hmjw9kf",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA ESF. CARNE",
       "description": "FESTA ESF. CARNE [channels:delivery,in_store]",
       "price": 0.5,
@@ -3129,12 +3144,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "s1cyrqt",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA ESF. CALAB",
       "description": "FESTA ESF. CALABRESA [channels:delivery,in_store]",
       "price": 0.5,
@@ -3151,12 +3166,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "oja4y9q",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA ESF. PRESUNTO",
       "description": "FESTA ESF. PRESUNTO [channels:delivery,in_store]",
       "price": 0.5,
@@ -3173,12 +3188,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "q6zb5l8",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA ESF. FRANGO",
       "description": "FESTA ESF. FRANGO [channels:delivery,in_store]",
       "price": 0.5,
@@ -3195,12 +3210,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "cbndyx6",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA CACHORRO QUENTE",
       "description": "FESTA CACHORRO QUENTE [channels:delivery,in_store]",
       "price": 0.5,
@@ -3217,12 +3232,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "hxcfnqe",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA EMPADA",
       "description": "FESTA EMPADA [channels:delivery,in_store]",
       "price": 0.5,
@@ -3239,12 +3254,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "s9jf8rk",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA BOL.MANDIOCA",
       "description": "FESTA BOL.MANDIOCA [channels:delivery,in_store]",
       "price": 0.5,
@@ -3261,12 +3276,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "3qt1jjr",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "QUICHE DE PALMITO",
       "description": "QUICHE DE PALMITO",
       "price": 4.6,
@@ -3283,12 +3298,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ooh9awx",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "RISOLE  CARNE SECA CATUPIRY",
       "description": "RISOLE CARNE SECA CATUPIRY [channels:delivery,in_store]",
       "price": 5,
@@ -3305,12 +3320,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "4ce488v",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "MINI PIZZA CALABRESA",
       "description": "MINI PIZZA CALABRESA",
       "price": 8,
@@ -3327,12 +3342,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "8xev4ct",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "MINI PIZZA MARGUERITA",
       "description": "MINI PIZZA MARGUERITA",
       "price": 7,
@@ -3349,12 +3364,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "zv3clqs",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "MINI PIZZA FRANGO",
       "description": "MINI PIZZA FRANGO",
       "price": 9,
@@ -3371,12 +3386,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "8qq167h",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "KAFTA CONGELADA",
       "description": "KAFTA CONGELADA [channels:delivery,in_store]",
       "price": 16,
@@ -3393,12 +3408,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "do63sb3",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "HAMBURGUER CONGELADO",
       "description": "HAMBURGUER CONGELADO [channels:delivery,in_store]",
       "price": 11,
@@ -3415,12 +3430,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "z2p5iwx",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "FESTA ESF. RICOTA",
       "description": "FESTA ESF. RICOTA [channels:delivery,in_store]",
       "price": 0.38,
@@ -3437,12 +3452,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "dywzbff",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO LARANJA INTEGRAL 4 L",
       "description": "SUCO LARANJA INTEGRAL 4 LT PET",
       "price": 0,
@@ -3459,12 +3474,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "fjubxe9",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "CHOCOLATE AO LEITE SICAO",
       "description": "CHOCOLATE AO LEITE SICAO",
       "price": 0,
@@ -3481,12 +3496,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "7rupfgl",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "CHOCOLATE BRANCO SICAO 2,",
       "description": "CHOCOLATE BRANCO SICAO 2,1",
       "price": 0,
@@ -3503,12 +3518,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "uds31oo",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "CHOCOLATE MEIO AMARGO SIC",
       "description": "CHOCOLATE MEIO AMARGO SICAO 2",
       "price": 0,
@@ -3525,12 +3540,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "bq60q5k",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "COCO FLOCO SOCOCO",
       "description": "COCO FLOCO SOCOCO",
       "price": 0,
@@ -3547,12 +3562,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "o2gs7xi",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "DISQUETE RECHEADO DORI 1",
       "description": "DISQUETE RECHEADO DORI 1 KG",
       "price": 0,
@@ -3569,12 +3584,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "dsvvygg",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA BROWNIE GALAXIAS",
       "description": "SORVETE VARIATTA BROWNIE GALAXIAS",
       "price": 31.9,
@@ -3591,12 +3606,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2j2du6a",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "CHOCOLATE BLEND SICAO 2,1",
       "description": "CHOCOLATE BLEND SICAO 2,1 KG",
       "price": 0,
@@ -3613,12 +3628,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "h64h66l",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO MISTO LARANJA ACEROL",
       "description": "SUCO MISTO LARANJA ACEROLA PRATS",
       "price": 6.5,
@@ -3635,12 +3650,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "rzb2lxn",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO SPRES LARANJA 200 ML",
       "description": "SUCO SPRES LARANJA 200 ML",
       "price": 3.5,
@@ -3657,12 +3672,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "nslt1vx",
       "categoryId": "wmsqohp",
-      "frozenCategoryId": null,
       "name": "AZEITE OLIVA EV ALMA LUSA CX C/12 GARRAF",
       "description": "AZEITE OLIVA EV ALMA LUSA CX C/12 GARRAF",
       "price": 1,
@@ -3679,12 +3694,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "w7me7fz",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "AMEIXA",
       "description": "AMEIXA",
       "price": 1,
@@ -3701,12 +3716,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "q5ga68t",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO NATURAL ONE LIMAO,MA",
       "description": "SUCO NATURAL ONE LIMAO,MACA E FRANB PINK",
       "price": 0,
@@ -3723,12 +3738,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "kjo2dta",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE 200ML ZIPP NAPOLI",
       "description": "SORVETE 200ML ZIPP NAPOLITANO",
       "price": 0,
@@ -3745,12 +3760,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "poyy07a",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA ABACAXI",
       "description": "SORVETE VARIATTA ABACAXI FRANCES",
       "price": 31.9,
@@ -3767,12 +3782,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2ne2h6e",
       "categoryId": "e0sv8sp",
-      "frozenCategoryId": null,
       "name": "MASSA ITALIANA SPAGHETTI",
       "description": "MASSA ITALIANA SPAGHETTI 500GR [channels:delivery,in_store]",
       "price": 0,
@@ -3789,12 +3804,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "lrh2v78",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA DE COCO 200ML",
       "description": "AGUA DE COCO 200ML",
       "price": 0,
@@ -3811,12 +3826,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "vnfha3l",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA DE COCO 1LITRO",
       "description": "AGUA DE COCO 1LITRO",
       "price": 14.9,
@@ -3833,12 +3848,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2ekvcw2",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BARRA BANANA E AMEIXA/CHO",
       "description": "BARRA BANANA E AMEIXA/CHOC 8X12X28G",
       "price": 0,
@@ -3855,12 +3870,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "cc5kbth",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BARRA BANANA E CAST.PARA/",
       "description": "BARRA BANANA E CAST.PARA/CHOC 8X12X28G",
       "price": 0,
@@ -3877,12 +3892,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "9kl2iee",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BARRA BANANA E COCO/CHOC",
       "description": "BARRA BANANA E COCO/CHOC 8X12X28G",
       "price": 0,
@@ -3899,12 +3914,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "awd2ncq",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "PIRULITO",
       "description": "PIRULITO",
       "price": 0.5,
@@ -3921,12 +3936,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "f0lzire",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BARRA BANANA E DAMASCO/CH",
       "description": "BARRA BANANA E DAMASCO/CHOC 8X12X28G",
       "price": 0,
@@ -3943,12 +3958,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "zf5k4tl",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BARRA BANANA E NOZES/CHOC",
       "description": "BARRA BANANA E NOZES/CHOC 8X12X28G",
       "price": 0,
@@ -3965,12 +3980,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "1j8i2jt",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BARRA BANANA TRAD.C/CHOC",
       "description": "BARRA BANANA TRAD.C/CHOC 8X12X28G",
       "price": 0,
@@ -3987,12 +4002,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "vbrngha",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO DE UVA",
       "description": "SUCO DE UVA 300ML",
       "price": 4,
@@ -4009,12 +4024,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "440grm3",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT GUARANA BLACK",
       "description": "REFRIGERANTE LT GUARANA BLACK",
       "price": 4,
@@ -4031,12 +4046,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "3g3b1s8",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML FAN",
       "description": "REFRIGERANTE LT 350ML FANTA UVA",
       "price": 0,
@@ -4053,12 +4068,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "x3bbamg",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA LIMAO",
       "description": "SORVETE VARIATTA LIMAO",
       "price": 31.9,
@@ -4075,12 +4090,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "jtqz3v6",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "ROLINHOS WAFFER CROCK ROL",
       "description": "ROLINHOS WAFFER RECH SB CHOCO 8X450G",
       "price": 0,
@@ -4097,12 +4112,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "op13b58",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "ROLINHOS WAFFER RECH SB C",
       "description": "ROLINHOS WAFFER RECH SB CHOC BRC 8X450G",
       "price": 0,
@@ -4119,12 +4134,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "4vlifz1",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML KUA",
       "description": "REFRIGERANTE LT 350ML KUAT",
       "price": 0,
@@ -4141,12 +4156,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "9ddufcd",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA PUDIM",
       "description": "SORVETE VARIATTA PUDIM",
       "price": 31.9,
@@ -4163,12 +4178,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "t2dukl1",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE",
       "description": "REFRIGERANTE",
       "price": 0,
@@ -4185,12 +4200,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "v23kwmq",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO",
       "description": "SUCO",
       "price": 2.5,
@@ -4207,12 +4222,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "cifr4vu",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML FAN",
       "description": "REFRIGERANTE LT 350ML FANTA GUARANA",
       "price": 0,
@@ -4229,12 +4244,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "8z1rn79",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML COC",
       "description": "REFRIGERANTE LT 350ML COCA COLA STEVIA",
       "price": 0,
@@ -4251,12 +4266,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "hp3ccsx",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA UVA",
       "description": "SORVETE VARIATTA UVA",
       "price": 31.9,
@@ -4273,12 +4288,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "wxvt8sx",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "PIRULITO YOGURMIX GREGO S",
       "description": "PIRULITO YOGURMIX GREGO SORTIDO 16X432G",
       "price": 0,
@@ -4295,12 +4310,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "xkt4qej",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFE QUATTRO CHOCOLATE PE",
       "description": "WAFE QUATTRO CHOCOLATE PECCIN 24G",
       "price": 0,
@@ -4317,12 +4332,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "4a2o3s9",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER QUATTRO DARK PECCIN",
       "description": "WAFER QUATTRO DARK PECCIN 24G",
       "price": 0,
@@ -4339,12 +4354,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "1dlepdo",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "WAFER TRENTO MASSINO CHOC",
       "description": "WAFER TRENTO MASSINO CHOC PECCIN 30G",
       "price": 0,
@@ -4361,12 +4376,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "grx53k4",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO PET 450ML",
       "description": "SUCO PET 450ML",
       "price": 0,
@@ -4383,12 +4398,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "g9fnnzh",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA IORGUTE",
       "description": "SORVETE VARIATTA IORGUTE C/ AMORA",
       "price": 31.9,
@@ -4405,12 +4420,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ec39d1t",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA CROK",
       "description": "SORVETE VARIATTA CROK",
       "price": 31.9,
@@ -4427,12 +4442,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "exk4iyj",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA TONICA DIET 350ML",
       "description": "AGUA TONICA DIET 350ML",
       "price": 4.5,
@@ -4449,12 +4464,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "vi4dbsm",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "CERVEJA ESTRELLA GALICIA",
       "description": "CERVEJA ESTRELLA GALICIA GF 600ML",
       "price": 0,
@@ -4471,12 +4486,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ej5dqnu",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "CERVEJA ESTRELLA GALICIA",
       "description": "CERVEJA ESTRELLA GALICIA 0%ALCOOL 250ML",
       "price": 0,
@@ -4493,12 +4508,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "s4sapwg",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO LIMONADA ADOCADA 330",
       "description": "SUCO LIMONADA ADOCADA 330ML",
       "price": 6.5,
@@ -4515,12 +4530,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "b6jdoa0",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO MISTO GOIABA/MACA 33",
       "description": "SUCO MISTO GOIABA/MACA 330ML",
       "price": 4,
@@ -4537,12 +4552,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "10gigu4",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "CHA LIPTON PESSEGO LT 340",
       "description": "CHA LIPTON PESSEGO LT 340ML",
       "price": 0,
@@ -4559,12 +4574,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "arrsvf5",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML PEP",
       "description": "REFRIGERANTE LT 350ML PEPSI TWIST",
       "price": 0,
@@ -4581,12 +4596,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "593k96q",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT 350ML FAN",
       "description": "REFRIGERANTE LT 350ML FANTA GUARANA ZERO",
       "price": 4,
@@ -4603,12 +4618,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "4e2pji2",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO LIPTON PESSEGO LATA",
       "description": "SUCO LIPTON PESSEGO LATA 340ML",
       "price": 0,
@@ -4625,12 +4640,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "0b45thn",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO DELL VALLE MARACUJA",
       "description": "SUCO DELL VALLE MARACUJA 290ML",
       "price": 0,
@@ -4647,12 +4662,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "gkdmrho",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO DELL VALLE PESSEGO 2",
       "description": "SUCO DELL VALLE PESSEGO 290ML",
       "price": 0,
@@ -4669,12 +4684,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "lc59yuu",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO DELL VALLE UVA 290ML",
       "description": "SUCO DELL VALLE UVA 290ML",
       "price": 0,
@@ -4691,12 +4706,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "7uqa8gz",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE PEPSI ZERO 3",
       "description": "REFRIGERANTE PEPSI ZERO 350ML",
       "price": 0,
@@ -4713,12 +4728,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "bsyljl1",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE PET 510ML GO",
       "description": "REFRIGERANTE PET 510ML GOLE LARANJA",
       "price": 0,
@@ -4735,12 +4750,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "sxvfbla",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE PET 250ML GO",
       "description": "REFRIGERANTE PET 250ML GOLE LARANJA",
       "price": 0,
@@ -4757,12 +4772,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "8lbqyo3",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT COCA COLA ZERO",
       "description": "REFRIGERANTE LT COCA COLA ZERO",
       "price": 4,
@@ -4779,12 +4794,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "hrag5rd",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT FANTA 310",
       "description": "REFRIGERANTE LT FANTA 310",
       "price": 4,
@@ -4801,12 +4816,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "6dzn37v",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT SPRITE 310",
       "description": "REFRIGERANTE LT SPRITE 310",
       "price": 4,
@@ -4823,12 +4838,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "9mip0yp",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL NECTAR GOIABA 900 ML",
       "description": "JAL NECTAR GOIABA 900 ML",
       "price": 12.5,
@@ -4845,12 +4860,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "01sk6p6",
       "categoryId": "nwc89q5",
-      "frozenCategoryId": null,
       "name": "COXINHA REV 1",
       "description": "COXINHA REV 1 [channels:delivery,in_store]",
       "price": 5.5,
@@ -4867,12 +4882,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "6pw5c6g",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO LARANJA 900 ML  NATURELL",
       "description": "SUCO LARANJA 900 ML NATURELL",
       "price": 17.5,
@@ -4889,12 +4904,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "zl3kji5",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO LARANJA NATDELI 1L",
       "description": "SUCO LARANJA NATDELI 1L",
       "price": 17.5,
@@ -4911,12 +4926,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2yi3mwk",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO JAL MARACUJA",
       "description": "SUCO JAL MARACUJA",
       "price": 12.5,
@@ -4933,12 +4948,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "e80hnzk",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "COCA COLA ZERO 1L",
       "description": "COCA COLA ZERO 1L",
       "price": 7.5,
@@ -4955,12 +4970,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "jyhgo83",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "FANTA LARANJA 1L",
       "description": "FANTA LARANJA 1L",
       "price": 7,
@@ -4977,12 +4992,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "dhp1jgg",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE LT GUARANA",
       "description": "REFRIGERANTE LT GUARANA",
       "price": 4,
@@ -4999,12 +5014,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "cs4yb2c",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO SPRES COPO UVA 200ML",
       "description": "SUCO SPRES COPO UVA 200ML",
       "price": 3.5,
@@ -5021,12 +5036,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ufefvow",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO SPRES COPO MARACUJA 200ML",
       "description": "SUCO SPRES COPO MARACUJA 200ML",
       "price": 3.5,
@@ -5043,12 +5058,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "zzit2gn",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO JAL ABACAXI 900ML",
       "description": "SUCO JAL ABACAXI 900ML",
       "price": 12.5,
@@ -5065,12 +5080,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "n8pf0rd",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL NECTAR ACEROLA 900 ML",
       "description": "JAL NECTAR ACEROLA 900 ML",
       "price": 12.5,
@@ -5087,12 +5102,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ieabyre",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "SALGADO REV. 2",
       "description": "SALGADO REVENDA 2",
       "price": 5,
@@ -5109,12 +5124,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "wsuy1eg",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "SALGADO REV.2",
       "description": "SALGADO REVENDA 2",
       "price": 6,
@@ -5131,12 +5146,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "1zwbnjn",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TRIDENT CANELA",
       "description": "TRIDENT CANELA",
       "price": 2.5,
@@ -5153,12 +5168,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "cocacjc",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "CHOCOLATE SNICKERS",
       "description": "CHOCOLATE SNICKERS",
       "price": 4.5,
@@ -5175,12 +5190,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2al3jlf",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "HALLS MENTA PRATA",
       "description": "HALLS MENTA PRATA",
       "price": 2,
@@ -5197,12 +5212,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "7bacqvh",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "HALLS MENTA",
       "description": "HALLS MENTA",
       "price": 2,
@@ -5219,12 +5234,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "icmwjcj",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "HALLS UVA VERDE",
       "description": "HALLS UVA VERDE",
       "price": 2,
@@ -5241,12 +5256,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "rgthhcr",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TIC TAC CITRUS",
       "description": "TIC TAC CITRUS",
       "price": 3,
@@ -5263,12 +5278,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "coxad1z",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TIC TAC FRUTAS",
       "description": "TIC TAC FRUTAS",
       "price": 3,
@@ -5285,12 +5300,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "2oa0deh",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TIC TAC LARANJA",
       "description": "TIC TAC LARANJA",
       "price": 3,
@@ -5307,12 +5322,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "zw70v2h",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TIC TAC MENTA",
       "description": "TIC TAC MENTA",
       "price": 3,
@@ -5329,12 +5344,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "q19eqep",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TIC TAC MENTA FRESH",
       "description": "TIC TAC MENTA FRESH",
       "price": 3,
@@ -5351,12 +5366,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "ld8gy1u",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TIC TAC MORANGO",
       "description": "TIC TAC MORANGO",
       "price": 3.3,
@@ -5373,12 +5388,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "k66q7rz",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "PASTEL FRITO CARNE",
       "description": "PASTEL FRITO CARNE [channels:delivery,in_store]",
       "price": 6,
@@ -5395,12 +5410,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "3jhhvdi",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "PASTEL FRITO DE BACALHAU C/ BATATA",
       "description": "PASTEL FRITO DE BACALHAU C/ BATATA [channels:delivery,in_store]",
       "price": 6,
@@ -5417,12 +5432,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "gk213zb",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "PASTEL FRITO BACALHAU C/ BATATA REV",
       "description": "PASTEL FRITO BACALHAU C/ BATATA REV [channels:delivery,in_store]",
       "price": 4.25,
@@ -5439,12 +5454,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "osx3hqm",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUICHE DE PALMITO",
       "description": "QUICHE DE PALMITO [channels:delivery,in_store]",
       "price": 6.5,
@@ -5461,12 +5476,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "esnpyfq",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUICHE DE CREME DE MILHO",
       "description": "QUICHE DE CREME DE MILHO [channels:delivery,in_store]",
       "price": 6.5,
@@ -5483,12 +5498,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "5o1sh9i",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "QUICHE CREME DE MILHO",
       "description": "QUICHE CREME DEMILHO [channels:delivery,in_store]",
       "price": 4.6,
@@ -5505,12 +5520,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "af5qvfk",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "QUICHE DE ALHO PORO",
       "description": "QUICHE DE ALHO PORO",
       "price": 4.6,
@@ -5527,12 +5542,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "8uykprm",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BROWNIE LEITE NINHO",
       "description": "BROWNIE LEITE NINHO",
       "price": 7,
@@ -5549,12 +5564,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749633
     },
     {
       "id": "f4oeleu",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BROWNIE BRIGADEIRO",
       "description": "BROWNIE BRIGADEIRO",
       "price": 7,
@@ -5571,12 +5586,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "l5ajx67",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BROWNIE COOKIES CREAM",
       "description": "BROWNIE COOKIES CREAM",
       "price": 7,
@@ -5593,12 +5608,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ap4d5ok",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BROWNIE NINHO E NUTELLA",
       "description": "BROWNIE COOKIES CREAM",
       "price": 7,
@@ -5615,12 +5630,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "8urul2f",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BROWNIE BRIGADEIRO E OVOMALTINE",
       "description": "BROWNIE BRIGADEIRO E OVOMALTINE",
       "price": 7,
@@ -5637,12 +5652,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "v5meliv",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "BROWNIE DOCE DE LEITE",
       "description": "BROWNIE DOCE DE LEITE",
       "price": 7,
@@ -5659,12 +5674,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "qz98jlc",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER GREEN LT473ML",
       "description": "MONSTER GREEN LT473ML",
       "price": 9.9,
@@ -5681,12 +5696,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ficia7a",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER ZERO SUGAR LT473ML",
       "description": "MONSTER ZERO SUGAR LT473ML",
       "price": 9.9,
@@ -5703,12 +5718,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "u2p84yb",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUICHE DE BACALHAU",
       "description": "QUICHE DE BACALHAU [channels:delivery,in_store]",
       "price": 6.5,
@@ -5725,12 +5740,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "8ysyjdp",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "QUICHE DE DAMASCO",
       "description": "QUICHE DE DAMASCO [channels:delivery,in_store]",
       "price": 8,
@@ -5747,12 +5762,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ap4q4s2",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "TR MONSTER ZERO SUGAR LT473ML",
       "description": "TR MONSTER ZERO SUGAR LT473ML",
       "price": 6.39,
@@ -5769,12 +5784,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "hqv2v5m",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "TR. AG.CRYSTAL VIP350CG",
       "description": "TR. AG.CRYSTAL VIP350CG",
       "price": 0.92,
@@ -5791,12 +5806,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "blf9kt2",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "FANTA UVA SLEEK LT310ML",
       "description": "FANTA UVA SLEEK LT310ML",
       "price": 4,
@@ -5813,12 +5828,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "8szqm83",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "SORVETEVARIATTA BIG BISCOTTO GINGERBREAD",
       "description": "SORVETEVARIATTA BIG BISCOTTO GINGERBREAD",
       "price": 33.9,
@@ -5835,12 +5850,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ic03a7b",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO TROPICAL DE CAJU 300 ML",
       "description": "SUCO TROPICAL DE CAJU 300 ML",
       "price": 6.5,
@@ -5857,12 +5872,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "z8ye8qv",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "FRUITZ NECTAR DE UVA 300 ML",
       "description": "FRUITZ NECTAR DE UVA 300 ML",
       "price": 6.5,
@@ -5879,12 +5894,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "sfmx0pe",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "MONSTER PACIFIC PUNCH 473ML",
       "description": "MONSTER PACIFIC PUNCH 473ML",
       "price": 9.9,
@@ -5901,12 +5916,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "usy5ka5",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "DAMASCO",
       "description": "DAMASCO",
       "price": 1,
@@ -5923,12 +5938,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "q7nyuw1",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "SORVETE VARIATTA 3 LEITES",
       "description": "SORVETE VARIATTA 3 LEITES",
       "price": 31.9,
@@ -5945,12 +5960,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "wm3nzlb",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "KIBE DE CARNE COM CATUPIRY",
       "description": "KIBE DE CARNE COM CATUPIRY",
       "price": 4.6,
@@ -5967,12 +5982,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "1vyaz2z",
       "categoryId": "k790tcu",
-      "frozenCategoryId": null,
       "name": "POTE - VARIATTA FRUTAS AMADAS LARANJA C/",
       "description": "POTE - VARIATTA FRUTAS AMADAS LARANJA C/",
       "price": 23.9,
@@ -5989,12 +6004,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "fqhkxsc",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "RISOLE CARNE SECA CATUPIRY",
       "description": "RISOLE CARNE SECA CATUPIRY [channels:delivery,in_store]",
       "price": 6,
@@ -6011,12 +6026,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "j2oduuz",
       "categoryId": "wmsqohp",
-      "frozenCategoryId": null,
       "name": "REFRIGERADOR EXPOSITOR VERTICAL VR08SLIM",
       "description": "REFRIGERADOR EXPOSITOR VERTICAL VR08SLIM",
       "price": 0.1,
@@ -6033,12 +6048,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "s7elvpt",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA KERO COCO 330ML",
       "description": "AGUA KERO COCO 330ML",
       "price": 6.9,
@@ -6055,12 +6070,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "5498pes",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA KERO COCO 1000ML",
       "description": "AGUA KERO COCO 1000ML",
       "price": 12.9,
@@ -6077,12 +6092,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "5gclf7c",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "AGUA KERO COCO KIDS 200ML",
       "description": "AGUA KERO COCO KIDS 200ML",
       "price": 4.2,
@@ -6099,12 +6114,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "dzxwf62",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "PASTEL DE CARNE C/ BATATA REV",
       "description": "PASTEL DE CARNE C/ BATATA",
       "price": 4.25,
@@ -6121,12 +6136,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "677phqb",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "KIBE CARNE CATUPIRY",
       "description": "KIBE CARNE CATUPIRY",
       "price": 3.75,
@@ -6143,12 +6158,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "t08npuk",
       "categoryId": "wmsqohp",
-      "frozenCategoryId": null,
       "name": "QUEIJO MUSSARELA FATIADO 200G SADIA",
       "description": "QUEIJO MUSSARELA FATIADO 200G SADIA",
       "price": 0.01,
@@ -6165,12 +6180,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "pcfifa2",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA BOL.BACALHAU",
       "description": "FESTA BOL.BACALHAU [channels:delivery,in_store]",
       "price": 24.5,
@@ -6187,12 +6202,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "9bg5ja8",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA BOL. MANDIOCA",
       "description": "FESTA BOL. MANDIOCA [channels:delivery,in_store]",
       "price": 15,
@@ -6209,12 +6224,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "1pen64b",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA BOL. QUEIJO",
       "description": "FESTA BOL. QUEIJO [channels:delivery,in_store]",
       "price": 15,
@@ -6231,12 +6246,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "tdbxu7i",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA CACHORRO QUENTE",
       "description": "FESTA CACHORRO QUENTE [channels:delivery,in_store]",
       "price": 17.25,
@@ -6253,12 +6268,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ub0po57",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA COX.FRG",
       "description": "FESTA COX.FRG [channels:delivery,in_store]",
       "price": 15,
@@ -6275,12 +6290,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "k9rk7me",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA CROQUETE CARNE",
       "description": "FESTA CROQUETE CARNE",
       "price": 18.5,
@@ -6297,12 +6312,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "8nxejo0",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA EMPADA FRG",
       "description": "FESTA EMPADA FRG",
       "price": 17.25,
@@ -6319,12 +6334,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "7m4wyat",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA ESF.CALABRESA",
       "description": "FESTA ESF.CALABRESA",
       "price": 17.25,
@@ -6341,12 +6356,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "232t1ts",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA ESF.CARNE",
       "description": "FESTA ESF.CARNE",
       "price": 17.25,
@@ -6363,12 +6378,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "i9ov5sw",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA ESF.FRG",
       "description": "FESTA ESF.FRG",
       "price": 17.25,
@@ -6385,12 +6400,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "v7pyfmy",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA ESF.PRES C REQUEIJA",
       "description": "FESTA ESF.PRES C REQUEIJA",
       "price": 17.25,
@@ -6407,12 +6422,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "dnvnj6q",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA ESF RICOTA",
       "description": "FESTA ESF RICOTA",
       "price": 17.25,
@@ -6429,12 +6444,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "7ro74dc",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA KIBE BAT C QUEIJO",
       "description": "FESTA KIBE BAT C QUEIJO",
       "price": 15,
@@ -6451,12 +6466,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ldvz6t5",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA KIBE CARNE C REQUEIJAO",
       "description": "Pão francês fresquinho chapeado com generosa camada de requeijão cremoso derretido.",
       "price": 15,
@@ -6473,12 +6488,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "hbs4mg6",
       "categoryId": "wscjzcx",
-      "frozenCategoryId": null,
       "name": "FESTA RISOLE MILHO",
       "description": "FESTA RISOLE MILHO [channels:delivery,in_store]",
       "price": 15,
@@ -6495,12 +6510,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "td74osz",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "POWERADE SABORES",
       "description": "POWERADE SABORES",
       "price": 5.5,
@@ -6517,12 +6532,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "pce4bx8",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "PEPSI BLACK PET 200ML",
       "description": "PEPSI BLACK PET 200ML",
       "price": 0.01,
@@ -6539,12 +6554,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "3awbkyt",
       "categoryId": "wmsqohp",
-      "frozenCategoryId": null,
       "name": "Acessos a plataforma de estudos Ead adqu",
       "description": "Acessos a plataforma de estudos Ead adqu",
       "price": 0.01,
@@ -6561,12 +6576,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "busnjmm",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "ENROLADINHO PRE./QJO",
       "description": "ENROLADINHO PRE./QJO",
       "price": 4.6,
@@ -6583,12 +6598,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "amav5qg",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "RISOLE DE CARNE",
       "description": "RISOLE DE CARNE [channels:delivery,in_store]",
       "price": 4.6,
@@ -6605,12 +6620,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "dl46yf1",
       "categoryId": "nyww21f",
-      "frozenCategoryId": null,
       "name": "RISOLE DE CARNE",
       "description": "RISOLE DE CARNE [channels:delivery,in_store]",
       "price": 3.75,
@@ -6627,12 +6642,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ea7zthl",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO JAL UVA",
       "description": "SUCO JAL UVA",
       "price": 12.5,
@@ -6649,12 +6664,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "0k4wtru",
       "categoryId": "wmsqohp",
-      "frozenCategoryId": null,
       "name": "TANQUE P-500 VERTICAL",
       "description": "TANQUE P-500 VERTICAL",
       "price": 2876.27,
@@ -6671,12 +6686,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "r8zr5b9",
       "categoryId": "wmsqohp",
-      "frozenCategoryId": null,
       "name": "PAO DE QUEIJO PALITO 110G",
       "description": "PAO DE QUEIJO PALITO 110G",
       "price": 16.25,
@@ -6693,12 +6708,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "ryvi7g0",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "REFRIGERANTE 1L SABORES",
       "description": "REFRIGERANTE 1L SABORES",
       "price": 7.5,
@@ -6715,12 +6730,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "1728egs",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "COCA COLA 600 ML",
       "description": "COCA COLA 600 ML",
       "price": 6,
@@ -6737,12 +6752,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "65gxnjv",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "PIRULITO BLONG MORANGO",
       "description": "PIRULITO BLONG MORANGO",
       "price": 0.5,
@@ -6759,12 +6774,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "bo4yetw",
       "categoryId": "6rxjvu9",
-      "frozenCategoryId": null,
       "name": "PAO DE QUEIJO RECHEADO",
       "description": "PAO DE QUEIJO RECHEADO",
       "price": 8,
@@ -6781,12 +6796,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "a322yx6",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL CAJU LIMAO ABACAXI 900 ML",
       "description": "JAL CAJU LIMAO ABACAXI 900 ML",
       "price": 10,
@@ -6803,12 +6818,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "dnyumny",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL MAR GOIA ACER MANGA 900",
       "description": "JAL MAR GOIA ACER MANGA 900",
       "price": 12.5,
@@ -6825,12 +6840,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "gibfiza",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL LIMONADA 900 ML",
       "description": "JAL LIMONADA 900 ML",
       "price": 10,
@@ -6847,12 +6862,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "46bkiyl",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL NECTAR ABACAXI 900 ML",
       "description": "JAL NECTAR ABACAXI 900 ML",
       "price": 10,
@@ -6869,12 +6884,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "odtgr9m",
       "categoryId": "j9pixiq",
-      "frozenCategoryId": null,
       "name": "TEENS SNACK CHOCOLATE",
       "description": "TEENS SNACK CHOCOLATE",
       "price": 2,
@@ -6891,12 +6906,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "j7wsjib",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO SPRES SABORES 900 ML",
       "description": "SUCO SPRES SABORES 900 ML",
       "price": 12.5,
@@ -6913,12 +6928,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "hexn1o5",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "APICE NECTAR UVA 900ML CX06",
       "description": "APICE NECTAR UVA 900ML CX06",
       "price": 12,
@@ -6935,12 +6950,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "61gcayr",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO JAL 1,5 CAJU",
       "description": "SUCO JAL 1,5 CAJU",
       "price": 10.49,
@@ -6957,12 +6972,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "v68hvx3",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "SUCO SPRES UVA 300 ML",
       "description": "SUCO SPRES UVA 300 ML",
       "price": 6,
@@ -6979,12 +6994,12 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "hexgnnm",
       "categoryId": "hricv6a",
-      "frozenCategoryId": null,
       "name": "JAL NECTAR MARACUJA 900 ML",
       "description": "JAL NECTAR MARACUJA 900 ML",
       "price": 12.5,
@@ -7001,7 +7016,8 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "frozenCategoryId": null,
+      "updatedAt": 1794444749634
     },
     {
       "id": "jhzx6cv",
@@ -7023,7 +7039,7 @@
       "availableForDelivery": true,
       "availableInStore": true,
       "availableForKiosk": false,
-      "updatedAt": null
+      "updatedAt": 1794444749634
     },
     {
       "id": "prod_congelado",
@@ -7045,7 +7061,7 @@
       "maxAddons": 0,
       "flavorIds": [],
       "allowFrozen": true,
-      "updatedAt": null
+      "updatedAt": 1794444749634
     }
   ],
   "customers": [
@@ -10930,7 +10946,7 @@
       "phone": "(34) 99978-3261",
       "email": "lazaro@lsguarato.com.br",
       "cpf": "19.867.464/0001-28",
-      "password": "19867",
+      "password": "admin123",
       "address": "Rua Novo Horizonte, 948",
       "street": "",
       "number": "",
@@ -10947,7 +10963,9 @@
       "defaultAddressId": null,
       "status": "approved",
       "minOrderValue": 0,
-      "monthlyGoal": 0
+      "monthlyGoal": 0,
+      "mustChangePassword": false,
+      "passwordChangedAt": 1794445944707
     },
     {
       "id": "bf_cust_3845",
@@ -11058,7 +11076,7 @@
       "createdAt": "2026-10-20T11:12:43.326Z"
     }
   ],
-  "updatedAt": "2026-11-12T00:52:47.437Z",
+  "updatedAt": "2026-11-12T18:57:03.244Z",
   "totemBackups": [
     {
       "id": "totem_bkp_baseline_1794397094219",

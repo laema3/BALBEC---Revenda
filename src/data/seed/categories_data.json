@@ -4,131 +4,143 @@
     "name": "SALGADO",
     "order": 1,
     "externalId": "SALGAD",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794508629936
   },
   {
     "id": "hricv6a",
     "name": "BEBIDA",
     "order": 2,
     "externalId": "BEBIDA",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794446348070
   },
   {
     "id": "nyww21f",
     "name": "TIPO 2",
     "order": 3,
     "externalId": "REVENDA",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794508645878
   },
   {
     "id": "k790tcu",
     "name": "SORVETE",
     "order": 4,
     "externalId": "SORVET",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794446380240
   },
   {
     "id": "e0sv8sp",
     "name": "GALINHADA",
     "order": 5,
     "externalId": "GALINH",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794446376011
   },
   {
     "id": "80iq08q",
     "name": "MAIONESE",
     "order": 6,
     "externalId": "MAIONE",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794446390312
   },
   {
     "id": "j9pixiq",
     "name": "DOCES",
     "order": 7,
     "externalId": "DOCES",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794446373278
   },
   {
     "id": "wmsqohp",
     "name": "Diversos",
     "order": 8,
     "externalId": "DIVERSOS",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794446360019
   },
   {
     "id": "wscjzcx",
     "name": "REVENDA FESTA",
     "order": 9,
     "externalId": "REVENDA FESTA",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794508630634
   },
   {
     "id": "nwc89q5",
     "name": "SALGADO REV 1",
     "order": 10,
     "externalId": "SALGADO REV 1",
-    "isVisible": true,
+    "isVisible": false,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": null
+    "updatedAt": 1794508629028
   },
   {
     "id": "xqs010m",
-    "name": "Salgados Congelados (Crus)",
+    "name": "Salgados Grandes Congelados (Crus)",
     "order": 11,
     "externalId": null,
     "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
-    "availableForKiosk": true,
+    "availableForKiosk": false,
     "modality": "congelado",
-    "updatedAt": null
+    "updatedAt": 1794509822486
+  },
+  {
+    "id": "rjhc9i7",
+    "name": "Salgados Grandes",
+    "order": 12,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": false,
+    "modality": "pronto",
+    "updatedAt": 1794509149814
   }
 ]

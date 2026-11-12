@@ -80,15 +80,28 @@ export const shouldExcludeProduct = (product: any, categories: any[]) => {
     if (normalizedName.includes(NORMALIZED_EXCLUDED_ARRAY[i])) return true;
   }
 
-  // 2. Category exclusion check
-  if (categories && product.categoryId) {
-    const category = categories.find(c => c && c.id === product.categoryId);
-    if (category) {
+  // 2. Category exclusion check (only exclude if ALL assigned categories are excluded)
+  if (categories) {
+    const isCatNameExcluded = (catId?: string | null) => {
+      if (!catId || catId === 'none') return null;
+      const category = categories.find(c => c && c.id === catId);
+      if (!category) return null;
       const normalizedCat = normalizeText(category.name || "");
       if (NORMALIZED_EXCLUDED_SET.has(normalizedCat)) return true;
       for (let i = 0; i < NORMALIZED_EXCLUDED_ARRAY.length; i++) {
         if (normalizedCat.includes(NORMALIZED_EXCLUDED_ARRAY[i])) return true;
       }
+      return false;
+    };
+
+    const primaryExcluded = isCatNameExcluded(product.categoryId);
+    const frozenExcluded = isCatNameExcluded(product.frozenCategoryId);
+
+    if (primaryExcluded === true && frozenExcluded !== false) {
+      return true;
+    }
+    if (primaryExcluded === null && frozenExcluded === true) {
+      return true;
     }
   }
 
