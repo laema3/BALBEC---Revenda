@@ -58,12 +58,12 @@ export default function Menu() {
 
   useEffect(() => {
     fetchData();
-    // Polling em background a cada 10s para smartphones capturarem categorias/produtos novos criados no PC imediatamente
+    // Polling em background a cada 5s para smartphones capturarem categorias/produtos novos criados no PC imediatamente
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         fetchData().catch(() => {});
       }
-    }, 10000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1854,11 +1854,14 @@ export default function Menu() {
         .filter(c => {
           const isExcluded = isExcludedCategory(c.name) || isAddonCategory(c.name);
           const isVisible = c.isVisible !== false;
-          const matchesChannel = salesChannel === 'delivery'
-            ? c.availableForDelivery !== false
-            : salesChannel === 'kiosk'
-              ? c.availableForKiosk !== false
-              : c.availableInStore !== false;
+          const allChannelsFalse = c.availableForDelivery === false && c.availableInStore === false && c.availableForKiosk === false;
+          const matchesChannel = allChannelsFalse ? true : (
+            salesChannel === 'delivery'
+              ? c.availableForDelivery !== false
+              : salesChannel === 'kiosk'
+                ? c.availableForKiosk !== false
+                : c.availableInStore !== false
+          );
 
           return !isExcluded && 
                  isVisible && 
@@ -1921,24 +1924,31 @@ export default function Menu() {
       const prodCat = (p.categoryId && p.categoryId !== 'none') ? catMap.get(p.categoryId) : undefined;
       const frozenCat = (p.frozenCategoryId && p.frozenCategoryId !== 'none' && p.allowFrozen !== false) ? catMap.get(p.frozenCategoryId) : undefined;
 
-      const checkCatChannel = (c: any) => !c || (
-        salesChannel === 'delivery'
+      const checkCatChannel = (c: any) => {
+        if (!c) return true;
+        if (c.isVisible === false) return false;
+        const allChannelsFalse = c.availableForDelivery === false && c.availableInStore === false && c.availableForKiosk === false;
+        if (allChannelsFalse) return true;
+        return salesChannel === 'delivery'
           ? c.availableForDelivery !== false
           : salesChannel === 'kiosk'
             ? c.availableForKiosk !== false
-            : c.availableInStore !== false
-      );
+            : c.availableInStore !== false;
+      };
 
       const hasValidPrimaryCat = Boolean(p.categoryId && p.categoryId !== 'none' && checkCatChannel(prodCat));
       const hasValidFrozenCat = Boolean(p.frozenCategoryId && p.frozenCategoryId !== 'none' && p.allowFrozen !== false && checkCatChannel(frozenCat));
 
       if (!hasValidPrimaryCat && !hasValidFrozenCat) return false;
 
-      const matchesChannel = salesChannel === 'delivery'
-        ? p.availableForDelivery !== false
-        : salesChannel === 'kiosk'
-          ? p.availableForKiosk !== false
-          : p.availableInStore !== false;
+      const allProdChannelsFalse = p.availableForDelivery === false && p.availableInStore === false && p.availableForKiosk === false;
+      const matchesChannel = allProdChannelsFalse ? true : (
+        salesChannel === 'delivery'
+          ? p.availableForDelivery !== false
+          : salesChannel === 'kiosk'
+            ? p.availableForKiosk !== false
+            : p.availableInStore !== false
+      );
       if (!matchesChannel) return false;
 
       if ((p as any).trackStock && ((p as any).stockQuantity ?? 0) <= 0) return false;
@@ -1990,11 +2000,14 @@ export default function Menu() {
       .filter(c => {
         const isExcluded = isExcludedCategory(c.name) || isAddonCategory(c.name);
         const isVisible = c.isVisible !== false;
-        const matchesChannel = salesChannel === 'delivery'
-          ? c.availableForDelivery !== false
-          : salesChannel === 'kiosk'
-            ? c.availableForKiosk !== false
-            : c.availableInStore !== false;
+        const allChannelsFalse = c.availableForDelivery === false && c.availableInStore === false && c.availableForKiosk === false;
+        const matchesChannel = allChannelsFalse ? true : (
+          salesChannel === 'delivery'
+            ? c.availableForDelivery !== false
+            : salesChannel === 'kiosk'
+              ? c.availableForKiosk !== false
+              : c.availableInStore !== false
+        );
 
         return !isExcluded && 
                isVisible && 
@@ -6965,29 +6978,16 @@ export default function Menu() {
                                         </span>
                                       )}
 
-                                      {/* Botão de Edição de Variações quando já adicionado ao carrinho */}
-                                      {isSalgado && totalCartQty > 0 && isFrozenCategoryContext && (
-                                        <button
-                                          type="button"
-                                          onClick={() => openFrozenModal(product, currentQty, 'congelado')}
-                                          className="text-[10px] sm:text-[11px] font-black text-blue-600 animate-pulse bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs cursor-pointer transition-all active:scale-95"
-                                          title="Clique para alterar o preparo (Cru/Pré-Assado ou Frito/Assado)"
-                                        >
+                                      {totalCartQty > 0 && isFrozenCategoryContext && (
+                                        <span className="text-[10px] sm:text-[11px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
                                           <span>❄️ CONGELADO ({totalCartQty})</span>
-                                          <span className="text-[9px] bg-blue-200/80 text-blue-900 px-1.5 py-0.2 rounded font-bold">Alterar ✏️</span>
-                                        </button>
+                                        </span>
                                       )}
 
-                                      {isSalgado && totalCartQty > 0 && !isFrozenCategoryContext && (
-                                        <button
-                                          type="button"
-                                          onClick={() => openFrozenModal(product, currentQty, 'pronto')}
-                                          className="text-[10px] sm:text-[11px] font-black text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs cursor-pointer transition-all active:scale-95"
-                                          title="Clique para alterar o preparo (Frito/Assado ou Cru/Pré-Assado)"
-                                        >
+                                      {totalCartQty > 0 && !isFrozenCategoryContext && (
+                                        <span className="text-[10px] sm:text-[11px] font-black text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
                                           <span>🔥 PRONTO ({totalCartQty})</span>
-                                          <span className="text-[9px] bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded font-bold">Alterar ✏️</span>
-                                        </button>
+                                        </span>
                                       )}
 
                                       <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
@@ -7087,10 +7087,10 @@ export default function Menu() {
                                           type="button"
                                           onClick={() => {
                                             if (totalCartQty > 0) {
-                                              if (isSalgado) {
-                                                openFrozenModal(product, numericQty, isFrozenCategoryContext ? 'congelado' : 'pronto');
-                                              } else if (mainCartItem) {
+                                              if (mainCartItem) {
                                                 updateQuantity(product.id, mainCartItem.addons, mainCartItem.flavor, 1, mainCartItem.prepType);
+                                              } else {
+                                                initiateAddToCartWithQty(product, 1, isFrozenCategoryContext);
                                               }
                                             } else {
                                               initiateAddToCartWithQty(product, numericQty, isFrozenCategoryContext);
@@ -8150,11 +8150,7 @@ export default function Menu() {
                   setCartConflictModal({ isOpen: false, type: t });
                   if (targetProd) {
                     setTimeout(() => {
-                      if (isSalgadoProduct(targetProd, categories) || targetIsFrozen) {
-                        openFrozenModal(targetProd, targetQty, targetIsFrozen ? 'congelado' : 'pronto');
-                      } else {
-                        initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true);
-                      }
+                      initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true);
                     }, 100);
                   }
                 }}

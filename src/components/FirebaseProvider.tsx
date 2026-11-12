@@ -401,16 +401,17 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     }, 15000);
 
     const fullCatalogInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
         fetchData().catch(() => {});
       }
-    }, 10 * 60 * 1000);
+    }, 5000);
 
     // QUANDO O CLIENTE DESBLOQUEIA A TELA OU VOLTA PARA A ABA:
-    // Reconecta o SSE, atualiza os pedidos e verifica se o status mudou enquanto esteve fora!
+    // Reconecta o SSE, atualiza o cardápio e pedidos imediatamente!
     const handleSyncTrigger = () => {
       if (navigator.onLine) {
         connectSSE();
+        fetchData().catch(() => {});
         fetchOrdersOnly().then(() => {
           checkCustomerPendingOrderStatus();
         }).catch(() => {});

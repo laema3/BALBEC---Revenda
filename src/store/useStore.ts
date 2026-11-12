@@ -2,14 +2,19 @@ import { create } from 'zustand';
 import { cleanProductDescription, getEnrichedProductDescription } from '../constants';
 import { safeStorage } from '../utils/storage';
 
-const CATALOG_CATEGORIES_CACHE_KEY = 'balbec_cached_categories_v3';
-const CATALOG_PRODUCTS_CACHE_KEY = 'balbec_cached_products_v3';
-const ORDERS_CACHE_KEY = 'balbec_cached_orders_v3';
-const CUSTOMERS_CACHE_KEY = 'balbec_cached_customers_v3';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import defaultCategoriesSeed from '../data/seed/categories_data.json';
+import defaultProductsSeed from '../data/seed/products_data.json';
+
+const CATALOG_CATEGORIES_CACHE_KEY = 'balbec_cached_categories_v4';
+const CATALOG_PRODUCTS_CACHE_KEY = 'balbec_cached_products_v4';
+const ORDERS_CACHE_KEY = 'balbec_cached_orders_v4';
+const CUSTOMERS_CACHE_KEY = 'balbec_cached_customers_v4';
 
 // Purge legacy caches once so old company data never resurfaces from browser storage
 try {
-  if (typeof window !== 'undefined' && localStorage.getItem('balbec_clean_slate_v1') !== 'done') {
+  if (typeof window !== 'undefined' && localStorage.getItem('balbec_clean_slate_v2') !== 'done') {
     const keysToRemove = [
       'balbec_cached_categories_v1',
       'balbec_cached_categories_v2',
@@ -32,7 +37,7 @@ try {
       try { safeStorage.removeItem(k); } catch {}
       try { localStorage.removeItem(k); } catch {}
     });
-    localStorage.setItem('balbec_clean_slate_v1', 'done');
+    localStorage.setItem('balbec_clean_slate_v2', 'done');
   }
 } catch {}
 
@@ -41,10 +46,10 @@ const getInitialCategories = (): Category[] => {
     const raw = safeStorage.getItem(CATALOG_CATEGORIES_CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  return [];
+  return Array.isArray(defaultCategoriesSeed) ? (defaultCategoriesSeed as unknown as Category[]) : [];
 };
 
 const saveCategoriesToStorage = (list: Category[]): void => {
@@ -60,10 +65,10 @@ const getInitialProducts = (): Product[] => {
     const raw = safeStorage.getItem(CATALOG_PRODUCTS_CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  return [];
+  return Array.isArray(defaultProductsSeed) ? (defaultProductsSeed as unknown as Product[]) : [];
 };
 
 const saveProductsToStorage = (list: Product[]): void => {
@@ -842,7 +847,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     activeFetchDataPromise = (async () => {
       try {
-        const fetchWithTimeout = (url: string, timeout = 6000) => {
+        const fetchWithTimeout = (url: string, timeout = 3500) => {
           const controller = new AbortController();
           const id = setTimeout(() => controller.abort(), timeout);
           return fetch(url, { 
@@ -858,33 +863,41 @@ export const useStore = create<StoreState>((set, get) => ({
 
         const deletedReg = getLocalDeletedRegistry();
 
-        // 1. Fetch Categories (com Smart Merge bidirecional para nunca perder categorias após deploy)
-        const pCat = fetchWithTimeout('/api/db/categories', 6000)
+        // 1. Fetch Categories (Autoritativo do servidor com fallback de seed permanente)
+        const pCat = fetchWithTimeout('/api/db/categories', 3500)
           .then(safeParseResponse)
+          .catch(() => null)
           .then(async (serverCategories) => {
-            if (Array.isArray(serverCategories)) {
+            let catsToMerge: Category[] = Array.isArray(serverCategories) && serverCategories.length > 0 
+              ? serverCategories 
+              : [];
+
+            // Se o servidor retornou vazio, fallback para seed permanente
+            if (catsToMerge.length === 0) {
               const localCats = get().categories || getInitialCategories();
+              catsToMerge = localCats.length > 0 ? localCats : (defaultCategoriesSeed as unknown as Category[]);
+            }
+
+            if (catsToMerge.length > 0) {
               const serverById = new Map<string, Category>();
-              for (const c of serverCategories) {
+              for (const c of catsToMerge) {
                 if (c && c.id && !deletedReg.categories[String(c.id)]) {
-                  serverById.set(String(c.id), c);
+                  serverById.set(String(c.id), {
+                    ...c,
+                    availableInStore: c.availableInStore !== undefined ? c.availableInStore : true,
+                    availableForDelivery: c.availableForDelivery !== undefined ? c.availableForDelivery : true,
+                    availableForKiosk: c.availableForKiosk !== undefined ? c.availableForKiosk : true,
+                    isVisible: c.isVisible !== false,
+                  });
                 }
               }
 
-              const missingOnServer: Category[] = [];
-              if (Array.isArray(localCats) && localCats.length > 0) {
-                for (const localCat of localCats) {
-                  if (!localCat || !localCat.id) continue;
-                  const cid = String(localCat.id);
-                  if (deletedReg.categories[cid]) continue;
-                  const existingServer = serverById.get(cid);
-                  if (!existingServer) {
-                    serverById.set(cid, localCat);
-                    missingOnServer.push(localCat);
-                  } else if (Number(localCat.updatedAt || 0) > Number(existingServer.updatedAt || 0)) {
-                    const mergedCat = { ...existingServer, ...localCat };
-                    serverById.set(cid, mergedCat);
-                    missingOnServer.push(mergedCat);
+              // Preserva apenas categorias locais novíssimas criadas offline
+              const localCats = get().categories || [];
+              if (Array.isArray(localCats)) {
+                for (const lc of localCats) {
+                  if (lc && lc.id && !deletedReg.categories[String(lc.id)] && !serverById.has(String(lc.id))) {
+                    serverById.set(String(lc.id), lc);
                   }
                 }
               }
@@ -897,117 +910,70 @@ export const useStore = create<StoreState>((set, get) => ({
                 saveCategoriesToStorage(mergedCategories);
                 set({ categories: mergedCategories });
               }
-
-              if (missingOnServer.length > 0) {
-                for (const cat of missingOnServer) {
-                  fetch('/api/db/categories', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(cat)
-                  }).catch(() => {});
-                }
-              }
             }
-          })
-          .catch(() => {});
+          });
 
-        // 2. Fetch Products (com Smart Merge bidirecional para preservar vínculos e cadastros locais)
-        const pProd = fetchWithTimeout('/api/db/products', 6000)
+        // 2. Fetch Products (Autoritativo do servidor com fallback de seed permanente)
+        const pProd = fetchWithTimeout('/api/db/products', 3500)
           .then(safeParseResponse)
+          .catch(() => null)
           .then(async (rawProducts) => {
-            if (Array.isArray(rawProducts)) {
+            let prodsToMerge: any[] = Array.isArray(rawProducts) && rawProducts.length > 0 
+              ? rawProducts 
+              : [];
+
+            // Se o servidor retornou vazio, fallback para seed permanente
+            if (prodsToMerge.length === 0) {
               const localProds = get().products || getInitialProducts();
-              if (rawProducts.length > 0) {
-                const normalizeProd = (p: any): Product => {
-                  let availableForDelivery = p.availableForDelivery !== undefined ? Boolean(p.availableForDelivery) : true;
-                  let availableInStore = p.availableInStore !== undefined ? Boolean(p.availableInStore) : true;
-                  let availableForKiosk = p.availableForKiosk !== undefined ? Boolean(p.availableForKiosk) : true;
-
-                  if (p.description && typeof p.description === 'string' && p.description.includes('[channels:')) {
-                    const match = p.description.match(/\[channels:(.*?)\]/);
-                    if (match) {
-                      const channels = match[1].split(',');
-                      availableForDelivery = channels.includes('delivery');
-                      availableInStore = channels.includes('in_store');
-                      availableForKiosk = channels.includes('kiosk');
-                    }
-                  }
-
-                  return {
-                    ...p,
-                    description: getEnrichedProductDescription(p.name, p.externalId, p.description),
-                    availableForDelivery,
-                    availableInStore,
-                    availableForKiosk,
-                  };
-                };
-
-                const serverById = new Map<string, Product>();
-                for (const raw of rawProducts) {
-                  if (raw && raw.id && !deletedReg.products[String(raw.id)]) {
-                    serverById.set(String(raw.id), normalizeProd(raw));
-                  }
-                }
-
-                const missingOrNewerOnLocal: Product[] = [];
-                if (Array.isArray(localProds) && localProds.length > 0) {
-                  for (const lp of localProds) {
-                    if (!lp || !lp.id) continue;
-                    const pid = String(lp.id);
-                    if (deletedReg.products[pid]) continue;
-                    const sp = serverById.get(pid);
-                    if (!sp) {
-                      serverById.set(pid, lp);
-                      missingOrNewerOnLocal.push(lp);
-                    } else if (Number((lp as any).updatedAt || 0) > Number((sp as any).updatedAt || 0)) {
-                      const mergedProd = {
-                        ...sp,
-                        ...lp,
-                        frozenCategoryId: lp.frozenCategoryId !== undefined ? lp.frozenCategoryId : sp.frozenCategoryId,
-                      };
-                      serverById.set(pid, mergedProd);
-                      missingOrNewerOnLocal.push(mergedProd);
-                    } else if (lp.frozenCategoryId && !sp.frozenCategoryId) {
-                      const mergedProd = { ...sp, frozenCategoryId: lp.frozenCategoryId };
-                      serverById.set(pid, mergedProd);
-                      missingOrNewerOnLocal.push(mergedProd);
-                    }
-                  }
-                }
-
-                const products = Array.from(serverById.values());
-                saveProductsToStorage(products);
-                set({ products, isInitialized: true });
-
-                if (missingOrNewerOnLocal.length > 0) {
-                  for (let i = 0; i < missingOrNewerOnLocal.length; i += 50) {
-                    const chunk = missingOrNewerOnLocal.slice(i, i + 50);
-                    fetch('/api/db/products/batch', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(chunk)
-                    }).catch(() => {});
-                  }
-                }
-              } else {
-                if (Array.isArray(localProds) && localProds.length > 0) {
-                  for (let i = 0; i < localProds.length; i += 50) {
-                    const chunk = localProds.slice(i, i + 50);
-                    fetch('/api/db/products/batch', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(chunk)
-                    }).catch(() => {});
-                  }
-                }
-                set({ isInitialized: true });
-              }
-            } else {
-              set({ isInitialized: true });
+              prodsToMerge = localProds.length > 0 ? localProds : (defaultProductsSeed as unknown as Product[]);
             }
-          })
-          .catch(() => {
-            set({ isInitialized: true });
+
+            if (prodsToMerge.length > 0) {
+              const normalizeProd = (p: any): Product => {
+                let availableForDelivery = p.availableForDelivery !== undefined ? Boolean(p.availableForDelivery) : true;
+                let availableInStore = p.availableInStore !== undefined ? Boolean(p.availableInStore) : true;
+                let availableForKiosk = p.availableForKiosk !== undefined ? Boolean(p.availableForKiosk) : true;
+
+                if (p.description && typeof p.description === 'string' && p.description.includes('[channels:')) {
+                  const match = p.description.match(/\[channels:(.*?)\]/);
+                  if (match) {
+                    const channels = match[1].split(',');
+                    availableForDelivery = channels.includes('delivery');
+                    availableInStore = channels.includes('in_store');
+                    availableForKiosk = channels.includes('kiosk');
+                  }
+                }
+
+                return {
+                  ...p,
+                  description: getEnrichedProductDescription(p.name, p.externalId, p.description),
+                  availableForDelivery,
+                  availableInStore,
+                  availableForKiosk,
+                };
+              };
+
+              const serverById = new Map<string, Product>();
+              for (const raw of prodsToMerge) {
+                if (raw && raw.id && !deletedReg.products[String(raw.id)]) {
+                  serverById.set(String(raw.id), normalizeProd(raw));
+                }
+              }
+
+              // Preserva produtos locais criados offline
+              const localProds = get().products || [];
+              if (Array.isArray(localProds)) {
+                for (const lp of localProds) {
+                  if (lp && lp.id && !deletedReg.products[String(lp.id)] && !serverById.has(String(lp.id))) {
+                    serverById.set(String(lp.id), lp);
+                  }
+                }
+              }
+
+              const products = Array.from(serverById.values());
+              saveProductsToStorage(products);
+              set({ products, isInitialized: true });
+            }
           });
 
         // 3. Fetch Store Info
