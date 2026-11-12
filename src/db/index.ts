@@ -318,6 +318,7 @@ export async function ensureTablesExist() {
       external_id TEXT,
       "order" INTEGER DEFAULT 0,
       allow_frozen BOOLEAN DEFAULT TRUE,
+      min_frozen_quantity INTEGER DEFAULT 1,
       available_for_delivery BOOLEAN DEFAULT TRUE,
       available_in_store BOOLEAN DEFAULT TRUE,
       available_for_kiosk BOOLEAN DEFAULT TRUE,
@@ -552,6 +553,7 @@ export async function ensureTablesExist() {
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS frozen_category_id TEXT;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_frozen BOOLEAN DEFAULT TRUE;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS min_frozen_quantity INTEGER DEFAULT 1;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_for_delivery BOOLEAN DEFAULT TRUE;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_in_store BOOLEAN DEFAULT TRUE;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_for_kiosk BOOLEAN DEFAULT TRUE;

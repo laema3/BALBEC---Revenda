@@ -430,7 +430,40 @@ export default function Admin() {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [targetBatchCategoryId, setTargetBatchCategoryId] = useState<string>('');
   const [targetBatchFrozenCategoryId, setTargetBatchFrozenCategoryId] = useState<string>('');
+  const [batchMinFrozenQty, setBatchMinFrozenQty] = useState<string>('');
   const [isTransferringBatch, setIsTransferringBatch] = useState<boolean>(false);
+
+  // Inline per-product minimum frozen quantity state
+  const [minFrozenDrafts, setMinFrozenDrafts] = useState<Record<string, string>>({});
+  const [expandedMinFrozenIds, setExpandedMinFrozenIds] = useState<Record<string, boolean>>({});
+  const [savedMinFrozenId, setSavedMinFrozenId] = useState<string | null>(null);
+
+  const focusMinFrozenInput = (productId: string) => {
+    setExpandedMinFrozenIds(prev => ({ ...prev, [productId]: true }));
+    setTimeout(() => {
+      const el = document.getElementById(`min-frozen-qty-${productId}`) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 60);
+  };
+
+  const saveInlineMinFrozenQuantity = async (productId: string, rawVal: string | number, currentSaved?: number) => {
+    const parsed = parseInt(String(rawVal).replace(/\D/g, ''), 10);
+    const safeQty = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    setMinFrozenDrafts(prev => ({ ...prev, [productId]: String(safeQty) }));
+    if (currentSaved !== undefined && safeQty === currentSaved) return;
+    try {
+      await updateProduct(productId, { minFrozenQuantity: safeQty, allowFrozen: true });
+      setSavedMinFrozenId(productId);
+      setTimeout(() => {
+        setSavedMinFrozenId(prev => (prev === productId ? null : prev));
+      }, 1800);
+    } catch (err) {
+      console.error('Error updating minFrozenQuantity:', err);
+    }
+  };
 
   const handleBatchCategoryTransfer = async () => {
     if (!targetBatchCategoryId || selectedProductIds.length === 0 || isTransferringBatch) return;
@@ -459,14 +492,18 @@ export default function Admin() {
     setIsTransferringBatch(true);
     try {
       const finalFrozenCatId = targetBatchFrozenCategoryId === 'none' ? '' : targetBatchFrozenCategoryId;
+      const parsedBatchMin = parseInt(batchMinFrozenQty.replace(/\D/g, ''), 10);
+      const hasCustomBatchMin = !isNaN(parsedBatchMin) && parsedBatchMin >= 1;
       await Promise.all(
         selectedProductIds.map(id => updateProduct(id, { 
           frozenCategoryId: finalFrozenCatId,
-          ...(finalFrozenCatId ? { allowFrozen: true } : {})
+          ...(finalFrozenCatId ? { allowFrozen: true } : {}),
+          ...(finalFrozenCatId && hasCustomBatchMin ? { minFrozenQuantity: parsedBatchMin } : {})
         }))
       );
       setSelectedProductIds([]);
       setTargetBatchFrozenCategoryId('');
+      setBatchMinFrozenQty('');
     } catch (err) {
       console.error('Error batch updating product frozen category:', err);
       setConfirmModal({
@@ -5853,6 +5890,21 @@ export default function Admin() {
                     ))
                   }
                 </select>
+                {targetBatchFrozenCategoryId && targetBatchFrozenCategoryId !== 'none' && (
+                  <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-cyan-300">
+                    <span className="text-[11px] font-extrabold text-cyan-900 whitespace-nowrap">Qtd. Mín:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={batchMinFrozenQty}
+                      onChange={(e) => setBatchMinFrozenQty(e.target.value)}
+                      placeholder="Ex: 20"
+                      className="w-16 text-xs font-black text-center text-cyan-950 outline-none"
+                      title="Opcional: defina uma quantidade mínima de congelados para os produtos selecionados"
+                    />
+                    <span className="text-[10px] font-bold text-cyan-700">un</span>
+                  </div>
+                )}
                 <button
                   type="button"
                   disabled={!targetBatchFrozenCategoryId || isTransferringBatch}
@@ -6036,11 +6088,14 @@ export default function Admin() {
 
                             <button
                               type="button"
-                              title={product.allowFrozen !== false ? "Clique para desativar opção de Congelado (+R$ 0,30)" : "Clique para ativar opção de Congelado (+R$ 0,30)"}
+                              title={product.allowFrozen !== false ? "Clique para configurar a quantidade mínima ou alternar opção de Congelado (+R$ 0,30)" : "Clique para ativar opção de Congelado (+R$ 0,30) e definir quantidade mínima"}
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 const newValue = product.allowFrozen === false;
                                 await updateProduct(product.id, { allowFrozen: newValue });
+                                if (newValue) {
+                                  focusMinFrozenInput(product.id);
+                                }
                               }}
                               className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer font-bold flex items-center gap-1 active:scale-95 ${
                                 product.allowFrozen !== false
@@ -6048,7 +6103,9 @@ export default function Admin() {
                                   : 'bg-stone-100 text-stone-400 border-stone-200 line-through opacity-50 hover:opacity-100 hover:bg-cyan-50 hover:text-cyan-700 hover:no-underline'
                               }`}
                             >
-                              ❄️ {product.allowFrozen !== false ? 'Congelado (+R$ 0,30)' : 'Congelado (Desativado)'}
+                              ❄️ {product.allowFrozen !== false
+                                ? `Congelado (+R$ 0,30${Number(product.minFrozenQuantity) > 1 ? ` • Mín: ${product.minFrozenQuantity} un` : ''})`
+                                : 'Congelado (Desativado)'}
                             </button>
 
                             {product.externalId && <span className="text-[10px] bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded font-mono uppercase font-bold">CÓD: {product.externalId}</span>}
@@ -6060,6 +6117,19 @@ export default function Admin() {
                           {(() => {
                             const selectedPrimaryCat = categories.find(c => c.id === product.categoryId);
                             const selectedFrozenCat = categories.find(c => c.id === product.frozenCategoryId);
+                            const hasFrozenCatLinked = Boolean(product.frozenCategoryId && product.frozenCategoryId !== 'none');
+                            const isPrimaryCatFrozen = Boolean(selectedPrimaryCat && isCategoryFrozenModality(selectedPrimaryCat));
+                            const showMinFrozenField = Boolean(
+                              hasFrozenCatLinked ||
+                              isPrimaryCatFrozen ||
+                              expandedMinFrozenIds[product.id] ||
+                              Number(product.minFrozenQuantity) > 1
+                            );
+                            const currentMinVal = Number(product.minFrozenQuantity) >= 1 ? Number(product.minFrozenQuantity) : 1;
+                            const draftVal = minFrozenDrafts[product.id] !== undefined
+                              ? minFrozenDrafts[product.id]
+                              : String(currentMinVal);
+
                             return (
                               <>
                                 <div className="flex flex-col gap-0.5">
@@ -6072,12 +6142,19 @@ export default function Admin() {
                                       onChange={async (e) => {
                                         const newCatId = e.target.value;
                                         try {
-                                          await updateProduct(product.id, { categoryId: newCatId });
+                                          const targetCat = categories.find(c => c.id === newCatId);
+                                          const targetIsFrozen = Boolean(targetCat && isCategoryFrozenModality(targetCat));
+                                          await updateProduct(product.id, {
+                                            categoryId: newCatId,
+                                            ...(targetIsFrozen ? { allowFrozen: true } : {})
+                                          });
                                           if (newCatId && newCatId !== 'none' && product.isActive !== false) {
-                                            const targetCat = categories.find(c => c.id === newCatId);
                                             if (targetCat && !targetCat.externalId && targetCat.isVisible === false) {
                                               await updateCategory(targetCat.id, { isVisible: true });
                                             }
+                                          }
+                                          if (targetIsFrozen) {
+                                            focusMinFrozenInput(product.id);
                                           }
                                         } catch (err) {
                                           console.error('Error updating product category:', err);
@@ -6108,11 +6185,16 @@ export default function Admin() {
                                   )}
                                 </div>
 
-                                <div className="flex flex-col gap-0.5">
+                                <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-extrabold text-cyan-900 bg-cyan-100 border border-cyan-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center" title="Categoria onde este mesmo produto aparece na modalidade Congelados (+R$ 0,30)">
+                                    <button
+                                      type="button"
+                                      onClick={() => focusMinFrozenInput(product.id)}
+                                      className="text-[10px] font-extrabold text-cyan-900 bg-cyan-100 hover:bg-cyan-200 border border-cyan-200 px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center cursor-pointer transition-colors"
+                                      title="Clique para definir a quantidade mínima deste produto quando vendido congelado"
+                                    >
                                       ❄️ Congelados
-                                    </span>
+                                    </button>
                                     <select
                                       value={product.frozenCategoryId || 'none'}
                                       onChange={async (e) => {
@@ -6129,12 +6211,17 @@ export default function Admin() {
                                               await updateCategory(targetCat.id, { isVisible: true });
                                             }
                                           }
+                                          if (newFrozenCatId) {
+                                            focusMinFrozenInput(product.id);
+                                          } else {
+                                            setExpandedMinFrozenIds(prev => ({ ...prev, [product.id]: false }));
+                                          }
                                         } catch (err) {
                                           console.error('Error updating product frozenCategoryId:', err);
                                         }
                                       }}
                                       className={`border text-[11px] rounded-lg p-1.5 focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer font-bold w-full max-w-[210px] ${
-                                        product.frozenCategoryId && product.frozenCategoryId !== 'none'
+                                        hasFrozenCatLinked
                                           ? 'bg-cyan-50 border-cyan-300 text-cyan-950'
                                           : 'bg-stone-50 border-stone-200 text-stone-400'
                                       }`}
@@ -6159,6 +6246,58 @@ export default function Admin() {
                                     >
                                       ⚠️ Categoria &quot;{selectedFrozenCat.name}&quot; oculta (Ativar)
                                     </button>
+                                  )}
+
+                                  {showMinFrozenField && (
+                                    <div className="flex items-center justify-between gap-1.5 bg-cyan-50/90 border border-cyan-300/90 rounded-lg px-2 py-1 shadow-2xs max-w-[300px]">
+                                      <label
+                                        htmlFor={`min-frozen-qty-${product.id}`}
+                                        className="text-[10px] font-extrabold text-cyan-950 whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                                        title="Quantidade mínima obrigatória quando este produto for comprado na modalidade Congelado"
+                                      >
+                                        <span>❄️ Qtd. Mínima:</span>
+                                      </label>
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          id={`min-frozen-qty-${product.id}`}
+                                          type="number"
+                                          min={1}
+                                          inputMode="numeric"
+                                          value={draftVal}
+                                          placeholder="1"
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) => {
+                                            const clean = e.target.value.replace(/\D/g, '');
+                                            setMinFrozenDrafts(prev => ({ ...prev, [product.id]: clean }));
+                                          }}
+                                          onBlur={(e) => {
+                                            saveInlineMinFrozenQuantity(product.id, e.target.value, currentMinVal);
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              (e.target as HTMLInputElement).blur();
+                                            }
+                                          }}
+                                          className="w-16 px-1.5 py-0.5 text-xs font-black text-center bg-white border border-cyan-400 rounded-md focus:ring-2 focus:ring-cyan-500 outline-none text-cyan-950 font-mono"
+                                        />
+                                        <span className="text-[10px] font-extrabold text-cyan-800">un</span>
+                                        {savedMinFrozenId === product.id ? (
+                                          <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded">
+                                            ✓ Salvo
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => saveInlineMinFrozenQuantity(product.id, draftVal)}
+                                            className="text-[10px] font-extrabold text-white bg-cyan-600 hover:bg-cyan-700 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                            title="Salvar quantidade mínima deste produto"
+                                          >
+                                            OK
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
                                   )}
                                 </div>
                               </>
@@ -9501,14 +9640,24 @@ export default function Admin() {
                   </select>
                 </div>
 
-                <div className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-xl space-y-2">
+                <div className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-xl space-y-2.5">
                   <label className="block text-xs font-extrabold text-cyan-950 uppercase tracking-wide">
                     ❄️ Categoria para Modalidade CONGELADOS (+R$ 0,30 • Até 48h)
                   </label>
                   <select 
                     name="frozenCategoryId" 
                     value={selectedFrozenCategoryId || 'none'} 
-                    onChange={(e) => setSelectedFrozenCategoryId(e.target.value === 'none' ? '' : e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value === 'none' ? '' : e.target.value;
+                      setSelectedFrozenCategoryId(val);
+                      if (val) {
+                        setTimeout(() => {
+                          const el = document.getElementById('minFrozenQuantity') as HTMLInputElement | null;
+                          el?.focus();
+                          el?.select();
+                        }, 60);
+                      }
+                    }}
                     className="w-full p-2 bg-white border border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none font-bold text-sm"
                   >
                     <option value="none">-- Não vincular a categoria de Congelados --</option>
@@ -9517,6 +9666,25 @@ export default function Admin() {
                       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
                       .map(c => <option key={c.id} value={c.id}>{c.name} {!c.externalId ? '✏️ (Manual)' : ''}</option>)}
                   </select>
+
+                  <div className="p-2.5 bg-white/90 border border-cyan-300 rounded-lg space-y-1">
+                    <label htmlFor="minFrozenQuantity" className="block text-xs font-extrabold uppercase tracking-wider text-cyan-950">
+                      ❄️ Quantidade Mínima deste Produto Congelado (unidades)
+                    </label>
+                    <input
+                      type="number"
+                      name="minFrozenQuantity"
+                      id="minFrozenQuantity"
+                      defaultValue={editingItem?.minFrozenQuantity || 1}
+                      min="1"
+                      className="w-full p-2 border border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none text-cyan-950 font-black bg-white"
+                      placeholder="Ex: 10, 20, 50..."
+                    />
+                    <p className="text-[11px] text-cyan-800">
+                      Na tela de vendas (modalidade Congelado), o pedido deste produto iniciará e exigirá no mínimo esta quantidade.
+                    </p>
+                  </div>
+
                   <p className="text-[11px] text-cyan-800 leading-snug">
                     Vincule o mesmo produto a uma categoria de Prontos e a uma categoria de Congelados para que ele apareça nas duas categorias com suas respectivas variações.
                   </p>
@@ -9630,23 +9798,6 @@ export default function Admin() {
                 <div className="flex items-center gap-2">
                   <input type="checkbox" name="allowFrozen" id="allowFrozen" defaultChecked={editingItem ? editingItem.allowFrozen !== false : true} className="w-4 h-4 text-orange-600 focus:ring-orange-500 rounded" />
                   <label htmlFor="allowFrozen" className="text-sm font-medium text-stone-700">Permitir opção de Salgado Congelado (+R$ 0,30 / un)</label>
-                </div>
-                <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1">
-                  <label htmlFor="minFrozenQuantity" className="block text-xs font-bold uppercase tracking-wider text-blue-900">
-                    ❄️ Quantidade Mínima para Congelado (unidades)
-                  </label>
-                  <input
-                    type="number"
-                    name="minFrozenQuantity"
-                    id="minFrozenQuantity"
-                    defaultValue={editingItem?.minFrozenQuantity || 1}
-                    min="1"
-                    className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-stone-800 font-bold bg-white"
-                    placeholder="Ex: 10, 20, 50..."
-                  />
-                  <p className="text-[11px] text-blue-700">
-                    Quando o cliente escolher este salgado na modalidade congelado, essa será a quantidade mínima exigida.
-                  </p>
                 </div>
 
                 {/* Sales Channels / Exibição por Local */}
