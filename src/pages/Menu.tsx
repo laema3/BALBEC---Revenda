@@ -34,6 +34,8 @@ export default function Menu() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [productQuantities, setProductQuantities] = useState<Record<string, number | string>>({});
+  const [frozenPrepChoices, setFrozenPrepChoices] = useState<Record<string, 'congelado_cru' | 'congelado_frito'>>({});
+  const [frozenPrepErrors, setFrozenPrepErrors] = useState<Record<string, boolean>>({});
   const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
   const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
 
@@ -1729,6 +1731,7 @@ export default function Menu() {
     product?: any;
     qty?: number;
     isFrozenContext?: boolean;
+    prepType?: 'congelado_cru' | 'congelado_frito';
   }>({
     isOpen: false,
     type: 'has_frozen_blocked_normal'
@@ -2187,7 +2190,8 @@ export default function Menu() {
           type: 'has_normal_blocked_frozen',
           product,
           qty: quantity,
-          isFrozenContext: true
+          isFrozenContext: true,
+          prepType: (prepType === 'congelado_frito' ? 'congelado_frito' : 'congelado_cru')
         });
         return;
       }
@@ -2250,7 +2254,13 @@ export default function Menu() {
     setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
   };
 
-  const initiateAddToCartWithQty = (product: any, qty: number = 1, isFrozenContext: boolean = false, bypassConflictCheck: boolean = false) => {
+  const initiateAddToCartWithQty = (
+    product: any,
+    qty: number = 1,
+    isFrozenContext: boolean = false,
+    bypassConflictCheck: boolean = false,
+    frozenPrepType?: 'congelado_cru' | 'congelado_frito'
+  ) => {
     if (!hasChosenChannel) {
       setHasChosenChannel(true);
       safeStorage.setSession('selected_sales_channel', salesChannel || 'delivery');
@@ -2289,7 +2299,8 @@ export default function Menu() {
           type: 'has_normal_blocked_frozen',
           product,
           qty,
-          isFrozenContext: true
+          isFrozenContext: true,
+          prepType: frozenPrepType
         });
         return;
       }
@@ -2412,7 +2423,25 @@ export default function Menu() {
       ? Number(product.minFrozenQuantity) 
       : 1;
     const finalQty = Math.max(minRequired, qty);
-    addToCart(product, [], null, finalQty, isFrozenContext ? 'congelado_cru' : undefined, isFrozenContext ? 'Produto Congelado' : undefined, bypassConflictCheck);
+
+    if (isFrozenContext) {
+      const chosenPrepType: 'congelado_cru' | 'congelado_frito' = frozenPrepType || 'congelado_cru';
+      const chosenPrepLabel = chosenPrepType === 'congelado_frito' ? 'FRITO CONGELADO' : 'CRU CONGELADO';
+      const foundCong = products.find(p => p.id === 'prod_congelado');
+      const pVal = foundCong && foundCong.price && foundCong.price < 2.0 ? Number(foundCong.price) : 0.30;
+      const congeladoProd = foundCong || { id: 'prod_congelado', name: 'Salgado Congelado', price: pVal, externalId: '9999' };
+      const isSalgado = isSalgadoProduct(product, categories) || isFrozenContext;
+      const frozenAddons = isSalgado ? [{
+        productId: congeladoProd.id,
+        name: 'Acréscimo Congelado',
+        price: pVal,
+        externalId: (congeladoProd as any).externalId || '9999',
+        isFrozen: true
+      }] : [];
+      addToCart(product, frozenAddons, null, finalQty, chosenPrepType, chosenPrepLabel, bypassConflictCheck);
+    } else {
+      addToCart(product, [], null, finalQty, undefined, undefined, bypassConflictCheck);
+    }
   };
 
   const initiateAddToCart = (product: any) => {
@@ -6892,6 +6921,46 @@ export default function Menu() {
                         const displayUnitPrice = (isFrozenCategoryContext && isSalgado) ? (product.price + frozenExtraVal) : product.price;
                         const qtyKey = `${product.id}_${isFrozenCategoryContext ? 'congelado' : 'pronto'}`;
 
+                        const isItemFrozenHelper = (ci: any) => Boolean(
+                          ci.isFrozen || ci.prepType?.startsWith('congelado') || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))
+                        );
+                        const cartItemsForProd = cart.filter(ci => ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext);
+                        const totalCartQty = cartItemsForProd.reduce((sum, ci) => sum + ci.quantity, 0);
+                        const mainCartItem = cartItemsForProd[0];
+
+                        const selectedFrozenPrep: 'congelado_cru' | 'congelado_frito' | null = isFrozenCategoryContext
+                          ? (frozenPrepChoices[qtyKey] ||
+                              (mainCartItem?.prepType === 'congelado_frito'
+                                ? 'congelado_frito'
+                                : mainCartItem?.prepType === 'congelado_cru'
+                                  ? 'congelado_cru'
+                                  : null))
+                          : null;
+
+                        const handleSelectFrozenPrep = (choice: 'congelado_cru' | 'congelado_frito') => {
+                          setFrozenPrepChoices(prev => ({ ...prev, [qtyKey]: choice }));
+                          setFrozenPrepErrors(prev => ({ ...prev, [qtyKey]: false }));
+                          if (cartItemsForProd.length === 1 && mainCartItem) {
+                            const newLabel = choice === 'congelado_frito' ? 'FRITO CONGELADO' : 'CRU CONGELADO';
+                            setCart(prev => prev.map(ci => {
+                              if (
+                                ci.productId === mainCartItem.productId &&
+                                (ci.prepType || '') === (mainCartItem.prepType || '') &&
+                                isItemFrozenHelper(ci) &&
+                                JSON.stringify(ci.addons) === JSON.stringify(mainCartItem.addons) &&
+                                JSON.stringify(ci.flavor) === JSON.stringify(mainCartItem.flavor)
+                              ) {
+                                return {
+                                  ...ci,
+                                  prepType: choice,
+                                  prepLabel: newLabel
+                                };
+                              }
+                              return ci;
+                            }));
+                          }
+                        };
+
                         return (
                         <div 
                           key={`${category.id}_${product.id}`} 
@@ -6922,6 +6991,67 @@ export default function Menu() {
                                   {formatCapitalized(formatProductDescriptionWithCode(product.description, product.externalId))}
                                 </p>
                               )}
+
+                              {/* Opções de preparo para pedidos congelados: abaixo do código e acima do valor */}
+                              {isFrozenCategoryContext && !isAddonProduct(product) && canBuy && (
+                                <div
+                                  className={`mb-2 p-2 rounded-xl border transition-all ${
+                                    frozenPrepErrors[qtyKey]
+                                      ? 'bg-red-50 border-red-400 ring-2 ring-red-400/50'
+                                      : 'bg-blue-50/70 border-blue-200'
+                                  }`}
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                                    <span className={`text-[10px] sm:text-xs font-black uppercase tracking-wide ${
+                                      frozenPrepErrors[qtyKey] ? 'text-red-700' : 'text-blue-950'
+                                    }`}>
+                                      Como você deseja:
+                                    </span>
+                                    {frozenPrepErrors[qtyKey] && (
+                                      <span className="text-[10px] font-black text-red-600">
+                                        ⚠️ Selecione uma opção
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                    <label
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[10px] sm:text-xs font-black uppercase cursor-pointer select-none transition-all ${
+                                        selectedFrozenPrep === 'congelado_cru'
+                                          ? 'bg-blue-100 text-blue-950 border-blue-500 ring-1 ring-blue-500 shadow-2xs'
+                                          : 'bg-white text-stone-800 border-stone-300 hover:border-blue-400'
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedFrozenPrep === 'congelado_cru'}
+                                        onChange={() => handleSelectFrozenPrep('congelado_cru')}
+                                        className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 rounded cursor-pointer"
+                                      />
+                                      <span>CRU CONGELADO</span>
+                                    </label>
+
+                                    <span className="text-[10px] font-extrabold text-stone-400 uppercase">ou</span>
+
+                                    <label
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[10px] sm:text-xs font-black uppercase cursor-pointer select-none transition-all ${
+                                        selectedFrozenPrep === 'congelado_frito'
+                                          ? 'bg-blue-100 text-blue-950 border-blue-500 ring-1 ring-blue-500 shadow-2xs'
+                                          : 'bg-white text-stone-800 border-stone-300 hover:border-blue-400'
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedFrozenPrep === 'congelado_frito'}
+                                        onChange={() => handleSelectFrozenPrep('congelado_frito')}
+                                        className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 rounded cursor-pointer"
+                                      />
+                                      <span>FRITO CONGELADO</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             
                             <div className="mt-auto pt-1 sm:pt-2 flex items-center justify-between gap-2 sm:gap-3">
@@ -6938,13 +7068,6 @@ export default function Menu() {
                                 </span>
                               ) : (
                                 (() => {
-                                  const isItemFrozenHelper = (ci: any) => Boolean(
-                                    ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))
-                                  );
-                                  const cartItemsForProd = cart.filter(ci => ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext);
-                                  const totalCartQty = cartItemsForProd.reduce((sum, ci) => sum + ci.quantity, 0);
-
-                                  const mainCartItem = cartItemsForProd[0];
                                   const minRequired = (isFrozenCategoryContext && Number(product.minFrozenQuantity) > 1) 
                                     ? Number(product.minFrozenQuantity) 
                                     : 1;
@@ -6956,7 +7079,6 @@ export default function Menu() {
                                     const parsed = parseInt(String(displayedQty), 10);
                                     return isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
                                   })();
-                                  const currentQty = numericQty;
 
                                   return (
                                     <div className="flex flex-col items-end gap-1">
@@ -6969,7 +7091,7 @@ export default function Menu() {
 
                                       {totalCartQty > 0 && isFrozenCategoryContext && (
                                         <span className="text-[10px] sm:text-[11px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                                          <span>❄️ CONGELADO ({totalCartQty})</span>
+                                          <span>❄️ {mainCartItem?.prepLabel || 'CONGELADO'} ({totalCartQty})</span>
                                         </span>
                                       )}
 
@@ -6991,6 +7113,18 @@ export default function Menu() {
                                               delete next[qtyKey];
                                               return next;
                                             });
+                                            if (isFrozenCategoryContext) {
+                                              setFrozenPrepChoices(prev => {
+                                                const next = { ...prev };
+                                                delete next[qtyKey];
+                                                return next;
+                                              });
+                                              setFrozenPrepErrors(prev => {
+                                                const next = { ...prev };
+                                                delete next[qtyKey];
+                                                return next;
+                                              });
+                                            }
                                           }}
                                           className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
                                           title={totalCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade"}
@@ -7034,7 +7168,7 @@ export default function Menu() {
                                           value={displayedQty}
                                           onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
                                           onChange={(e) => {
-                                            if (minRequired >  1) return;
+                                            if (minRequired > 1) return;
                                             const raw = e.target.value.replace(/\D/g, '');
                                             setProductQuantities(prev => ({ ...prev, [qtyKey]: raw }));
                                             if (raw !== '') {
@@ -7067,7 +7201,13 @@ export default function Menu() {
                                               const parsed = parseInt(String(raw ?? displayedQty), 10);
                                               const qty = isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
                                               if (totalCartQty === 0) {
-                                                initiateAddToCartWithQty(product, qty, isFrozenCategoryContext);
+                                                if (isFrozenCategoryContext && !selectedFrozenPrep) {
+                                                  setFrozenPrepErrors(prev => ({ ...prev, [qtyKey]: true }));
+                                                  setCartToastMessage('Selecione CRU CONGELADO ou FRITO CONGELADO! ❄️');
+                                                  setTimeout(() => setCartToastMessage(null), 3000);
+                                                  return;
+                                                }
+                                                initiateAddToCartWithQty(product, qty, isFrozenCategoryContext, false, selectedFrozenPrep || undefined);
                                               }
                                             }
                                           }}
@@ -7085,10 +7225,22 @@ export default function Menu() {
                                                 const newQ = mainCartItem.quantity + step;
                                                 setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: newQ } : ci));
                                               } else {
-                                                initiateAddToCartWithQty(product, step, isFrozenCategoryContext);
+                                                if (isFrozenCategoryContext && !selectedFrozenPrep) {
+                                                  setFrozenPrepErrors(prev => ({ ...prev, [qtyKey]: true }));
+                                                  setCartToastMessage('Selecione CRU CONGELADO ou FRITO CONGELADO! ❄️');
+                                                  setTimeout(() => setCartToastMessage(null), 3000);
+                                                  return;
+                                                }
+                                                initiateAddToCartWithQty(product, step, isFrozenCategoryContext, false, selectedFrozenPrep || undefined);
                                               }
                                             } else {
-                                              initiateAddToCartWithQty(product, numericQty > 0 ? numericQty : minRequired, isFrozenCategoryContext);
+                                              if (isFrozenCategoryContext && !selectedFrozenPrep) {
+                                                setFrozenPrepErrors(prev => ({ ...prev, [qtyKey]: true }));
+                                                setCartToastMessage('Selecione CRU CONGELADO ou FRITO CONGELADO! ❄️');
+                                                setTimeout(() => setCartToastMessage(null), 3000);
+                                                return;
+                                              }
+                                              initiateAddToCartWithQty(product, numericQty > 0 ? numericQty : minRequired, isFrozenCategoryContext, false, selectedFrozenPrep || undefined);
                                             }
                                           }}
                                           className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
@@ -8185,6 +8337,7 @@ export default function Menu() {
                   const targetProd = cartConflictModal.product;
                   const targetQty = cartConflictModal.qty || 1;
                   const targetIsFrozen = Boolean(cartConflictModal.isFrozenContext);
+                  const targetPrepType = cartConflictModal.prepType;
                   const t = cartConflictModal.type;
                   setCart([]);
                   safeStorage.removeItem('balbec_active_cart');
@@ -8195,7 +8348,7 @@ export default function Menu() {
                   setCartConflictModal({ isOpen: false, type: t });
                   if (targetProd) {
                     setTimeout(() => {
-                      initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true);
+                      initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true, targetPrepType);
                     }, 100);
                   }
                 }}
