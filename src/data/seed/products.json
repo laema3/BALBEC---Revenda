@@ -340,9 +340,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794565775145,
+    "minFrozenQuantity": 20
   },
   {
     "id": "gonkx5v",
@@ -361,17 +361,17 @@
     "externalId": "102",
     "order": 0,
     "allowFrozen": true,
-    "minFrozenQuantity": 1,
+    "minFrozenQuantity": 20,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "updatedAt": 1794514424453
+    "updatedAt": 1794565768350
   },
   {
     "id": "vr08ijb",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "QUIBE DE CARNE",
-    "description": "QUIBE DE CARNE",
+    "description": "QUIBE DE CARNE [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/103.jpg",
     "isActive": true,
@@ -386,9 +386,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794567610927,
+    "minFrozenQuantity": 20
   },
   {
     "id": "j9qyg9v",
@@ -433,8 +433,8 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794513847833,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794565876186,
+    "minFrozenQuantity": 15
   },
   {
     "id": "s8lkgxy",
@@ -456,14 +456,14 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794513819866,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794565879691,
+    "minFrozenQuantity": 10
   },
   {
     "id": "v9ml9f7",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "ESPETINHO DE FRANGO",
-    "description": "ESPETINHO DE FRANGO",
+    "description": "ESPETINHO DE FRANGO [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/107.jpg",
     "isActive": true,
@@ -478,9 +478,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794567562506,
+    "minFrozenQuantity": 20
   },
   {
     "id": "fj3juc1",
@@ -507,9 +507,9 @@
   },
   {
     "id": "29ti0fc",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "ESFIRRA DE CARNE",
-    "description": "ESFIRRA DE CARNE",
+    "description": "ESFIRRA DE CARNE [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/109.jpg",
     "isActive": true,
@@ -524,15 +524,15 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794565968653,
+    "minFrozenQuantity": 15
   },
   {
     "id": "snrs7c4",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "ESFIRRA DE CALABRESA",
-    "description": "ESFIRRA DE CALABRESA",
+    "description": "ESFIRRA DE CALABRESA [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/110.jpg",
     "isActive": true,
@@ -547,15 +547,15 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794514700511,
+    "minFrozenQuantity": 15
   },
   {
     "id": "swpro05",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "ESFIRRA DE FRANGO",
-    "description": "ESFIRRA DE FRANGO",
+    "description": "ESFIRRA DE FRANGO [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/111.jpg",
     "isActive": true,
@@ -570,9 +570,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794566000598,
+    "minFrozenQuantity": 15
   },
   {
     "id": "z2o962v",
@@ -617,8 +617,8 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794565738021,
+    "minFrozenQuantity": 20
   },
   {
     "id": "v7vyy9a",
@@ -663,8 +663,8 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794513864755,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794565901481,
+    "minFrozenQuantity": 20
   },
   {
     "id": "zs6tqso",
@@ -714,9 +714,9 @@
   },
   {
     "id": "shgns0s",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "ESFIRRA DE PRESUNTO COM R",
-    "description": "ESFIRRA DE PRESUNTO COM REQUEIJAO",
+    "description": "ESFIRRA DE PRESUNTO COM REQUEIJAO [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/124.jpg",
     "isActive": true,
@@ -731,15 +731,15 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794566077146,
+    "minFrozenQuantity": 15
   },
   {
     "id": "aj53axn",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "RISOLE DE CARNE",
-    "description": "RISOLE DE CARNE",
+    "description": "RISOLE DE CARNE [channels:delivery,in_store]",
     "price": 4,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/125.jpg",
     "isActive": true,
@@ -754,9 +754,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794569720752,
+    "minFrozenQuantity": 15
   },
   {
     "id": "x5j83v5",
@@ -1191,8 +1191,8 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794510052346,
+    "frozenCategoryId": null,
+    "updatedAt": 1794567228830,
     "minFrozenQuantity": 1
   },
   {
@@ -1565,9 +1565,9 @@
   },
   {
     "id": "gy7jo41",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "QUICHE DE CAMARAO",
-    "description": "QUICHE DE CAMARAO",
+    "description": "QUICHE DE CAMARAO [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/20.jpg",
     "isActive": true,
@@ -1582,9 +1582,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794569681282,
+    "minFrozenQuantity": 10
   },
   {
     "id": "tevtdpg",
@@ -1680,7 +1680,7 @@
   },
   {
     "id": "tduu3n2",
-    "categoryId": "6rxjvu9",
+    "categoryId": "none",
     "name": "QUICHE DE ALHO PORO",
     "description": "QUICHE DE ALHO PORO [channels:delivery,in_store]",
     "price": 6.5,
@@ -1698,8 +1698,8 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794569646933,
+    "minFrozenQuantity": 10
   },
   {
     "id": "dsomok8",
@@ -5521,9 +5521,9 @@
   },
   {
     "id": "af5qvfk",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "QUICHE DE ALHO PORO",
-    "description": "QUICHE DE ALHO PORO",
+    "description": "QUICHE DE ALHO PORO [channels:delivery,in_store]",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1616.jpg",
     "isActive": true,
@@ -5538,9 +5538,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794569660495,
+    "minFrozenQuantity": 10
   },
   {
     "id": "8uykprm",
@@ -6625,7 +6625,7 @@
   },
   {
     "id": "busnjmm",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "ENROLADINHO PRE./QJO",
     "description": "ENROLADINHO PRE./QJO [channels:delivery,in_store]",
     "price": 4.6,
@@ -6642,9 +6642,9 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794513877738,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794572453840,
+    "minFrozenQuantity": 15
   },
   {
     "id": "amav5qg",

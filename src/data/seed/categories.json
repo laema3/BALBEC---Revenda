@@ -8,8 +8,8 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
-    "modality": "pronto",
-    "updatedAt": 1794508629936
+    "modality": "congelado",
+    "updatedAt": 1794573618672
   },
   {
     "id": "hricv6a",
@@ -121,7 +121,7 @@
   },
   {
     "id": "xqs010m",
-    "name": "Salgados Grandes Congelados (Crus)",
+    "name": "Salgados (FRITOS) Grandes Congelados",
     "order": 11,
     "externalId": null,
     "isVisible": true,
@@ -129,11 +129,11 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "modality": "congelado",
-    "updatedAt": 1794509822486
+    "updatedAt": 1794586861174
   },
   {
     "id": "rjhc9i7",
-    "name": "Salgados Grandes",
+    "name": "Salgados (FRITOS) Grandes Normais",
     "order": 12,
     "externalId": null,
     "isVisible": true,
@@ -141,6 +141,30 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "modality": "pronto",
-    "updatedAt": 1794509149814
+    "updatedAt": 1794586896446
+  },
+  {
+    "id": "lmh1bv4",
+    "name": "Salgados (ASSADOS) Grandes Congelados",
+    "order": 13,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "congelado",
+    "updatedAt": 1794586851963
+  },
+  {
+    "id": "bjdjdho",
+    "name": "Salgados (ASSADOS) Grandes Normais",
+    "order": 14,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1794572050527
   }
 ]

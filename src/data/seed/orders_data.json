@@ -1,1 +1,51 @@
-[]
+[
+  {
+    "id": "0001",
+    "items": [
+      {
+        "code": "106",
+        "name": "BOLINHO DE BACALHAU",
+        "price": 4.6,
+        "addons": [],
+        "flavor": null,
+        "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/106.jpg",
+        "isFrozen": true,
+        "prepType": "congelado_cru",
+        "quantity": 80,
+        "prepLabel": "Produto Congelado",
+        "productId": "s8lkgxy",
+        "externalId": "106",
+        "description": "Cód: 106 • BOLINHO DE BACALHAU"
+      }
+    ],
+    "total": 368,
+    "status": "completed",
+    "deliveryStatus": "delivered",
+    "type": "online",
+    "paymentMethod": "Dinheiro",
+    "paymentStatus": "pending",
+    "customerName": "LS GUARATO LTDA",
+    "customerPhone": "(34) 99978-3261",
+    "customerId": "cust_1793149229408",
+    "customerEmail": "lazaro@lsguarato.com.br",
+    "customerCpf": "19.867.464/0001-28",
+    "deliveryType": "pickup",
+    "deliveryFee": 0,
+    "scheduledTime": "19:30 (Retirada às 21:00)",
+    "scheduledDate": "2026-11-10",
+    "scheduledDay": "Terça-feira, 10/11",
+    "hasFrozenItems": true,
+    "isFrozen": true,
+    "createdAt": 1794584490960,
+    "deliveryCompletedAt": 1794584938102,
+    "deliveryAddress": null,
+    "deliveryCep": "",
+    "deliveryNeighborhood": "",
+    "tableNumber": null,
+    "tableId": null,
+    "driverId": null,
+    "driverName": null,
+    "deliveryAcceptedAt": null,
+    "scheduledPickupTime": null
+  }
+]
