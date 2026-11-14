@@ -678,23 +678,30 @@ export default function TvDisplay() {
 
   // Sync initial data and connect to SSE for real-time changes
   useEffect(() => {
+    const { fetchOrdersOnly } = useStore.getState();
     fetchData();
 
-    // Polling rápido para garantir sincronização contínua de pedidos e vídeos da TV
+    // Fallback periódico leve (SSE já entrega mudanças instantaneamente em ~150ms)
     const fastInterval = setInterval(() => {
-      fetchData();
-    }, mode === 'split_orders' ? 6000 : 15000);
+      if (mode === 'split_orders') {
+        fetchOrdersOnly();
+      } else {
+        fetchData();
+      }
+    }, 15000);
 
-    // Polling de segurança de longo prazo
+    // Sincronização completa de segurança de longo prazo (mídias/cardápio)
     const interval = setInterval(() => {
       fetchData();
-    }, 600000);
+    }, 300000);
 
     let debounceTimer: any = null;
+    let isDisposed = false;
 
     // Realtime SSE
     const es = new EventSource('/api/events');
     es.onmessage = (e) => {
+      if (isDisposed) return;
       try {
         const data = JSON.parse(e.data);
         if (data.type === 'sync') {
@@ -703,14 +710,20 @@ export default function TvDisplay() {
           }
 
           if (debounceTimer) clearTimeout(debounceTimer);
-          const delay = (data.target === 'orders' || data.target === 'tv_call' || data.target === 'tv') ? 150 : 2500;
+          const isOrdersOnlyTarget = data.target === 'orders' || data.target === 'tv_call';
+          const delay = (isOrdersOnlyTarget || data.target === 'tv') ? 150 : 2000;
           debounceTimer = setTimeout(() => {
-            fetchData();
+            if (isDisposed) return;
+            if (isOrdersOnlyTarget) {
+              useStore.getState().fetchOrdersOnly();
+            } else {
+              fetchData();
+            }
           }, delay);
         } else if (data.type === 'tv') {
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(() => {
-            fetchData();
+            if (!isDisposed) fetchData();
           }, 200);
         }
       } catch (err) {
@@ -719,6 +732,7 @@ export default function TvDisplay() {
     };
 
     return () => {
+      isDisposed = true;
       clearInterval(fastInterval);
       clearInterval(interval);
       if (debounceTimer) clearTimeout(debounceTimer);

@@ -163,10 +163,6 @@ export default function Admin() {
   useEffect(() => {
     fetchData().catch(() => {});
     fetchCustomers().catch(() => {});
-    const interval = setInterval(() => {
-      fetchData().catch(() => {});
-    }, 15000);
-    return () => clearInterval(interval);
   }, []);
 
   // Ticker dinâmico em tempo real a cada 10s para ordenar e identificar pedidos a vencer
@@ -273,10 +269,10 @@ export default function Admin() {
           onConfirm: () => setConfirmModal(null)
         });
       } else {
-        alert(data.error || 'Erro ao criar backup do totem');
+        showInfoModal('Erro no Backup', data.error || 'Erro ao criar backup do totem');
       }
     } catch (e: any) {
-      alert('Erro ao criar backup: ' + e.message);
+      showInfoModal('Erro no Backup', 'Erro ao criar backup: ' + e.message);
     } finally {
       setIsCreatingBackup(false);
     }
@@ -298,13 +294,14 @@ export default function Admin() {
           isOpen: true,
           title: 'Totem Restaurado com Sucesso!',
           message: `O cardápio do Totem foi restaurado a partir de "${data.backupName}".\n\nForam redefinidas as configurações de ${data.restoredCatCount} categorias e ${data.restoredProdCount} produtos.`,
+          cancelText: null,
           onConfirm: () => setConfirmModal(null)
         });
       } else {
-        alert(data.error || 'Erro ao restaurar backup');
+        showInfoModal('Erro na Restauração', data.error || 'Erro ao restaurar backup');
       }
     } catch (e: any) {
-      alert('Erro ao restaurar backup: ' + e.message);
+      showInfoModal('Erro na Restauração', 'Erro ao restaurar backup: ' + e.message);
     } finally {
       setIsRestoringBackup(false);
     }
@@ -333,10 +330,10 @@ export default function Admin() {
         if (parsed && (Array.isArray(parsed.categories) || Array.isArray(parsed.products))) {
           await handleRestoreTotemBackup(undefined, parsed);
         } else {
-          alert('Arquivo de backup inválido. Certifique-se de selecionar um arquivo JSON de backup do Totem.');
+          showInfoModal('Arquivo Inválido', 'Arquivo de backup inválido. Certifique-se de selecionar um arquivo JSON de backup do Totem.');
         }
       } catch (err) {
-        alert('Erro ao ler arquivo JSON de backup.');
+        showInfoModal('Erro de Leitura', 'Erro ao ler arquivo JSON de backup.');
       }
     };
     reader.readAsText(file);
@@ -344,15 +341,22 @@ export default function Admin() {
   };
 
   const handleDeleteTotemBackup = async (backupId: string) => {
-    if (!confirm('Deseja excluir este registro de backup do sistema?')) return;
-    try {
-      const res = await fetch(`/api/db/totem-backups/${backupId}`, { method: 'DELETE' });
-      if (res.ok) {
-        await fetchTotemBackups();
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Backup',
+      message: 'Deseja excluir este registro de backup do sistema?',
+      confirmText: 'Excluir',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/db/totem-backups/${backupId}`, { method: 'DELETE' });
+          if (res.ok) {
+            await fetchTotemBackups();
+          }
+        } catch (e) {
+          console.error('Erro ao excluir backup:', e);
+        }
       }
-    } catch (e) {
-      console.error('Erro ao excluir backup:', e);
-    }
+    });
   };
 
   const handleDownloadFullSystemBackup = async () => {
@@ -370,10 +374,10 @@ export default function Admin() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        alert('Erro ao gerar backup completo do sistema.');
+        showInfoModal('Erro no Backup', 'Erro ao gerar backup completo do sistema.');
       }
     } catch (err: any) {
-      alert('Erro ao baixar backup completo: ' + err.message);
+      showInfoModal('Erro no Backup', 'Erro ao baixar backup completo: ' + err.message);
     }
   };
 
@@ -386,33 +390,42 @@ export default function Admin() {
         const content = e.target?.result as string;
         const parsed = JSON.parse(content);
         if (parsed && (parsed.storeInfo || parsed.products || parsed.orders || parsed.categories)) {
-          if (!confirm('Deseja restaurar este backup COMPLETO do sistema? Todos os dados atuais (vendas, cardápio, clientes e configurações) serão atualizados.')) {
-            event.target.value = '';
-            return;
-          }
-          const res = await fetch('/api/db/restore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsed)
+          setConfirmModal({
+            isOpen: true,
+            title: 'Restaurar Backup Completo',
+            message: 'Deseja restaurar este backup COMPLETO do sistema? Todos os dados atuais (vendas, cardápio, clientes e configurações) serão atualizados.',
+            confirmText: 'Restaurar Agora',
+            onConfirm: async () => {
+              try {
+                const res = await fetch('/api/db/restore', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(parsed)
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                  await fetchData();
+                  setIsTotemBackupModalOpen(false);
+                  setConfirmModal({
+                    isOpen: true,
+                    title: 'Backup Completo Restaurado!',
+                    message: `O sistema foi restaurado com sucesso!\n\n• Categorias: ${data.restoredCategories || 0}\n• Produtos: ${data.restoredProducts || 0}\n• Mesas: ${data.restoredTables || 0}\n• Vendas e Configurações atualizadas.`,
+                    cancelText: null,
+                    onConfirm: () => setConfirmModal(null)
+                  });
+                } else {
+                  showInfoModal('Erro na Restauração', data.error || 'Erro ao restaurar backup completo.');
+                }
+              } catch (restoreErr: any) {
+                showInfoModal('Erro na Restauração', 'Erro ao restaurar backup completo: ' + (restoreErr?.message || restoreErr));
+              }
+            }
           });
-          const data = await res.json();
-          if (res.ok && data.success) {
-            await fetchData();
-            setIsTotemBackupModalOpen(false);
-            setConfirmModal({
-              isOpen: true,
-              title: 'Backup Completo Restaurado!',
-              message: `O sistema foi restaurado com sucesso!\n\n• Categorias: ${data.restoredCategories || 0}\n• Produtos: ${data.restoredProducts || 0}\n• Mesas: ${data.restoredTables || 0}\n• Vendas e Configurações atualizadas.`,
-              onConfirm: () => setConfirmModal(null)
-            });
-          } else {
-            alert(data.error || 'Erro ao restaurar backup completo.');
-          }
         } else {
-          alert('Arquivo de backup inválido. Certifique-se de selecionar um arquivo JSON de backup completo do sistema BALBEC.');
+          showInfoModal('Arquivo Inválido', 'Arquivo de backup inválido. Certifique-se de selecionar um arquivo JSON de backup completo do sistema BALBEC.');
         }
       } catch (err) {
-        alert('Erro ao ler arquivo JSON de backup.');
+        showInfoModal('Erro de Leitura', 'Erro ao ler arquivo JSON de backup.');
       }
       event.target.value = '';
     };
@@ -705,11 +718,22 @@ export default function Admin() {
     isOpen: boolean, 
     title: string, 
     message: string, 
-    onConfirm: () => void, 
+    onConfirm: () => void | Promise<void>, 
     debugXml?: string,
     confirmText?: string,
-    cancelText?: string
+    cancelText?: string | null
   } | null>(null);
+
+  const showInfoModal = (title: string, message: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      confirmText: 'OK',
+      cancelText: null,
+      onConfirm: () => setConfirmModal(null)
+    });
+  };
 
   // Settings state
   const [logoPreview, setLogoPreview] = useState(() => storeInfo.logoUrl || localStorage.getItem('balbec_custom_logo_url') || '/logo.svg');
@@ -1976,24 +2000,32 @@ export default function Admin() {
   };
 
   const handleRestorePreSync = async () => {
-    if (!confirm('Deseja restaurar as categorias, visibilidade e configurações para o estado exato de antes da última sincronização?')) return;
-    try {
-      const res = await fetch('/api/db/restore-pre-sync', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        await fetchData();
-        setConfirmModal({
-          isOpen: true,
-          title: 'Snapshot Restaurado!',
-          message: `O sistema foi restaurado com sucesso para o estado anterior à sincronização!\n\n• Categorias: ${data.categoriesCount}\n• Produtos: ${data.productsCount}`,
-          onConfirm: () => setConfirmModal(null)
-        });
-      } else {
-        alert(data.error || 'Nenhum snapshot pré-sincronização encontrado.');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Restaurar Pré-Sincronização',
+      message: 'Deseja restaurar as categorias, visibilidade e configurações para o estado exato de antes da última sincronização?',
+      confirmText: 'Restaurar',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/db/restore-pre-sync', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            await fetchData();
+            setConfirmModal({
+              isOpen: true,
+              title: 'Snapshot Restaurado!',
+              message: `O sistema foi restaurado com sucesso para o estado anterior à sincronização!\n\n• Categorias: ${data.categoriesCount}\n• Produtos: ${data.productsCount}`,
+              cancelText: null,
+              onConfirm: () => setConfirmModal(null)
+            });
+          } else {
+            showInfoModal('Aviso', data.error || 'Nenhum snapshot pré-sincronização encontrado.');
+          }
+        } catch (e: any) {
+          showInfoModal('Erro', 'Erro ao restaurar snapshot: ' + (e?.message || e));
+        }
       }
-    } catch (e: any) {
-      alert('Erro ao restaurar snapshot: ' + (e?.message || e));
-    }
+    });
   };
 
   const handleTestBlueFocus = async () => {
@@ -2328,13 +2360,12 @@ export default function Admin() {
     }
   }, [orders, isSoundEnabled, storeInfo]);
 
-  // Auto-atualização: Apenas pedidos do Totem e Consumo na Loja (Mesa) são auto-concluídos para acionar a impressão imediata.
-  // Pedidos de Delivery e Retirada/Balcão feitos pelo cliente (online) chegam como PENDENTE e seguem o fluxo normal.
+  // Auto-atualização: Apenas pedidos recém-chegados ('pending') do Totem e Consumo na Loja (Mesa) são auto-concluídos.
+  // Nunca sobrescreve pedidos que o administrador já moveu manualmente para 'preparing' ou 'ready'.
   const processedOrderIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     const uncompletedPresential = orders.filter(
-      o => o.status !== 'completed' && 
-           o.status !== 'cancelled' && 
+      o => o.status === 'pending' && 
            !processedOrderIds.current.has(o.id) && 
            (o.type === 'kiosk' || o.type === 'dine_in' || o.deliveryType === 'dine_in' || Boolean(o.tableNumber))
     );
@@ -2372,7 +2403,7 @@ export default function Admin() {
           setConfirmModal(null);
         } catch (error) {
           console.error('Error deleting category:', error);
-          alert('Erro ao excluir categoria.');
+          showInfoModal('Erro', 'Erro ao excluir categoria.');
         }
       }
     });
@@ -2389,7 +2420,7 @@ export default function Admin() {
           setConfirmModal(null);
         } catch (error) {
           console.error('Error deleting product:', error);
-          alert('Erro ao excluir produto.');
+          showInfoModal('Erro', 'Erro ao excluir produto.');
         }
       }
     });
@@ -2406,7 +2437,7 @@ export default function Admin() {
           setConfirmModal(null);
         } catch (error) {
           console.error('Error deleting user:', error);
-          alert('Erro ao excluir usuário.');
+          showInfoModal('Erro', 'Erro ao excluir usuário.');
         }
       }
     });
@@ -2692,7 +2723,7 @@ export default function Admin() {
       setTimeout(() => setLogoSavedSuccess(false), 3000);
     } catch (error) {
       console.error('Error saving logo:', error);
-      alert('Erro ao salvar a logomarca. Tente novamente.');
+      showInfoModal('Erro', 'Erro ao salvar a logomarca. Tente novamente.');
     } finally {
       setIsSavingLogo(false);
     }
@@ -2912,7 +2943,7 @@ export default function Admin() {
       await updateOrderStatus(id, status);
     } catch (error) {
       console.error('Error updating order status:', error);
-      alert('Erro ao atualizar status do pedido.');
+      showInfoModal('Erro ao Atualizar Status', 'Não foi possível salvar o novo status do pedido no servidor. Tente novamente.');
     }
   };
 
@@ -2946,7 +2977,7 @@ export default function Admin() {
           setConfirmModal(null);
         } catch (error) {
           console.error('Error cancelling order:', error);
-          alert('Erro ao cancelar pedido.');
+          showInfoModal('Erro', 'Erro ao cancelar pedido.');
         }
       }
     });
@@ -2971,7 +3002,7 @@ export default function Admin() {
           console.log(`[Admin] Deletion command sent for: ${strId}`);
         } catch (error) {
           console.error('Error deleting order:', error);
-          alert('Erro ao excluir pedido. Tente novamente.');
+          showInfoModal('Erro', 'Erro ao excluir pedido. Tente novamente.');
         }
       }
     });
@@ -2988,7 +3019,7 @@ export default function Admin() {
 
   const renderDashboard = () => {
     const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'ready' || o.status === 'out_for_delivery' || o.status === 'ready_for_delivery');
-    const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total, 0);
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     const totalOrdersCount = completedOrders.length;
     const ticketMedio = totalOrdersCount > 0 ? totalRevenue / totalOrdersCount : 0;
     const pendingCount = orders.filter(o => o.status === 'pending').length;
@@ -3003,12 +3034,14 @@ export default function Admin() {
 
     const productSales: Record<string, { name: string, quantity: number, revenue: number }> = {};
     completedOrders.forEach(order => {
-      order.items.forEach(item => {
+      const safeItems = Array.isArray(order.items) ? order.items : [];
+      safeItems.forEach(item => {
+        if (!item) return;
         if (!productSales[item.productId]) {
           productSales[item.productId] = { name: item.name, quantity: 0, revenue: 0 };
         }
-        productSales[item.productId].quantity += item.quantity;
-        productSales[item.productId].revenue += (item.price * item.quantity);
+        productSales[item.productId].quantity += Number(item.quantity) || 0;
+        productSales[item.productId].revenue += ((Number(item.price) || 0) * (Number(item.quantity) || 0));
       });
     });
 
@@ -4289,7 +4322,7 @@ export default function Admin() {
         const customerName = normalizeText(o.customerName || '');
         const phone = (o.customerPhone || '').toLowerCase();
         const table = o.tableNumber ? String(o.tableNumber).toLowerCase() : '';
-        const items = o.items ? o.items.map(i => normalizeText(i.name || '')).join(' ') : '';
+        const items = Array.isArray(o.items) ? o.items.map(i => normalizeText(i?.name || '')).join(' ') : '';
 
         return idStr.includes(rawQ) ||
                customerName.includes(q) ||
@@ -4660,11 +4693,21 @@ export default function Admin() {
             </div>
             <button
               type="button"
-              onClick={async () => {
-                if (window.confirm('Deseja realmente ZERAR todos os pedidos do sistema? O sistema ficará com zero pedidos para você começar amanhã.')) {
-                  await clearAllOrders();
-                  alert('Todos os pedidos foram zerados com sucesso!');
-                }
+              onClick={() => {
+                setConfirmModal({
+                  isOpen: true,
+                  title: 'Zerar Todos os Pedidos',
+                  message: 'Deseja realmente ZERAR todos os pedidos do sistema? O sistema ficará com zero pedidos para você começar amanhã.',
+                  confirmText: 'Sim, Zerar Todos',
+                  onConfirm: async () => {
+                    try {
+                      await clearAllOrders();
+                      showInfoModal('Sucesso', 'Todos os pedidos foram zerados com sucesso!');
+                    } catch {
+                      showInfoModal('Erro', 'Falha ao zerar os pedidos. Tente novamente.');
+                    }
+                  }
+                });
               }}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
@@ -4807,7 +4850,7 @@ export default function Admin() {
                   </div>
                   <div className="p-4 flex-1">
                     <div className="text-sm text-stone-500 mb-2">
-                      {new Date(order.createdAt).toLocaleTimeString()} • {order.paymentMethod}
+                      {(order.createdAt && !isNaN(new Date(order.createdAt).getTime())) ? new Date(order.createdAt).toLocaleTimeString() : '--:--'} • {order.paymentMethod}
                     </div>
                     {(order.scheduledTime || (order as any).scheduled_time) && (
                       <div className={`mb-3 px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-xs font-bold border ${dayTheme.cardScheduleBg}`}>
@@ -4821,7 +4864,7 @@ export default function Admin() {
                       </div>
                     )}
                     <ul className="space-y-2 mb-4">
-                      {order.items.map((item, idx) => {
+                      {(Array.isArray(order.items) ? order.items : []).map((item, idx) => {
                         const itemCode = resolveItemCode(item);
                         return (
                           <li key={idx} className="flex justify-between text-sm items-start">
@@ -5059,20 +5102,20 @@ export default function Admin() {
                     <td className="p-4 font-medium">#{String(order.id).slice(-4).padStart(4, '0')}</td>
                     <td className="p-4">{order.customerName}</td>
                     <td className="p-4">
-                      <div>{new Date(order.createdAt).toLocaleTimeString()}</div>
+                      <div>{(order.createdAt && !isNaN(new Date(order.createdAt).getTime())) ? new Date(order.createdAt).toLocaleTimeString() : '--:--'}</div>
                       {(order.scheduledTime || (order as any).scheduled_time) && (
                         <div className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300 mt-1 inline-flex items-center gap-1 shadow-2xs">
                           <span>⏰ {formatDateBR(order.scheduledDay || order.scheduledDate) || 'Hoje'} às {order.scheduledTime || (order as any).scheduled_time}</span>
                         </div>
                       )}
                     </td>
-                    <td className="p-4 text-xs text-stone-500 max-w-[240px] truncate" title={order.items.map(item => {
+                    <td className="p-4 text-xs text-stone-500 max-w-[240px] truncate" title={(Array.isArray(order.items) ? order.items : []).map(item => {
                       const code = resolveItemCode(item);
                       const flavorStr = item.flavor ? ` (Sabor: ${item.flavor.name}${resolveAddonCode(item.flavor) ? ` [CÓD: ${resolveAddonCode(item.flavor)}]` : ''})` : '';
                       const addonsStr = item.addons && item.addons.length > 0 ? ` (+ ${item.addons.map(a => `${a.name}${resolveAddonCode(a) ? ` [CÓD: ${resolveAddonCode(a)}]` : ''}`).join(', ')})` : '';
                       return `${item.quantity}x ${item.name}${item.prepLabel ? ` [${item.prepLabel}]` : ''}${code ? ` [CÓD: ${code}]` : ''}${flavorStr}${addonsStr}`;
                     }).join(', ')}>
-                      {order.items.map(item => {
+                      {(Array.isArray(order.items) ? order.items : []).map(item => {
                         const code = resolveItemCode(item);
                         const prepStr = item.prepLabel ? ` [${item.prepLabel}]` : '';
                         const flavorStr = item.flavor ? ` (Sabor: ${item.flavor.name}${resolveAddonCode(item.flavor) ? ` [CÓD: ${resolveAddonCode(item.flavor)}]` : ''})` : '';
@@ -5215,7 +5258,7 @@ export default function Admin() {
       await updateCategory(category.id, { isVisible: category.isVisible === false });
     } catch (error) {
       console.error('Error toggling category visibility:', error);
-      alert('Erro ao alterar visibilidade da categoria.');
+      showInfoModal('Erro', 'Erro ao alterar visibilidade da categoria.');
     }
   };
 
@@ -5556,23 +5599,29 @@ export default function Admin() {
                 </button>
                 <button type="button" 
                   onClick={() => {
-                    if (confirm('Deseja zerar os marcadores de carga e realizar a sincronização completa de TODOS os produtos?')) {
-                      const freshConfig = {
-                        ...blueFocusConfig,
-                        tipo: '4',
-                        tipoAtualizacao: 'C',
-                        startCargaNumero: '0',
-                        startCargaSequencia: '0',
-                        startProdutoId: '0'
-                      };
-                      setBlueFocusConfig(freshConfig);
-                      localStorage.setItem('bluefocus_tipo', '4');
-                      localStorage.setItem('bluefocus_tipo_atualizacao', 'C');
-                      localStorage.setItem('bluefocus_start_carga_numero', '0');
-                      localStorage.setItem('bluefocus_start_carga_sequencia', '0');
-                      localStorage.setItem('bluefocus_start_produto_id', '0');
-                      handleSyncBlueFocus(freshConfig);
-                    }
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Sincronização Completa',
+                      message: 'Deseja zerar os marcadores de carga e realizar a sincronização completa de TODOS os produtos?',
+                      confirmText: 'Sincronizar Tudo',
+                      onConfirm: () => {
+                        const freshConfig = {
+                          ...blueFocusConfig,
+                          tipo: '4',
+                          tipoAtualizacao: 'C',
+                          startCargaNumero: '0',
+                          startCargaSequencia: '0',
+                          startProdutoId: '0'
+                        };
+                        setBlueFocusConfig(freshConfig);
+                        localStorage.setItem('bluefocus_tipo', '4');
+                        localStorage.setItem('bluefocus_tipo_atualizacao', 'C');
+                        localStorage.setItem('bluefocus_start_carga_numero', '0');
+                        localStorage.setItem('bluefocus_start_carga_sequencia', '0');
+                        localStorage.setItem('bluefocus_start_produto_id', '0');
+                        handleSyncBlueFocus(freshConfig);
+                      }
+                    });
                   }}
                   disabled={isSyncing}
                   className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50 cursor-pointer text-sm"
@@ -6866,9 +6915,9 @@ export default function Admin() {
                           tags: ['tada', 'dumpling', 'white_check_mark']
                         });
                         if (ok) {
-                          alert(`✅ Notificação de teste enviada com sucesso para https://ntfy.sh/${topic}!`);
+                          showInfoModal('Teste NTFY', `✅ Notificação de teste enviada com sucesso para https://ntfy.sh/${topic}!`);
                         } else {
-                          alert(`⚠️ Falha ao enviar notificação de teste para https://ntfy.sh/${topic}. Verifique sua conexão.`);
+                          showInfoModal('Falha no NTFY', `⚠️ Falha ao enviar notificação de teste para https://ntfy.sh/${topic}. Verifique sua conexão.`);
                         }
                       }}
                       className="px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
@@ -7238,7 +7287,7 @@ export default function Admin() {
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(`${window.location.origin}/totem`);
-                      alert('Link do Totem copiado com sucesso!');
+                      showInfoModal('Link Copiado', 'Link do Totem copiado com sucesso!');
                     }}
                     className="bg-white text-stone-700 border border-stone-300 px-3 py-2 rounded-xl font-bold text-xs hover:bg-stone-50 transition-all cursor-pointer"
                   >
@@ -7951,21 +8000,27 @@ export default function Admin() {
 
                   <button type="button" 
                     onClick={() => {
-                      if (window.confirm('Deseja resetar os marcadores para zero e iniciar a sincronização completa agora?')) {
-                        const resetConfig = { 
-                          ...blueFocusConfig, 
-                          tipo: '4',
-                          startCargaNumero: '0', 
-                          startCargaSequencia: '0',
-                          startProdutoId: '0' 
-                        };
-                        setBlueFocusConfig(resetConfig);
-                        localStorage.setItem('bluefocus_tipo', '4');
-                        localStorage.setItem('bluefocus_start_carga_numero', '0');
-                        localStorage.setItem('bluefocus_start_carga_sequencia', '0');
-                        localStorage.setItem('bluefocus_start_produto_id', '0');
-                        handleSyncBlueFocus(resetConfig);
-                      }
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Resetar Marcadores',
+                        message: 'Deseja resetar os marcadores para zero e iniciar a sincronização completa agora?',
+                        confirmText: 'Resetar e Sincronizar',
+                        onConfirm: () => {
+                          const resetConfig = { 
+                            ...blueFocusConfig, 
+                            tipo: '4',
+                            startCargaNumero: '0', 
+                            startCargaSequencia: '0',
+                            startProdutoId: '0' 
+                          };
+                          setBlueFocusConfig(resetConfig);
+                          localStorage.setItem('bluefocus_tipo', '4');
+                          localStorage.setItem('bluefocus_start_carga_numero', '0');
+                          localStorage.setItem('bluefocus_start_carga_sequencia', '0');
+                          localStorage.setItem('bluefocus_start_produto_id', '0');
+                          handleSyncBlueFocus(resetConfig);
+                        }
+                      });
                     }}
                     className="text-xs bg-stone-100 text-red-600 px-3 py-1 rounded-lg hover:bg-stone-200 transition-all flex items-center gap-2 cursor-pointer font-bold"
                   >
@@ -8149,21 +8204,27 @@ export default function Admin() {
                 <button 
                   type="button"
                   onClick={() => {
-                    if (confirm('Deseja realmente resetar os marcadores de sincronização para zero e iniciar a re-importação completa agora?')) {
-                      const resetConfig = {
-                        ...blueFocusConfig,
-                        tipo: '4',
-                        startCargaNumero: '0',
-                        startCargaSequencia: '0',
-                        startProdutoId: '0'
-                      };
-                      setBlueFocusConfig(resetConfig);
-                      localStorage.setItem('bluefocus_tipo', '4');
-                      localStorage.setItem('bluefocus_start_carga_numero', '0');
-                      localStorage.setItem('bluefocus_start_carga_sequencia', '0');
-                      localStorage.setItem('bluefocus_start_produto_id', '0');
-                      handleSyncBlueFocus(resetConfig);
-                    }
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Resetar Marcadores',
+                      message: 'Deseja realmente resetar os marcadores de sincronização para zero e iniciar a re-importação completa agora?',
+                      confirmText: 'Resetar Agora',
+                      onConfirm: () => {
+                        const resetConfig = {
+                          ...blueFocusConfig,
+                          tipo: '4',
+                          startCargaNumero: '0',
+                          startCargaSequencia: '0',
+                          startProdutoId: '0'
+                        };
+                        setBlueFocusConfig(resetConfig);
+                        localStorage.setItem('bluefocus_tipo', '4');
+                        localStorage.setItem('bluefocus_start_carga_numero', '0');
+                        localStorage.setItem('bluefocus_start_carga_sequencia', '0');
+                        localStorage.setItem('bluefocus_start_produto_id', '0');
+                        handleSyncBlueFocus(resetConfig);
+                      }
+                    });
                   }}
                   className="bg-stone-100 text-stone-600 px-6 py-3 rounded-xl font-medium hover:bg-stone-200 transition-all cursor-pointer"
                 >
@@ -8232,23 +8293,30 @@ export default function Admin() {
                 </button>
 
                 <button type="button" 
-                  onClick={async () => {
-                    if (!confirm('Deseja realmente FORÇAR a restauração de todos os pedidos e cadastros a partir do PostgreSQL (Railway)?\n\nIsso sincronizará o estado em memória com o banco de dados agora.')) return;
-                    setIsSyncing(true);
-                    try {
-                      const res = await fetch('/api/db/force-hydrate', { method: 'POST' });
-                      const data = await res.json();
-                      if (res.ok && data.success) {
-                        await fetchData();
-                        alert(`${data.message}\nTotal de Pedidos agora: ${data.ordersCount}`);
-                      } else {
-                        alert('Erro na hidratação: ' + (data.error || 'Erro desconhecido'));
+                  onClick={() => {
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Sincronizar com PostgreSQL',
+                      message: 'Deseja realmente FORÇAR a restauração de todos os pedidos e cadastros a partir do PostgreSQL?\n\nIsso sincronizará o estado em memória com o banco de dados agora.',
+                      confirmText: 'Sincronizar Agora',
+                      onConfirm: async () => {
+                        setIsSyncing(true);
+                        try {
+                          const res = await fetch('/api/db/force-hydrate', { method: 'POST' });
+                          const data = await res.json();
+                          if (res.ok && data.success) {
+                            await fetchData();
+                            showInfoModal('Hidratação Concluída', `${data.message}\nTotal de Pedidos agora: ${data.ordersCount}`);
+                          } else {
+                            showInfoModal('Erro na Hidratação', data.error || 'Erro desconhecido');
+                          }
+                        } catch (e: any) {
+                          showInfoModal('Falha na Requisição', e.message || 'Erro de conexão');
+                        } finally {
+                          setIsSyncing(false);
+                        }
                       }
-                    } catch (e: any) {
-                      alert('Falha na requisição: ' + e.message);
-                    } finally {
-                      setIsSyncing(false);
-                    }
+                    });
                   }}
                   disabled={isSyncing}
                   className={`px-6 py-2 text-white rounded-lg font-medium transition-all shadow-md active:scale-95 flex items-center gap-2 ${
@@ -8343,10 +8411,16 @@ export default function Admin() {
             <button
               type="button"
               onClick={() => {
-                if (window.confirm('Deseja realmente limpar todo o histórico de atualizações?')) {
-                  setSyncLogs([]);
-                  safeStorage.removeItem('balbec_sync_logs');
-                }
+                setConfirmModal({
+                  isOpen: true,
+                  title: 'Limpar Histórico',
+                  message: 'Deseja realmente limpar todo o histórico de atualizações?',
+                  confirmText: 'Limpar',
+                  onConfirm: () => {
+                    setSyncLogs([]);
+                    safeStorage.removeItem('balbec_sync_logs');
+                  }
+                });
               }}
               className="bg-stone-100 text-stone-600 px-3 py-2.5 rounded-xl font-medium text-sm hover:bg-stone-200 transition-all flex items-center gap-2 cursor-pointer"
               title="Limpar histórico"
@@ -9323,7 +9397,7 @@ export default function Admin() {
                       onConfirm: () => setConfirmModal(null)
                     });
                   } catch (e) {
-                    alert('Erro ao desativar manutenção.');
+                    showInfoModal('Erro', 'Erro ao desativar manutenção.');
                   }
                 }}
                 className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"

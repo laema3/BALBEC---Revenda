@@ -30,7 +30,17 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
 
   const rawItems = Array.isArray(order.items)
     ? order.items
-    : (typeof (order as any).items === 'string' ? JSON.parse((order as any).items || '[]') : []);
+    : (() => {
+        if (typeof (order as any).items === 'string' && (order as any).items.trim() !== '') {
+          try {
+            const parsed = JSON.parse((order as any).items);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      })();
 
   const itemsSubtotal = rawItems.reduce((sum: number, it: any) => {
     const itPrice = ((Number(it.price) || 0) + (Number(it.flavor?.price) || 0) + (it.addons?.reduce((s: number, a: any) => s + (Number(a.price) || 0), 0) || 0));

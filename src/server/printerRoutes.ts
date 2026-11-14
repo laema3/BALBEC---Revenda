@@ -161,9 +161,17 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
   const formatCurrency = (val: number) => 'R$ ' + (Number(val) || 0).toFixed(2).replace('.', ',');
 
   const buildVia = (isClient: boolean) => {
-    const rawItems = Array.isArray(order?.items)
-      ? order.items
-      : (typeof order?.items === 'string' ? JSON.parse(order.items || '[]') : []);
+    let rawItems: any[] = [];
+    if (Array.isArray(order?.items)) {
+      rawItems = order.items;
+    } else if (typeof order?.items === 'string' && order.items.trim() !== '') {
+      try {
+        const parsed = JSON.parse(order.items);
+        if (Array.isArray(parsed)) rawItems = parsed;
+      } catch {
+        rawItems = [];
+      }
+    }
 
     const itemsSubtotal = rawItems.reduce((sum: number, it: any) => {
       const itPrice = (Number(it.price) || 0) + (Number(it.flavor?.price) || 0) + (it.addons?.reduce((s: number, a: any) => s + (Number(a.price) || 0), 0) || 0);

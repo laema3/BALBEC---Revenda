@@ -277,13 +277,18 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    let isDestroyed = false;
+    let lastTriggerTs = 0;
+
     const connectSSE = () => {
-      if (eventSource) {
-        eventSource.close();
+      if (isDestroyed) return;
+      if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
+        return;
       }
       try {
         eventSource = new EventSource('/api/events');
         eventSource.onmessage = (event) => {
+          if (isDestroyed) return;
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'sync') {
@@ -292,11 +297,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
               
               if (data.target === 'orders') {
                 fetchOrdersOnly().then(() => {
+                  if (isDestroyed) return;
                   const currentOrders = useStore.getState().orders;
                   const targetId = String(data.orderId || '').trim();
                   const updatedOrder = currentOrders.find(o => {
                     const sId = String(o.id).trim();
-                    return sId === targetId || sId.endsWith(targetId) || targetId.endsWith(sId);
+                    return sId === targetId || (targetId.length >= 4 && (sId.endsWith(targetId) || targetId.endsWith(sId)));
                   }) || (data.orderId ? {
                     id: data.orderId,
                     customerName: data.customerName || 'Cliente',
@@ -366,7 +372,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                     triggerSystemNotification(notifTitle, systemNotificationBody, `reminder-${data.orderId}`);
                   }
                 }
-              } else {
+              } else if (data.target !== 'tv_call') {
                 fetchData().catch(() => {});
               }
             }
@@ -376,7 +382,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         };
         eventSource.onerror = () => {
           eventSource?.close();
-          // Try reconnecting rapidly
+          eventSource = null;
+          if (isDestroyed) return;
           if (sseTimeout) clearTimeout(sseTimeout);
           sseTimeout = setTimeout(connectSSE, 2000);
         };
@@ -388,14 +395,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
     // Verificação inicial após carregar pedidos
     fetchOrdersOnly().then(() => {
-      checkCustomerPendingOrderStatus();
+      if (!isDestroyed) checkCustomerPendingOrderStatus();
     }).catch(() => {});
 
-    // Sincronização periódica e verificação de pedidos
+    // Sincronização periódica e verificação de pedidos (fallback do SSE)
     const ordersInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
         fetchOrdersOnly().then(() => {
-          checkCustomerPendingOrderStatus();
+          if (!isDestroyed) checkCustomerPendingOrderStatus();
         }).catch(() => {});
       }
     }, 15000);
@@ -404,28 +411,30 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         fetchData().catch(() => {});
       }
-    }, 5000);
+    }, 45000);
 
     // QUANDO O CLIENTE DESBLOQUEIA A TELA OU VOLTA PARA A ABA:
-    // Reconecta o SSE, atualiza o cardápio e pedidos imediatamente!
+    // Reconecta o SSE somente se fechado e sincroniza com cooldown contra tempestade de eventos
+    const runResumeSync = () => {
+      if (isDestroyed || !navigator.onLine) return;
+      if (document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (now - lastTriggerTs < 1500) return;
+      lastTriggerTs = now;
+
+      connectSSE();
+      fetchOrdersOnly().then(() => {
+        if (!isDestroyed) checkCustomerPendingOrderStatus();
+      }).catch(() => {});
+    };
+
     const handleSyncTrigger = () => {
-      if (navigator.onLine) {
-        connectSSE();
-        fetchData().catch(() => {});
-        fetchOrdersOnly().then(() => {
-          checkCustomerPendingOrderStatus();
-        }).catch(() => {});
-      }
+      runResumeSync();
     };
 
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted || document.visibilityState === 'visible') {
-        console.log('[PageShow] App reaberto pelo cliente, checando atualizações de status...');
-        connectSSE();
-        fetchData().catch(() => {});
-        fetchOrdersOnly().then(() => {
-          checkCustomerPendingOrderStatus();
-        }).catch(() => {});
+        runResumeSync();
       }
     };
 
@@ -441,10 +450,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      if (eventSource) eventSource.close();
+      isDestroyed = true;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
       if (sseTimeout) clearTimeout(sseTimeout);
       if (offlineTimerRef.current) clearTimeout(offlineTimerRef.current);
-      if (ordersInterval) clearInterval(ordersInterval);
+      clearInterval(ordersInterval);
       clearInterval(fullCatalogInterval);
       window.removeEventListener('focus', handleSyncTrigger);
       document.removeEventListener('visibilitychange', handleSyncTrigger);

@@ -281,9 +281,17 @@ export default function Menu() {
       if (!o || !o.scheduledTime || o.status === 'cancelled') continue;
       const orderDate = o.scheduledDate || (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : todayStr);
       const key = `${orderDate}_${o.scheduledTime}`;
-      const items = Array.isArray(o.items)
-        ? o.items
-        : (typeof (o as any).items === 'string' ? JSON.parse((o as any).items || '[]') : []);
+      let items: any[] = [];
+      if (Array.isArray(o.items)) {
+        items = o.items;
+      } else if (typeof (o as any).items === 'string' && (o as any).items.trim() !== '') {
+        try {
+          const parsed = JSON.parse((o as any).items);
+          if (Array.isArray(parsed)) items = parsed;
+        } catch {
+          items = [];
+        }
+      }
       const totalUnits = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 1), 0);
       map[key] = (map[key] || 0) + totalUnits;
     }
@@ -2788,7 +2796,8 @@ export default function Menu() {
 
         // Enviar notificação de Novo Pedido no NTFY
         try {
-          const itemsSummary = createdOrder.items.map(it => `${it.quantity}x ${it.name}`).join(', ');
+          const safeOrderItems = Array.isArray(createdOrder.items) ? createdOrder.items : [];
+          const itemsSummary = safeOrderItems.map(it => `${it.quantity}x ${it.name}`).join(', ');
           const typeLabel = isTableOrder 
             ? `🍽️ Consumo no Local (Mesa ${selectedTableNumber})` 
             : (createdOrder.deliveryType === 'delivery' ? '🛵 Entrega (Delivery)' : '🥡 Retirada/Balcão');
@@ -3256,9 +3265,17 @@ export default function Menu() {
 
           {/* Visual do Cupom / Comprovante para Impressão */}
           {lastPlacedOrder && (() => {
-            const previewItems = Array.isArray(lastPlacedOrder.items)
-              ? lastPlacedOrder.items
-              : (typeof (lastPlacedOrder as any).items === 'string' ? JSON.parse((lastPlacedOrder as any).items || '[]') : []);
+            let previewItems: any[] = [];
+            if (Array.isArray(lastPlacedOrder.items)) {
+              previewItems = lastPlacedOrder.items;
+            } else if (typeof (lastPlacedOrder as any).items === 'string' && (lastPlacedOrder as any).items.trim() !== '') {
+              try {
+                const parsed = JSON.parse((lastPlacedOrder as any).items);
+                if (Array.isArray(parsed)) previewItems = parsed;
+              } catch {
+                previewItems = [];
+              }
+            }
 
             const previewItemsSubtotal = previewItems.reduce((sum: number, it: any) => {
               const itPrice = ((Number(it.price) || 0) + (Number(it.flavor?.price) || 0) + (it.addons?.reduce((s: number, a: any) => s + (Number(a.price) || 0), 0) || 0));
@@ -8631,7 +8648,7 @@ export default function Menu() {
                 </div>
 
                 <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
-                  {appendOrderTarget.items.map((it, idx) => (
+                  {(Array.isArray(appendOrderTarget.items) ? appendOrderTarget.items : []).map((it, idx) => (
                     <div key={idx} className="flex justify-between items-center text-xs p-2 bg-stone-50 rounded-lg text-stone-700">
                       <span className="truncate max-w-[240px]">
                         <strong>{it.quantity}x</strong> {it.name} {it.prepLabel ? `(${it.prepLabel.split(' ')[1] || it.prepLabel})` : ''}

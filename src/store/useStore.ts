@@ -79,12 +79,30 @@ const saveProductsToStorage = (list: Product[]): void => {
   } catch {}
 };
 
+const safeParseJsonArray = (val: any): any[] => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.trim() !== '') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 const getInitialOrders = (): Order[] => {
   try {
     const raw = safeStorage.getItem(ORDERS_CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map((o: any) => ({
+          ...o,
+          items: safeParseJsonArray(o?.items)
+        }));
+      }
     }
   } catch {}
   return [];
@@ -247,6 +265,7 @@ export interface Order {
   total: number;
   status: 'pending' | 'preparing' | 'ready' | 'ready_for_delivery' | 'ready_for_pickup' | 'out_for_delivery' | 'completed' | 'cancelled';
   createdAt: number;
+  updatedAt?: number;
   type: 'kiosk' | 'delivery' | 'online' | 'dine_in';
   paymentMethod: string;
   paymentStatus?: 'pending' | 'approved' | 'rejected';
@@ -797,6 +816,96 @@ const localHasCustomValues = (local: StoreInfo): boolean => {
 };
 
 let activeFetchDataPromise: Promise<void> | null = null;
+let activeFetchOrdersPromise: Promise<void> | null = null;
+let ordersMutationEpoch = 0;
+
+interface OrderMutationLock {
+  status?: Order['status'];
+  deliveryStatus?: Order['deliveryStatus'];
+  deleted?: boolean;
+  updatedAt: number;
+  expiresAt: number;
+}
+const recentOrderMutationLocks = new Map<string, OrderMutationLock>();
+let recentOrdersClearedUntil = 0;
+
+const normalizeServerOrder = (o: any): Order => ({
+  ...o,
+  id: String(o.id),
+  status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
+  items: safeParseJsonArray(o.items),
+  createdAt: Number(o.createdAt) || Date.now(),
+  updatedAt: Number(o.updatedAt || o.createdAt) || Date.now()
+});
+
+const reconcileServerOrders = (
+  ordersData: any[],
+  requestEpoch: number,
+  currentOrders: Order[],
+  deletedReg: LocalDeletedRegistry
+): Order[] | null => {
+  // Se houve mutação local enquanto o GET estava em voo, descarta snapshot potencialmente obsoleto
+  if (requestEpoch !== ordersMutationEpoch) {
+    return null;
+  }
+
+  const now = Date.now();
+  // Limpar locks expirados
+  for (const [lockId, lock] of recentOrderMutationLocks.entries()) {
+    if (now > lock.expiresAt) {
+      recentOrderMutationLocks.delete(lockId);
+    }
+  }
+
+  const ordersClearedAt = Math.max(Number(deletedReg.ordersClearedAt || 0), recentOrdersClearedUntil);
+  const orderById = new Map<string, Order>();
+
+  for (const raw of ordersData) {
+    if (!raw || !raw.id) continue;
+    const oid = String(raw.id).trim();
+    const delTs = Number(deletedReg.orders[oid] || 0);
+    const createdAt = Number(raw.createdAt || 0);
+    const updatedAt = Number(raw.updatedAt || createdAt || 0);
+
+    if (delTs > 0 && (updatedAt === 0 || updatedAt <= delTs)) continue;
+    if (ordersClearedAt > 0 && createdAt > 0 && createdAt <= ordersClearedAt) continue;
+
+    const lock = recentOrderMutationLocks.get(oid);
+    if (lock && lock.deleted) continue;
+
+    let normalized = normalizeServerOrder(raw);
+    if (lock && lock.status && updatedAt <= lock.updatedAt) {
+      normalized = {
+        ...normalized,
+        status: lock.status,
+        ...(lock.deliveryStatus ? { deliveryStatus: lock.deliveryStatus } : {}),
+        updatedAt: lock.updatedAt
+      };
+    } else if (lock && lock.status && normalized.status === lock.status) {
+      recentOrderMutationLocks.delete(oid);
+    }
+
+    orderById.set(oid, normalized);
+  }
+
+  // Preserva apenas pedidos recém-criados localmente (nos últimos 20s) enquanto a propagação finaliza
+  if (Array.isArray(currentOrders)) {
+    for (const lo of currentOrders) {
+      if (!lo || !lo.id) continue;
+      const oid = String(lo.id).trim();
+      if (orderById.has(oid)) continue;
+      const lock = recentOrderMutationLocks.get(oid);
+      const isFreshCreated = Boolean(lock && !lock.deleted && now - Number(lo.createdAt || 0) < 20000);
+      if (isFreshCreated && !deletedReg.orders[oid]) {
+        orderById.set(oid, { ...lo, items: safeParseJsonArray(lo.items) });
+      }
+    }
+  }
+
+  return Array.from(orderById.values()).sort(
+    (a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)
+  );
+};
 
 export const useStore = create<StoreState>((set, get) => ({
   categories: getInitialCategories(),
@@ -1093,65 +1202,30 @@ export const useStore = create<StoreState>((set, get) => ({
           })
           .catch(() => {});
 
-        // 5. Fetch Orders (com Smart Merge para nunca perder vendas/pedidos após deploy)
-        const pOrders = fetchWithTimeout('/api/db/orders', 6000)
+        // 5. Fetch Orders (Servidor autoritativo com proteção de época e locks otimistas)
+        const ordersRequestEpoch = ordersMutationEpoch;
+        const pOrders = fetchWithTimeout(`/api/db/orders?_t=${Date.now()}`, 6000)
           .then(safeParseResponse)
           .then(ordersData => {
             if (Array.isArray(ordersData)) {
-              const serverOrders: Order[] = ordersData
-                .filter((o: any) => o && o.id && !deletedReg.orders[String(o.id)])
-                .map((o: any) => ({
-                  ...o,
-                  status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
-                  items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items
-                }));
-
-              const localOrders = get().orders || getInitialOrders();
-              const orderById = new Map<string, Order>();
-              for (const so of serverOrders) {
-                orderById.set(String(so.id), so);
-              }
-
-              const missingOrdersOnServer: Order[] = [];
-              if (Array.isArray(localOrders) && localOrders.length > 0) {
-                for (const lo of localOrders) {
-                  if (!lo || !lo.id) continue;
-                  const oid = String(lo.id);
-                  if (deletedReg.orders[oid]) continue;
-                  if (deletedReg.ordersClearedAt && Number(lo.createdAt || 0) <= deletedReg.ordersClearedAt) continue;
-                  if (!orderById.has(oid)) {
-                    orderById.set(oid, lo);
-                    missingOrdersOnServer.push(lo);
-                  }
-                }
-              }
-
-              const mergedOrders = Array.from(orderById.values()).sort(
-                (a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)
+              const reconciled = reconcileServerOrders(
+                ordersData,
+                ordersRequestEpoch,
+                get().orders || [],
+                deletedReg
               );
-
-              saveOrdersToStorage(mergedOrders);
-              set({ orders: mergedOrders, ordersError: null });
-
-              if (missingOrdersOnServer.length > 0) {
-                (async () => {
-                  const chunkSize = 50;
-                  for (let i = 0; i < missingOrdersOnServer.length; i += chunkSize) {
-                    const chunk = missingOrdersOnServer.slice(i, i + chunkSize);
-                    await fetch('/api/db/orders/batch', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ orders: chunk })
-                    }).catch(() => {});
-                  }
-                })();
+              if (reconciled !== null) {
+                saveOrdersToStorage(reconciled);
+                set({ orders: reconciled, ordersError: null });
               }
             }
           })
           .catch(() => {
-            const cached = getInitialOrders();
-            if (cached.length > 0) {
-              set({ orders: cached });
+            if ((get().orders || []).length === 0) {
+              const cached = getInitialOrders();
+              if (cached.length > 0) {
+                set({ orders: cached });
+              }
             }
           });
 
@@ -1193,7 +1267,7 @@ export const useStore = create<StoreState>((set, get) => ({
                   .filter((c: any) => c && c.id && !deletedReg.customers[String(c.id)])
                   .map((c: any) => ({
                     ...c,
-                    tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
+                    tags: safeParseJsonArray(c.tags)
                   }));
                 const currentCusts = get().customers || getInitialCustomers();
                 const custById = new Map<string, Customer>();
@@ -1298,28 +1372,41 @@ export const useStore = create<StoreState>((set, get) => ({
 },
 
   fetchOrdersOnly: async () => {
-    try {
-      const resOrd = await fetch(`/api/db/orders?_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      }).catch(() => null);
-
-      const ordersData = await safeParseResponse(resOrd);
-      if (Array.isArray(ordersData)) {
-        const orders = ordersData.map((o: any) => ({
-          ...o,
-          status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
-          items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items
-        }));
-        set({ orders, ordersError: null });
-      }
-    } catch {
-      // ignore
+    if (activeFetchOrdersPromise) {
+      return activeFetchOrdersPromise;
     }
+    const requestEpoch = ordersMutationEpoch;
+    activeFetchOrdersPromise = (async () => {
+      try {
+        const resOrd = await fetch(`/api/db/orders?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        }).catch(() => null);
+
+        const ordersData = await safeParseResponse(resOrd);
+        if (Array.isArray(ordersData)) {
+          const reconciled = reconcileServerOrders(
+            ordersData,
+            requestEpoch,
+            get().orders || [],
+            getLocalDeletedRegistry()
+          );
+          if (reconciled !== null) {
+            saveOrdersToStorage(reconciled);
+            set({ orders: reconciled, ordersError: null });
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        activeFetchOrdersPromise = null;
+      }
+    })();
+    return activeFetchOrdersPromise;
   },
 
   fetchAppInstalls: async () => {
@@ -1787,14 +1874,19 @@ export const useStore = create<StoreState>((set, get) => ({
       
       if (res.ok) {
         const saved = await res.json();
-        const parsedSaved = {
-          ...saved,
-          items: typeof saved.items === 'string' ? JSON.parse(saved.items) : saved.items
-        };
+        const parsedSaved: Order = normalizeServerOrder(saved);
         createdOrder = parsedSaved;
+        ordersMutationEpoch++;
+        const nowTs = Date.now();
+        recentOrderMutationLocks.set(String(parsedSaved.id), {
+          status: parsedSaved.status,
+          deliveryStatus: parsedSaved.deliveryStatus,
+          updatedAt: Number((parsedSaved as any).updatedAt || parsedSaved.createdAt || nowTs),
+          expiresAt: nowTs + 10000
+        });
         unmarkLocalItemDeleted('orders', parsedSaved.id);
         set(state => {
-          const next = [parsedSaved, ...state.orders.filter(o => o.id !== parsedSaved.id)];
+          const next = [parsedSaved, ...state.orders.filter(o => String(o.id) !== String(parsedSaved.id))];
           saveOrdersToStorage(next);
           return { orders: next };
         });
@@ -1834,14 +1926,37 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   
   updateOrderStatus: async (id, status) => {
-    try {
-      const deliveryStatus: Order['deliveryStatus'] = 
-        status === 'out_for_delivery' ? 'in_transit' :
-        status === 'completed' ? 'delivered' :
-        status === 'ready_for_delivery' ? 'ready' :
-        status === 'cancelled' ? 'cancelled' : undefined;
+    const targetId = String(id).trim();
+    const deliveryStatus: Order['deliveryStatus'] = 
+      status === 'out_for_delivery' ? 'in_transit' :
+      status === 'completed' ? 'delivered' :
+      status === 'ready_for_delivery' ? 'ready' :
+      status === 'cancelled' ? 'cancelled' : undefined;
 
-      const res = await fetch(`/api/db/orders/${id}`, {
+    const prevOrders = get().orders;
+    const lockTs = Date.now();
+    ordersMutationEpoch++;
+    recentOrderMutationLocks.set(targetId, {
+      status,
+      ...(deliveryStatus ? { deliveryStatus } : {}),
+      updatedAt: lockTs,
+      expiresAt: lockTs + 8000
+    });
+
+    // Atualização otimista imediata com garantia de reversão em falha
+    set(state => {
+      const next: Order[] = state.orders.map(o => String(o.id).trim() === targetId ? { 
+        ...o, 
+        status,
+        ...(deliveryStatus ? { deliveryStatus } : {}),
+        updatedAt: lockTs
+      } as any : o);
+      saveOrdersToStorage(next);
+      return { orders: next };
+    });
+
+    try {
+      const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1849,19 +1964,16 @@ export const useStore = create<StoreState>((set, get) => ({
           ...(deliveryStatus ? { deliveryStatus } : {})
         })
       });
-      if (res.ok) {
-        set(state => {
-          const next: Order[] = state.orders.map(o => o.id === id ? { 
-            ...o, 
-            status,
-            ...(deliveryStatus ? { deliveryStatus } : {})
-          } : o);
-          saveOrdersToStorage(next);
-          return { orders: next };
-        });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
     } catch (error) {
+      recentOrderMutationLocks.delete(targetId);
+      ordersMutationEpoch++;
+      saveOrdersToStorage(prevOrders);
+      set({ orders: prevOrders });
       console.error('Error updating order status:', error);
+      throw error;
     }
   },
 
@@ -1874,11 +1986,14 @@ export const useStore = create<StoreState>((set, get) => ({
       });
       const data = await res.json();
       if (res.ok && data.success && data.order) {
-        set(state => ({
-          orders: state.orders.map(o => String(o.id) === String(data.order.id) ? data.order : o)
-        }));
-        saveOrdersToStorage(get().orders);
-        return { success: true, order: data.order };
+        ordersMutationEpoch++;
+        const normalized = normalizeServerOrder(data.order);
+        set(state => {
+          const next = state.orders.map(o => String(o.id) === String(normalized.id) ? normalized : o);
+          saveOrdersToStorage(next);
+          return { orders: next };
+        });
+        return { success: true, order: normalized };
       } else {
         return { success: false, error: data.error || 'Erro ao acrescentar itens ao pedido.' };
       }
@@ -1890,6 +2005,14 @@ export const useStore = create<StoreState>((set, get) => ({
   deleteOrder: async (id) => {
     if (!id) return;
     const targetId = String(id).trim();
+    const prevOrders = get().orders;
+    const nowTs = Date.now();
+    ordersMutationEpoch++;
+    recentOrderMutationLocks.set(targetId, {
+      deleted: true,
+      updatedAt: nowTs,
+      expiresAt: nowTs + 25000
+    });
     markLocalItemDeleted('orders', targetId);
     console.log(`[Store] Deleting order: ${targetId}`);
     
@@ -1897,13 +2020,6 @@ export const useStore = create<StoreState>((set, get) => ({
     set(state => {
       const currentOrders = state.orders || [];
       const updated = currentOrders.filter(o => String(o.id).trim() !== targetId);
-      
-      // If nothing changed, don't trigger unnecessary re-render
-      if (updated.length === currentOrders.length) {
-        console.warn(`[Store] Order ${targetId} not found in state for deletion.`);
-        return state;
-      }
-      
       saveOrdersToStorage(updated);
       return { orders: updated };
     });
@@ -1911,25 +2027,39 @@ export const useStore = create<StoreState>((set, get) => ({
     try {
       const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
       if (!res.ok) {
-        console.warn('Backend returned error when deleting order:', res.status);
+        throw new Error(`Backend returned ${res.status}`);
       }
     } catch (error) {
+      recentOrderMutationLocks.delete(targetId);
+      unmarkLocalItemDeleted('orders', targetId);
+      ordersMutationEpoch++;
+      saveOrdersToStorage(prevOrders);
+      set({ orders: prevOrders });
       console.error('Error deleting order:', error);
+      throw error;
     }
   },
 
   clearAllOrders: async () => {
+    const prevOrders = get().orders;
+    const clearedTs = Date.now();
+    ordersMutationEpoch++;
+    recentOrdersClearedUntil = clearedTs;
     const reg = getLocalDeletedRegistry();
-    reg.ordersClearedAt = Date.now();
+    reg.ordersClearedAt = clearedTs;
     saveLocalDeletedRegistry(reg);
+    saveOrdersToStorage([]);
+    set({ orders: [] });
     try {
       const res = await fetch('/api/db/orders', { method: 'DELETE' });
-      if (res.ok) {
-        saveOrdersToStorage([]);
-        set({ orders: [] });
+      if (!res.ok) {
+        throw new Error(`Backend returned ${res.status}`);
       }
     } catch (error) {
+      saveOrdersToStorage(prevOrders);
+      set({ orders: prevOrders });
       console.error('Error clearing all orders:', error);
+      throw error;
     }
   },
   
@@ -2009,7 +2139,7 @@ export const useStore = create<StoreState>((set, get) => ({
       if (Array.isArray(data)) {
         const customers: Customer[] = data.map((c: any) => ({
           ...c,
-          tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : [])
+          tags: safeParseJsonArray(c.tags)
         }));
         const currentCusts = get().customers || getInitialCustomers();
         if (customers.length > 0 || currentCusts.length === 0) {
@@ -2033,7 +2163,7 @@ export const useStore = create<StoreState>((set, get) => ({
         const saved = await res.json();
         const parsedSaved: Customer = {
           ...saved,
-          tags: Array.isArray(saved.tags) ? saved.tags : (typeof saved.tags === 'string' ? JSON.parse(saved.tags || '[]') : [])
+          tags: safeParseJsonArray(saved.tags)
         };
         unmarkLocalItemDeleted('customers', parsedSaved.id);
         set(state => {
@@ -2068,7 +2198,7 @@ export const useStore = create<StoreState>((set, get) => ({
         const updated = await res.json();
         const parsedUpdated: Customer = {
           ...updated,
-          tags: Array.isArray(updated.tags) ? updated.tags : (typeof updated.tags === 'string' ? JSON.parse(updated.tags || '[]') : [])
+          tags: safeParseJsonArray(updated.tags)
         };
         set(state => {
           const next = state.customers.map(c => c.id === id ? { ...c, ...parsedUpdated } : c);

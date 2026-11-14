@@ -393,7 +393,8 @@ export async function ensureTablesExist() {
       delivery_status TEXT DEFAULT 'pending',
       delivery_accepted_at BIGINT,
       delivery_completed_at BIGINT,
-      scheduled_time TEXT
+      scheduled_time TEXT,
+      updated_at BIGINT
     );
 
     CREATE TABLE IF NOT EXISTS delivery_zones (
@@ -580,6 +581,7 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_date TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_day TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_pickup_time TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at BIGINT;
 
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS external_id TEXT;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';

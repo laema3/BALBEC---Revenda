@@ -728,13 +728,27 @@ function persistUsersToDisk(data: any[], syncCloud = true) {
   if (syncCloud) saveCollectionToCloudDebounced('users', data);
 }
 
+function safeParseJsonArray(val: any): any[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.trim() !== '') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export function formatOrderForDb(order: any) {
+  const createdAt = Number(order.createdAt) || Date.now();
   return {
     id: String(order.id),
-    items: typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []),
+    items: safeParseJsonArray(order.items),
     total: Number(order.total) || 0,
     status: String(order.status || 'pending'),
-    createdAt: Number(order.createdAt) || Date.now(),
+    createdAt,
     type: order.type || 'kiosk',
     paymentMethod: order.paymentMethod || '',
     customerName: order.customerName || '',
@@ -757,7 +771,8 @@ export function formatOrderForDb(order: any) {
     scheduledTime: order.scheduledTime || null,
     scheduledDate: order.scheduledDate || null,
     scheduledDay: order.scheduledDay || null,
-    scheduledPickupTime: order.scheduledPickupTime || null
+    scheduledPickupTime: order.scheduledPickupTime || null,
+    updatedAt: Number(order.updatedAt) || createdAt
   };
 }
 
@@ -808,9 +823,11 @@ function persistAppInstallsToDisk(data: any[]) {
   writeJsonFile(APP_INSTALLS_FILE, data);
 }
 
+let highestOrderNumber = 0;
+
 function calculateNextOrderNumber(currentOrders: any[] = []): string {
   const usedNumbers = new Set<number>();
-  let maxNum = 0;
+  let maxNum = highestOrderNumber;
   currentOrders.forEach(o => {
     if (!o || !o.id) return;
     const digits = String(o.id).replace(/\D/g, '');
@@ -829,6 +846,7 @@ function calculateNextOrderNumber(currentOrders: any[] = []): string {
       candidate++;
     }
   }
+  highestOrderNumber = Math.max(highestOrderNumber, candidate);
   return String(candidate).padStart(4, '0');
 }
 
@@ -1124,7 +1142,7 @@ export async function saveCustomersToPostgresBatch(customerList: any[]): Promise
  * NUNCA sejam perdidas ao subir novas versões.
  */
 let hydrationPromise: Promise<void> | null = null;
-let isHydrated = true;
+let isHydrated = false;
 let cloudSyncIntervalStarted = false;
 
 export async function waitForHydration(maxWaitMs = 15000): Promise<void> {
@@ -1152,6 +1170,31 @@ export async function syncWithCloudFirestore(): Promise<void> {
     if (cloudDeleted) {
       memDeletedIds = mergeDeletedRegistries(memDeletedIds, cloudDeleted);
       persistDeletedIdsToDisk(false);
+
+      // Prune any orders deleted via cloud registry immediately so they never flicker back
+      const ordersClearedAt = Number(memDeletedIds.ordersClearedAt || 0);
+      const deletedOrdersMap = memDeletedIds.orders || {};
+      const prunedOrders = memOrders.filter(o => {
+        if (!o || !o.id) return false;
+        const oid = String(o.id).trim();
+        const delTs = Number(deletedOrdersMap[oid] || 0);
+        const itemTs = Number(o.updatedAt || o.createdAt || 0);
+        if (delTs > 0 && (itemTs === 0 || itemTs <= delTs)) return false;
+        if (ordersClearedAt > 0 && Number(o.createdAt || 0) > 0 && Number(o.createdAt || 0) <= ordersClearedAt) return false;
+        return true;
+      });
+      if (prunedOrders.length !== memOrders.length) {
+        memOrders = prunedOrders;
+        persistOrdersToDisk(memOrders, false);
+        if (isDatabaseConfigured()) {
+          for (const delId of Object.keys(deletedOrdersMap)) {
+            db.delete(orders).where(eq(orders.id, delId)).catch(() => {});
+          }
+          if (ordersClearedAt > 0) {
+            db.delete(orders).where(sql`${orders.createdAt} <= ${ordersClearedAt}`).catch(() => {});
+          }
+        }
+      }
     } else {
       await saveSingleToCloud('deletedIds', memDeletedIds);
     }
@@ -1529,7 +1572,7 @@ export async function hydrateFromPostgres(): Promise<void> {
         const ordList = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
         const parsedDbOrders = (ordList || []).map(o => ({
           ...o,
-          items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+          items: safeParseJsonArray(o.items)
         }));
 
         const diskOrders = loadJsonFile(ORDERS_FILE, []);
@@ -1883,8 +1926,12 @@ setInterval(() => {
 }, 15000);
 
 export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) => void) {
-  // In-memory data is loaded immediately from disk on startup; background hydration never blocks HTTP requests
-  app.use('/api/db', (req: Request, res: Response, next) => {
+  // Wait briefly for initial DB + Cloud Firestore hydration on cold start so deleted/stale disk snapshots are pruned before serving
+  app.use('/api/db', async (req: Request, res: Response, next) => {
+    const reqPath = req.path || '';
+    if (!isHydrated && !reqPath.startsWith('/force-hydrate') && !reqPath.startsWith('/test-connection') && !reqPath.startsWith('/tv-call-order')) {
+      await waitForHydration(4000);
+    }
     next();
   });
 
@@ -2390,10 +2437,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const list = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5000);
       const parsedOrders = (list || []).map(o => ({
         ...o,
-        items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+        items: safeParseJsonArray(o.items)
       }));
+      const prevSig = memOrders.map(o => `${o.id}:${o.status}:${o.updatedAt || o.createdAt || 0}`).join('|');
       memOrders = smartMergeCollectionItems('orders', [memOrders, parsedOrders], memDeletedIds);
-      persistOrdersToDisk(memOrders);
+      const nextSig = memOrders.map(o => `${o.id}:${o.status}:${o.updatedAt || o.createdAt || 0}`).join('|');
+      if (prevSig !== nextSig) {
+        persistOrdersToDisk(memOrders);
+      }
 
       return res.json(memOrders);
     } catch (error: any) {
@@ -2422,6 +2473,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     let finalId: string;
     if (data.id && /^\d{4}$/.test(String(data.id)) && !currentOrders.some(o => o.id === String(data.id))) {
       finalId = String(data.id);
+      const parsedNum = parseInt(finalId, 10);
+      if (!isNaN(parsedNum)) highestOrderNumber = Math.max(highestOrderNumber, parsedNum);
     } else {
       finalId = calculateNextOrderNumber(currentOrders);
     }
@@ -2440,11 +2493,16 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     const initialStatus = isTotemOrDineIn ? (data.status || 'completed') : 'pending';
     const initialDeliveryStatus = isTotemOrDineIn ? (data.deliveryStatus || 'delivered') : 'pending';
+    const nowTs = Date.now();
+    const createdAtTs = Number(data.createdAt) || nowTs;
+    const normalizedItems = safeParseJsonArray(data.items);
 
     const newOrder = {
       ...data,
       id: finalId,
-      createdAt: data.createdAt || Date.now(),
+      items: normalizedItems,
+      createdAt: createdAtTs,
+      updatedAt: Number(data.updatedAt) || createdAtTs,
       status: initialStatus,
       deliveryStatus: initialDeliveryStatus,
       customerName: data.customerName || (isKiosk ? 'Cliente Totem' : 'Cliente')
@@ -2502,8 +2560,6 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       console.log(`[Auto-Print Servidor] Pedido #${newOrder.id} recebido com status pendente (${newOrder.type || newOrder.deliveryType || 'delivery'}). Não imprime imediatamente; aguardando 3 minutos.`);
     }
 
-    broadcastSSE({ type: 'sync', target: 'orders', orderId: newOrder.id, time: Date.now() });
-
     // Enviar notificação via NTFY se estiver ativado
     if (memStoreInfo.ntfyEnabled !== false) {
       const topic = (memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -2531,10 +2587,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     const orderForDb: any = {
       id: String(newOrder.id),
-      items: typeof newOrder.items === 'string' ? JSON.parse(newOrder.items) : (newOrder.items || []),
+      items: normalizedItems,
       total: Number(newOrder.total) || 0,
       status: String(newOrder.status || 'pending'),
       createdAt: Number(newOrder.createdAt) || Date.now(),
+      updatedAt: Number(newOrder.updatedAt) || Number(newOrder.createdAt) || Date.now(),
       type: newOrder.type || 'kiosk',
       paymentMethod: newOrder.paymentMethod || '',
       customerName: newOrder.customerName || '',
@@ -2569,43 +2626,69 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             set: orderForDb
           }).returning();
         });
+        broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
         if (result && result.length > 0) {
           console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
-          onUpdate?.('orders');
           return res.json(result[0]);
         } else {
           console.warn(`[DB Order] AVISO: O banco retornou vazio ao salvar #${orderForDb.id}.`);
-          onUpdate?.('orders');
           return res.json(newOrder);
         }
       } catch (error: any) {
         console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${orderForDb.id} no PostgreSQL:`, error?.message || error);
-        onUpdate?.();
+        broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
         return res.json(newOrder);
       }
     }
-    onUpdate?.();
+    broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
     res.json(newOrder);
   });
 
   app.post('/api/db/orders/batch', async (req: Request, res: Response) => {
     try {
-      const items: any[] = req.body;
+      const rawBody = req.body;
+      const items: any[] = Array.isArray(rawBody) ? rawBody : (Array.isArray(rawBody?.orders) ? rawBody.orders : []);
       if (!Array.isArray(items) || items.length === 0) {
         return res.json({ success: true, count: 0 });
       }
+
+      const deletedMap = memDeletedIds.orders || {};
+      const ordersClearedAt = Number(memDeletedIds.ordersClearedAt || 0);
       const orderMap = new Map<string, any>();
       (memOrders || []).forEach(o => { if (o && o.id) orderMap.set(String(o.id), o); });
+
+      const itemsToPersistDb: any[] = [];
       items.forEach(item => {
-        if (item && item.id) {
-          orderMap.set(String(item.id), { ...(orderMap.get(String(item.id)) || {}), ...item });
+        if (!item || !item.id) return;
+        const oid = String(item.id).trim();
+        const delTs = Number(deletedMap[oid] || 0);
+        const itemTs = Number(item.updatedAt || item.createdAt || 0);
+        if (delTs > 0 && (itemTs === 0 || itemTs <= delTs)) return;
+        if (ordersClearedAt > 0 && Number(item.createdAt || 0) > 0 && Number(item.createdAt || 0) <= ordersClearedAt) return;
+
+        const existing = orderMap.get(oid);
+        const existingTs = Number(existing?.updatedAt || existing?.createdAt || 0);
+        if (!existing || itemTs > existingTs) {
+          const normalized = {
+            ...(existing || {}),
+            ...item,
+            items: safeParseJsonArray(item.items),
+            updatedAt: itemTs || Date.now()
+          };
+          orderMap.set(oid, normalized);
+          itemsToPersistDb.push(normalized);
         }
       });
+
+      if (itemsToPersistDb.length === 0) {
+        return res.json({ success: true, count: 0 });
+      }
+
       memOrders = Array.from(orderMap.values()).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
       persistOrdersToDisk(memOrders);
 
       if (isDatabaseConfigured()) {
-        for (const item of items) {
+        for (const item of itemsToPersistDb) {
           try {
             const formatted = formatOrderForDb(item);
             await withDbRetry(() => db.insert(orders).values(formatted).onConflictDoUpdate({
@@ -2615,8 +2698,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           } catch (_) {}
         }
       }
-      onUpdate?.();
-      res.json({ success: true, count: items.length });
+      broadcastSSE({ type: 'sync', target: 'orders', action: 'batch_sync', time: Date.now() });
+      res.json({ success: true, count: itemsToPersistDb.length });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err?.message || 'Erro ao sincronizar lote de pedidos' });
     }
@@ -2643,7 +2726,6 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         isManual: data.isManual !== false
       };
       broadcastSSE({ type: 'sync', target: 'tv_call', call: latestTvCall, time: Date.now() });
-      onUpdate?.('tv_call');
       res.json({ success: true, call: latestTvCall });
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to broadcast TV call' });
@@ -2673,40 +2755,36 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     const targetId = String(id).trim();
     const updatedTimestamp = Date.now();
-    memOrders = memOrders.map(o => (String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) ? { ...o, ...data, updatedAt: updatedTimestamp } : o);
+    let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
+    if (!matchedOrder && targetId.length >= 4) {
+      matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+    }
+    const resolvedId = matchedOrder ? String(matchedOrder.id).trim() : targetId;
+
+    memOrders = memOrders.map(o =>
+      String(o.id).trim() === resolvedId ? { ...o, ...data, updatedAt: updatedTimestamp } : o
+    );
     persistOrdersToDisk(memOrders);
 
-    const orderData = memOrders.find(o => String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) || { id, ...data };
+    const orderData = memOrders.find(o => String(o.id).trim() === resolvedId) || { id: resolvedId, ...data, updatedAt: updatedTimestamp };
 
     const isReadyForTv = data.status === 'ready' || data.status === 'ready_for_pickup' || data.status === 'ready_for_delivery';
     if (isReadyForTv) {
       latestTvCall = {
         id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        orderId: id,
-        orderNumber: String(id).slice(-4).padStart(4, '0'),
+        orderId: resolvedId,
+        orderNumber: String(resolvedId).slice(-4).padStart(4, '0'),
         customerName: orderData.customerName || 'Cliente',
         type: orderData.type || 'balcao',
-        tableOrDesk: orderData.table || '',
+        tableOrDesk: orderData.table || orderData.tableNumber || '',
         calledAt: Date.now(),
         isManual: false
       };
       broadcastSSE({ type: 'sync', target: 'tv_call', call: latestTvCall, time: Date.now() });
-    } else if (data.status && latestTvCall && (String(latestTvCall.orderId) === targetId || String(latestTvCall.orderId).endsWith(targetId))) {
+    } else if (data.status && latestTvCall && (String(latestTvCall.orderId) === resolvedId || String(latestTvCall.orderId).endsWith(resolvedId))) {
       // Clear active TV call if order moved away from ready (e.g., to completed/cancelled/preparing)
       latestTvCall = null;
     }
-
-    broadcastSSE({
-      type: 'sync',
-      target: 'orders',
-      action: 'status_updated',
-      orderId: id,
-      status: data.status || orderData.status,
-      deliveryStatus: data.deliveryStatus || orderData.deliveryStatus,
-      customerName: orderData.customerName || 'Cliente',
-      customerPhone: orderData.customerPhone || '',
-      time: Date.now()
-    });
 
     // Disparo automático via NTFY se ativado (alcance mesmo com app/tela fechada)
     if (data.status && data.status !== 'pending' && memStoreInfo.ntfyEnabled !== false) {
@@ -2726,12 +2804,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         fetch(`https://ntfy.sh/${topic}`, {
           method: 'POST',
           headers: {
-            'Title': `🔔 Status Atualizado: Pedido #${String(id).slice(-4)} (${label})`,
+            'Title': `🔔 Status Atualizado: Pedido #${String(resolvedId).slice(-4)} (${label})`,
             'Priority': 'urgent',
             'Tags': 'bell,package,memo',
-            'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(`Olá ${orderData.customerName || 'Cliente'}! Seu pedido #${String(id).slice(-4)} na BALBEC foi atualizado para: ${label}.`)}` : undefined
+            'Click': cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(`Olá ${orderData.customerName || 'Cliente'}! Seu pedido #${String(resolvedId).slice(-4)} na BALBEC foi atualizado para: ${label}.`)}` : undefined
           },
-          body: `Pedido #${String(id).slice(-4)} (${orderData.customerName || 'Cliente'})\nNovo Status: ${label}\nTelefone: ${orderData.customerPhone || 'Não informado'}`
+          body: `Pedido #${String(resolvedId).slice(-4)} (${orderData.customerName || 'Cliente'})\nNovo Status: ${label}\nTelefone: ${orderData.customerPhone || 'Não informado'}`
         }).catch(() => {});
       } catch (ntfyErr) {}
     }
@@ -2749,18 +2827,19 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           },
           body: JSON.stringify({
             event: 'order_status_updated',
-            orderId: id,
+            orderId: resolvedId,
             status: data.status,
             customerName: orderData.customerName || 'Cliente',
             customerPhone: orderData.customerPhone || '',
             phone: orderData.customerPhone || '',
             number: String(orderData.customerPhone || '').replace(/\D/g, ''),
-            message: `Olá ${orderData.customerName || 'Cliente'}! Seu pedido #${String(id).slice(-4)} teve seu status atualizado para: ${data.status}.`
+            message: `Olá ${orderData.customerName || 'Cliente'}! Seu pedido #${String(resolvedId).slice(-4)} teve seu status atualizado para: ${data.status}.`
           })
         }).catch(() => {});
       } catch (whErr) {}
     }
 
+    let dbUpdatedOrder: any = null;
     if (isDatabaseConfigured()) {
       try {
         const allowedKeys = [
@@ -2771,11 +2850,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           'deliveryType', 'deliveryAddress', 'deliveryCep', 'deliveryNeighborhood', 'deliveryFee',
           'tableNumber', 'tableId'
         ];
-        const updatePayload: any = {};
+        const updatePayload: any = { updatedAt: updatedTimestamp };
         for (const k of allowedKeys) {
           if (data[k] !== undefined) {
             if (k === 'items') {
-              updatePayload.items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
+              updatePayload.items = safeParseJsonArray(data.items);
             } else if (k === 'total' || k === 'deliveryFee') {
               updatePayload[k] = Number(data[k]) || 0;
             } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt') {
@@ -2786,18 +2865,26 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           }
         }
         if (Object.keys(updatePayload).length > 0) {
-          const result = await withDbRetry(() => db.update(orders).set(updatePayload).where(eq(orders.id, targetId)).returning());
-          onUpdate?.('orders');
-          return res.json(result[0] || { id: targetId, ...data });
+          const result = await withDbRetry(() => db.update(orders).set(updatePayload).where(eq(orders.id, resolvedId)).returning());
+          if (result && result.length > 0) dbUpdatedOrder = result[0];
         }
       } catch (error: any) {
-        console.warn(`[DB Order Update] Erro ao atualizar pedido #${targetId} no PostgreSQL:`, error?.message);
-        onUpdate?.('orders');
-        return res.json({ id: targetId, ...data });
+        console.warn(`[DB Order Update] Erro ao atualizar pedido #${resolvedId} no PostgreSQL:`, error?.message);
       }
     }
-    onUpdate?.('orders');
-    res.json({ id: targetId, ...data });
+
+    broadcastSSE({
+      type: 'sync',
+      target: 'orders',
+      action: 'status_updated',
+      orderId: resolvedId,
+      status: data.status || orderData.status,
+      deliveryStatus: data.deliveryStatus || orderData.deliveryStatus,
+      customerName: orderData.customerName || 'Cliente',
+      customerPhone: orderData.customerPhone || '',
+      time: Date.now()
+    });
+    res.json(dbUpdatedOrder || orderData);
   });
 
   app.post('/api/db/orders/:id/append-items', async (req: Request, res: Response) => {
@@ -2806,9 +2893,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const { newItems } = req.body;
       const targetId = String(id).trim();
 
-      const existingOrderIndex = memOrders.findIndex(o => 
-        String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))
-      );
+      let existingOrderIndex = memOrders.findIndex(o => String(o.id).trim() === targetId);
+      if (existingOrderIndex === -1 && targetId.length >= 4) {
+        existingOrderIndex = memOrders.findIndex(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+      }
 
       if (existingOrderIndex === -1) {
         return res.status(404).json({ error: 'Pedido não encontrado.' });
@@ -2836,9 +2924,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }
 
       // Regra 3: Mesma modalidade (Congelados vs Prontos)
-      const existingItems = Array.isArray(existingOrder.items) 
-        ? existingOrder.items 
-        : (typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : []);
+      const existingItems = safeParseJsonArray(existingOrder.items);
       
       const orderIsFrozen = existingItems.some((it: any) => 
         it.isFrozen || (it.prepType && it.prepType.startsWith('congelado')) || (it.prepLabel && it.prepLabel.toLowerCase().includes('congelad'))
@@ -2895,10 +2981,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const deliveryFee = Number(existingOrder.deliveryFee) || 0;
       const finalTotal = itemsTotal + deliveryFee;
 
+      const updatedTs = Date.now();
       const updatedOrder = {
         ...existingOrder,
         items: mergedItems,
-        total: finalTotal
+        total: finalTotal,
+        updatedAt: updatedTs
       };
 
       memOrders[existingOrderIndex] = updatedOrder;
@@ -2907,15 +2995,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (isDatabaseConfigured()) {
         try {
           await withDbRetry(() => db.update(orders).set({
-            items: JSON.stringify(mergedItems),
-            total: finalTotal
+            items: mergedItems,
+            total: finalTotal,
+            updatedAt: updatedTs
           }).where(eq(orders.id, existingOrder.id)));
         } catch (dbErr) {
           console.warn('[DB Append Order Error]:', dbErr);
         }
       }
-
-      onUpdate?.('orders');
 
       broadcastSSE({
         type: 'sync',
@@ -2940,8 +3027,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.delete('/api/db/orders', async (req: Request, res: Response) => {
     recordAllOrdersCleared();
     memOrders = [];
+    latestTvCall = null;
     persistOrdersToDisk(memOrders);
-    broadcastSSE({ type: 'sync', target: 'orders', action: 'clear_all', time: Date.now() });
 
     if (isDatabaseConfigured()) {
       try {
@@ -2951,7 +3038,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         console.warn('Erro ao limpar todos os pedidos no DB:', error);
       }
     }
-    onUpdate?.('orders');
+    broadcastSSE({ type: 'sync', target: 'orders', action: 'clear_all', time: Date.now() });
     res.json({ success: true, message: 'Todos os pedidos foram zerados com sucesso.' });
   });
 
@@ -2969,7 +3056,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       console.log(`[API] memOrders count: ${beforeCount} -> ${afterCount}`);
       persistOrdersToDisk(memOrders);
 
-      broadcastSSE({ type: 'sync', target: 'orders', orderId: targetId, action: 'delete', time: Date.now() });
+      if (latestTvCall && String(latestTvCall.orderId).trim() === targetId) {
+        latestTvCall = null;
+      }
 
       if (isDatabaseConfigured()) {
         try {
@@ -2979,7 +3068,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           console.error(`[API] DB delete error:`, error.message);
         }
       }
-      onUpdate?.('orders');
+      broadcastSSE({ type: 'sync', target: 'orders', orderId: targetId, action: 'delete', time: Date.now() });
       res.json({ success: true, id: targetId });
     } catch (err: any) {
       console.error(`[API] Global delete error:`, err.message);
@@ -3627,7 +3716,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         source: body.source || 'cadastro_cardapio',
         orderTotal: Number(body.orderTotal) || 0,
         isOrder: !!body.isOrder,
-        tags: Array.isArray(body.tags) ? body.tags : typeof body.tags === 'string' ? JSON.parse(body.tags || '[]') : [],
+        tags: safeParseJsonArray(body.tags),
         notes: body.notes,
         status: body.status,
         monthlyGoal: body.monthlyGoal !== undefined ? Number(body.monthlyGoal) || 0 : undefined
@@ -5569,8 +5658,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             } catch (e) {}
           }
 
-          // 3. Progressão de Status para Delivery:
-          if (order.type === 'delivery' || order.deliveryType === 'delivery') {
+          // 3. Progressão de Status para Delivery (apenas pedidos imediatos; agendamentos mantêm controle manual):
+          const isScheduledOrder = Boolean(order.scheduledDate || order.scheduledTime);
+          if (!isScheduledOrder && (order.type === 'delivery' || order.deliveryType === 'delivery')) {
             if (elapsedMinutes >= 10 && order.status === 'preparing') {
               newStatus = 'ready_for_delivery';
               newDeliveryStatus = 'ready_for_delivery';
@@ -5605,10 +5695,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           }
 
           if (newStatus !== order.status || newDeliveryStatus !== order.deliveryStatus || needsPrint) {
-            const updatedOrd = { ...order, status: newStatus, deliveryStatus: newDeliveryStatus };
+            const updatedOrd = { ...order, status: newStatus, deliveryStatus: newDeliveryStatus, updatedAt: now };
             if (isDatabaseConfigured()) {
               db.update(orders)
-                .set({ status: newStatus, deliveryStatus: newDeliveryStatus })
+                .set({ status: newStatus, deliveryStatus: newDeliveryStatus, updatedAt: now })
                 .where(eq(orders.id, order.id))
                 .catch(() => {});
             }

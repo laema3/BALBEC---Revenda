@@ -81,6 +81,7 @@ export const orders = pgTable('orders', {
   scheduledDate: text('scheduled_date'),
   scheduledDay: text('scheduled_day'),
   scheduledPickupTime: text('scheduled_pickup_time'),
+  updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
 // Delivery Zones / Bairros e CEPs table
