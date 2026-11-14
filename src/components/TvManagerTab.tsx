@@ -893,7 +893,7 @@ export default function TvManagerTab() {
                           <span className="text-[10px] bg-orange-600 text-white font-bold px-2 py-0.5 rounded-full">Ativo</span>
                         )}
                       </div>
-                      <span className="text-xs text-stone-500 mt-0.5 block">Vídeo ao lado com painel de pedidos "Pronto para Retirada" e "Em Preparação".</span>
+                      <span className="text-xs text-stone-500 mt-0.5 block">Vídeo ao lado com painel de pedidos: PEDIDO PRONTO, PREPARANDO e ENTREGUE (com 3 chamados de voz a cada 30s).</span>
                     </div>
                   </label>
                 </div>
@@ -977,7 +977,8 @@ export default function TvManagerTab() {
                         body: JSON.stringify({
                           orderNumber: '99',
                           customerName: 'Cliente Teste',
-                          type: 'balcao'
+                          type: 'balcao',
+                          isManual: true
                         })
                       });
                       alert('Chamada de teste enviada para a Smart TV!');

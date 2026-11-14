@@ -2925,7 +2925,8 @@ export default function Admin() {
           orderId: order.id,
           orderNumber: order.id.slice(-4).toUpperCase(),
           customerName: order.customerName || 'Cliente',
-          type: order.type || 'balcao'
+          type: order.type || 'balcao',
+          isManual: true
         })
       });
     } catch (err) {
@@ -4796,9 +4797,10 @@ export default function Admin() {
                     <span className="text-xs bg-white/25 backdrop-blur-xs px-2.5 py-1 rounded-full font-bold shadow-xs">
                       {order.status === 'pending' ? '🟡 Pendente' :
                        order.status === 'preparing' ? '🟠 Preparando' :
-                       order.status === 'ready_for_delivery' ? '🟣 Pronto p/ Entrega' :
-                       (order.status === 'ready' || order.status === 'ready_for_pickup') ? '🔵 Pronto p/ Retirada' :
+                       order.status === 'ready_for_delivery' ? '🟣 Pedido Pronto (Entrega)' :
+                       (order.status === 'ready' || order.status === 'ready_for_pickup') ? '🟢 Pedido Pronto' :
                        order.status === 'out_for_delivery' ? '🚚 Em Trânsito' :
+                       order.status === 'completed' ? '✅ Entregue' :
                        order.status === 'cancelled' ? '🔴 Cancelado' :
                        order.type === 'kiosk' ? '📱 Totem' : order.tableNumber ? '🍽️ Mesa' : '🛵 Delivery'}
                     </span>
@@ -4909,9 +4911,9 @@ export default function Admin() {
                       >
                         <option value="pending">🟡 PENDENTE</option>
                         <option value="preparing">🟠 PREPARANDO</option>
-                        <option value="ready_for_delivery">🟣 PRONTO PARA ENTREGA</option>
-                        <option value="ready">🔵 PRONTO PARA RETIRADA</option>
-                        <option value="completed">🟢 FINALIZADO</option>
+                        <option value="ready">🟢 PEDIDO PRONTO (Retirada)</option>
+                        <option value="ready_for_delivery">🟣 PEDIDO PRONTO (Entrega)</option>
+                        <option value="completed">✅ ENTREGUE</option>
                         <option value="cancelled">🔴 CANCELADO</option>
                       </select>
                     </div>
@@ -4947,7 +4949,7 @@ export default function Admin() {
                           onClick={() => handleUpdateOrderStatus(order.id, 'preparing')}
                           className="flex-1 bg-orange-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-orange-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
                         >
-                          <ChefHat className="w-4 h-4" /> Iniciar Preparo
+                          <ChefHat className="w-4 h-4" /> Preparando
                         </button>
                       )}
                       {order.status === 'preparing' && (
@@ -4957,32 +4959,40 @@ export default function Admin() {
                               onClick={() => handleUpdateOrderStatus(order.id, 'ready_for_delivery')}
                               className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-purple-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
                             >
-                              <CheckCircle2 className="w-4 h-4" /> Pronto p/ Entrega
+                              <CheckCircle2 className="w-4 h-4" /> Pedido Pronto (Entrega)
                             </button>
                           ) : (
                             <button type="button" 
                               onClick={() => handleUpdateOrderStatus(order.id, 'ready')}
-                              className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-blue-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                              className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
                             >
-                              <CheckCircle2 className="w-4 h-4" /> Pronto p/ Retirar
+                              <CheckCircle2 className="w-4 h-4" /> Pedido Pronto
                             </button>
                           )}
                         </div>
                       )}
                       {order.status === 'ready_for_delivery' && (
-                        <button type="button" 
-                          onClick={() => handleUpdateOrderStatus(order.id, 'out_for_delivery')}
-                          className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-indigo-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                        >
-                          <Bike className="w-4 h-4" /> Saiu p/ Entrega
-                        </button>
+                        <div className="flex-1 flex gap-1.5">
+                          <button type="button" 
+                            onClick={() => handleUpdateOrderStatus(order.id, 'out_for_delivery')}
+                            className="flex-1 bg-indigo-600 text-white py-2 px-2 rounded-lg font-bold text-xs hover:bg-indigo-700 flex items-center justify-center gap-1 shadow-xs transition-colors"
+                          >
+                            <Bike className="w-4 h-4" /> Saiu
+                          </button>
+                          <button type="button" 
+                            onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
+                            className="flex-1 bg-emerald-600 text-white py-2 px-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1 shadow-xs transition-colors"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Entregue
+                          </button>
+                        </div>
                       )}
                       {(order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'out_for_delivery') && (
                         <button type="button" 
                           onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
                           className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
                         >
-                          <CheckCircle2 className="w-4 h-4" /> Finalizar Pedido
+                          <CheckCircle2 className="w-4 h-4" /> Marcar Entregue
                         </button>
                       )}
                       <button
@@ -5104,9 +5114,9 @@ export default function Admin() {
                       >
                         <option value="pending">🟡 Pendente</option>
                         <option value="preparing">🟠 Preparando</option>
-                        <option value="ready_for_delivery">🟣 Pronto p/ Entrega</option>
-                        <option value="ready">🔵 Pronto p/ Retirada</option>
-                        <option value="completed">🟢 Finalizado</option>
+                        <option value="ready">🟢 Pedido Pronto (Retirada)</option>
+                        <option value="ready_for_delivery">🟣 Pedido Pronto (Entrega)</option>
+                        <option value="completed">✅ Entregue</option>
                         <option value="cancelled">🔴 Cancelado</option>
                       </select>
                     </td>

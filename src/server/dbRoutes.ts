@@ -1860,6 +1860,7 @@ let latestTvCall: {
   type?: string;
   tableOrDesk?: string;
   calledAt: number;
+  isManual?: boolean;
 } | null = null;
 
 // SSE Connections set for real-time synchronization
@@ -2638,7 +2639,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         customerName: data.customerName || 'Cliente',
         type: data.type || 'balcao',
         tableOrDesk: data.tableOrDesk || '',
-        calledAt: Date.now()
+        calledAt: Date.now(),
+        isManual: data.isManual !== false
       };
       broadcastSSE({ type: 'sync', target: 'tv_call', call: latestTvCall, time: Date.now() });
       onUpdate?.('tv_call');
@@ -2670,12 +2672,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
 
     const targetId = String(id).trim();
-    memOrders = memOrders.map(o => (String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) ? { ...o, ...data } : o);
+    const updatedTimestamp = Date.now();
+    memOrders = memOrders.map(o => (String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) ? { ...o, ...data, updatedAt: updatedTimestamp } : o);
     persistOrdersToDisk(memOrders);
 
     const orderData = memOrders.find(o => String(o.id).trim() === targetId || String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id))) || { id, ...data };
 
-    if (data.status === 'ready' || data.status === 'ready_for_pickup') {
+    const isReadyForTv = data.status === 'ready' || data.status === 'ready_for_pickup' || data.status === 'ready_for_delivery';
+    if (isReadyForTv) {
       latestTvCall = {
         id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         orderId: id,
@@ -2683,8 +2687,13 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         customerName: orderData.customerName || 'Cliente',
         type: orderData.type || 'balcao',
         tableOrDesk: orderData.table || '',
-        calledAt: Date.now()
+        calledAt: Date.now(),
+        isManual: false
       };
+      broadcastSSE({ type: 'sync', target: 'tv_call', call: latestTvCall, time: Date.now() });
+    } else if (data.status && latestTvCall && (String(latestTvCall.orderId) === targetId || String(latestTvCall.orderId).endsWith(targetId))) {
+      // Clear active TV call if order moved away from ready (e.g., to completed/cancelled/preparing)
+      latestTvCall = null;
     }
 
     broadcastSSE({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useStore, TvMediaItem, Product } from '../store/useStore';
+import { useStore, TvMediaItem, Product, Order } from '../store/useStore';
 import { shouldExcludeProduct, isExcludedCategory } from '../constants';
 import { 
   Maximize, 
@@ -24,7 +24,8 @@ import {
   ChefHat,
   Youtube,
   Film,
-  X
+  X,
+  PackageCheck
 } from 'lucide-react';
 
 // Extract YouTube Video ID from any YouTube URL format (including Shorts, Live, Embed, youtu.be, etc.)
@@ -114,15 +115,28 @@ export function extractYouTubeId(url: string | undefined | null): string | null 
   return null;
 }
 
+let sharedAudioCtx: AudioContext | null = null;
+function getAudioContext(): AudioContext | null {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
 // Synthesize pleasant restaurant chime tone (Ding-Dong) using Web Audio API
 function playChimeSound() {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+    const ctx = getAudioContext();
+    if (!ctx) return;
     const now = ctx.currentTime;
 
     // Ding (880Hz -> A5)
@@ -155,20 +169,74 @@ function playChimeSound() {
   }
 }
 
-// Speak Portuguese announcement
-function speakOrderCall(orderNumber: string, customerName: string) {
+// Sequential speech queue so multiple PEDIDO PRONTO calls never cut each other off
+const speechQueue: string[] = [];
+let isSpeechPlaying = false;
+let speechSafetyTimeout: any = null;
+
+function processSpeechQueue() {
   try {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const text = `Atenção: Senha número ${orderNumber}, ${customerName || 'cliente'}, favor retirar o pedido no balcão!`;
-    const utterance = new SpeechSynthesisUtterance(text);
+    if (isSpeechPlaying || speechQueue.length === 0) return;
+    if (!('speechSynthesis' in window)) {
+      speechQueue.length = 0;
+      return;
+    }
+    const nextText = speechQueue.shift();
+    if (!nextText) return;
+
+    isSpeechPlaying = true;
+    try {
+      window.speechSynthesis.resume();
+    } catch {}
+
+    const utterance = new SpeechSynthesisUtterance(nextText);
     utterance.lang = 'pt-BR';
     utterance.rate = 0.95;
     utterance.pitch = 1.05;
+    utterance.volume = 1;
+
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      const ptVoice = voices.find(v => v.lang?.toLowerCase().includes('pt-br')) || voices.find(v => v.lang?.toLowerCase().startsWith('pt'));
+      if (ptVoice) utterance.voice = ptVoice;
+    } catch {}
+
+    const finish = () => {
+      if (speechSafetyTimeout) {
+        clearTimeout(speechSafetyTimeout);
+        speechSafetyTimeout = null;
+      }
+      isSpeechPlaying = false;
+      setTimeout(processSpeechQueue, 250);
+    };
+
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    speechSafetyTimeout = setTimeout(finish, 12000);
+
     window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.warn('[TV Speech] Queue error:', e);
+    isSpeechPlaying = false;
+  }
+}
+
+// Queue Portuguese announcement
+function speakOrderCall(orderNumber: string, customerName: string) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const cleanNum = String(orderNumber || '').replace('#', '').trim();
+    const spokenNum = cleanNum.replace(/^0+(?=\d)/, '') || cleanNum;
+    const text = `Pedido pronto! Atenção: senha número ${spokenNum}, ${customerName || 'cliente'}, favor retirar o pedido no balcão!`;
+    speechQueue.push(text);
+    processSpeechQueue();
   } catch (e) {
     console.warn('[TV Speech] Error:', e);
   }
+}
+
+function isOrderReadyStatus(status?: string): boolean {
+  return status === 'ready' || status === 'ready_for_pickup' || status === 'ready_for_delivery';
 }
 
 export interface TvCallItem {
@@ -179,6 +247,9 @@ export interface TvCallItem {
   type?: string;
   tableOrDesk?: string;
   calledAt: number;
+  isManual?: boolean;
+  attempt?: number;
+  totalAttempts?: number;
 }
 
 export default function TvDisplay() {
@@ -189,16 +260,35 @@ export default function TvDisplay() {
   const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMuted, setIsMuted] = useState(storeInfo.tvSoundEnabled === false);
+  // Voice announcements for PEDIDO PRONTO are enabled by default regardless of video mute
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const isVoiceMutedRef = useRef(isVoiceMuted);
+  isVoiceMutedRef.current = isVoiceMuted;
+
+  const [audioNeedsUnlock, setAudioNeedsUnlock] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
 
   const searchParams = new URLSearchParams(window.location.search);
   const urlModeParam = searchParams.get('mode') as any;
-  const mode = urlModeParam || storeInfo.tvMode || 'split_menu';
+  const mode = urlModeParam || storeInfo.tvMode || 'split_orders';
 
   // Active TV Call state for popup overlay
   const [activeCall, setActiveCall] = useState<TvCallItem | null>(null);
+  const [orderCallProgress, setOrderCallProgress] = useState<Record<string, { attempt: number; total: number }>>({});
   const lastProcessedCallId = useRef<string>('');
   const callDismissTimer = useRef<any>(null);
+
+  const ordersRef = useRef<Order[]>(orders);
+  ordersRef.current = orders;
+
+  const activeSequencesRef = useRef<Map<string, {
+    timers: any[];
+    cancelled: boolean;
+    startedAt: number;
+    cycleId: string;
+  }>>(new Map());
+  const hasInitializedOrdersRef = useRef(false);
+  const prevOrderStatusesRef = useRef<Map<string, string>>(new Map());
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -336,28 +426,235 @@ export default function TvDisplay() {
     return () => window.removeEventListener('message', handleWindowMessage);
   }, [handleNext]);
 
+  // Unlock Web Audio & SpeechSynthesis on first user interaction
+  const unlockTvAudio = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => setAudioNeedsUnlock(false)).catch(() => {});
+      } else {
+        setAudioNeedsUnlock(false);
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+        window.speechSynthesis.resume();
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        setAudioNeedsUnlock(true);
+      }
+    } catch {}
+
+    const handleUnlock = () => unlockTvAudio();
+    window.addEventListener('pointerdown', handleUnlock, { passive: true });
+    window.addEventListener('keydown', handleUnlock, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleUnlock);
+      window.removeEventListener('keydown', handleUnlock);
+    };
+  }, [unlockTvAudio]);
+
+  const cancelOrderCallSequence = useCallback((orderId: string) => {
+    const seq = activeSequencesRef.current.get(orderId);
+    if (seq) {
+      seq.cancelled = true;
+      seq.timers.forEach(t => clearTimeout(t));
+      activeSequencesRef.current.delete(orderId);
+    }
+    setOrderCallProgress(prev => {
+      if (!prev[orderId]) return prev;
+      const next = { ...prev };
+      delete next[orderId];
+      return next;
+    });
+    setActiveCall(prev => (prev && prev.orderId === orderId ? null : prev));
+  }, []);
+
+  // Schedule 3 calls spaced 30 seconds apart (0s, 30s, 60s) when PEDIDO PRONTO
+  const startThreeCallSequence = useCallback((params: {
+    orderId: string;
+    orderNumber: string;
+    customerName: string;
+    type?: string;
+    tableOrDesk?: string;
+    forceRestart?: boolean;
+  }) => {
+    const { orderId, orderNumber, customerName, type, tableOrDesk, forceRestart } = params;
+    if (!orderId) return;
+
+    const existing = activeSequencesRef.current.get(orderId);
+    if (existing && !existing.cancelled && !forceRestart && (Date.now() - existing.startedAt < 4500)) {
+      return; // Deduplicate rapid double events (e.g., SSE tv_call + orders update together)
+    }
+
+    // Cancel any older active sequence for this order before starting fresh
+    if (existing) {
+      existing.cancelled = true;
+      existing.timers.forEach(t => clearTimeout(t));
+      activeSequencesRef.current.delete(orderId);
+    }
+
+    const cycleId = `cycle_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const sequence = {
+      timers: [] as any[],
+      cancelled: false,
+      startedAt: Date.now(),
+      cycleId
+    };
+    activeSequencesRef.current.set(orderId, sequence);
+
+    const totalAttempts = 3;
+    const intervalMs = 30000; // 30 em 30 segundos
+
+    const executeAttempt = (attemptNumber: number) => {
+      const currentSeq = activeSequencesRef.current.get(orderId);
+      if (!currentSeq || currentSeq.cycleId !== cycleId || currentSeq.cancelled) return;
+
+      // Verify order is still in PEDIDO PRONTO (if found in store)
+      const latestOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
+      if (latestOrder && !isOrderReadyStatus(latestOrder.status)) {
+        cancelOrderCallSequence(orderId);
+        return;
+      }
+
+      setOrderCallProgress(prev => ({
+        ...prev,
+        [orderId]: { attempt: attemptNumber, total: totalAttempts }
+      }));
+
+      setActiveCall({
+        id: `${cycleId}_att_${attemptNumber}`,
+        orderId,
+        orderNumber,
+        customerName: customerName || latestOrder?.customerName || 'Cliente',
+        type: type || latestOrder?.type || 'balcao',
+        tableOrDesk,
+        calledAt: Date.now(),
+        attempt: attemptNumber,
+        totalAttempts
+      });
+
+      if (!isVoiceMutedRef.current) {
+        playChimeSound();
+        const voiceTimer = setTimeout(() => {
+          const checkSeq = activeSequencesRef.current.get(orderId);
+          if (checkSeq && checkSeq.cycleId === cycleId && !checkSeq.cancelled && !isVoiceMutedRef.current) {
+            speakOrderCall(orderNumber, customerName || latestOrder?.customerName || 'Cliente');
+          }
+        }, 900);
+        sequence.timers.push(voiceTimer);
+      }
+
+      if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
+      callDismissTimer.current = setTimeout(() => {
+        setActiveCall(prev => (prev?.id === `${cycleId}_att_${attemptNumber}` ? null : prev));
+      }, 9500);
+    };
+
+    // Call 1 immediately (0s), Call 2 at 30s, Call 3 at 60s
+    [0, intervalMs, intervalMs * 2].forEach((delayMs, idx) => {
+      const attempt = idx + 1;
+      if (delayMs === 0) {
+        executeAttempt(attempt);
+      } else {
+        const t = setTimeout(() => executeAttempt(attempt), delayMs);
+        sequence.timers.push(t);
+      }
+    });
+
+    // Clear progress badge & active sequence after the 3rd call finishes (~70s)
+    const cleanupTimer = setTimeout(() => {
+      const currentSeq = activeSequencesRef.current.get(orderId);
+      if (currentSeq && currentSeq.cycleId === cycleId) {
+        activeSequencesRef.current.delete(orderId);
+        setOrderCallProgress(prev => {
+          if (!prev[orderId]) return prev;
+          const next = { ...prev };
+          delete next[orderId];
+          return next;
+        });
+      }
+    }, intervalMs * 2 + 10000);
+    sequence.timers.push(cleanupTimer);
+  }, [cancelOrderCallSequence]);
+
+  // Cleanup all pending 30s call timers on unmount
+  useEffect(() => {
+    return () => {
+      activeSequencesRef.current.forEach(seq => {
+        seq.cancelled = true;
+        seq.timers.forEach(t => clearTimeout(t));
+      });
+      activeSequencesRef.current.clear();
+      if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
+    };
+  }, []);
+
+  // Watch orders status transitions: start 3x30s calls when entering PEDIDO PRONTO, cancel if moved away
+  useEffect(() => {
+    if (!hasInitializedOrdersRef.current) {
+      if (orders.length > 0) {
+        orders.forEach(o => {
+          prevOrderStatusesRef.current.set(String(o.id), o.status);
+        });
+        hasInitializedOrdersRef.current = true;
+      }
+      return;
+    }
+
+    const currentIds = new Set<string>();
+    orders.forEach(o => {
+      const id = String(o.id);
+      currentIds.add(id);
+      const prevStatus = prevOrderStatusesRef.current.get(id);
+      const isNowReady = isOrderReadyStatus(o.status);
+      const wasReady = isOrderReadyStatus(prevStatus);
+
+      if (!wasReady && isNowReady) {
+        startThreeCallSequence({
+          orderId: id,
+          orderNumber: id.slice(-4).padStart(4, '0'),
+          customerName: o.customerName || 'Cliente',
+          type: o.type || 'balcao',
+          tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
+          forceRestart: false
+        });
+      } else if (wasReady && !isNowReady) {
+        cancelOrderCallSequence(id);
+      }
+
+      prevOrderStatusesRef.current.set(id, o.status);
+    });
+
+    // Cancel sequences for orders removed or no longer ready
+    Array.from(activeSequencesRef.current.keys()).forEach(activeId => {
+      const stillExists = orders.find(o => String(o.id) === activeId);
+      if (stillExists && !isOrderReadyStatus(stillExists.status)) {
+        cancelOrderCallSequence(activeId);
+      }
+    });
+  }, [orders, startThreeCallSequence, cancelOrderCallSequence]);
+
   const processIncomingTvCall = useCallback((call: TvCallItem) => {
     if (call && call.id && call.id !== lastProcessedCallId.current) {
       if (Date.now() - call.calledAt < 35000) {
         lastProcessedCallId.current = call.id;
-        setActiveCall(call);
-
-        // Sound & Voice
-        if (!isMuted) {
-          playChimeSound();
-          setTimeout(() => {
-            speakOrderCall(call.orderNumber, call.customerName);
-          }, 900);
-        }
-
-        // Auto dismiss after 10 seconds
-        if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
-        callDismissTimer.current = setTimeout(() => {
-          setActiveCall(null);
-        }, 10000);
+        startThreeCallSequence({
+          orderId: String(call.orderId || call.id),
+          orderNumber: call.orderNumber,
+          customerName: call.customerName,
+          type: call.type,
+          tableOrDesk: call.tableOrDesk,
+          forceRestart: call.isManual === true
+        });
       }
     }
-  }, [isMuted]);
+  }, [startThreeCallSequence]);
 
   // Poll for TV Call events (backup)
   useEffect(() => {
@@ -373,10 +670,9 @@ export default function TvDisplay() {
       }
     };
 
-    const callInterval = setInterval(checkTvCall, 8000);
+    const callInterval = setInterval(checkTvCall, 5000);
     return () => {
       clearInterval(callInterval);
-      if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
     };
   }, [processIncomingTvCall]);
 
@@ -384,10 +680,10 @@ export default function TvDisplay() {
   useEffect(() => {
     fetchData();
 
-    // Polling rápido a cada 15 segundos para garantir sincronização imediata de vídeos da TV em qualquer estação remota
+    // Polling rápido para garantir sincronização contínua de pedidos e vídeos da TV
     const fastInterval = setInterval(() => {
       fetchData();
-    }, 15000);
+    }, mode === 'split_orders' ? 6000 : 15000);
 
     // Polling de segurança de longo prazo
     const interval = setInterval(() => {
@@ -402,13 +698,12 @@ export default function TvDisplay() {
       try {
         const data = JSON.parse(e.data);
         if (data.type === 'sync') {
-          if (data.target === 'orders' || data.target === 'tv_call') {
-             if (data.target === 'tv_call' && data.call) processIncomingTvCall(data.call);
-             return;
+          if (data.target === 'tv_call' && data.call) {
+            processIncomingTvCall(data.call);
           }
-          
+
           if (debounceTimer) clearTimeout(debounceTimer);
-          const delay = data.target === 'tv' ? 200 : 3000;
+          const delay = (data.target === 'orders' || data.target === 'tv_call' || data.target === 'tv') ? 150 : 2500;
           debounceTimer = setTimeout(() => {
             fetchData();
           }, delay);
@@ -429,7 +724,7 @@ export default function TvDisplay() {
       if (debounceTimer) clearTimeout(debounceTimer);
       es.close();
     };
-  }, [fetchData, processIncomingTvCall]);
+  }, [fetchData, processIncomingTvCall, mode]);
 
   // Live clock
   useEffect(() => {
@@ -855,13 +1150,30 @@ export default function TvDisplay() {
     return () => clearInterval(interval);
   }, [activeSlideIndex, allMenuSlides.length > 0]);
 
-  // Ready orders for the order call panel mode
+  // Categorized orders for the 3-status TV panel (PEDIDO PRONTO, PREPARANDO, ENTREGUE)
   const readyOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'ready').slice(0, 6);
+    return (orders || [])
+      .filter(o => isOrderReadyStatus(o.status))
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+      .slice(0, 8);
   }, [orders]);
 
   const preparingOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'preparing').slice(0, 6);
+    return (orders || [])
+      .filter(o => o.status === 'preparing')
+      .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0))
+      .slice(0, 8);
+  }, [orders]);
+
+  const deliveredOrders = useMemo(() => {
+    return (orders || [])
+      .filter(o => o.status === 'completed')
+      .sort((a, b) => {
+        const tsA = Number(a.deliveryCompletedAt || (a as any).updatedAt || a.createdAt || 0);
+        const tsB = Number(b.deliveryCompletedAt || (b as any).updatedAt || b.createdAt || 0);
+        return tsB - tsA;
+      })
+      .slice(0, 8);
   }, [orders]);
 
   // Helper function to aggressively disable YouTube closed captions / subtitles via postMessage API
@@ -1478,66 +1790,174 @@ export default function TvDisplay() {
           </div>
         )}
 
-        {/* Side Panel: Split Orders Call Mode */}
+        {/* Side Panel: Split Orders Call Mode (PEDIDO PRONTO, PREPARANDO, ENTREGUE) */}
         {mode === 'split_orders' && (
-          <div className="w-[38%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-6 lg:p-8 overflow-hidden">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-stone-800">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <BellRing className="w-5 h-5 animate-bounce" />
+          <div className="w-[38%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-4 lg:p-6 overflow-hidden">
+            <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-stone-800 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <BellRing className="w-5 h-5 animate-bounce" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base lg:text-lg font-black text-white uppercase tracking-wider truncate">Painel de Pedidos</h3>
+                  <p className="text-[11px] text-stone-400 font-medium truncate">Chamada automática 3x a cada 30s</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-black text-white uppercase tracking-wider">Painel de Pedidos</h3>
-                <p className="text-xs text-stone-400 font-medium">Acompanhe a sua chamada</p>
-              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  unlockTvAudio();
+                  setIsVoiceMuted(prev => !prev);
+                }}
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1.5 border transition-colors shrink-0 cursor-pointer ${
+                  isVoiceMuted
+                    ? 'bg-red-950/70 border-red-500/40 text-red-300'
+                    : 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/70'
+                }`}
+                title={isVoiceMuted ? 'Ativar voz de chamada' : 'Silenciar voz de chamada'}
+              >
+                {isVoiceMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span>{isVoiceMuted ? 'Voz Muda' : 'Voz Ativa'}</span>
+              </button>
             </div>
 
-            {/* Ready Orders */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">Pronto para Retirada</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {readyOrders.length > 0 ? (
-                  readyOrders.map(o => (
-                    <div key={o.id} className="bg-emerald-950/60 border-2 border-emerald-500/70 p-3 rounded-2xl text-center shadow-lg animate-pulse">
-                      <span className="text-xs text-emerald-300 font-semibold block">Senha</span>
-                      <span className="text-2xl font-black text-white tracking-widest font-mono">
-                        #{String(o.id).slice(-4).padStart(4, '0')}
-                      </span>
-                      <p className="text-[11px] text-emerald-200 truncate font-medium mt-1">{o.customerName || 'Cliente'}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 py-6 text-center text-stone-500 bg-stone-800/40 rounded-2xl border border-stone-800 text-xs">
-                    Nenhum pedido aguardando retirada no momento
-                  </div>
-                )}
-              </div>
-            </div>
+            {audioNeedsUnlock && !isVoiceMuted && (
+              <button
+                type="button"
+                onClick={unlockTvAudio}
+                className="mb-3 px-3 py-2 rounded-xl bg-amber-500 text-stone-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg animate-pulse shrink-0 cursor-pointer"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>Clique aqui para liberar o áudio e voz na TV</span>
+              </button>
+            )}
 
-            {/* Preparing Orders */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">Em Preparação</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {preparingOrders.length > 0 ? (
-                  preparingOrders.map(o => (
-                    <div key={o.id} className="bg-stone-800/80 border border-stone-700/80 p-2.5 rounded-xl text-center">
-                      <span className="text-[10px] text-stone-400 block font-semibold">Senha</span>
-                      <span className="text-lg font-bold text-amber-300 font-mono">
-                        #{String(o.id).slice(-4).padStart(4, '0')}
-                      </span>
-                      <p className="text-[10px] text-stone-300 truncate mt-0.5">{o.customerName || 'Cliente'}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 py-4 text-center text-stone-500 bg-stone-800/40 rounded-xl text-xs">
-                    Todos os pedidos preparados!
+            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
+              {/* 1. PEDIDO PRONTO */}
+              <div className="flex-[1.3] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-emerald-500/30 p-3">
+                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                    <h4 className="text-xs lg:text-sm font-black uppercase tracking-wider text-emerald-400">
+                      PEDIDO PRONTO
+                    </h4>
                   </div>
-                )}
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {readyOrders.length}
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {readyOrders.length > 0 ? (
+                      readyOrders.map(o => {
+                        const callState = orderCallProgress[String(o.id)];
+                        return (
+                          <div
+                            key={o.id}
+                            className={`bg-emerald-950/70 border-2 border-emerald-500/80 p-2.5 rounded-xl text-center shadow-lg ${
+                              callState ? 'ring-2 ring-amber-400/80 animate-pulse' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <span className="text-[10px] text-emerald-300 font-bold uppercase">Senha</span>
+                              {callState && (
+                                <span className="text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.5 rounded-full">
+                                  🔊 {callState.attempt}/{callState.total}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-2xl font-black text-white tracking-widest font-mono block leading-none">
+                              #{String(o.id).slice(-4).padStart(4, '0')}
+                            </span>
+                            <p className="text-[11px] text-emerald-100 truncate font-bold mt-1">
+                              {o.customerName || 'Cliente'}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-2 py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium">
+                        Nenhum pedido pronto no momento
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. PREPARANDO */}
+              <div className="flex-1 min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-amber-500/25 p-3">
+                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <ChefHat className="w-3.5 h-3.5 text-amber-400" />
+                    <h4 className="text-xs lg:text-sm font-black uppercase tracking-wider text-amber-400">
+                      PREPARANDO
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {preparingOrders.length}
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {preparingOrders.length > 0 ? (
+                      preparingOrders.map(o => (
+                        <div key={o.id} className="bg-stone-800/90 border border-amber-500/30 p-2 rounded-xl text-center">
+                          <span className="text-[10px] text-amber-300/80 block font-bold uppercase">Senha</span>
+                          <span className="text-lg font-black text-amber-300 font-mono leading-tight block">
+                            #{String(o.id).slice(-4).padStart(4, '0')}
+                          </span>
+                          <p className="text-[11px] text-stone-200 truncate font-medium mt-0.5">
+                            {o.customerName || 'Cliente'}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium">
+                        Nenhum pedido em preparo
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. ENTREGUE */}
+              <div className="flex-[0.9] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-sky-500/25 p-3">
+                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <PackageCheck className="w-3.5 h-3.5 text-sky-400" />
+                    <h4 className="text-xs lg:text-sm font-black uppercase tracking-wider text-sky-400">
+                      ENTREGUE
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    {deliveredOrders.length}
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {deliveredOrders.length > 0 ? (
+                      deliveredOrders.map(o => (
+                        <div key={o.id} className="bg-stone-900/90 border border-sky-500/25 p-2 rounded-xl text-center opacity-90">
+                          <div className="flex items-center justify-center gap-1 text-[10px] text-sky-400 font-bold uppercase">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Entregue</span>
+                          </div>
+                          <span className="text-base font-black text-sky-200 font-mono leading-tight block">
+                            #{String(o.id).slice(-4).padStart(4, '0')}
+                          </span>
+                          <p className="text-[10px] text-stone-400 truncate font-medium mt-0.5">
+                            {o.customerName || 'Cliente'}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium">
+                        Nenhum pedido entregue recentemente
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1567,7 +1987,7 @@ export default function TvDisplay() {
               </div>
               <div className="inline-flex items-center gap-2 px-6 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-black uppercase tracking-widest">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                Pedido Pronto para Retirada!
+                Pedido Pronto! • Chamado {activeCall.attempt || 1} de {activeCall.totalAttempts || 3}
               </div>
             </div>
 
