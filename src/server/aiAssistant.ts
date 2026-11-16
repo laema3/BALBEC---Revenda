@@ -147,12 +147,11 @@ FORMAS E CONDIÇÕES DE PAGAMENTO ACEITAS:
 - Cartão de Crédito (todas as principais bandeiras)
 - Cartão de Débito
 - Dinheiro (com opção de troco para o valor informado pelo cliente)
-- O pagamento pode ser feito na entrega (para delivery) ou na retirada no balcão da loja.
+- O pagamento pode ser feito online ou diretamente na retirada no balcão da loja.
 
 MODALIDADES DE PEDIDO E ATENDIMENTO:
-1) **Delivery (Entrega em Domicílio)**: O cliente informa o endereço e recebe o pedido em casa quentinho.
-2) **Consumo na Loja / Retirada no Balcão**: O cliente retira o pedido na loja física ou consome no local.
-3) **Totem de Autoatendimento**: É um terminal exclusivo instalado na loja física para uso presencial no balcão.
+1) **Consumo na Loja / Retirada no Balcão**: O cliente faz o pedido pelo cardápio digital e retira no balcão da loja física ou consome no local. (A loja NÃO trabalha com Delivery no momento).
+2) **Totem de Autoatendimento**: É um terminal exclusivo instalado na loja física para uso presencial no balcão.
 
 CATEGORIAS ATIVAS DISPONÍVEIS EXCLUSIVAMENTE PARA CONSUMO NA LOJA (${activeCategoriesWithProducts.length} categorias ativas):
 ${categoriesListSummary || 'Categorias em atualização.'}
@@ -207,9 +206,9 @@ REGRAS CRÍTICAS DE COMPORTAMENTO E DIRETRIZES ANTI-REPETIÇÃO:
    - Se o cliente solicitar itens, pedir sugestões ou montar um pedido na conversa:
      a) Resuma os itens escolhidos com quantidades, valores unitários e valor total.
      b) **Pergunte sempre se ele deseja algo mais** (ex: *"Deseja adicionar mais alguma bebida gelada ou sobremesa?"*).
-     c) **Pergunte a modalidade de recebimento**: se ele prefere **Delivery (Entrega em Domicílio)** ou **Retirada no Balcão**.
-     d) **Oriente sobre o cadastro e CEP**: Informe que caso seja a primeira vez ou ainda não tenha cadastro, o carrinho fará um breve cadastro e a verificação de CEP para o cálculo da taxa de entrega.
-     e) **Informe prazos**: Diga o tempo estimado de preparo (média de 15 a 25 minutos) e o tempo de rota para entrega.
+     c) **Informe a modalidade**: Deixe claro que no momento trabalhamos apenas com **Retirada no Balcão** ou **Consumo na Loja** (sem Delivery).
+     d) **Oriente sobre a identificação**: Informe que caso seja a primeira vez, o carrinho solicitará apenas um breve cadastro/identificação para acompanhar o pedido.
+     e) **Informe prazos**: Diga o tempo estimado de preparo na loja (média de 15 a 25 minutos).
      f) **REGRA OBRIGATÓRIA DE FINALIZAÇÃO**: Oriente o cliente com muita clareza a **ir até o carrinho de compras** (clicando no ícone do carrinho) para revisar e **finalizar o pedido**, explicando que a conversa com o atendente virtual serve para montagem e sugestões, e o pedido só é enviado para a cozinha e painel de controle após ser concluído no carrinho.
      g) Adicione no final da sua mensagem a tag de estruturação se necessário:
         [[DRAFT_ORDER: item1:quantidade:precoUnitario, item2:quantidade:precoUnitario]]
@@ -503,7 +502,7 @@ ${itemsText || '• (Itens a combinar)'}
 
 👤 *Cliente:* ${customerName || 'Não informado'}
 📞 *Telefone:* ${customerPhone || 'Não informado'}
-📍 *Modalidade:* ${deliveryType === 'delivery' ? `🛵 Entrega em: ${deliveryAddress || 'Endereço a combinar'}` : '🏬 Retirada no Balcão'}
+📍 *Modalidade:* ${deliveryType === 'dine_in' ? '🍽️ Consumo na Loja' : '🏬 Retirada no Balcão'}
 💳 *Pagamento:* ${paymentMethod || 'A combinar'}
 ${notes ? `📝 *Observação:* ${notes}\n` : ''}
 Gostaria de confirmar meu pedido! 😊`;
@@ -625,7 +624,7 @@ function generateConversationalFallback(
       const total = orderedProducts.reduce((acc, it) => acc + (it.price * it.quantity), 0);
       const itemsList = orderedProducts.map(m => `• ${m.quantity}x **${m.name}** – R$ ${(m.price * m.quantity).toFixed(2).replace('.', ',')}`).join('\n');
       return {
-        reply: `Perfeito! Já adicionei ao seu pedido:\n\n${itemsList}\n\n💰 **Total: R$ ${total.toFixed(2).replace('.', ',')}**\n\n🛵 **Deseja entrega em domicílio (Delivery) ou retirada no balcão?**\nAceita adicionar alguma bebida gelada ou sobremesa para acompanhar?\n\n👉 Para conferir os itens e concluir a compra, basta clicar no botão abaixo para **Ver Carrinho e Finalizar**!`,
+        reply: `Perfeito! Já adicionei ao seu pedido:\n\n${itemsList}\n\n💰 **Total: R$ ${total.toFixed(2).replace('.', ',')}**\n\n🏬 **Seu pedido ficará disponível para Retirada no Balcão ou Consumo na Loja.**\nAceita adicionar alguma bebida gelada ou sobremesa para acompanhar?\n\n👉 Para conferir os itens e concluir a compra, basta clicar no botão abaixo para **Ver Carrinho e Finalizar**!`,
         structuredOrder: { items: orderedProducts, total },
         whatsappLink,
         agentName,
@@ -684,7 +683,7 @@ function generateConversationalFallback(
     // 4. Payment Methods
     if (query.includes('pagamento') || query.includes('pix') || query.includes('cartao') || query.includes('dinheiro') || query.includes('pagar') || query.includes('forma de pagamento') || query.includes('troco')) {
       return {
-        reply: `Aceitamos as seguintes formas de pagamento:\n\n💳 **Cartão de Crédito e Débito** (principais bandeiras)\n📱 **PIX** (rápido e prático)\n💵 **Dinheiro** (com troco facilitado)\n\nO pagamento pode ser feito tanto na entrega (Delivery) quanto na retirada no balcão!`,
+        reply: `Aceitamos as seguintes formas de pagamento:\n\n💳 **Cartão de Crédito e Débito** (principais bandeiras)\n📱 **PIX** (rápido e prático)\n💵 **Dinheiro** (com troco facilitado)\n\nO pagamento pode ser feito online ou diretamente na retirada no balcão!`,
         whatsappLink,
         agentName,
       };
@@ -700,10 +699,10 @@ function generateConversationalFallback(
       };
     }
 
-    // 6. Delivery and pickup
+    // 6. Pickup and in-store info
     if (query.includes('entrega') || query.includes('delivery') || query.includes('taxa') || query.includes('buscar') || query.includes('retirar') || query.includes('balcao') || query.includes('totem')) {
       return {
-        reply: `Temos duas formas de atendimento:\n\n🛵 **Delivery**: Entregamos no conforto da sua casa ou trabalho.\n🏬 **Consumo / Retirada no Balcão**: Você pode consultar o cardápio e retirar diretamente na nossa loja física (${storeInfo?.address || 'Praça Dr. Jorge Frange, 72'}).\n\n*(Nota: O Totem é um terminal de autoatendimento presencial exclusivo para uso no balcão da loja).*`,
+        reply: `No momento não estamos realizando entregas (Delivery).\n\n🏬 **Consumo / Retirada no Balcão**: Você pode consultar o cardápio, adiantar seu pedido por aqui e retirar diretamente na nossa loja física (${storeInfo?.address || 'Praça Dr. Jorge Frange, 72'}).\n\n*(Nota: O Totem é um terminal de autoatendimento presencial exclusivo para uso no balcão da loja).*`,
         whatsappLink,
         agentName,
       };

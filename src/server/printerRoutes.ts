@@ -181,21 +181,9 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
     const orderTotal = Number(order?.total) || 0;
     const differenceFee = Math.max(0, orderTotal - itemsSubtotal);
 
-    const isDeliveryOrder = order?.deliveryType === 'delivery' || 
-      order?.type === 'delivery' || 
-      Boolean(order?.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-      Boolean(order?.deliveryNeighborhood) ||
-      (order?.deliveryFee !== undefined && order?.deliveryFee !== null && Number(order.deliveryFee) > 0) ||
-      (differenceFee > 0.05 && !order?.tableNumber && order?.type !== 'kiosk');
+    const isDeliveryOrder = false;
 
-    let deliveryFeeAmount = 0;
-    if (order?.deliveryFee !== undefined && order?.deliveryFee !== null && Number(order.deliveryFee) > 0) {
-      deliveryFeeAmount = Number(order.deliveryFee);
-    } else if (differenceFee > 0.05) {
-      deliveryFeeAmount = differenceFee;
-    }
-
-    // Determinar Modalidade (DELIVERY, RETIRADA, CONSUMO NA LOJA, TOTEM)
+    // Determinar Modalidade (RETIRADA, CONSUMO NA LOJA, TOTEM)
     let modalityText = 'RETIRADA';
     const typeStr = String(order?.type || '').toLowerCase();
     const deliveryTypeStr = String(order?.deliveryType || '').toLowerCase();
@@ -206,13 +194,6 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
       modalityText = 'TOTEM';
     } else if (order?.tableNumber || typeStr === 'dine_in' || deliveryTypeStr === 'dine_in') {
       modalityText = 'CONSUMO NA LOJA';
-    } else if (
-      deliveryTypeStr === 'delivery' || 
-      typeStr === 'delivery' || 
-      (order?.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-      Boolean(order?.deliveryNeighborhood)
-    ) {
-      modalityText = 'DELIVERY';
     } else {
       modalityText = 'RETIRADA';
     }
@@ -257,8 +238,6 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
       escPosCustomerText = 'CLIENTE: TOTEM / AUTOATENDIMENTO';
     } else if (order?.tableNumber) {
       escPosCustomerText = `CLIENTE: MESA ${order.tableNumber}`;
-    } else if (isDeliveryOrder) {
-      escPosCustomerText = 'CLIENTE: ENTREGA / DELIVERY';
     } else {
       escPosCustomerText = 'CLIENTE: RETIRADA BALCAO';
     }
@@ -276,9 +255,6 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
 
     if (order?.customerPhone) {
       lines.push(Buffer.from(`Tel: ${order.customerPhone}\n`, 'latin1'));
-    }
-    if (order?.deliveryAddress) {
-      lines.push(Buffer.from(`End: ${normalizeText(order.deliveryAddress)}\n`, 'latin1'));
     }
 
     const scheduledTime = order?.scheduledTime || order?.scheduled_time || order?.scheduleTime;
@@ -299,7 +275,7 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
       ? 'Canal: Totem Autoatendimento'
       : (order?.tableNumber 
           ? `Canal: Celular (Mesa ${order.tableNumber})` 
-          : (order?.deliveryType === 'delivery' ? 'Canal: Delivery' : 'Canal: Celular (QR Code Balcao)'));
+          : 'Canal: Celular (QR Code Balcao)');
     lines.push(Buffer.from(`${canalText}\n`, 'latin1'));
     lines.push(Buffer.from('--------------------------------\n', 'ascii'));
 
@@ -339,16 +315,6 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
     });
 
     lines.push(Buffer.from('--------------------------------\n', 'ascii'));
-
-    // BLOCO DA TAXA DE ENTREGA (DESTACADO POR ESCRITO)
-    if (isDeliveryOrder) {
-      lines.push(Buffer.from('\x1B\x61\x00', 'ascii'));
-      lines.push(Buffer.from(`Subtotal Itens: ${formatCurrency(itemsSubtotal)}\n`, 'latin1'));
-      lines.push(Buffer.from('\x1D\x42\x01\x1B\x45\x01', 'ascii'));
-      lines.push(Buffer.from(` TAXA DE ENTREGA: ${deliveryFeeAmount > 0 ? formatCurrency(deliveryFeeAmount) : 'GRATIS'} \n`, 'latin1'));
-      lines.push(Buffer.from('\x1B\x45\x00\x1D\x42\x00', 'ascii'));
-      lines.push(Buffer.from('--------------------------------\n', 'ascii'));
-    }
 
     // Alinhamento à direita para Total
     lines.push(Buffer.from('\x1B\x61\x02', 'ascii'));

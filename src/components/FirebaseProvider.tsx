@@ -81,16 +81,16 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           badge: 'Pronto'
         },
         'ready_for_delivery': {
-          title: `📦 Pronto para Entrega #${shortId}`,
-          msg: `Olá ${clientName}, seu pedido já foi embalado e aguarda saída do entregador!`,
-          type: 'info',
-          badge: 'Aguardando Motoboy'
+          title: `📦 Pedido Pronto #${shortId}`,
+          msg: `Olá ${clientName}, seu pedido está pronto para retirada no balcão da loja!`,
+          type: 'success',
+          badge: 'Pronto no Balcão'
         },
         'out_for_delivery': {
-          title: `🛵 Pedido a Caminho #${shortId}`,
-          msg: `Olá ${clientName}, seu pedido acabou de sair para entrega com o entregador! Fique atento(a).`,
+          title: `🛍️ Pedido Pronto #${shortId}`,
+          msg: `Olá ${clientName}, seu pedido está disponível para retirada no balcão da loja!`,
           type: 'success',
-          badge: 'Saiu para Entrega'
+          badge: 'Pronto p/ Retirada'
         },
         'completed': {
           title: `🎉 Pedido Finalizado #${shortId}`,

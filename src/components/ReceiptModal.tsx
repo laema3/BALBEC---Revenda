@@ -50,19 +50,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
   const orderTotal = Number(order.total) || 0;
   const differenceFee = Math.max(0, orderTotal - itemsSubtotal);
 
-  const isDeliveryOrder = order.deliveryType === 'delivery' || 
-    order.type === 'delivery' || 
-    Boolean(order.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-    Boolean((order as any).deliveryNeighborhood) ||
-    (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) ||
-    (differenceFee > 0.05 && !order.tableNumber && order.type !== 'kiosk');
-
-  let deliveryFeeAmount = 0;
-  if (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) {
-    deliveryFeeAmount = Number(order.deliveryFee);
-  } else if (differenceFee > 0.05) {
-    deliveryFeeAmount = differenceFee;
-  }
+  const isDeliveryOrder = false;
 
   let customerDisplayText = 'CLIENTE: BALCÃO / RETIRADA';
   if (order.customerName && order.customerName.trim() !== '' && order.customerName.trim().toUpperCase() !== 'CLIENTE' && order.customerName.trim().toUpperCase() !== 'CLIENTE TOTEM') {
@@ -71,8 +59,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
     customerDisplayText = 'CLIENTE: TOTEM / AUTOATENDIMENTO';
   } else if (order.tableNumber) {
     customerDisplayText = `CLIENTE: MESA ${order.tableNumber}`;
-  } else if (isDeliveryOrder) {
-    customerDisplayText = 'CLIENTE: ENTREGA / DELIVERY';
   } else {
     customerDisplayText = 'CLIENTE: BALCÃO / RETIRADA';
   }
@@ -104,9 +90,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
 *${customerDisplayText}*
 *PEDIDO #${orderNumber}*
 ${scheduledTime ? `*HORÁRIO AGENDADO: 📅 ${scheduledDay ? scheduledDay + ' ' : ''}⏰ ${scheduledTime}*\n` : ''}${order.customerPhone ? `Tel: ${order.customerPhone}` : ''}
-${order.deliveryAddress ? `End: ${order.deliveryAddress}` : ''}
 Data: ${orderDate}
-Tipo: ${order.type === 'kiosk' ? 'Totem Autoatendimento' : (isDeliveryOrder ? 'Entrega em Domicílio' : (order.tableNumber ? `Consumo Loja (Mesa ${order.tableNumber})` : 'Retirada no Balcão'))}${scheduledTime ? ` (Agendado: ${scheduledDay ? scheduledDay + ' ' : ''}às ${scheduledTime})` : ''}
+Tipo: ${order.type === 'kiosk' ? 'Totem Autoatendimento' : (order.tableNumber ? `Consumo Loja (Mesa ${order.tableNumber})` : 'Retirada no Balcão')}${scheduledTime ? ` (Agendado: ${scheduledDay ? scheduledDay + ' ' : ''}às ${scheduledTime})` : ''}
 ------------------------------
 ${items.map(item => {
   const itemCode = resolveItemCode(item);
@@ -123,7 +108,7 @@ ${items.map(item => {
   return `${item.quantity || 1}x ${item.name}${codeStr} - ${formatCurrency(((item.price || 0) + (item.flavor?.price || 0) + (item.addons?.reduce((s, a) => s + (a.price || 0), 0) || 0)) * (item.quantity || 1))}${descStr}${flavorStr}${addonsStr}`;
 }).join('\n')}
 ------------------------------
-${isDeliveryOrder ? `Subtotal Itens: ${formatCurrency(itemsSubtotal)}\n*TAXA DE ENTREGA:* ${deliveryFeeAmount > 0 ? formatCurrency(deliveryFeeAmount) : 'GRÁTIS'}\n------------------------------\n` : ''}*TOTAL : ${formatCurrency(order.total || 0)}*
+*TOTAL : ${formatCurrency(order.total || 0)}*
 Pagamento: ${order.paymentMethod || 'Não informado'}
 ------------------------------
     `.trim();
@@ -211,11 +196,10 @@ Pagamento: ${order.paymentMethod || 'Não informado'}
             ) : null}
 
             {order.customerPhone && <div className="text-center text-[11px]">Tel: {order.customerPhone}</div>}
-            {order.deliveryAddress && <div className="text-center text-[11px] break-words">End: {order.deliveryAddress}</div>}
             
             <div className="text-center text-[11px] mt-1">{orderDate}</div>
             <div className="text-center text-[11px] font-bold mt-0.5">
-              {order.type === 'kiosk' ? 'Tipo: Retirada no Balcão (Totem)' : (isDeliveryOrder ? 'Tipo: Entrega em Domicílio' : (order.tableNumber ? `Tipo: Consumo no Local (Mesa ${order.tableNumber})` : 'Tipo: Retirada no Balcão'))}
+              {order.type === 'kiosk' ? 'Tipo: Retirada no Balcão (Totem)' : (order.tableNumber ? `Tipo: Consumo no Local (Mesa ${order.tableNumber})` : 'Tipo: Retirada no Balcão')}
               {scheduledTime ? ` (${scheduledDay ? scheduledDay + ' ' : ''}às ${scheduledTime})` : ''}
             </div>
 
@@ -275,20 +259,6 @@ Pagamento: ${order.paymentMethod || 'Não informado'}
             </div>
 
             <div className="border-t border-dashed border-black my-2"></div>
-
-            {/* BLOCO DA TAXA DE ENTREGA DESTACADO POR ESCRITO */}
-            {isDeliveryOrder && (
-              <div className="space-y-1.5 my-2 text-xs">
-                <div className="flex justify-between items-center text-stone-700 font-bold">
-                  <span>Subtotal dos Itens:</span>
-                  <span>{formatCurrency(itemsSubtotal)}</span>
-                </div>
-                <div className="flex justify-between items-center font-black text-xs bg-black text-white p-2 rounded tracking-wide">
-                  <span>🛵 TAXA DE ENTREGA:</span>
-                  <span>{deliveryFeeAmount > 0 ? formatCurrency(deliveryFeeAmount) : 'GRÁTIS'}</span>
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-between items-center font-bold text-sm">
               <span>TOTAL :</span>

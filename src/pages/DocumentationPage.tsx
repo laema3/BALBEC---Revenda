@@ -426,7 +426,7 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
 
           <div className="space-y-3 text-sm text-stone-700 leading-relaxed">
             <p>
-              O cliente pode adicionar itens extras a um pedido já enviado sem precisar criar um novo frete ou cobrança separada, desde que cumpra rigorosamente os seguintes critérios de segurança:
+              O cliente pode adicionar itens extras a um pedido já enviado sem precisar fazer um novo pedido separado, desde que cumpra rigorosamente os seguintes critérios de segurança:
             </p>
 
             <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">

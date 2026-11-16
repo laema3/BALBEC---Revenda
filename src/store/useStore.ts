@@ -429,13 +429,13 @@ export const DEFAULT_AI_TRAINING_EXAMPLES: AiTrainingExample[] = [
   {
     id: 'ex_3',
     question: 'Quais as formas de pagamento aceitas?',
-    answer: 'Aceitamos PIX instantâneo, Cartões de Crédito, Cartões de Débito e Dinheiro (com opção de troco facilitado para entregas).',
+    answer: 'Aceitamos PIX instantâneo, Cartões de Crédito, Cartões de Débito e Dinheiro diretamente no balcão ou pagamento online.',
     active: true,
   },
   {
     id: 'ex_4',
-    question: 'Vocês fazem entrega em domicílio (delivery)?',
-    answer: 'Sim! Entregamos tudo quentinho e bem embalado na sua casa ou trabalho. Basta escolher os itens e informar seu endereço.',
+    question: 'Como funciona a retirada dos pedidos?',
+    answer: 'Você faz seu pedido aqui pelo cardápio digital, acompanha o status em tempo real e retira tudo quentinho diretamente no balcão da loja!',
     active: true,
   },
 ];
@@ -618,8 +618,8 @@ export const defaultStoreInfo: StoreInfo = {
   aiAgentWhatsAppPhone: '',
   aiAgentWhatsAppDefaultMessage: 'Olá! Vim pelo site da Balbec e gostaria de fazer um pedido.',
   aiAgentTrainingExamples: JSON.stringify(DEFAULT_AI_TRAINING_EXAMPLES),
-  aiAgentKnowledgeBase: '• Variedades de salgados fritos e assados para revenda e eventos.\n• Encomendas devem ser feitas com antecedência pelo WhatsApp.\n• Não cobramos taxa de entrega para pedidos no mesmo bairro acima de R$ 50.',
-  aiAgentForbiddenPhrases: 'Não prometa entrega em tempo menor que 30 minutos; Não prometa fiado ou cheque; Não invente produtos que não estejam no cardápio.',
+  aiAgentKnowledgeBase: '• Variedades de salgados fritos e assados para revenda e eventos.\n• Encomendas devem ser feitas com antecedência pelo WhatsApp.\n• Pedidos realizados pelo cardápio são retirados diretamente no balcão da loja.',
+  aiAgentForbiddenPhrases: 'Não prometa entrega em domicílio (Delivery); Não prometa fiado ou cheque; Não invente produtos que não estejam no cardápio.',
   aiAgentCreativity: 0.65,
   aiAgentAntiRepeat: true,
   inStoreGpsValidation: false,

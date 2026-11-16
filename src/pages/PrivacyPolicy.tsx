@@ -58,7 +58,7 @@ export default function PrivacyPolicy() {
                 A <strong>{storeName}</strong> (CNPJ: 03.162.220/0001-00), com sede em {storeAddress}, valoriza a segurança, o sigilo e a privacidade de todos os seus clientes e usuários.
               </p>
               <p className="mt-2">
-                Esta Política explica de forma clara como tratamos, coletamos e protegemos seus dados pessoais ao navegar em nosso Cardápio Digital, realizar pedidos no balcão, no autoatendimento (totem) ou pelo serviço de Delivery e Retirada.
+                Esta Política explica de forma clara como tratamos, coletamos e protegemos seus dados pessoais ao navegar em nosso Cardápio Digital e realizar pedidos no balcão, nas mesas ou para retirada na loja.
               </p>
             </section>
 
@@ -82,10 +82,10 @@ export default function PrivacyPolicy() {
                 <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
                   <h3 className="font-bold text-stone-900 mb-1 flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-orange-600" />
-                    Endereço de Entrega (Para modalidade Delivery)
+                    Preferências de Retirada e Horário Agendado
                   </h3>
                   <p className="text-xs sm:text-sm text-stone-600">
-                    <strong>Finalidade:</strong> Permitir o cálculo da taxa de entrega e a realização correta do trajeto pelo entregador parceiro até sua residência ou empresa.
+                    <strong>Finalidade:</strong> Organizar o preparo do pedido no balcão ou na mesa para que esteja pronto no horário escolhido por você.
                   </p>
                 </div>
 

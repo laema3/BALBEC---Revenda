@@ -184,16 +184,16 @@ export function generateClientFallbackAnswer(
     query.includes('troco')
   ) {
     return {
-      reply: `Aceitamos as seguintes formas de pagamento:\n\n💳 **Cartão de Crédito e Débito** (principais bandeiras)\n📱 **PIX Instantâneo** (rápido e seguro)\n💵 **Dinheiro** (com troco facilitado para entrega ou balcão)\n\nVocê escolhe como pagar na finalização!`,
+      reply: `Aceitamos as seguintes formas de pagamento:\n\n💳 **Cartão de Crédito e Débito** (principais bandeiras)\n📱 **PIX Instantâneo** (rápido e seguro)\n💵 **Dinheiro** (com troco facilitado no balcão)\n\nVocê escolhe como pagar na finalização!`,
       whatsappLink,
       agentName,
     };
   }
 
-  // 6. Delivery and Location
+  // 6. Location and Pickup
   if (query.includes('entrega') || query.includes('delivery') || query.includes('taxa') || query.includes('onde fica') || query.includes('endereco')) {
     return {
-      reply: `📍 **Endereço:** ${storeInfo?.address || 'Praça Dr. Jorge Frange, 72 - São Benedito, Uberaba - MG'}.\n\n🛵 **Delivery:** Fazemos entregas em diversos bairros da região com taxa calculada no checkout!\n🏬 **Retirada no Balcão:** Você também pode adiantar seu pedido pelo cardápio e retirar sem filas.`,
+      reply: `📍 **Endereço:** ${storeInfo?.address || 'Praça Dr. Jorge Frange, 72 - São Benedito, Uberaba - MG'}.\n\n🏬 **Retirada no Balcão / Consumo na Loja:** No momento não realizamos entregas (Delivery). Você pode adiantar seu pedido pelo cardápio e retirar diretamente no balcão sem filas!`,
       whatsappLink,
       agentName,
     };

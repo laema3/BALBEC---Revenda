@@ -97,7 +97,7 @@ export async function createPixPayment(params: CreatePixParams): Promise<PixResp
       
       const cleanCpf = (payer.cpf || '').replace(/\D/g, '');
       const firstName = (payer.name || 'Cliente').trim().split(' ')[0] || 'Cliente';
-      const lastName = (payer.name || '').trim().split(' ').slice(1).join(' ') || 'Delivery';
+      const lastName = (payer.name || '').trim().split(' ').slice(1).join(' ') || 'Cliente';
       const email = (payer.email || '').trim() || 'cliente@balbec.com.br';
 
       const mpBody: any = {

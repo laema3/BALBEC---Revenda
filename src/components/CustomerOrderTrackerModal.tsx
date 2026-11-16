@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  MapPin, Navigation, Clock, CheckCircle2, Phone, MessageCircle, 
-  Volume2, VolumeX, X, Store, Home, Compass, RefreshCw, ChefHat, 
-  PackageCheck, AlertCircle, ChevronRight, ShieldCheck, Plus
+  MapPin, Clock, CheckCircle2, MessageCircle, 
+  Volume2, VolumeX, X, Store, RefreshCw, ChefHat, 
+  PackageCheck, AlertCircle, ShieldCheck, Plus
 } from 'lucide-react';
-import { MotorcycleIcon } from './MotorcycleIcon';
-import L from 'leaflet';
 import { Order } from '../store/useStore';
 
 interface CustomerOrderTrackerModalProps {
@@ -16,7 +14,6 @@ interface CustomerOrderTrackerModalProps {
 
 export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps> = ({ orderId, onClose, onStartAppend }) => {
   const [order, setOrder] = useState<Order | null>(null);
-  const [driver, setDriver] = useState<any>(null);
   const [storeInfo, setStoreInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +23,6 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
 
   const prevStatusRef = useRef<string | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const motoboyMarkerRef = useRef<L.Marker | null>(null);
-  const storeMarkerRef = useRef<L.Marker | null>(null);
-  const customerMarkerRef = useRef<L.Marker | null>(null);
-  const routePolylineRef = useRef<L.Polyline | null>(null);
 
   // Sound synthesizer for customer alerts
   const playCustomerChime = (type: 'stage_change' | 'out_for_delivery' | 'delivered') => {
@@ -44,7 +35,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
 
       const now = ctx.currentTime;
       if (type === 'out_for_delivery') {
-        // High 3-tone chime: Motoboy on the way!
+        // High 3-tone chime: Order ready!
         [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -116,24 +107,21 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
       const data = await res.json();
       const currentOrd = data.order;
       setOrder(currentOrd);
-      setDriver(data.driver);
       setStoreInfo(data.store);
       setError(null);
 
       // Status change detection & sound alert
       if (prevStatusRef.current && prevStatusRef.current !== currentOrd.status) {
-        const oldSt = prevStatusRef.current;
         const newSt = currentOrd.status;
         const newLabel = 
           newSt === 'preparing' ? 'Em Preparo na Loja 🥟' :
-          newSt === 'ready' || newSt === 'ready_for_delivery' ? 'Pronto para Entrega 📦' :
-          newSt === 'out_for_delivery' ? 'Saiu para Entrega com o Motoboy 🛵' :
+          newSt === 'ready' || newSt === 'ready_for_pickup' || newSt === 'ready_for_delivery' || newSt === 'out_for_delivery' ? 'Pronto para Retirada no Balcão 🛍️' :
           newSt === 'completed' ? 'Pedido Entregue! Bom apetite! 🎉' : 'Status Atualizado';
 
         setStatusNotification(`Atualização: ${newLabel}`);
         setTimeout(() => setStatusNotification(null), 5000);
 
-        if (newSt === 'out_for_delivery') {
+        if (newSt === 'ready' || newSt === 'ready_for_pickup' || newSt === 'ready_for_delivery' || newSt === 'out_for_delivery') {
           playCustomerChime('out_for_delivery');
         } else if (newSt === 'completed') {
           playCustomerChime('delivered');
@@ -159,11 +147,6 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'driver_location') {
-            if (driver && data.driverId === driver.id) {
-              setDriver((prev: any) => prev ? { ...prev, coords: data.coords } : prev);
-            }
-          }
           if (data.type === 'sync' && (data.target === 'orders' || data.action?.includes('order') || data.action?.includes('status'))) {
             fetchTrackingData(false);
           }
@@ -184,112 +167,6 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
     };
   }, [orderId]);
 
-  // Leaflet Map Initialization & Reactive Marker Updates
-  useEffect(() => {
-    if (!order || !mapContainerRef.current) return;
-
-    const storeCoords: [number, number] = [
-      storeInfo?.coords?.lat || -19.7478, 
-      storeInfo?.coords?.lng || -47.9392
-    ];
-
-    // Estimate destination coords (approximate offset from store based on address or fallback)
-    const destCoords: [number, number] = [
-      storeCoords[0] + 0.0075,
-      storeCoords[1] + 0.0065
-    ];
-
-    // Motoboy coordinates (live GPS, or currentCoords, or interpolated)
-    const motoboyCoords: [number, number] = driver?.coords?.lat && driver?.coords?.lng
-      ? [driver.coords.lat, driver.coords.lng]
-      : [storeCoords[0] + 0.0035, storeCoords[1] + 0.0028];
-
-    // Initialize Map if not created
-    if (!mapInstanceRef.current && mapContainerRef.current) {
-      const map = L.map(mapContainerRef.current, {
-        center: motoboyCoords,
-        zoom: 15,
-        zoomControl: false,
-        attributionControl: false
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
-      }).addTo(map);
-
-      // Custom HTML Icons
-      const createCustomIcon = (html: string, className = '') => {
-        return L.divIcon({
-          html,
-          className: `custom-leaflet-icon ${className}`,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22]
-        });
-      };
-
-      const storeIcon = createCustomIcon(
-        `<div class="w-10 h-10 bg-amber-600 text-white rounded-2xl flex items-center justify-center shadow-lg border-2 border-white font-bold text-xs">
-          🏪
-        </div>`
-      );
-
-      const customerIcon = createCustomIcon(
-        `<div class="w-10 h-10 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg border-2 border-white font-bold text-xs">
-          🏠
-        </div>`
-      );
-
-      const motoboyIcon = createCustomIcon(
-        `<div class="tracking-pin-pulse w-11 h-11 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-2xl border-3 border-white font-bold text-base animate-pulse">
-          🛵
-        </div>`
-      );
-
-      const storeMarker = L.marker(storeCoords, { icon: storeIcon }).addTo(map);
-      storeMarker.bindPopup(`<b>${storeInfo?.name || 'BALBEC - REVENDA'}</b><br>${storeInfo?.address || 'Ponto de Partida'}`);
-
-      const customerMarker = L.marker(destCoords, { icon: customerIcon }).addTo(map);
-      customerMarker.bindPopup(`<b>Seu Endereço de Entrega</b><br>${order.deliveryAddress || 'Endereço do Cliente'}`);
-
-      const motoboyMarker = L.marker(motoboyCoords, { icon: motoboyIcon }).addTo(map);
-      motoboyMarker.bindPopup(`<b>${driver?.name || 'Motoboy'}</b><br>A caminho da entrega!`);
-
-      // Polyline route path
-      const routePolyline = L.polyline([storeCoords, motoboyCoords, destCoords], {
-        color: '#10b981',
-        weight: 4,
-        opacity: 0.8,
-        dashArray: '8, 8'
-      }).addTo(map);
-
-      map.fitBounds(L.latLngBounds([storeCoords, motoboyCoords, destCoords]), { padding: [40, 40] });
-
-      mapInstanceRef.current = map;
-      storeMarkerRef.current = storeMarker;
-      customerMarkerRef.current = customerMarker;
-      motoboyMarkerRef.current = motoboyMarker;
-      routePolylineRef.current = routePolyline;
-    } else if (mapInstanceRef.current && motoboyMarkerRef.current && routePolylineRef.current) {
-      // Update motoboy marker smoothly
-      motoboyMarkerRef.current.setLatLng(motoboyCoords);
-      routePolylineRef.current.setLatLngs([storeCoords, motoboyCoords, destCoords]);
-    }
-
-    return () => {
-      // Don't destroy on every re-render, only when closing modal
-    };
-  }, [order?.id, driver?.coords?.lat, driver?.coords?.lng]);
-
-  // Clean up Leaflet on unmount
-  useEffect(() => {
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
-
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
@@ -298,7 +175,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
             <RefreshCw className="w-8 h-8" />
           </div>
           <h3 className="text-base font-black text-stone-900 uppercase">Conectando ao Rastreamento...</h3>
-          <p className="text-xs text-stone-500">Sincronizando posição do motoboy e status do pedido em tempo real.</p>
+          <p className="text-xs text-stone-500">Sincronizando status do seu pedido em tempo real.</p>
         </div>
       </div>
     );
@@ -327,7 +204,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
     const st = order.status;
     const dst = order.deliveryStatus;
     if (st === 'completed' || dst === 'delivered') return 3;
-    if (st === 'ready' || st === 'ready_for_pickup' || st === 'ready_for_delivery' || dst === 'ready') return 2;
+    if (st === 'ready' || st === 'ready_for_pickup' || st === 'ready_for_delivery' || st === 'out_for_delivery' || dst === 'ready') return 2;
     if (st === 'preparing') return 1;
     return 0; // pending
   };
@@ -434,7 +311,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
         {/* Scrollable Content Body */}
         <div className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-6">
 
-          {/* Stepper Pipeline (Igual ao Motoboy e ao Painel de Controle) */}
+          {/* Stepper Pipeline (Igual ao Painel de Controle) */}
           <div className="bg-white rounded-3xl p-5 shadow-xs border border-stone-200">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-stone-100">
               <div>

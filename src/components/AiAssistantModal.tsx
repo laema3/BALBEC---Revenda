@@ -4,7 +4,7 @@ import { formatCurrency } from '../lib/utils';
 import { 
   Bot, Send, X, MessageCircle, Sparkles, Clock, 
   RefreshCw, Check, ArrowRight, CreditCard, DollarSign, 
-  QrCode, Bike, Store, ShoppingCart
+  QrCode, Store, ShoppingCart
 } from 'lucide-react';
 import { getStoreCurrentStatus } from '../utils/scheduleHelper';
 import { cleanProductDescription } from '../constants';
@@ -52,8 +52,7 @@ export function AiAssistantModal({ isOpen, onClose, onAddToCart, onAddDirectToCa
   // Checkout form fields
   const [customerName, setCustomerName] = useState(() => localStorage.getItem('balbec_customer_name') || '');
   const [customerPhone, setCustomerPhone] = useState(() => localStorage.getItem('balbec_customer_phone') || '');
-  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
-  const [deliveryAddress, setDeliveryAddress] = useState(() => localStorage.getItem('balbec_customer_address') || '');
+  const deliveryType = 'pickup' as const;
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card' | 'cash'>('pix');
   const [cashChange, setCashChange] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
@@ -253,19 +252,11 @@ export function AiAssistantModal({ isOpen, onClose, onAddToCart, onAddDirectToCa
       return;
     }
 
-    if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
-      alert('Por favor, informe o endereço para entrega.');
-      return;
-    }
-
     setIsSubmittingOrder(true);
 
     try {
       localStorage.setItem('balbec_customer_name', customerName.trim());
       localStorage.setItem('balbec_customer_phone', customerPhone.trim());
-      if (deliveryType === 'delivery') {
-        localStorage.setItem('balbec_customer_address', deliveryAddress.trim());
-      }
 
       const paymentLabels: Record<string, string> = {
         pix: 'PIX',
@@ -290,12 +281,11 @@ export function AiAssistantModal({ isOpen, onClose, onAddToCart, onAddDirectToCa
       const placed = await placeOrder({
         items: orderItems,
         total: activeOrderToSend.total,
-        type: deliveryType === 'delivery' ? 'delivery' : 'online',
+        type: 'online',
         paymentMethod: paymentLabels[paymentMethod] || 'A combinar',
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim() || undefined,
-        deliveryType,
-        deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : undefined,
+        deliveryType: 'pickup',
       });
 
       // Format WhatsApp message
@@ -314,7 +304,7 @@ ${itemsText}
 
 👤 *Cliente:* ${customerName.trim()}
 📞 *WhatsApp:* ${customerPhone.trim() || 'Não informado'}
-📍 *Modalidade:* ${deliveryType === 'delivery' ? `🛵 Entrega em: ${deliveryAddress.trim()}` : '🏬 Retirada no Balcão'}
+📍 *Modalidade:* 🏬 Retirada no Balcão
 💳 *Pagamento:* ${paymentLabels[paymentMethod] || 'A combinar'}
 ${orderNotes.trim() ? `📝 *Observações:* ${orderNotes.trim()}\n` : ''}
 Gostaria de confirmar e acompanhar meu pedido! 😊`;
@@ -629,55 +619,16 @@ Gostaria de confirmar e acompanhar meu pedido! 😊`;
                   </div>
                 </div>
 
-                {/* Delivery Type */}
+                {/* Modalidade Fixa: Retirada no Balcão */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Como deseja receber?
+                    Modalidade do Pedido
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryType('delivery')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                        deliveryType === 'delivery'
-                          ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20'
-                          : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      <Bike className="w-4 h-4" />
-                      Entrega (Delivery)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryType('pickup')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                        deliveryType === 'pickup'
-                          ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20'
-                          : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      <Store className="w-4 h-4" />
-                      Retirada no Balcão
-                    </button>
+                  <div className="p-2.5 rounded-xl border bg-emerald-50 border-emerald-500 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5">
+                    <Store className="w-4 h-4" />
+                    Retirada no Balcão
                   </div>
                 </div>
-
-                {deliveryType === 'delivery' && (
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
-                      Endereço de Entrega *
-                    </label>
-                    <input
-                      type="text"
-                      required={deliveryType === 'delivery'}
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      placeholder="Rua, Número, Bairro, Complemento..."
-                      className="w-full p-2.5 border border-stone-300 rounded-xl text-xs text-stone-800 outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                )}
 
                 {/* Payment */}
                 <div>

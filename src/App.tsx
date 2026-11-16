@@ -11,7 +11,6 @@ const Admin = lazy(() => import('./pages/Admin'));
 const TvDisplay = lazy(() => import('./pages/TvDisplay'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const DocumentationPage = lazy(() => import('./pages/DocumentationPage'));
-const MotoboyPortal = lazy(() => import('./components/MotoboyPortal').then(m => ({ default: m.MotoboyPortal })));
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { FirebaseProvider } from './components/FirebaseProvider';
@@ -32,27 +31,12 @@ function StoreMeta() {
       search.includes('kiosk') ||
       search.includes('autoatendimento');
 
-    const isMotoboy = pathname.startsWith('/motoboy') || search.includes('motoboy');
-
-    const isDeliveryPath = pathname.startsWith('/delivery') || 
-      pathname.startsWith('/entrega') ||
-      search.includes('delivery') ||
-      search.includes('entrega');
-
     const isTv = pathname.startsWith('/tv') || search.includes('tv');
 
     if (isTotem) {
       document.documentElement.classList.add('totem-mode');
       document.body.classList.add('totem-mode');
       document.title = `Totem Autoatendimento | ${storeInfo?.name || 'BALBEC - REVENDA'}`;
-    } else if (isMotoboy) {
-      document.documentElement.classList.remove('totem-mode');
-      document.body.classList.remove('totem-mode');
-      document.title = `Portal do Motoboy | ${storeInfo?.name || 'BALBEC - REVENDA'}`;
-    } else if (isDeliveryPath) {
-      document.documentElement.classList.remove('totem-mode');
-      document.body.classList.remove('totem-mode');
-      document.title = `Delivery / Entrega | ${storeInfo?.name || 'BALBEC - REVENDA'}`;
     } else if (isTv) {
       document.documentElement.classList.remove('totem-mode');
       document.body.classList.remove('totem-mode');
@@ -71,7 +55,7 @@ function StoreMeta() {
       manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement;
     }
     if (manifestLink) {
-      manifestLink.href = isTotem ? '/manifest-totem.json' : isMotoboy ? '/manifest-motoboy.json' : isTv ? '/manifest-tv.json' : '/manifest.json';
+      manifestLink.href = isTotem ? '/manifest-totem.json' : isTv ? '/manifest-tv.json' : '/manifest.json';
     }
 
     const logo = storeInfo?.logoUrl || '/logo.svg';
@@ -176,13 +160,6 @@ function AutoUpdater() {
   return null;
 }
 
-function MotoboyRoute() {
-  const { storeInfo } = useStore();
-  return <MotoboyPortal storeInfo={storeInfo} onBack={() => { window.location.href = '/'; }} />;
-}
-
-
-
 export default function App() {
   return (
     <ErrorBoundary>
@@ -208,7 +185,6 @@ export default function App() {
               <Route path="/cardapio" element={<Menu />} />
               <Route path="/menu" element={<Menu />} />
               <Route path="/admin" element={<Admin />} />
-              {/* <Route path="/motoboy" element={<MotoboyRoute />} /> */}
               <Route path="/tv" element={<TvDisplay />} />
               <Route path="/privacidade" element={<PrivacyPolicy />} />
               <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />

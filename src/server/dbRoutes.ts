@@ -5763,7 +5763,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   });
 
-  // Background Automation Loop for Delivery Orders (Auto-Print after 3 min, Auto-Status progression)
+  // Background Automation Loop for Scheduled Orders (Auto-Print before scheduled pickup)
   setInterval(async () => {
     try {
       const now = Date.now();
@@ -5771,19 +5771,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
       memOrders = memOrders.map(order => {
         if (order.status !== 'completed' && order.status !== 'cancelled') {
-          const createdAt = order.createdAt ? new Date(order.createdAt).getTime() : now;
-          const elapsedMinutes = (now - createdAt) / 60000;
-
           let newStatus = order.status;
           let newDeliveryStatus = order.deliveryStatus;
           let needsPrint = false;
-
-          // 1. Auto-Print for delivery orders
-          if ((order.type === 'delivery' || order.deliveryType === 'delivery') && elapsedMinutes >= 0 && !(order as any).autoPrintedDelivery) {
-            (order as any).autoPrintedDelivery = true;
-            needsPrint = true;
-            updated = true;
-          }
 
           // 2. Auto-Print when advance minutes (default 90 min) remaining until scheduled time
           const advanceMinutes = Number(memStoreInfo.schedulePrepTimeFrozenMinutes) || 90;
@@ -5807,26 +5797,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                     orderId: order.id,
                     alertType: 'reminder_90min',
                     status: order.status,
-                    message: `Faltam menos de ${advanceMinutes} minutos para a entrega/retirada do seu Pedido #${String(order.id).slice(-4)} agendado para às ${order.scheduledTime || '09:00'}. Nossa equipe já iniciou a preparação!`,
+                    message: `Faltam menos de ${advanceMinutes} minutos para a retirada do seu Pedido #${String(order.id).slice(-4)} agendado para às ${order.scheduledTime || '09:00'}. Nossa equipe já iniciou a preparação!`,
                     time: Date.now()
                   });
                 }
               }
             } catch (e) {}
-          }
-
-          // 3. Progressão de Status para Delivery (apenas pedidos imediatos; agendamentos mantêm controle manual):
-          const isScheduledOrder = Boolean(order.scheduledDate || order.scheduledTime);
-          if (!isScheduledOrder && (order.type === 'delivery' || order.deliveryType === 'delivery')) {
-            if (elapsedMinutes >= 10 && order.status === 'preparing') {
-              newStatus = 'ready_for_delivery';
-              newDeliveryStatus = 'ready_for_delivery';
-              updated = true;
-            } else if (elapsedMinutes >= 5 && order.status === 'pending') {
-              newStatus = 'preparing';
-              newDeliveryStatus = 'preparing';
-              updated = true;
-            }
           }
 
           if (needsPrint) {
@@ -5846,7 +5822,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                   'Priority': 'urgent',
                   'Tags': 'printer,bell,alarm_clock',
                 },
-                body: `Faltam 90 minutos para entrega/retirada do Pedido #${String(order.id).slice(-4)}!\nCliente: ${order.customerName}\nCupom despachado para a impressora EPSON TM-T20X!`
+                body: `Faltam ${advanceMinutes} minutos para a retirada do Pedido #${String(order.id).slice(-4)}!\nCliente: ${order.customerName}\nCupom despachado para a impressora EPSON TM-T20X!`
               }).catch(() => {});
             }
           }
@@ -5867,10 +5843,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
       if (updated) {
         persistOrdersToDisk(memOrders);
-        broadcastSSE({ type: 'sync', target: 'orders', action: 'delivery_automation', time: Date.now() });
+        broadcastSSE({ type: 'sync', target: 'orders', action: 'pickup_automation', time: Date.now() });
       }
     } catch (err) {
-      console.warn('[Delivery Automation] Erro no loop de automação:', err);
+      console.warn('[Order Automation] Erro no loop de automação:', err);
     }
   }, 30000);
 

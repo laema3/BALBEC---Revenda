@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations, formatDateBR, formatAllDatesBR } from '../lib/utils';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, Navigation, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff } from 'lucide-react';
-import { MotorcycleIcon } from '../components/MotorcycleIcon';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff } from 'lucide-react';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
@@ -227,7 +226,6 @@ export default function Menu() {
       }
     }
   }, [showScheduleSelectionStep]);
-  const [deliveryCountdown, setDeliveryCountdown] = useState<number>(0);
   const [pendingAddToCart, setPendingAddToCart] = useState<any>(null);
   const [showChannelSelection, setShowChannelSelection] = useState(false);
 
@@ -458,14 +456,9 @@ export default function Menu() {
     setIsCartOpen(false);
   }, [isTotemPath, activeCustomer]);
 
-  // Timer na tela de conclusão / impressão do pedido (15s no totem, 45s no celular para dar tempo do cliente ir ao balcão)
-  // Se for delivery, NÃO reseta automaticamente para dar tempo do cliente ver o QR code / rastrear
+  // Timer na tela de conclusão / impressão do pedido (5s no totem, 45s no celular para dar tempo do cliente ir ao balcão)
   useEffect(() => {
     if (!isSuccess) return;
-    if (salesChannel === 'delivery') {
-      setSuccessCountdown(0);
-      return;
-    }
 
     const initialTime = (salesChannel === 'kiosk' || isTotemPath) ? 5 : 45;
     setSuccessCountdown(initialTime);
@@ -482,35 +475,6 @@ export default function Menu() {
 
     return () => clearInterval(interval);
   }, [isSuccess, salesChannel, isTotemPath, handleResetForNewCustomer]);
-
-  // Timer regressivo específico para Delivery (Contagem de tempo de entrega)
-  useEffect(() => {
-    if (!isSuccess || salesChannel !== 'delivery' || !lastPlacedOrder) {
-      setDeliveryCountdown(0);
-      return;
-    }
-
-    const estimatedMinutes = storeInfo.deliveryEstimatedTimeMax || 50;
-    setDeliveryCountdown(estimatedMinutes * 60);
-
-    const interval = setInterval(() => {
-      setDeliveryCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isSuccess, salesChannel, lastPlacedOrder, storeInfo.deliveryEstimatedTimeMax]);
-
-  const formatCountdown = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
 
   const formatPhone = (value: string) => {
@@ -583,7 +547,7 @@ export default function Menu() {
   // Se o cliente leu o QR Code da mesa, desbloqueia o pedido imediatamente
   const isQrTableScan = selectedTableNumber !== null && selectedTableNumber > 0;
 
-  // A exigência de QR Code é restrita ao consumo presencial em loja/mesa (nunca deve bloquear pedidos de Delivery ou Totem)
+  // A exigência de QR Code é restrita ao consumo presencial em loja/mesa (nunca deve bloquear pedidos no Totem)
   const requireQrCode = salesChannel === 'instore' && !selectedTableNumber && initialEntryChoice !== 'view' && storeInfo?.requireQrCodeForOrdering !== false;
   
   //canBuy: O canal deve estar ativo e a loja aberta (ou força aberta), ou liberado por leitura de QR Code na mesa.
@@ -2678,9 +2642,7 @@ export default function Menu() {
       ? '' 
       : (customerPhone.trim() || savedCustomerPhone.trim());
 
-    const fullAddress = isDeliveryOrder 
-      ? `${deliveryStreet}, ${deliveryNumber}${deliveryComplement ? ` (${deliveryComplement})` : ''} - ${deliveryNeighborhood}${deliveryReference ? ` [Ref: ${deliveryReference}]` : ''}`
-      : undefined;
+    const fullAddress = undefined;
 
     try {
       const isTotemOrDineIn = isKioskMode || isTableOrder;
@@ -2703,7 +2665,7 @@ export default function Menu() {
         total,
         status: isTotemOrDineIn ? 'completed' : 'pending',
         deliveryStatus: isTotemOrDineIn ? 'delivered' : 'pending',
-        type: isKioskMode ? 'kiosk' : isDeliveryOrder ? 'delivery' : (isTableOrder ? 'dine_in' : 'online'),
+        type: isKioskMode ? 'kiosk' : (isTableOrder ? 'dine_in' : 'online'),
         paymentMethod: isKioskMode ? 'Balcão' : (isTableOrder ? 'No Caixa / Na Saída' : confirmedPaymentMethod),
         paymentStatus: confirmedPaymentStatus,
         paymentId: confirmedPaymentId,
@@ -2712,11 +2674,11 @@ export default function Menu() {
         customerId: activeCustomer?.id,
         customerEmail: activeCustomer?.email || customerEmail.trim(),
         customerCpf: activeCustomer?.cpf || customerCpf.trim(),
-        deliveryType: isKioskMode ? 'dine_in' : (isTableOrder ? 'dine_in' : deliveryType),
+        deliveryType: isTotemOrDineIn ? 'dine_in' : 'pickup',
         deliveryAddress: fullAddress,
-        deliveryCep: isDeliveryOrder ? deliveryCep.trim() : undefined,
-        deliveryNeighborhood: isDeliveryOrder ? deliveryNeighborhood.trim() : undefined,
-        deliveryFee: isDeliveryOrder ? deliveryFee : 0,
+        deliveryCep: undefined,
+        deliveryNeighborhood: undefined,
+        deliveryFee: 0,
         tableNumber: isTableOrder ? String(selectedTableNumber) : undefined,
         tableId: isTableOrder ? `table-${selectedTableNumber}` : undefined,
         scheduledTime: formattedScheduledTime,
@@ -2757,22 +2719,9 @@ export default function Menu() {
             localStorage.setItem('balbec_recent_order_ids', JSON.stringify(trimmedList));
           }
         } catch {}
-        if (isDeliveryOrder) {
-          safeStorage.setItem('balbec_customer_email', customerEmail.trim());
-          safeStorage.setItem('balbec_customer_cpf', customerCpf.trim());
-          safeStorage.setItem('balbec_customer_cep', deliveryCep.trim());
-          safeStorage.setItem('balbec_customer_street', deliveryStreet.trim());
-          safeStorage.setItem('balbec_customer_number', deliveryNumber.trim());
-          safeStorage.setItem('balbec_customer_complement', deliveryComplement.trim());
-          safeStorage.setItem('balbec_customer_reference', deliveryReference.trim());
-          safeStorage.setItem('balbec_customer_neighborhood', deliveryNeighborhood.trim());
-          safeStorage.setItem('balbec_delivery_cep_verified', 'true');
-        }
 
         // OPÇÃO A: Disparo automático de impressão na impressora térmica da loja (via TCP Socket de Rede)
-        // Regra de Negócio BALBEC: Apenas pedidos concluídos imediatamente (Totem e Mesa) disparam impressão automática pelo frontend.
-        // Pedidos de Delivery chegam pendentes e aguardam 3 minutos para impressão automática no servidor da cozinha.
-        if (isTotemOrDineIn && (createdOrder.status === 'completed' || isKioskMode) && !isDeliveryOrder) {
+        if (isTotemOrDineIn && (createdOrder.status === 'completed' || isKioskMode)) {
           try {
             const netConfig = getNetworkPrinterConfig(storeInfo);
             if (netConfig.ip) {
@@ -2800,13 +2749,13 @@ export default function Menu() {
           const itemsSummary = safeOrderItems.map(it => `${it.quantity}x ${it.name}`).join(', ');
           const typeLabel = isTableOrder 
             ? `🍽️ Consumo no Local (Mesa ${selectedTableNumber})` 
-            : (createdOrder.deliveryType === 'delivery' ? '🛵 Entrega (Delivery)' : '🥡 Retirada/Balcão');
+            : '🥡 Retirada/Balcão';
 
           sendNtfyNotification({
             enabled: storeInfo.ntfyEnabled !== false,
             topic: storeInfo.ntfyTopic || 'balbecrevenda_pedidos',
             title: `🔔 Novo Pedido #${String(createdOrder.id).slice(-4).padStart(4, '0')}${isTableOrder ? ` (Mesa ${selectedTableNumber})` : isKioskMode ? ' (Totem - Entregue)' : (createdOrder.customerName ? ` (${createdOrder.customerName})` : '')}`,
-            message: `Total: ${formatCurrency(createdOrder.total)}\nItens: ${itemsSummary}\nPagamento: ${createdOrder.paymentMethod}\nTipo: ${typeLabel}${isKioskMode ? '\nStatus: Entregue (Totem Autoatendimento)' : ''}${createdOrder.deliveryAddress ? '\nEndereço: ' + createdOrder.deliveryAddress : ''}`,
+            message: `Total: ${formatCurrency(createdOrder.total)}\nItens: ${itemsSummary}\nPagamento: ${createdOrder.paymentMethod}\nTipo: ${typeLabel}${isKioskMode ? '\nStatus: Entregue (Totem Autoatendimento)' : ''}`,
             priority: 5,
             tags: ['bell', 'shopping_cart', 'moneybag']
           }).catch(e => console.warn('[NTFY] Order error:', e));
@@ -2838,10 +2787,6 @@ export default function Menu() {
         alert(`Desculpe, o atendimento presencial (${salesChannel === 'kiosk' ? 'Totem Autoatendimento' : 'Retirada'}) está indisponível no momento.\n${currentStatus.details}`);
         return;
       }
-      if (salesChannel === 'delivery' && !isDeliveryActive) {
-        alert('Desculpe, os pedidos para Delivery estão pausados no momento pelo estabelecimento.');
-        return;
-      }
       alert(storeInfo.closedMessage || currentStatus.details || 'Desculpe, a loja está fechada ou o canal de atendimento selecionado está indisponível no momento.');
       return;
     }
@@ -2852,25 +2797,6 @@ export default function Menu() {
       setShowScheduleSelectionStep(true);
       alert('⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
       return;
-    }
-
-    if (isDeliveryOrder) {
-      if (!customerEmail.trim()) {
-        alert('Por favor, informe seu E-mail.');
-        return;
-      }
-      if (!customerCpf.trim()) {
-        alert('Por favor, informe seu CPF.');
-        return;
-      }
-      if (!deliveryCep.trim() || cepValidStatus !== 'valid') {
-        alert('Por favor, informe um CEP válido e verifique a entrega para o seu bairro antes de prosseguir.');
-        return;
-      }
-      if (!deliveryStreet.trim() || !deliveryNumber.trim()) {
-        alert('Por favor, informe o endereço de entrega completo (Rua e Número).');
-        return;
-      }
     }
 
     // Auto-cadastro de conta para Retirada no Balcão se o cliente definiu uma senha
@@ -3060,11 +2986,9 @@ export default function Menu() {
                 </div>
               )}
               <p className="text-lg sm:text-2xl font-black text-white leading-tight">
-                {lastPlacedOrder?.type === 'delivery' 
-                  ? 'Seu pedido para Delivery foi recebido e está sendo processado para entrega pelo motoboy.' 
-                  : (lastPlacedOrder?.scheduledTime 
-                      ? `Seu pedido foi agendado com sucesso. Aguarde ser chamado pelo seu nome no balcão.` 
-                      : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.`)}
+                {lastPlacedOrder?.scheduledTime 
+                  ? `Seu pedido foi agendado com sucesso. Aguarde ser chamado pelo seu nome no balcão.` 
+                  : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.`}
               </p>
             </div>
 
@@ -3083,7 +3007,7 @@ export default function Menu() {
                   <strong className="text-white bg-blue-800 px-2 py-0.5 rounded-md inline-block my-1.5 border border-blue-600">
                     Apesar deste prazo, o seu pedido pode ficar pronto antes!
                   </strong><br/>
-                  Assim que estiver pronto para retirada ou sair para entrega, você será avisado aqui na tela e via notificações no seu celular!
+                  Assim que estiver pronto para retirada no balcão, você será avisado aqui na tela e via notificações no seu celular!
                 </p>
               </div>
             )}
@@ -3139,7 +3063,7 @@ export default function Menu() {
                     Acompanhamento do Pedido no Smartphone
                   </h4>
                   <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                    Você receberá alertas com aviso sonoro e vibração assim que seu pedido for colocado em preparo e sair para entrega.
+                    Você receberá alertas com aviso sonoro e vibração assim que seu pedido for colocado em preparo e ficar pronto para retirada no balcão.
                   </p>
                 </div>
               </div>
@@ -3186,53 +3110,6 @@ export default function Menu() {
             </div>
           </div>
 
-          {/* Cronômetro e Acompanhamento ao Vivo de Entrega (Apenas para Delivery) */}
-          {lastPlacedOrder?.type === 'delivery' && (
-            <div className="p-5 sm:p-6 bg-gradient-to-b from-stone-50 to-orange-50/50 border-b border-stone-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-orange-500/30 animate-pulse">
-                    <MotorcycleIcon className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-stone-900 uppercase tracking-tighter">Tempo Estimado de Entrega</h4>
-                    <p className="text-2xl font-black text-orange-600 font-mono">
-                      {storeInfo.deliveryEstimatedTimeMin || 35}-{storeInfo.deliveryEstimatedTimeMax || 50} min
-                    </p>
-                    {deliveryCountdown > 0 && (
-                      <div className="mt-1 flex items-center gap-1.5 text-[10px] font-black text-orange-500 uppercase tracking-wider animate-pulse">
-                        <Clock className="w-3 h-3" />
-                        <span>Chega em aprox. {formatCountdown(deliveryCountdown)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] font-black uppercase text-stone-400 block">Status ao Vivo</span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    <span>Conectado</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Botão de Destaque: Acompanhar Motoboy no Mapa ao Vivo */}
-              <button
-                type="button"
-                onClick={() => setTrackingOrderId(lastPlacedOrder.id)}
-                className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 active:scale-99 text-white rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-600/30 transition-all cursor-pointer border border-emerald-400/50"
-              >
-                <Navigation className="w-5 h-5 animate-bounce" />
-                <span>Acompanhar Rota do Motoboy no Mapa ao Vivo 📍</span>
-              </button>
-
-              <p className="text-[11px] text-center text-stone-500 font-medium leading-relaxed">
-                Toque no botão acima para ver o mapa com o motoboy se deslocando em tempo real e o progresso em 5 etapas com aviso sonoro!
-              </p>
-            </div>
-          )}
-
           {/* Senha e TV Chamada */}
           <div className="p-5 bg-orange-50 border-b border-orange-100">
 
@@ -3277,28 +3154,6 @@ export default function Menu() {
               }
             }
 
-            const previewItemsSubtotal = previewItems.reduce((sum: number, it: any) => {
-              const itPrice = ((Number(it.price) || 0) + (Number(it.flavor?.price) || 0) + (it.addons?.reduce((s: number, a: any) => s + (Number(a.price) || 0), 0) || 0));
-              return sum + (itPrice * (Number(it.quantity) || 1));
-            }, 0);
-
-            const previewOrderTotal = Number(lastPlacedOrder.total) || 0;
-            const previewDifferenceFee = Math.max(0, previewOrderTotal - previewItemsSubtotal);
-
-            const previewIsDelivery = lastPlacedOrder.deliveryType === 'delivery' || 
-              lastPlacedOrder.type === 'delivery' || 
-              Boolean(lastPlacedOrder.deliveryAddress && String(lastPlacedOrder.deliveryAddress).trim().length > 0) ||
-              Boolean((lastPlacedOrder as any).deliveryNeighborhood) ||
-              (lastPlacedOrder.deliveryFee !== undefined && lastPlacedOrder.deliveryFee !== null && Number(lastPlacedOrder.deliveryFee) > 0) ||
-              (previewDifferenceFee > 0.05 && !lastPlacedOrder.tableNumber && lastPlacedOrder.type !== 'kiosk');
-
-            let previewDeliveryFee = 0;
-            if (lastPlacedOrder.deliveryFee !== undefined && lastPlacedOrder.deliveryFee !== null && Number(lastPlacedOrder.deliveryFee) > 0) {
-              previewDeliveryFee = Number(lastPlacedOrder.deliveryFee);
-            } else if (previewDifferenceFee > 0.05) {
-              previewDeliveryFee = previewDifferenceFee;
-            }
-
             let previewCustomerText = 'CLIENTE: BALCÃO / RETIRADA';
             if (lastPlacedOrder.customerName && lastPlacedOrder.customerName.trim() !== '' && lastPlacedOrder.customerName.trim().toUpperCase() !== 'CLIENTE' && lastPlacedOrder.customerName.trim().toUpperCase() !== 'CLIENTE TOTEM') {
               previewCustomerText = `CLIENTE: ${lastPlacedOrder.customerName.trim().toUpperCase()}`;
@@ -3306,8 +3161,6 @@ export default function Menu() {
               previewCustomerText = 'CLIENTE: TOTEM / AUTOATENDIMENTO';
             } else if (lastPlacedOrder.tableNumber) {
               previewCustomerText = `CLIENTE: MESA ${lastPlacedOrder.tableNumber}`;
-            } else if (previewIsDelivery) {
-              previewCustomerText = 'CLIENTE: ENTREGA / DELIVERY';
             } else {
               previewCustomerText = 'CLIENTE: BALCÃO / RETIRADA';
             }
@@ -3402,20 +3255,6 @@ export default function Menu() {
                   </div>
 
                   <div className="border-t border-dashed border-stone-400 my-2"></div>
-
-                  {/* BLOCO DA TAXA DE ENTREGA DESTACADO POR ESCRITO */}
-                  {previewIsDelivery && (
-                    <div className="space-y-1.5 my-2 text-xs">
-                      <div className="flex justify-between items-center text-stone-700 font-bold">
-                        <span>Subtotal dos Itens:</span>
-                        <span>{formatCurrency(previewItemsSubtotal)}</span>
-                      </div>
-                      <div className="flex justify-between items-center font-black text-xs bg-black text-white p-2 rounded-md tracking-wide">
-                        <span>🛵 TAXA DE ENTREGA:</span>
-                        <span>{previewDeliveryFee > 0 ? formatCurrency(previewDeliveryFee) : 'GRÁTIS'}</span>
-                      </div>
-                    </div>
-                  )}
 
                 <div className="flex justify-between items-center font-black text-xs sm:text-sm">
                   <span>TOTAL :</span>
@@ -3977,23 +3816,6 @@ export default function Menu() {
                   </div>
                 </div>
               ))}
-              {isDeliveryOrder && (
-                <div className="border-t pt-3 space-y-2 text-sm">
-                  <div className="flex justify-between items-center text-stone-600 font-medium">
-                    <span>Subtotal dos Itens:</span>
-                    <span className="font-bold text-stone-900">{formatCurrency(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between items-center font-bold bg-orange-100/90 text-orange-950 p-2.5 rounded-xl border border-orange-200 shadow-xs">
-                    <span className="flex items-center gap-1.5">
-                      <span>🛵</span>
-                      <span>Taxa de Entrega:</span>
-                    </span>
-                    <span className="text-base font-black text-orange-800">
-                      {currentDeliveryFee === 0 ? 'Grátis 🎉' : formatCurrency(currentDeliveryFee)}
-                    </span>
-                  </div>
-                </div>
-              )}
               <div className="border-t pt-4 flex justify-between items-center text-xl font-black text-stone-900">
                 <span>Total do Pedido</span>
                 <span style={{ color: storeInfo.themeColor }}>{formatCurrency(total)}</span>
@@ -4493,190 +4315,7 @@ export default function Menu() {
                         required
                       />
                     </div>
-                    {deliveryType === 'delivery' && (
-                      <div>
-                        <label className="block text-sm font-medium text-stone-700 mb-1">E-mail *</label>
-                        <input 
-                          type="email" 
-                          value={customerEmail} 
-                          onChange={(e) => {
-                            setCustomerEmail(e.target.value);
-                            safeStorage.setItem('balbec_customer_email', e.target.value);
-                          }}
-                          className="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                          placeholder="seu@email.com"
-                          required
-                        />
-
-                      </div>
-                    )}
                   </div>
-
-                  {deliveryType === 'delivery' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-stone-700 mb-1">CPF *</label>
-                        <input 
-                          type="text" 
-                          value={customerCpf} 
-                          onChange={(e) => {
-                            setCustomerCpf(e.target.value);
-                            safeStorage.setItem('balbec_customer_cpf', e.target.value);
-                          }}
-                          className="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                          placeholder="000.000.000-00"
-                          required
-                        />
-
-                      </div>
-                      
-                      {customerAddresses.length > 0 && (
-                        <div className="bg-white p-3.5 rounded-xl border border-orange-200 space-y-2.5 shadow-sm">
-                          <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-orange-600" /> Meus Endereços Salvos
-                          </p>
-                          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-                            {customerAddresses.map(addr => (
-                              <button
-                                key={addr.id}
-                                type="button"
-                                onClick={() => {
-                                  setDeliveryStreet(addr.street);
-                                  setDeliveryNumber(addr.number);
-                                  setDeliveryComplement(addr.complement || '');
-                                  setDeliveryNeighborhood(addr.neighborhood);
-                                  setDeliveryCep(addr.cep);
-                                  setDeliveryReference(addr.reference || '');
-                                  handleCheckCep(addr.cep);
-                                }}
-                                className={`flex-shrink-0 px-3.5 py-2.5 border-2 rounded-2xl text-left transition-all max-w-[160px] ${deliveryCep === addr.cep && deliveryNumber === addr.number ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-500/20' : 'bg-white border-stone-100 hover:border-orange-300'}`}
-                              >
-                                <p className="text-xs font-black text-stone-900 leading-none truncate mb-1">{addr.alias}</p>
-                                <p className="text-[10px] text-stone-500 font-medium leading-tight line-clamp-1">{addr.street}, {addr.number}</p>
-                                <p className="text-[9px] text-stone-400 mt-1 uppercase font-bold tracking-tighter">{addr.neighborhood}</p>
-                              </button>
-                            ))}
-                          </div>
-                          <p className="text-[9px] text-stone-400 font-medium italic">Clique em um endereço salvo para preencher automaticamente.</p>
-                        </div>
-                      )}
-
-                      <div className="pt-3 border-t border-orange-200 space-y-3">
-                        <div>
-                          <label className="block text-sm font-bold text-stone-800 mb-1">CEP de Entrega *</label>
-                          <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              value={deliveryCep} 
-                              onChange={handleCepChange}
-                              onBlur={(e) => handleCheckCep(e.target.value)}
-                              className="flex-1 p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white font-mono uppercase"
-                              placeholder="00000-000"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleCheckCep(deliveryCep)}
-                              className="px-4 py-3 bg-stone-800 text-white rounded-lg font-bold text-xs hover:bg-stone-900 transition-colors cursor-pointer"
-                            >
-                              Verificar CEP
-                            </button>
-                          </div>
-                        </div>
-
-                        {cepValidStatus === 'checking' && (
-                          <div className="text-xs text-stone-500 font-medium animate-pulse">Verificando atendimento para este CEP...</div>
-                        )}
-
-                        {cepValidStatus === 'valid' && (
-                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 flex items-center justify-between">
-                            <span className="flex items-center gap-1.5">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                              <span>Bairro: {deliveryNeighborhood} (Taxa de Entrega: {formatCurrency(deliveryFee)})</span>
-                            </span>
-                          </div>
-                        )}
-
-                        {cepValidStatus === 'invalid' && (
-                          <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
-                            <div className="text-xs font-bold text-red-800">
-                              {cepErrorMessage}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeliveryType('pickup');
-                                setDeliveryFee(0);
-                              }}
-                              className="text-xs font-black text-orange-600 underline cursor-pointer"
-                            >
-                              Clique aqui para alterar para Retirada no Balcão
-                            </button>
-                          </div>
-                        )}
-
-                        <div className="pt-3 border-t border-orange-200 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2">
-                              <label className="block text-xs font-bold text-stone-700 mb-1">Rua / Logradouro *</label>
-                              <input 
-                                type="text" 
-                                value={deliveryStreet} 
-                                onChange={(e) => {
-                                  setDeliveryStreet(e.target.value);
-                                  safeStorage.setItem('balbec_customer_street', e.target.value);
-                                }}
-                                className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                                placeholder="Nome da Rua"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-stone-700 mb-1">Número *</label>
-                              <input 
-                                type="text" 
-                                value={deliveryNumber} 
-                                onChange={(e) => {
-                                  setDeliveryNumber(e.target.value);
-                                  safeStorage.setItem('balbec_customer_number', e.target.value);
-                                }}
-                                className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                                placeholder="123"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-stone-700 mb-1">Complemento</label>
-                              <input 
-                                type="text" 
-                                value={deliveryComplement} 
-                                onChange={(e) => {
-                                  setDeliveryComplement(e.target.value);
-                                  safeStorage.setItem('balbec_customer_complement', e.target.value);
-                                }}
-                                className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                                placeholder="Apto, Bloco..."
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="block text-xs font-bold text-stone-700 mb-1">Ponto de Referência</label>
-                              <input 
-                                type="text" 
-                                value={deliveryReference} 
-                                onChange={(e) => {
-                                  setDeliveryReference(e.target.value);
-                                  safeStorage.setItem('balbec_customer_reference', e.target.value);
-                                }}
-                                className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                                placeholder="Próximo ao mercado..."
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-                    </>
-                  )}
 
                   {deliveryType === 'pickup' && !activeCustomer && (
                     <div className="pt-3 border-t border-orange-200 space-y-3">
@@ -4977,28 +4616,13 @@ export default function Menu() {
                       alert('Favor preencher um WhatsApp válido com DDD.');
                       return;
                     }
-                    if (deliveryType === 'delivery') {
-                      if (!deliveryStreet.trim()) {
-                        alert('Por favor, informe a Rua/Logradouro para entrega.');
-                        return;
-                      }
-                      if (!deliveryNumber.trim()) {
-                        alert('Por favor, informe o Número do endereço para entrega.');
-                        return;
-                      }
-                      if (!deliveryNeighborhood.trim()) {
-                        alert('Por favor, informe o Bairro para entrega.');
-                        return;
-                      }
-                    }
-
                     // Validações de presença para Consumo na Loja
                     if (deliveryType === 'pickup') {
                       if (storeInfo.inStoreGpsValidation) {
                         if (gpsStatus !== 'verified') {
                           const isGpsOk = await verifyInStoreGps();
                           if (!isGpsOk) {
-                            alert('Não foi possível confirmar sua presença no local pelo GPS. Por favor, autorize sua localização ou selecione a opção "Entrega (Delivery)".');
+                            alert('Não foi possível confirmar sua presença no local pelo GPS. Por favor, autorize sua localização para concluir o pedido.');
                             return;
                           }
                         }
@@ -5659,7 +5283,7 @@ export default function Menu() {
                         }`}>
                           {order.status === 'pending' ? 'Pendente' : 
                            order.status === 'preparing' ? 'Preparando' :
-                           order.status === 'in_transit' ? 'Em Entrega' :
+                           (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery' || order.status === 'in_transit') ? 'Pronto p/ Retirada' :
                            order.status === 'completed' ? 'Finalizado' : 'Cancelado'}
                         </span>
                       </div>
@@ -6092,236 +5716,6 @@ export default function Menu() {
 
 
 
-  if (requireCepStep) {
-    if (showFormSuccess) {
-      return (
-        <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-4">
-          <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-2xl max-w-md w-full text-center border border-stone-200 animate-in fade-in zoom-in duration-200">
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="w-12 h-12 text-emerald-600 animate-bounce" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-stone-900 mb-2 uppercase tracking-tight">Região Confirmada!</h2>
-            <p className="text-stone-600 font-medium text-sm sm:text-base">
-              Seja bem-vindo(a), <strong className="text-orange-600">{customerName.split(' ')[0]}</strong>!<br />
-              Abrindo o cardápio de entregas para você...
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-4 sm:p-6">
-        <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-stone-200 relative overflow-hidden animate-fadeIn">
-          {/* Barra de destaque superior */}
-          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
-
-          {storeInfo.logoUrl ? (
-            <img 
-              src={storeInfo.logoUrl} 
-              alt="Logo" 
-              className="w-32 h-32 sm:w-40 sm:h-40 aspect-square mx-auto mb-4 object-cover rounded-full shadow-md border-2 border-stone-100"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-3xl shadow-xs border border-orange-200">
-              🥖
-            </div>
-          )}
-
-          {/* Indicador visual de Etapas (Apenas CEP) */}
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Identificação</span>
-            </div>
-            <div className="w-4 h-0.5 bg-emerald-500"></div>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300">
-              <span>2</span>
-              <span>Rota de Entrega (CEP)</span>
-            </div>
-          </div>
-
-          {/* ETAPA DE VALIDAÇÃO DE CEP (Direta, pois a identificação já foi feita no passo anterior) */}
-          <div className="space-y-4 animate-fadeIn">
-            <div className="text-center">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-100 text-orange-900 rounded-full text-xs font-black uppercase tracking-wider mb-2">
-                  <MotorcycleIcon className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Rota de Entrega Delivery</span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight">
-                  Qual é o seu CEP?
-                </h2>
-                <p className="text-stone-600 text-xs sm:text-sm mt-1">
-                  Olá, <strong className="text-orange-600 font-bold">{customerName.split(' ')[0]}</strong>! Digite seu CEP para consultarmos se atendemos seu endereço de entrega.
-                </p>
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleCheckCep(deliveryCep);
-                }}
-                className="space-y-3 pt-1"
-              >
-                <div className="text-left">
-                  <label className="block text-xs font-black text-stone-700 mb-1.5 uppercase tracking-wider">
-                    CEP de Entrega *
-                  </label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      value={deliveryCep}
-                      onChange={handleCepChange}
-                      placeholder="00000-000"
-                      maxLength={9}
-                      autoFocus
-                      className="flex-1 p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-base sm:text-lg font-bold text-stone-900 placeholder:text-stone-400 font-mono text-center tracking-widest"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      disabled={isCheckingDeliveryCep || deliveryCep.replace(/\D/g, '').length < 8}
-                      className="px-4 bg-stone-800 hover:bg-stone-900 disabled:opacity-40 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    >
-                      {isCheckingDeliveryCep ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Search className="w-4 h-4" />
-                      )}
-                      <span>Consultar</span>
-                    </button>
-                  </div>
-                  <div className="flex justify-between items-center mt-1 px-1">
-                    <p className="text-[11px] text-stone-400">Digite os 8 números do seu CEP</p>
-                    <a 
-                      href="https://buscacepinter.correios.com.br/app/endereco/index.php" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-orange-600 hover:underline font-semibold"
-                    >
-                      Não sei meu CEP
-                    </a>
-                  </div>
-                </div>
-
-                {/* Status: Verificando */}
-                {cepValidStatus === 'checking' && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center gap-2.5 text-amber-800 text-xs font-bold animate-pulse">
-                    <RefreshCw className="w-4 h-4 animate-spin text-orange-600" />
-                    <span>Consultando rotas de entrega para o CEP {deliveryCep}...</span>
-                  </div>
-                )}
-
-                {/* Status: CEP ATENDIDO (Válido) */}
-                {cepValidStatus === 'valid' && (
-                  <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl text-left space-y-3 animate-fadeIn">
-                    <div className="flex items-center gap-2 text-emerald-800 font-black text-sm uppercase">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <span>Ótima notícia! Atendemos sua região</span>
-                    </div>
-                    <div className="bg-white/80 p-3 rounded-xl border border-emerald-200 text-xs space-y-1 text-stone-700">
-                      <p className="flex justify-between">
-                        <span className="text-stone-500">Bairro atendido:</span>
-                        <strong className="text-emerald-900 font-bold">{deliveryNeighborhood}</strong>
-                      </p>
-                      <p className="flex justify-between">
-                        <span className="text-stone-500">Taxa de entrega:</span>
-                        <strong className="text-emerald-900 font-bold">
-                          {deliveryFee === 0 ? 'Entrega Grátis 🎉' : formatCurrency(deliveryFee)}
-                        </strong>
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (storeInfo.deliveryScheduleEnabled) {
-                          setScheduleStepMode('pickup');
-                          setShowScheduleSelectionStep(true);
-                        } else {
-                          safeStorage.setItem('balbec_delivery_cep_verified', 'true');
-                          safeStorage.setSession('selected_sales_channel', 'delivery');
-                          safeStorage.setSession('balbec_qr_validated', 'true');
-                          setIsQrValidated(true);
-                          setSalesChannel('delivery');
-                          setDeliveryType('delivery');
-                          setHasChosenChannel(true);
-                          setShowFormSuccess(true);
-                          setTimeout(() => {
-                            setShowFormSuccess(false);
-                            setHasName(true);
-                          }, 900);
-                        }
-                      }}
-                      className="w-full py-4 text-white rounded-2xl font-black text-base transition-all hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-emerald-600/25 cursor-pointer bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center gap-2"
-                    >
-                      <span>CONTINUAR PARA O CARDÁPIO 🥖</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Status: CEP NÃO ATENDIDO (Inválido / Fora da Rota) */}
-                {cepValidStatus === 'invalid' && (
-                  <div className="p-4 sm:p-5 bg-red-50 border-2 border-red-300 rounded-2xl text-center space-y-3 animate-fadeIn">
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-600">
-                      <AlertTriangle className="w-6 h-6" />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <h3 className="text-sm sm:text-base font-black text-red-700 uppercase tracking-tight leading-snug">
-                        INFELIZMENTE NÃO ATENDEMOS ESSA REGIÃO NO MOMENTO.
-                      </h3>
-                      <p className="text-xs text-red-700/80 leading-relaxed">
-                        O CEP <strong>{deliveryCep}</strong> não faz parte da nossa rota de entregas atual.
-                      </p>
-                    </div>
-
-                    <div className="pt-2 flex flex-col gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeliveryCep('');
-                          setCepValidStatus('idle');
-                          setCepErrorMessage('');
-                        }}
-                        className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm"
-                      >
-                        Digitar Outro CEP
-                      </button>
-
-                      {/* Opção alternativa amigável: Retirada no balcão da loja */}
-                      {hasInStoreCategories && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            safeStorage.setSession('selected_sales_channel', 'instore');
-                            setSalesChannel('instore');
-                            setDeliveryType('pickup');
-                            setHasChosenChannel(true);
-                            setHasName(true);
-                          }}
-                          className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl font-bold text-xs transition-all cursor-pointer border border-stone-200"
-                        >
-                          🛍️ Desejo retirar no balcão da loja
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </form>
-
-          </div>
-          
-          <div className="mt-6 pt-5 border-t border-stone-100 flex flex-col gap-1 items-center">
-            <p className="text-xs text-stone-400 uppercase font-bold tracking-widest mb-0.5">{storeInfo.name || 'BALBEC - REVENDA'}</p>
-            {storeInfo.address && <p className="text-xs text-stone-500">{storeInfo.address}</p>}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-screen flex bg-[#f8f7f5] overflow-hidden font-sans">
       {isSendingOrder && (
@@ -6697,26 +6091,6 @@ export default function Menu() {
                   </div>
                 )}
               </div>
-
-              {/* Botão Trocar Modalidade: oculto quando Delivery está desativado */}
-              {isDeliveryActive && !isTotemPath && salesChannel !== 'kiosk' && !selectedTableNumber && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHasChosenChannel(false);
-                      setInitialEntryChoice(null);
-                      setShowChannelSelection(true);
-                      safeStorage.removeSession('selected_sales_channel');
-                    }}
-                    className="px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold border border-stone-700 cursor-pointer transition-colors flex items-center gap-1.5 shadow-2xs"
-                    title="Trocar modalidade de atendimento (Delivery, Retirada)"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
-                    <span>Trocar Modalidade</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -6732,9 +6106,7 @@ export default function Menu() {
                   ? (currentStatus.details || 'Fora do horário de atendimento da loja. Navegando em modo de apenas visualização.')
                   : requireQrCode && !isQrValidated
                     ? 'Cardápio em Modo Apenas Visualização. Para fazer um pedido, escaneie o QR Code na mesa do estabelecimento!'
-                    : salesChannel === 'delivery' && !isDeliveryActive
-                      ? 'O Delivery está pausado temporariamente no painel. Navegando em modo de apenas visualização.'
-                      : `A modalidade ${salesChannel === 'delivery' ? 'Delivery' : salesChannel === 'kiosk' ? 'Autoatendimento (Totem)' : 'Retirada'} está em modo de apenas visualização.`}
+                    : `A modalidade ${salesChannel === 'kiosk' ? 'Autoatendimento (Totem)' : 'Retirada'} está em modo de apenas visualização.`}
             </span>
           </div>
         )}
@@ -6743,71 +6115,6 @@ export default function Menu() {
         {hasChosenChannel && canBuy && storeInfo.forceOpen && !currentStatus.isWithinSchedule && (
           <div className="bg-emerald-600 text-white font-bold text-xs py-2 px-4 text-center flex items-center justify-center gap-2 shadow-xs border-b border-emerald-700">
             <span>⚡ Abertura manual ativa no painel • Pedidos liberados</span>
-          </div>
-        )}
-
-        {/* Modal Obrigatório de Seleção de Canal de Venda (Only shows when requested or forced) */}
-        {isDeliveryActive && !hasChosenChannel && showChannelSelection && (
-          <div className="fixed inset-0 z-[100] bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-            <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-8 shadow-2xl border border-stone-100 space-y-4 sm:space-y-6 text-center transform transition-all animate-fadeIn my-auto max-h-[95vh] overflow-y-auto relative">
-              
-              {/* Close Button (X) to allow continuing browsing without choosing */}
-              <button 
-                onClick={() => setShowChannelSelection(false)}
-                className="absolute top-4 right-4 p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full transition-colors cursor-pointer"
-                title="Continuar apenas visualizando"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Icon / Brand Avatar */}
-              <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-orange-100 border border-orange-200 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-sm">
-                🥐
-              </div>
-
-              <div className="space-y-1.5 sm:space-y-2">
-                <h2 className="text-xl sm:text-3xl font-black text-stone-900 tracking-tight leading-tight">
-                  Como deseja fazer seu pedido?
-                </h2>
-                <p className="text-stone-600 text-xs sm:text-sm font-medium leading-relaxed max-w-lg mx-auto">
-                  Selecione onde você está ou como deseja ser atendido hoje:
-                </p>
-              </div>
-
-              <div className="grid gap-4 pt-2 grid-cols-1 max-w-md mx-auto">
-                {/* 2. Pickup Option (Retirada no Balcão) */}
-                <button
-                  type="button"
-                  onClick={() => handleSelectChannel('instore')}
-                  className="group relative flex flex-col items-center p-5 sm:p-6 bg-stone-50 hover:bg-amber-50/80 border-2 border-stone-200 hover:border-amber-500 rounded-2xl transition-all duration-200 text-left cursor-pointer hover:shadow-lg active:scale-98"
-                >
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-3 transition-colors shadow-sm ${
-                    isInStoreActive && currentStatus.isOpenNow
-                      ? 'bg-amber-100 group-hover:bg-amber-600 group-hover:text-white text-amber-800'
-                      : 'bg-stone-200 text-stone-600'
-                  }`}>
-                    🛍️
-                  </div>
-                  <span className="font-extrabold text-stone-900 group-hover:text-amber-800 text-lg mb-1 text-center">
-                    Retirada
-                  </span>
-                  <span className="text-xs text-stone-600 group-hover:text-stone-800 text-center leading-relaxed">
-                    Faça seu pedido online e venha retirar aqui no balcão da loja quando estiver pronto.
-                  </span>
-
-                  <div className="mt-4 text-[11px] uppercase font-extrabold tracking-wider px-3 py-1 bg-amber-100 text-amber-900 border border-amber-200/80 rounded-full flex items-center gap-1.5">
-                    <span>⚡</span>
-                    <span>Retirada Ativa</span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="pt-2 border-t border-stone-100">
-                <p className="text-xs text-stone-600 font-medium leading-relaxed">
-                  🥖 Bem-vindo à <strong>{storeInfo.name}</strong>! Escolha como deseja ser atendido hoje.
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -7362,12 +6669,6 @@ export default function Menu() {
                   <Settings className="w-4 h-4" />
                   <span>Painel de Controle</span>
                 </Link>
-                {/* {showDeliveryFeatures && (
-                  <Link to="/motoboy" className="text-stone-400 hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-xs font-medium">
-                    <MotorcycleIcon className="w-4 h-4 text-emerald-500" />
-                    <span>Portal do Motoboy</span>
-                  </Link>
-                )} */}
                 {storeInfo.whatsapp && (
                   <a 
                     href={`https://wa.me/55${storeInfo.whatsapp.replace(/\D/g, '').replace(/^55/, '')}`} 
@@ -7704,18 +7005,6 @@ export default function Menu() {
 
         {cart.length > 0 && (
           <div className="p-5 border-t border-stone-200 bg-stone-50 space-y-3 shrink-0">
-            {isDeliveryOrder && (
-              <div className="space-y-1.5 text-xs pb-1 border-b border-stone-200">
-                <div className="flex justify-between items-center text-stone-600 font-medium">
-                  <span>Subtotal itens:</span>
-                  <span className="font-bold text-stone-800">{formatCurrency(subtotal)}</span>
-                </div>
-                <div className="flex justify-between items-center font-bold bg-orange-100 text-orange-950 px-2.5 py-1.5 rounded-lg border border-orange-200">
-                  <span className="flex items-center gap-1">🛵 Taxa de Entrega:</span>
-                  <span className="font-black text-orange-800">{currentDeliveryFee === 0 ? 'Grátis 🎉' : formatCurrency(currentDeliveryFee)}</span>
-                </div>
-              </div>
-            )}
             <div className="flex justify-between items-center">
               <span className="text-sm font-bold text-stone-600">Total do Pedido</span>
               <span className="text-2xl font-black text-stone-900">{formatCurrency(total)}</span>
@@ -9370,7 +8659,7 @@ export default function Menu() {
         </div>
       )}
 
-      {/* Modal de Rastreamento em Tempo Real do Motoboy no Mapa e Status ao Vivo (Estilo iFood) */}
+      {/* Modal de Acompanhamento e Status ao Vivo do Pedido */}
       {trackingOrderId && (
         <CustomerOrderTrackerModal 
           orderId={trackingOrderId}

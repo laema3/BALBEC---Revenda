@@ -1480,7 +1480,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Consumo no Local, Delivery e Totem de Autoatendimento
+                  Retirada no Balcão, Consumo no Local e Totem de Autoatendimento
                 </p>
               </div>
             </div>
@@ -1744,30 +1744,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                       </div>
                     </label>
 
-                    {/* Delivery (Desativado) */}
-                    <label className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-200 opacity-60 cursor-not-allowed">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-stone-800">Entrega (Delivery) (Desativado)</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-600">
-                            Desativado
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-stone-500">Função desativada neste projeto (apenas Retirada).</span>
-                      </div>
-                      <div className="relative">
-                        <input 
-                          type="checkbox" 
-                          name="deliveryEnabled" 
-                          checked={false}
-                          disabled={true}
-                          className="sr-only"
-                        />
-                        <div className="w-11 h-6 bg-stone-200 rounded-full"></div>
-                      </div>
-                    </label>
-
-                    {/* Agendamento de Horários (Delivery / Retirada) */}
+                    {/* Agendamento de Horários (Retirada no Balcão) */}
                     <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-3">
                       <div className="flex items-center justify-between">
                         <label 
@@ -1775,7 +1752,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                           className="flex-1 cursor-pointer select-none pr-4"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-stone-800">Agendamento de Horários (Delivery / Retirada)</span>
+                            <span className="text-xs font-bold text-stone-800">Agendamento de Horários (Retirada no Balcão)</span>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${deliveryScheduleEnabledState ? 'bg-orange-100 text-orange-800' : 'bg-stone-200 text-stone-600'}`}>
                               {deliveryScheduleEnabledState ? 'Habilitado' : 'Desabilitado'}
                             </span>
@@ -2064,7 +2041,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                     <div className="pt-6 pb-2 border-t border-stone-200 mt-4">
                       <div className="flex items-center gap-2 mb-4">
                         <Clock className="w-5 h-5 text-orange-600" />
-                        <h4 className="text-sm font-black text-stone-800 uppercase tracking-wider">Tempo Estimado de Entrega</h4>
+                        <h4 className="text-sm font-black text-stone-800 uppercase tracking-wider">Tempo Estimado de Preparo e Retirada</h4>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-2xl border border-orange-100">
@@ -2272,7 +2249,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-600 mt-0.5">
-                    O Consumo na Loja e o Totem abrem e fecham automaticamente com base no relógio e na escala abaixo. O Delivery permanece com controle manual.
+                    Os canais presenciais e retirada no balcão abrem e fecham automaticamente com base no relógio e na escala abaixo.
                   </p>
                 </div>
                 <div className="relative shrink-0 ml-3">
@@ -2723,7 +2700,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                   </h4>
                 </div>
                 <p className="text-[11px] text-stone-500">
-                  Insira aqui informações detalhadas que você quer que o atendente consulte (ex: regras de entrega, histórico da casa, ingredientes especiais, estacionamento, etc).
+                  Insira aqui informações detalhadas que você quer que o atendente consulte (ex: regras de retirada, histórico da casa, ingredientes especiais, estacionamento, etc).
                 </p>
                 <textarea
                   value={aiAgentKnowledgeBaseState}
@@ -2731,7 +2708,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                   rows={4}
                   className="w-full p-3 border border-stone-300 rounded-xl bg-white text-xs text-stone-800 focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed"
                   placeholder="Ex: 
-- Nossas entregas são feitas por motoboy próprio em até 5km.
+- Os pedidos ficam prontos para retirada no balcão no horário agendado.
 - O pão francês sai quentinho todos os dias às 06:30, 10:00 e 16:30.
 - Nossos bolos caseiros não levam conservantes químicos.
 - Aceitamos encomendas de cento de salgados com 24h de aviso."

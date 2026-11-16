@@ -2,7 +2,7 @@ import { writeBatch, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, Category, Product, Order, User, AiTrainingExample, DEFAULT_AI_TRAINING_EXAMPLES } from '../store/useStore';
-import { printReceipt, resolveItemCode, resolveAddonCode, resolveOrderModality } from '../utils/printer';
+import { printReceipt, resolveItemCode, resolveAddonCode } from '../utils/printer';
 import { formatCurrency, formatDateBR, formatAllDatesBR } from '../lib/utils';
 import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode, isCategoryFrozenModality } from '../constants';
 import { getCollectionPath, getDocPath } from '../lib/tenants';
@@ -12,8 +12,6 @@ import { ReceiptModal } from '../components/ReceiptModal';
 import TvManagerTab from '../components/TvManagerTab';
 import CustomersTab from '../components/CustomersTab';
 import { TableManagerTab } from '../components/TableManagerTab';
-import { DriversTab } from '../components/DriversTab';
-import { DeliveryZonesTab } from '../components/DeliveryZonesTab';
 import { TotemBackupModal } from '../components/TotemBackupModal';
 import { SmsRemindersTab } from '../components/SmsRemindersTab';
 import { safeStorage } from '../utils/storage';
@@ -68,7 +66,6 @@ import {
   CreditCard,
   UtensilsCrossed,
   QrCode,
-  Bike,
   MessageCircle,
   Sparkles,
   Copy,
@@ -83,8 +80,7 @@ import {
   MapPin,
   KeyRound,
   ShieldCheck,
-  LocateFixed,
-  Navigation
+  LocateFixed
 } from 'lucide-react';
 import { getCurrentPosition } from '../utils/geolocation';
 import { sendNtfyNotification } from '../utils/ntfy';
@@ -1517,7 +1513,7 @@ export default function Admin() {
             externalId: String(cat.id),
             isVisible: true,
             availableInStore: !isExcl,
-            availableForDelivery: !isExcl,
+            availableForDelivery: false,
             availableForKiosk: false, // Default NEW ERP-synced categories to false for Totem to avoid clutter
           };
           const saveRes = await fetch('/api/db/categories', {
@@ -1672,7 +1668,7 @@ export default function Admin() {
             isFlavor: false,
             imageUrl: bp.imageUrl || '',
             externalId: bpExt,
-            availableForDelivery: true,
+            availableForDelivery: false,
             availableInStore: true,
             availableForKiosk: false // Novo produto entra desativado no Totem até revisão do gestor
           });
@@ -2348,23 +2344,12 @@ export default function Admin() {
     }
     prevPendingIds.current = currentPendingIds;
 
-    // Auto-impressão no Caixa: imprime pedidos assim que chegam (Totem, Consumo Loja/Mesa, Balcão, e concluídos).
-    // Pedidos de Delivery chegam como 'pending' e NÃO são impressos na chegada; serão impressos após 3 minutos.
+    // Auto-impressão no Caixa: imprime pedidos assim que chegam (Totem, Consumo Loja/Mesa, Balcão/Retirada, e concluídos).
     const isCaixaAutoPrintEnabled = storeInfo?.autoPrintOrdersOnCaixa !== false;
     if (isCaixaAutoPrintEnabled && brandNewOrders.length > 0) {
       brandNewOrders.forEach(async (newOrder) => {
         if (!autoPrintedOrderIds.current.has(newOrder.id)) {
-          // Regra de Negócio:
-          // Pedidos de Delivery NÃO devem abrir a caixa de impressão do Windows automaticamente.
-          // A impressão física do delivery é disparada silenciosamente aos 3 minutos pelo servidor/agente.
-          // Se o administrador desejar imprimir manualmente no Windows, ele clica no ícone da impressora.
-          const isDelivery = resolveOrderModality(newOrder) === 'DELIVERY' || newOrder.deliveryType === 'delivery' || newOrder.type === 'delivery';
-          if (isDelivery) {
-            console.log(`[Caixa Auto-Print] Pedido #${newOrder.id} é Delivery. Impressão física processada silenciosamente no servidor; não abre caixa do Windows.`);
-            return;
-          }
-
-          // Dispara a impressão automática no Caixa imediatamente para Totem, Consumo Loja/Mesa e pedidos concluídos
+          // Dispara a impressão automática no Caixa imediatamente para os novos pedidos
           autoPrintedOrderIds.current.add(newOrder.id);
           try {
             console.log(`[Caixa Auto-Print] Disparando impressão automática no Caixa para pedido #${newOrder.id} (Canal: ${newOrder.type || 'loja'})...`);
@@ -2375,21 +2360,6 @@ export default function Admin() {
             if (!unprintedQueue.current.some(o => o.id === newOrder.id)) {
               unprintedQueue.current.push(newOrder);
             }
-          }
-        }
-      });
-    }
-
-    // Registro de pedidos de Delivery que já completaram 3 minutos (gerenciados pelo servidor)
-    if (isCaixaAutoPrintEnabled && orders.length > 0) {
-      const now = Date.now();
-      orders.forEach((order) => {
-        const isDelivery = order.deliveryType === 'delivery' || order.type === 'delivery';
-        if (isDelivery && !autoPrintedOrderIds.current.has(order.id) && order.status !== 'cancelled') {
-          const createdAt = order.createdAt ? new Date(order.createdAt).getTime() : now;
-          const elapsedMinutes = (now - createdAt) / 60000;
-          if (elapsedMinutes >= 3 || (order as any).autoPrintedDelivery === true) {
-            autoPrintedOrderIds.current.add(order.id);
           }
         }
       });
@@ -2561,7 +2531,6 @@ export default function Admin() {
     const finalModality = catName.toLowerCase().includes('congelad')
       ? 'congelado'
       : (rawModality === 'congelado' || rawModality === 'pronto' ? rawModality : 'pronto');
-    const deliv = formData.get('availableForDelivery') === 'on';
     const store = formData.get('availableInStore') === 'on';
     const kiosk = formData.get('availableForKiosk') === 'on';
     const isVisibleChecked = formData.get('isVisible') === 'on';
@@ -2570,7 +2539,7 @@ export default function Admin() {
       name: catName,
       order: Number(formData.get('order')),
       modality: finalModality,
-      availableForDelivery: deliv,
+      availableForDelivery: false,
       availableInStore: store,
       availableForKiosk: kiosk,
       isVisible: isVisibleChecked,
@@ -2621,7 +2590,7 @@ export default function Admin() {
       order: Number(formData.get('order') || 0),
       allowFrozen: finalFrozenCat ? true : (formData.get('allowFrozen') === 'on'),
       minFrozenQuantity: Number(formData.get('minFrozenQuantity')) || 1,
-      availableForDelivery: formData.get('availableForDelivery') === 'on',
+      availableForDelivery: false,
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
     };
@@ -3117,8 +3086,8 @@ export default function Admin() {
     const todayOrdersCount = todayOrders.length;
 
     // Canais de Venda do Dia Selecionado
-    const dayDeliveryOrders = dayOrders.filter(o => o.type === 'delivery' || o.deliveryType === 'delivery');
-    const dayDeliveryRevenue = dayDeliveryOrders.filter(o => o.status === 'completed' || o.status === 'ready').reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const dayPickupOrders = dayOrders.filter(o => o.type !== 'kiosk' && !o.tableNumber && o.type !== 'dine_in' && o.deliveryType !== 'dine_in');
+    const dayPickupRevenue = dayPickupOrders.filter(o => o.status === 'completed' || o.status === 'ready').reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
     const dayDineInOrders = dayOrders.filter(o => o.type === 'dine_in' || o.deliveryType === 'dine_in' || o.tableNumber);
     const dayDineInRevenue = dayDineInOrders.filter(o => o.status === 'completed' || o.status === 'ready').reduce((sum, o) => sum + (Number(o.total) || 0), 0);
@@ -3283,8 +3252,8 @@ export default function Admin() {
     const projectedMonthEndRevenue = monthDailyAverage * daysInMonth;
     const monthProgressPercent = Math.min(Math.round((elapsedDays / daysInMonth) * 100), 100);
 
-    const monthDeliveryOrders = monthCompletedOrders.filter(o => o.type === 'delivery' || o.deliveryType === 'delivery');
-    const monthDeliveryRevenue = monthDeliveryOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const monthPickupOrders = monthCompletedOrders.filter(o => o.type !== 'kiosk' && !o.tableNumber && o.type !== 'dine_in' && o.deliveryType !== 'dine_in');
+    const monthPickupRevenue = monthPickupOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
     const monthDineInOrders = monthCompletedOrders.filter(o => o.type === 'dine_in' || o.deliveryType === 'dine_in' || o.tableNumber);
     const monthDineInRevenue = monthDineInOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
@@ -3527,20 +3496,20 @@ export default function Admin() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs">
-                {/* Delivery */}
+                {/* Retirada no Balcão */}
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                  <span className="text-stone-600 font-medium">Delivery:</span>
-                  <strong className="text-stone-900 font-bold">{formatCurrency(monthDeliveryRevenue)}</strong>
+                  <span className="text-stone-600 font-medium">Retirada no Balcão:</span>
+                  <strong className="text-stone-900 font-bold">{formatCurrency(monthPickupRevenue)}</strong>
                   <span className="text-[10px] text-stone-500 bg-stone-200/70 px-1.5 py-0.5 rounded font-mono">
-                    {monthRevenue > 0 ? Math.round((monthDeliveryRevenue / monthRevenue) * 100) : 0}%
+                    {monthRevenue > 0 ? Math.round((monthPickupRevenue / monthRevenue) * 100) : 0}%
                   </span>
                 </div>
 
                 {/* Loja Física / Mesa */}
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                  <span className="text-stone-600 font-medium">Retirada / Mesas:</span>
+                  <span className="text-stone-600 font-medium">Consumo na Loja / Mesas:</span>
                   <strong className="text-stone-900 font-bold">{formatCurrency(monthDineInRevenue)}</strong>
                   <span className="text-[10px] text-stone-500 bg-stone-200/70 px-1.5 py-0.5 rounded font-mono">
                     {monthRevenue > 0 ? Math.round((monthDineInRevenue / monthRevenue) * 100) : 0}%
@@ -3935,10 +3904,10 @@ export default function Admin() {
                   <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-stone-200">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                      <span className="text-xs font-semibold text-stone-800">Delivery</span>
-                      <span className="text-[11px] text-stone-400 font-mono">({dayDeliveryOrders.length})</span>
+                      <span className="text-xs font-semibold text-stone-800">Retirada no Balcão</span>
+                      <span className="text-[11px] text-stone-400 font-mono">({dayPickupOrders.length})</span>
                     </div>
-                    <span className="text-xs font-bold text-stone-900">{formatCurrency(dayDeliveryRevenue)}</span>
+                    <span className="text-xs font-bold text-stone-900">{formatCurrency(dayPickupRevenue)}</span>
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-stone-200">
@@ -4020,9 +3989,9 @@ export default function Admin() {
                                 Mesa {ord.tableNumber}
                               </span>
                             )}
-                            {ord.type === 'delivery' && (
+                            {(!ord.tableNumber && ord.type !== 'kiosk' && ord.type !== 'dine_in') && (
                               <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-[10px]">
-                                Delivery
+                                Retirada
                               </span>
                             )}
                             {ord.type === 'kiosk' && (
@@ -4047,12 +4016,8 @@ export default function Admin() {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           ord.status === 'completed'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : ord.status === 'ready_for_delivery'
-                            ? 'bg-purple-100 text-purple-700'
-                            : (ord.status === 'ready' || ord.status === 'ready_for_pickup')
+                            : (ord.status === 'ready' || ord.status === 'ready_for_pickup' || ord.status === 'ready_for_delivery' || ord.status === 'out_for_delivery')
                             ? 'bg-blue-100 text-blue-700'
-                            : ord.status === 'out_for_delivery'
-                            ? 'bg-indigo-100 text-indigo-700'
                             : ord.status === 'preparing'
                             ? 'bg-orange-100 text-orange-700'
                             : ord.status === 'cancelled'
@@ -4060,9 +4025,7 @@ export default function Admin() {
                             : 'bg-amber-100 text-amber-800'
                         }`}>
                           {ord.status === 'completed' ? 'Finalizado' :
-                           ord.status === 'ready_for_delivery' ? 'Pronto p/ Entrega' :
-                           (ord.status === 'ready' || ord.status === 'ready_for_pickup') ? 'Pronto p/ Retirada' :
-                           ord.status === 'out_for_delivery' ? 'Em Trânsito' :
+                           (ord.status === 'ready' || ord.status === 'ready_for_pickup' || ord.status === 'ready_for_delivery' || ord.status === 'out_for_delivery') ? 'Pronto p/ Retirada' :
                            ord.status === 'preparing' ? 'Preparando' :
                            ord.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
                         </span>
@@ -4304,17 +4267,13 @@ export default function Admin() {
                     <p className="font-bold text-stone-800">{formatCurrency(order.total)}</p>
                     <span className={`text-xs px-2 py-1 rounded-full font-bold ${
                       order.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
-                      order.status === 'ready_for_delivery' ? 'bg-purple-100 text-purple-700' :
-                      (order.status === 'ready' || order.status === 'ready_for_pickup') ? 'bg-blue-100 text-blue-700' :
-                      order.status === 'out_for_delivery' ? 'bg-indigo-100 text-indigo-700' :
+                      (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'bg-blue-100 text-blue-700' :
                       order.status === 'preparing' ? 'bg-orange-100 text-orange-700' :
                       order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                       'bg-amber-100 text-amber-800'
                     }`}>
                       {order.status === 'completed' ? 'Finalizado' :
-                       order.status === 'ready_for_delivery' ? 'Pronto p/ Entrega' :
-                       (order.status === 'ready' || order.status === 'ready_for_pickup') ? 'Pronto p/ Retirada' :
-                       order.status === 'out_for_delivery' ? 'Em Trânsito' :
+                       (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'Pronto p/ Retirada' :
                        order.status === 'preparing' ? 'Preparando' :
                        order.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
                     </span>
@@ -4335,7 +4294,7 @@ export default function Admin() {
   const [pendingOrderPage, setPendingOrderPage] = useState(1);
   const [completedOrderPage, setCompletedOrderPage] = useState(1);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
-  const [orderChannelFilter, setOrderChannelFilter] = useState<'all' | 'delivery' | 'instore' | 'kiosk'>('all');
+  const [orderChannelFilter, setOrderChannelFilter] = useState<'all' | 'pickup' | 'instore' | 'kiosk'>('all');
   const todayKey = new Date().toISOString().slice(0, 10);
   const [selectedOrderDateTab, setSelectedOrderDateTab] = useState<string>('all');
 
@@ -4348,7 +4307,7 @@ export default function Admin() {
       // Channel filter
       if (orderChannelFilter === 'kiosk' && o.type !== 'kiosk') return false;
       if (orderChannelFilter === 'instore' && (o.type === 'kiosk' || !o.tableNumber)) return false;
-      if (orderChannelFilter === 'delivery' && (o.type === 'kiosk' || !!o.tableNumber)) return false;
+      if (orderChannelFilter === 'pickup' && (o.type === 'kiosk' || !!o.tableNumber)) return false;
 
       // Search query
       if (orderSearchQuery.trim()) {
@@ -4369,8 +4328,8 @@ export default function Admin() {
       return true;
     });
 
-    // Ordenação por Horário de Entrega/Retirada:
-    // Pedidos mais recentes/próximos de entrega ficam sempre primeiro; agendamentos mais distantes ficam no final.
+    // Ordenação por Horário de Retirada:
+    // Pedidos mais recentes/próximos de retirada ficam sempre primeiro; agendamentos mais distantes ficam no final.
     const allPendingOrders = filteredOrders
       .filter(o => 
         o.status === 'pending' || 
@@ -4604,7 +4563,7 @@ export default function Admin() {
             <span className="text-xs text-stone-500 font-bold shrink-0">Canal:</span>
             {[
               { id: 'all', label: 'Todos os Canais' },
-              { id: 'delivery', label: '🛵 Delivery' },
+              { id: 'pickup', label: '🏬 Retirada Balcão' },
               { id: 'instore', label: '🍽️ Consumo Mesa' },
               { id: 'kiosk', label: '📱 Totem' },
             ].map(channel => (
@@ -4755,7 +4714,7 @@ export default function Admin() {
             <div className="flex items-center justify-between gap-2 mb-2.5 px-1 flex-wrap">
               <span className="text-xs font-black uppercase tracking-wider text-stone-900 flex items-center gap-1.5">
                 <CalendarDays className="w-4 h-4 text-orange-600" />
-                <span>Filtrar Pedidos por Dia de Entrega / Retirada ({allPendingOrders.length}):</span>
+                <span>Filtrar Pedidos por Dia de Retirada ({allPendingOrders.length}):</span>
               </span>
               <div className="flex items-center gap-2 text-[11px] font-medium text-stone-500">
                 <span className="hidden md:inline">Cores por dia:</span>
@@ -4825,7 +4784,7 @@ export default function Admin() {
               paginatedPendingOrders.map(order => {
                 const pickupTs = getEffectivePickupTimestamp(order);
                 const diffMinutes = Math.round((pickupTs - nowTime) / (60 * 1000));
-                // Faltando 30 minutos ou menos para a entrega (ou já no horário/atrasado)
+                // Faltando 30 minutos ou menos para a retirada (ou já no horário/atrasado)
                 const isDueWithin30Mins = diffMinutes <= 30 && order.status !== 'completed' && order.status !== 'cancelled';
 
                 const dayInfo = getOrderDateInfo(order);
@@ -4841,7 +4800,7 @@ export default function Admin() {
                     }`}
                     style={isDueWithin30Mins ? { animationDuration: '1s' } : {}}
                   >
-                    {/* BANNER PULSANTE: FALTANDO 30 MINUTOS PARA ENTREGA / RETIRADA */}
+                    {/* BANNER PULSANTE: FALTANDO 30 MINUTOS PARA RETIRADA */}
                     {isDueWithin30Mins && (
                       <div className="bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white font-black text-xs px-3 py-2 flex items-center justify-between gap-2 border-b border-red-700 animate-pulse">
                         <div className="flex items-center gap-1.5">
@@ -4876,12 +4835,10 @@ export default function Admin() {
                     <span className="text-xs bg-white/25 backdrop-blur-xs px-2.5 py-1 rounded-full font-bold shadow-xs">
                       {order.status === 'pending' ? '🟡 Pendente' :
                        order.status === 'preparing' ? '🟠 Preparando' :
-                       order.status === 'ready_for_delivery' ? '🟣 Pedido Pronto (Entrega)' :
-                       (order.status === 'ready' || order.status === 'ready_for_pickup') ? '🟢 Pedido Pronto' :
-                       order.status === 'out_for_delivery' ? '🚚 Em Trânsito' :
+                       (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? '🟢 Pedido Pronto' :
                        order.status === 'completed' ? '✅ Entregue' :
                        order.status === 'cancelled' ? '🔴 Cancelado' :
-                       order.type === 'kiosk' ? '📱 Totem' : order.tableNumber ? '🍽️ Mesa' : '🛵 Delivery'}
+                       order.type === 'kiosk' ? '📱 Totem' : order.tableNumber ? '🍽️ Mesa' : '🏬 Retirada'}
                     </span>
                   </div>
                   <div className="p-4 flex-1">
@@ -4960,18 +4917,6 @@ export default function Admin() {
                         );
                       })}
                     </ul>
-                    {(order.deliveryType === 'delivery' || (order.deliveryFee !== undefined && order.deliveryFee > 0)) && (
-                      <div className="border-t pt-2 space-y-1 text-xs">
-                        <div className="flex justify-between text-stone-500 font-medium">
-                          <span>Subtotal dos itens:</span>
-                          <span>{formatCurrency(Math.max(0, (order.total || 0) - (order.deliveryFee || 0)))}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-orange-950 bg-orange-100/80 px-2.5 py-1 rounded-lg border border-orange-200">
-                          <span className="flex items-center gap-1">🛵 Taxa de Entrega:</span>
-                          <span className="font-black text-orange-800">{formatCurrency(order.deliveryFee || 0)}</span>
-                        </div>
-                      </div>
-                    )}
                     <div className="border-t pt-2 font-black text-right text-lg text-stone-900 flex justify-between items-center">
                       <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">TOTAL DO PEDIDO:</span>
                       <span>{formatCurrency(order.total)}</span>
@@ -4984,14 +4929,13 @@ export default function Admin() {
                         <span>Etapa do Pedido:</span>
                       </label>
                       <select
-                        value={order.status === 'ready_for_pickup' ? 'ready' : order.status}
+                        value={(order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'ready' : order.status}
                         onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
                         className="w-full sm:w-auto px-2.5 py-1.5 rounded-lg text-xs font-black bg-stone-50 border border-stone-300 text-stone-900 shadow-xs focus:bg-white focus:ring-2 focus:ring-orange-500 cursor-pointer"
                       >
                         <option value="pending">🟡 PENDENTE</option>
                         <option value="preparing">🟠 PREPARANDO</option>
-                        <option value="ready">🟢 PEDIDO PRONTO (Retirada)</option>
-                        <option value="ready_for_delivery">🟣 PEDIDO PRONTO (Entrega)</option>
+                        <option value="ready">🟢 PEDIDO PRONTO</option>
                         <option value="completed">✅ ENTREGUE</option>
                         <option value="cancelled">🔴 CANCELADO</option>
                       </select>
@@ -5033,40 +4977,15 @@ export default function Admin() {
                       )}
                       {order.status === 'preparing' && (
                         <div className="flex-1 flex gap-1.5">
-                          {(order.type === 'delivery' || order.deliveryType === 'delivery') ? (
-                            <button type="button" 
-                              onClick={() => handleUpdateOrderStatus(order.id, 'ready_for_delivery')}
-                              className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-purple-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                            >
-                              <CheckCircle2 className="w-4 h-4" /> Pedido Pronto (Entrega)
-                            </button>
-                          ) : (
-                            <button type="button" 
-                              onClick={() => handleUpdateOrderStatus(order.id, 'ready')}
-                              className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                            >
-                              <CheckCircle2 className="w-4 h-4" /> Pedido Pronto
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {order.status === 'ready_for_delivery' && (
-                        <div className="flex-1 flex gap-1.5">
                           <button type="button" 
-                            onClick={() => handleUpdateOrderStatus(order.id, 'out_for_delivery')}
-                            className="flex-1 bg-indigo-600 text-white py-2 px-2 rounded-lg font-bold text-xs hover:bg-indigo-700 flex items-center justify-center gap-1 shadow-xs transition-colors"
+                            onClick={() => handleUpdateOrderStatus(order.id, 'ready')}
+                            className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
                           >
-                            <Bike className="w-4 h-4" /> Saiu
-                          </button>
-                          <button type="button" 
-                            onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
-                            className="flex-1 bg-emerald-600 text-white py-2 px-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1 shadow-xs transition-colors"
-                          >
-                            <CheckCircle2 className="w-4 h-4" /> Entregue
+                            <CheckCircle2 className="w-4 h-4" /> Pedido Pronto
                           </button>
                         </div>
                       )}
-                      {(order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'out_for_delivery') && (
+                      {(order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') && (
                         <button type="button" 
                           onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
                           className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-emerald-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
@@ -5165,36 +5084,28 @@ export default function Admin() {
                       ) : order.tableNumber ? (
                         <span className="text-xs bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">Mesa {order.tableNumber}</span>
                       ) : (
-                        <span className="text-xs bg-stone-100 text-stone-700 px-2 py-0.5 rounded font-bold">Delivery</span>
+                        <span className="text-xs bg-stone-100 text-stone-700 px-2 py-0.5 rounded font-bold">Retirada</span>
                       )}
                     </td>
                     <td className="p-4 font-medium">
                       <div className="font-bold text-stone-900">{formatCurrency(order.total)}</div>
-                      {(order.deliveryType === 'delivery' || (order.deliveryFee !== undefined && order.deliveryFee > 0)) && (
-                        <div className="text-[10px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                          🛵 Taxa: {formatCurrency(order.deliveryFee || 0)}
-                        </div>
-                      )}
                     </td>
                     <td className="p-4">
                       <select
-                        value={order.status === 'ready_for_pickup' ? 'ready' : order.status}
+                        value={(order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'ready' : order.status}
                         onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-black border cursor-pointer shadow-xs focus:ring-2 focus:ring-orange-500 ${
                           order.status === 'completed' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                          order.status === 'ready' || order.status === 'ready_for_pickup' ? 'bg-blue-50 text-blue-800 border-blue-300' :
-                          order.status === 'ready_for_delivery' ? 'bg-purple-50 text-purple-800 border-purple-300' :
+                          (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'bg-blue-50 text-blue-800 border-blue-300' :
                           order.status === 'preparing' ? 'bg-orange-50 text-orange-800 border-orange-300' :
                           order.status === 'pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                          order.status === 'out_for_delivery' ? 'bg-indigo-50 text-indigo-800 border-indigo-300' :
                           'bg-red-50 text-red-800 border-red-300'
                         }`}
                         title="Alterar etapa do pedido"
                       >
                         <option value="pending">🟡 Pendente</option>
                         <option value="preparing">🟠 Preparando</option>
-                        <option value="ready">🟢 Pedido Pronto (Retirada)</option>
-                        <option value="ready_for_delivery">🟣 Pedido Pronto (Entrega)</option>
+                        <option value="ready">🟢 Pedido Pronto</option>
                         <option value="completed">✅ Entregue</option>
                         <option value="cancelled">🔴 Cancelado</option>
                       </select>
@@ -5243,7 +5154,7 @@ export default function Admin() {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
-                      {order.status === 'ready' && (
+                      {(order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') && (
                         <button type="button" 
                           onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
                           className="text-green-600 hover:text-green-800 font-medium ml-2"
@@ -5425,26 +5336,6 @@ export default function Admin() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-1 mt-1.5 items-center">
-                      <button
-                        type="button"
-                        title={category.availableForDelivery !== false ? "Clique para desativar esta categoria no Delivery" : "Clique para ativar esta categoria no Delivery"}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          const newValue = category.availableForDelivery === false;
-                          await updateCategory(category.id, { 
-                            availableForDelivery: newValue,
-                            ...(newValue ? { isVisible: true } : {})
-                          });
-                        }}
-                        className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer font-bold flex items-center gap-1 active:scale-95 ${
-                          category.availableForDelivery !== false
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-xs hover:bg-emerald-200'
-                            : 'bg-stone-100 text-stone-400 border-stone-200 line-through opacity-50 hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-700 hover:no-underline'
-                        }`}
-                      >
-                        🛵 Delivery
-                      </button>
-
                       <button
                         type="button"
                         title={category.availableInStore !== false ? "Clique para desativar esta categoria na Loja" : "Clique para ativar esta categoria na Loja"}
@@ -6130,23 +6021,6 @@ export default function Admin() {
                             {product.isAddon && <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded uppercase font-bold">Opcional</span>}
                             {product.isFlavor && <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded uppercase font-bold">Sabor</span>}
                             
-                            <button
-                              type="button"
-                              title={product.availableForDelivery !== false ? "Clique para desativar no Delivery" : "Clique para ativar no Delivery"}
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const newValue = product.availableForDelivery === false;
-                                await updateProduct(product.id, { availableForDelivery: newValue });
-                              }}
-                              className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer font-bold flex items-center gap-1 active:scale-95 ${
-                                product.availableForDelivery !== false
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-xs hover:bg-emerald-200'
-                                  : 'bg-stone-100 text-stone-400 border-stone-200 line-through opacity-50 hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-700 hover:no-underline'
-                              }`}
-                            >
-                              🛵 Delivery
-                            </button>
-
                             <button
                               type="button"
                               title={product.availableInStore !== false ? "Clique para desativar na Loja" : "Clique para ativar na Loja"}
@@ -7197,7 +7071,7 @@ export default function Admin() {
               </p>
               <ul className="text-[11px] list-disc list-inside space-y-0.5 text-amber-900">
                 <li><strong>Consumo na Loja e Totem:</strong> Abrem e fecham <u>automaticamente</u> de acordo com a escala de horários da loja física ({getStoreCurrentStatus(weeklyScheduleState, isOpenState, true).isWithinSchedule ? '🟢 Aberto Agora' : '🔴 Fechado Fora do Horário'}).</li>
-                <li><strong>Delivery e Loja Geral:</strong> Abertura e fechamento <u>manual</u> pelos botões abaixo.</li>
+                <li><strong>Loja Geral:</strong> Abertura e fechamento <u>manual</u> pelo botão abaixo.</li>
               </ul>
             </div>
 
@@ -7255,29 +7129,6 @@ export default function Admin() {
                     className="sr-only peer"
                   />
                   <div className="w-12 h-7 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-600"></div>
-                </div>
-              </label>
-
-              {/* Delivery */}
-              <label className="flex items-center justify-between p-3.5 bg-stone-50 hover:bg-stone-100/80 rounded-2xl border border-stone-200 cursor-pointer transition-colors">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-stone-800">Entrega (Desativada)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-600">
-                      Desativada
-                    </span>
-                  </div>
-                  <span className="text-xs text-stone-500">Função de delivery desativada.</span>
-                </div>
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    name="deliveryEnabled" 
-                    checked={false}
-                    disabled={true}
-                    className="sr-only peer"
-                  />
-                  <div className="w-12 h-7 bg-stone-200 rounded-full"></div>
                 </div>
               </label>
 
@@ -7566,7 +7417,7 @@ export default function Admin() {
                 </div>
                 <div>
                   <span className="text-sm font-bold text-stone-800">Ativar Página de Manutenção</span>
-                  <p className="text-xs text-stone-500">Bloqueia o cardápio e delivery temporariamente para o público geral.</p>
+                  <p className="text-xs text-stone-500">Bloqueia o cardápio digital temporariamente para o público geral.</p>
                 </div>
               </label>
 
@@ -9218,29 +9069,6 @@ export default function Admin() {
               <UtensilsCrossed className="w-5 h-5" /> Mesas & QR Codes
             </button>
           )} */}
-          {/* ... (comment out Customers, Drivers tabs similarly) */}
-          {/* {(isAdminOrMaster || isCaixaUser) && (
-            <button type="button" 
-              onClick={() => {
-                setActiveTab('drivers');
-                setIsMobileNavOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'drivers' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
-            >
-              <Bike className="w-5 h-5" /> Entregas & Motoboys
-            </button>
-          )}
-          {(isAdminOrMaster || isCaixaUser) && (
-            <button type="button" 
-              onClick={() => {
-                setActiveTab('delivery_zones');
-                setIsMobileNavOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'delivery_zones' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
-            >
-              <MapPin className="w-5 h-5" /> Bairros & Taxas (CEP)
-            </button>
-          )} */}
           {!isCaixaUser && (
             <button type="button" 
               onClick={() => {
@@ -9435,7 +9263,7 @@ export default function Admin() {
                   </span>
                 </h4>
                 <p className="text-amber-900/80 text-xs mt-0.5 font-medium leading-relaxed">
-                  O cardápio digital e delivery estão exibindo a tela de manutenção com seus contatos. Somente administradores logados continuam com acesso.
+                  O cardápio digital está exibindo a tela de manutenção com seus contatos. Somente administradores logados continuam com acesso.
                 </p>
               </div>
             </div>
@@ -9448,7 +9276,7 @@ export default function Admin() {
                     setConfirmModal({
                       isOpen: true,
                       title: 'Manutenção Desativada',
-                      message: 'O cardápio e delivery voltaram a ficar 100% disponíveis ao público!',
+                      message: 'O cardápio digital voltou a ficar 100% disponível ao público!',
                       onConfirm: () => setConfirmModal(null)
                     });
                   } catch (e) {
@@ -9473,8 +9301,6 @@ export default function Admin() {
           />
         )}
         {activeTab === 'tables' && (isAdminOrMaster || isCaixaUser) && <TableManagerTab orders={orders} />}
-        {activeTab === 'drivers' && (isAdminOrMaster || isCaixaUser) && <DriversTab orders={orders} />}
-        {activeTab === 'delivery_zones' && (isAdminOrMaster || isCaixaUser) && <DeliveryZonesTab />}
         {activeTab === 'categories' && !isCaixaUser && renderCategories()}
         {activeTab === 'products' && !isCaixaUser && renderProducts()}
         {activeTab === 'flavors' && !isCaixaUser && renderFlavors()}
@@ -9669,15 +9495,6 @@ export default function Admin() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input 
                         type="checkbox" 
-                        name="availableForDelivery" 
-                        defaultChecked={editingItem ? editingItem.availableForDelivery !== false : true} 
-                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                      />
-                      <span>🛵 Delivery</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
                         name="availableInStore" 
                         defaultChecked={editingItem ? editingItem.availableInStore !== false : true} 
                         className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
@@ -9742,7 +9559,7 @@ export default function Admin() {
                   <label className="block text-sm font-medium text-stone-700 mb-1">Cargo</label>
                   <select name="role" defaultValue={editingItem?.role || 'padrao'} required className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none">
                     <option value="master">Master (Acesso Completo a Todas as Funcionalidades e Configurações)</option>
-                    <option value="admin">Administrador (Pedidos, Clientes, Mesas, Entregas, Catálogo e TV)</option>
+                    <option value="admin">Administrador (Pedidos, Clientes, Mesas, Catálogo e TV)</option>
                     <option value="padrao">Padrão (Dashboard, Produtos, Categorias, Sabores e TV)</option>
                   </select>
                 </div>
@@ -9943,16 +9760,6 @@ export default function Admin() {
                 <div className="p-3 bg-orange-50/60 border border-orange-200/80 rounded-xl space-y-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">Disponibilidade por Canal de Venda</label>
                   <div className="flex flex-col sm:flex-row sm:items-center flex-wrap gap-3 pt-1">
-                    <label className="flex items-center gap-2 text-xs font-bold text-stone-800 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="availableForDelivery"
-                        id="availableForDelivery"
-                        defaultChecked={editingItem ? editingItem.availableForDelivery !== false : true}
-                        className="w-4 h-4 text-orange-600 focus:ring-orange-500 rounded"
-                      />
-                      <span>🛵 Delivery (Entrega)</span>
-                    </label>
                     <label className="flex items-center gap-2 text-xs font-bold text-stone-800 cursor-pointer">
                       <input
                         type="checkbox"

@@ -404,7 +404,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       const matchesSource = selectedSource === 'all' || 
         (selectedSource === 'orders' && (c.source === 'order' || c.totalOrders > 0)) ||
         (selectedSource === 'leads' && (c.source !== 'order' && c.totalOrders === 0)) ||
-        (selectedSource === 'delivery' && (c.source === 'delivery' || c.source === 'pedido_delivery')) ||
         (selectedSource === 'instore' && (c.source === 'instore' || c.source === 'pedido_loja' || c.source === 'dine_in')) ||
         (selectedSource === 'bluefocus_erp' && (c.source === 'bluefocus_erp' || Boolean(c.externalId))) ||
         c.source === selectedSource;
@@ -752,7 +751,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               <option value="bluefocus_erp">BlueFocus ERP</option>
               <option value="orders">Com Pedidos Realizados</option>
               <option value="leads">Apenas Leads (Sem compras)</option>
-              <option value="delivery">Delivery</option>
               <option value="instore">Retirada / Presencial</option>
               <option value="popup_novidades">Popup de Novidades</option>
               <option value="manual">Cadastro Manual</option>

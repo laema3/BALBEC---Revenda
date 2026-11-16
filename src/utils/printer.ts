@@ -235,7 +235,7 @@ export const resolveAddonCode = (addon: any): string => {
   return '';
 };
 
-export type OrderModality = 'DELIVERY' | 'RETIRADA' | 'CONSUMO NA LOJA' | 'TOTEM';
+export type OrderModality = 'RETIRADA' | 'CONSUMO NA LOJA' | 'TOTEM';
 
 export const resolveOrderModality = (order: any): OrderModality => {
   if (!order) return 'RETIRADA';
@@ -254,17 +254,7 @@ export const resolveOrderModality = (order: any): OrderModality => {
     return 'CONSUMO NA LOJA';
   }
 
-  // 3. DELIVERY
-  if (
-    deliveryType === 'delivery' || 
-    type === 'delivery' || 
-    (order.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-    Boolean(order.deliveryNeighborhood)
-  ) {
-    return 'DELIVERY';
-  }
-
-  // 4. RETIRADA
+  // 3. RETIRADA
   return 'RETIRADA';
 };
 
@@ -786,19 +776,7 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
     const orderTotal = Number(order.total) || 0;
     const differenceFee = Math.max(0, orderTotal - itemsSubtotal);
 
-    const isDeliveryOrder = order.deliveryType === 'delivery' || 
-      order.type === 'delivery' || 
-      Boolean(order.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-      Boolean((order as any).deliveryNeighborhood) ||
-      (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) ||
-      (differenceFee > 0.05 && !order.tableNumber && order.type !== 'kiosk');
-
-    let deliveryFeeAmount = 0;
-    if (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) {
-      deliveryFeeAmount = Number(order.deliveryFee);
-    } else if (differenceFee > 0.05) {
-      deliveryFeeAmount = differenceFee;
-    }
+    const isDeliveryOrder = false;
 
     let customerDisplayText = 'CLIENTE: BALCÃO / RETIRADA';
     if (order.customerName && order.customerName.trim() !== '' && order.customerName.trim().toUpperCase() !== 'CLIENTE' && order.customerName.trim().toUpperCase() !== 'CLIENTE TOTEM') {
@@ -807,8 +785,6 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
       customerDisplayText = 'CLIENTE: TOTEM / AUTOATENDIMENTO';
     } else if (order.tableNumber) {
       customerDisplayText = `CLIENTE: MESA ${order.tableNumber}`;
-    } else if (isDeliveryOrder) {
-      customerDisplayText = 'CLIENTE: ENTREGA / DELIVERY';
     } else {
       customerDisplayText = 'CLIENTE: BALCÃO / RETIRADA';
     }
@@ -852,7 +828,6 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
         })()}
 
         ${order.customerPhone ? `<div class="center text-sm">Tel: ${order.customerPhone}</div>` : ''}
-        ${order.deliveryAddress ? `<div class="center text-sm" style="margin-top: 2px;">End: ${order.deliveryAddress}</div>` : ''}
         
         <div class="center text-sm" style="margin-top: 2px;">${orderDate}</div>
         <div class="center text-sm bold" style="margin-top: 2px;">
@@ -860,7 +835,7 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
             ? 'Canal: Totem Autoatendimento' 
             : (order.tableNumber 
                 ? `Canal: Celular (Mesa ${order.tableNumber})` 
-                : (order.deliveryType === 'delivery' ? 'Canal: Entrega em Domicílio' : 'Canal: Celular (QR Code Balcão)'))}
+                : 'Canal: Celular (QR Code Balcão)')}
           ${(() => {
             const sTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
             const rawDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
@@ -901,19 +876,6 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
         </div>
 
         <div class="divider"></div>
-
-        ${isDeliveryOrder ? `
-        <div style="margin: 6px 0; padding: 4px 0; border-top: 2px dashed #000; border-bottom: 2px dashed #000;">
-          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #000; margin-bottom: 3px;">
-            <span>Subtotal dos Itens:</span>
-            <span>${formatCurrency(itemsSubtotal)}</span>
-          </div>
-          <div class="box-delivery-fee">
-            <span>🛵 TAXA DE ENTREGA:</span>
-            <span>${deliveryFeeAmount > 0 ? formatCurrency(deliveryFeeAmount) : 'GRÁTIS'}</span>
-          </div>
-        </div>
-        ` : ''}
 
         <div class="total-row">
           <span>TOTAL :</span>
@@ -1032,19 +994,7 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     const orderTotal = Number(order.total) || 0;
     const differenceFee = Math.max(0, orderTotal - itemsSubtotal);
 
-    const isDeliveryOrder = order.deliveryType === 'delivery' || 
-      order.type === 'delivery' || 
-      Boolean(order.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-      Boolean((order as any).deliveryNeighborhood) ||
-      (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) ||
-      (differenceFee > 0.05 && !order.tableNumber && order.type !== 'kiosk');
-
-    let deliveryFeeAmount = 0;
-    if (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) {
-      deliveryFeeAmount = Number(order.deliveryFee);
-    } else if (differenceFee > 0.05) {
-      deliveryFeeAmount = differenceFee;
-    }
+    const isDeliveryOrder = false;
 
     const modalityText = resolveOrderModality(order);
 
@@ -1055,7 +1005,7 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     // Center alignment
     lines.push('\x1B\x61\x01'); 
 
-    // 1. PRIMEIRA INFORMAÇÃO NO TOPO DO CUPOM: MODALIDADE (DELIVERY, RETIRADA, CONSUMO NA LOJA, TOTEM)
+    // 1. PRIMEIRA INFORMAÇÃO NO TOPO DO CUPOM: MODALIDADE (RETIRADA, CONSUMO NA LOJA, TOTEM)
     lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11');
     lines.push(`  *** ${modalityText} ***  \n`);
     lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00');
@@ -1081,7 +1031,7 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     lines.push(`  PEDIDO #${orderNumber}  \n`);
     lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00'); // Reset tamanho e modo inverso
 
-    // CLIENTE EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO) EM TODAS AS MODALIDADES (TOTEM, MESA, BALCÃO, DELIVERY)
+    // CLIENTE EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO) EM TODAS AS MODALIDADES (TOTEM, MESA, BALCÃO)
     let escPosCustomerText = 'CLIENTE: BALCAO';
     if (order.customerName && order.customerName.trim() !== '' && order.customerName.trim().toUpperCase() !== 'CLIENTE' && order.customerName.trim().toUpperCase() !== 'CLIENTE TOTEM') {
       escPosCustomerText = `CLIENTE: ${normalizeEscPosText(order.customerName.trim().toUpperCase())}`;
@@ -1089,8 +1039,6 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
       escPosCustomerText = 'CLIENTE: TOTEM / AUTOATENDIMENTO';
     } else if (order.tableNumber) {
       escPosCustomerText = `CLIENTE: MESA ${order.tableNumber}`;
-    } else if (isDeliveryOrder) {
-      escPosCustomerText = 'CLIENTE: ENTREGA / DELIVERY';
     } else {
       escPosCustomerText = 'CLIENTE: RETIRADA BALCAO';
     }
@@ -1109,9 +1057,6 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     if (order.customerPhone) {
       lines.push(`Tel: ${order.customerPhone}\n`);
     }
-    if (order.deliveryAddress) {
-      lines.push(`End: ${normalizeEscPosText(order.deliveryAddress)}\n`);
-    }
     const escScheduledTime = (order.scheduledTime || (order as any).scheduled_time || (order as any).scheduleTime || '').toString().trim();
     const rawEscDay = (order.scheduledDay || (order as any).scheduled_day || order.scheduledDate || (order as any).scheduled_date || '').toString().trim();
     const escScheduledDay = formatDateBR(rawEscDay);
@@ -1129,7 +1074,7 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
       ? 'Canal: Totem Autoatendimento' 
       : (order.tableNumber 
           ? `Canal: Celular (Mesa ${order.tableNumber})` 
-          : (order.deliveryType === 'delivery' ? 'Canal: Delivery' : 'Canal: Celular (QR Code Balcao)'));
+          : 'Canal: Celular (QR Code Balcao)');
     lines.push(`${channelEscPos}\n`);
     lines.push('--------------------------------\n');
     
@@ -1163,15 +1108,6 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     });
 
     lines.push('--------------------------------\n');
-    if (isDeliveryOrder) {
-      lines.push('\x1B\x61\x00'); // Left alignment
-      lines.push(`Subtotal Itens: ${formatCurrency(itemsSubtotal)}\n`);
-      // Taxa de entrega destacada com fundo preto e escrita branca
-      lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x01'); // Invertido + Negrito + Largura dupla
-      lines.push(` TAXA DE ENTREGA: ${deliveryFeeAmount > 0 ? formatCurrency(deliveryFeeAmount) : 'GRATIS'} \n`);
-      lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00'); // Reset invertido
-      lines.push('--------------------------------\n');
-    }
     lines.push('\x1B\x61\x02'); // Right alignment
     lines.push('\x1B\x45\x01\x1D\x21\x01'); // Bold + Double height total
     lines.push(`TOTAL: ${formatCurrency(order.total || 0)}\n`);
@@ -1459,13 +1395,6 @@ export const printReceipt = async (order: Order, storeInfo: StoreInfo, isAutoPri
     playPrintBeepSound();
   } catch (e) {}
 
-  const isDelivery = 
-    resolveOrderModality(order) === 'DELIVERY' ||
-    order.type === 'delivery' || 
-    order.deliveryType === 'delivery' ||
-    Boolean(order.deliveryAddress && String(order.deliveryAddress).trim().length > 0) ||
-    Boolean((order as any).deliveryNeighborhood);
-
   // 1. Se o tipo de conexão estiver definido para Driver Windows / USB Local
   if (storeInfo?.printerConnectionType === 'windows' && !isAndroidDevice() && !isTabletOrAndroidEnvironment()) {
     return printNativeDialog(order, storeInfo);
@@ -1498,10 +1427,6 @@ export const printReceipt = async (order: Order, storeInfo: StoreInfo, isAutoPri
   if (isKiosk && isNetworkPreferred) {
     console.warn('[Totem] Impressão de rede preferida. Suprimindo diálogo nativo automático no Totem para manter fluxo.');
     return 'kiosk-silent-skip';
-  }
-
-  if (isAutoPrint && isDelivery) {
-    return 'delivery-auto-silent';
   }
 
   return printNativeDialog(order, storeInfo);
@@ -1567,18 +1492,18 @@ export const createSampleOrder = (storeInfo: StoreInfo): Order => {
 };
 
 /**
- * Cria um pedido fictício de Delivery para testes de impressão com taxa de entrega
+ * Cria um pedido fictício de Retirada no Balcão para testes rápidos de impressão
  */
 export const createSampleDeliveryOrder = (storeInfo: StoreInfo): Order => {
   return {
     id: 'TEST-0002',
-    customerName: 'Cliente Teste (Delivery)',
+    customerName: 'Cliente Teste (Balcão)',
     customerPhone: '(11) 98888-7777',
-    type: 'delivery',
-    deliveryType: 'delivery',
-    deliveryAddress: 'Rua das Flores, 123 - Centro',
-    deliveryNeighborhood: 'Centro',
-    deliveryFee: 7.00,
+    type: 'online',
+    deliveryType: 'pickup',
+    deliveryAddress: '',
+    deliveryNeighborhood: '',
+    deliveryFee: 0,
     items: [
       {
         productId: 'sample_prod_1',
@@ -1594,9 +1519,9 @@ export const createSampleDeliveryOrder = (storeInfo: StoreInfo): Order => {
         quantity: 1
       }
     ],
-    total: 45.40,
+    total: 38.40,
     status: 'pending',
-    paymentMethod: 'PIX (Entrega)',
+    paymentMethod: 'PIX (Balcão)',
     createdAt: Date.now()
   };
 };
