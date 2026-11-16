@@ -631,6 +631,8 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_chime_enabled BOOLEAN DEFAULT TRUE;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS updated_at BIGINT;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS updated_at BIGINT;
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS manual_fields JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at BIGINT;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS manual_fields JSONB DEFAULT '[]'::jsonb;
   `);
 }

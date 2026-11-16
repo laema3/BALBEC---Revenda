@@ -227,11 +227,27 @@ export const formatProductDescriptionWithCode = (desc?: string | null, code?: st
   return `Cód: ${cleanCode} • ${cleanDesc}`;
 };
 
-export const getEnrichedProductDescription = (name: string, externalId?: string, currentDesc?: string): string => {
+export const getEnrichedProductDescription = (
+  name: string,
+  externalId?: string,
+  currentDesc?: string,
+  manualFields?: string[]
+): string => {
   const normName = (name || '').toLowerCase();
   const extId = (externalId || '').toString().trim();
 
   const cleanCurrent = cleanProductDescription(currentDesc, true);
+
+  // Se a descrição foi editada manualmente, preserva exatamente o que o administrador definiu
+  if (Array.isArray(manualFields) && manualFields.includes('description')) {
+    return cleanCurrent;
+  }
+
+  // Se já existe qualquer descrição customizada (mesmo curta) diferente apenas do título repetido, preserva sempre!
+  const isGeneric = !cleanCurrent || cleanCurrent.toLowerCase() === normName;
+  if (!isGeneric) {
+    return cleanCurrent;
+  }
 
   // Se for caldo, sopa, bebida, café ou doce, NUNCA aplica descrição de lanche de chapa!
   if (
@@ -250,11 +266,6 @@ export const getEnrichedProductDescription = (name: string, externalId?: string,
     normName.includes('coxinha') ||
     normName.includes('pao de queijo')
   ) {
-    return cleanCurrent;
-  }
-
-  const isGeneric = !cleanCurrent || cleanCurrent.length < 25 || cleanCurrent.toLowerCase() === normName;
-  if (!isGeneric && cleanCurrent) {
     return cleanCurrent;
   }
 

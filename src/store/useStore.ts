@@ -196,6 +196,7 @@ export interface Category {
   availableInStore?: boolean;
   availableForKiosk?: boolean;
   modality?: 'pronto' | 'congelado' | string;
+  manualFields?: string[];
   updatedAt?: number;
 }
 
@@ -229,6 +230,8 @@ export interface Product {
   availableForDelivery?: boolean;
   availableInStore?: boolean;
   availableForKiosk?: boolean;
+  manualFields?: string[];
+  updatedAt?: number;
 }
 
 export interface OrderItem {
@@ -1069,14 +1072,19 @@ export const useStore = create<StoreState>((set, get) => ({
                   }
                 }
 
+                const manualFields = Array.isArray(p.manualFields)
+                  ? p.manualFields
+                  : (Array.isArray(p.manual_fields) ? p.manual_fields : []);
+
                 return {
                   ...p,
-                  description: getEnrichedProductDescription(p.name, p.externalId, p.description),
+                  description: getEnrichedProductDescription(p.name, p.externalId, p.description, manualFields),
                   availableForDelivery,
                   availableInStore,
                   availableForKiosk,
                   isVisible,
                   isActive,
+                  manualFields,
                 };
               };
 
@@ -1520,7 +1528,10 @@ export const useStore = create<StoreState>((set, get) => ({
   
   updateCategory: async (id, category) => {
     unmarkLocalItemDeleted('categories', id);
-    const payload = { ...category, updatedAt: Date.now() };
+    const existing = get().categories.find(c => c.id === id);
+    const editedKeys = Object.keys(category).filter(k => k !== 'updatedAt' && k !== 'manualFields');
+    const mergedManualFields = Array.from(new Set([...(existing?.manualFields || []), ...(category.manualFields || []), ...editedKeys]));
+    const payload: any = { ...category, manualFields: mergedManualFields, updatedAt: Date.now() };
     set(state => {
       const next = state.categories.map(c => c.id === id ? { ...c, ...payload } : c);
       saveCategoriesToStorage(next);
@@ -1533,8 +1544,9 @@ export const useStore = create<StoreState>((set, get) => ({
         body: JSON.stringify(payload)
       });
       if (res.ok) {
+        const saved = await res.json().catch(() => null);
         set(state => {
-          const next = state.categories.map(c => c.id === id ? { ...c, ...payload } : c);
+          const next = state.categories.map(c => c.id === id ? { ...c, ...payload, ...(saved || {}) } : c);
           saveCategoriesToStorage(next);
           return { categories: next };
         });
@@ -1566,20 +1578,19 @@ export const useStore = create<StoreState>((set, get) => ({
   addProduct: async (product) => {
     const id = Math.random().toString(36).substring(2, 9);
     unmarkLocalItemDeleted('products', id);
-    const activeChannels: string[] = [];
-    if (product.availableForDelivery !== false) activeChannels.push('delivery');
-    if (product.availableInStore !== false) activeChannels.push('in_store');
-    if (product.availableForKiosk !== false) activeChannels.push('kiosk');
+    const cleanDesc = cleanProductDescription(product.description, true);
+    const manualFields = Array.from(new Set([...(product.manualFields || []), 'name', 'price', 'description', 'categoryId']));
 
-    let cleanDesc = cleanProductDescription(product.description, true);
-    if (activeChannels.length < 3) {
-      cleanDesc = `${cleanDesc} [channels:${activeChannels.join(',')}]`.trim();
-    }
-
-    const payload: any = { id, ...product, description: cleanDesc, updatedAt: Date.now() };
-    delete payload.availableForDelivery;
-    delete payload.availableInStore;
-    delete payload.availableForKiosk;
+    const payload: any = {
+      id,
+      ...product,
+      description: cleanDesc,
+      availableForDelivery: product.availableForDelivery !== false,
+      availableInStore: product.availableInStore !== false,
+      availableForKiosk: product.availableForKiosk !== false,
+      manualFields,
+      updatedAt: Date.now()
+    };
 
     try {
       const res = await fetch('/api/db/products', {
@@ -1590,7 +1601,7 @@ export const useStore = create<StoreState>((set, get) => ({
       if (res.ok) {
         const saved = await res.json();
         set(state => {
-          const next = [...state.products, { ...saved, ...product, description: cleanDesc, updatedAt: Date.now() }];
+          const next = [...state.products, { ...payload, ...saved, description: cleanDesc, updatedAt: Date.now() }];
           saveProductsToStorage(next);
           return { products: next };
         });
@@ -1605,23 +1616,19 @@ export const useStore = create<StoreState>((set, get) => ({
     const existing = get().products.find(p => p.id === id);
     const merged = existing ? { ...existing, ...product } : { ...product };
 
-    const activeChannels: string[] = [];
-    if (merged.availableForDelivery !== false) activeChannels.push('delivery');
-    if (merged.availableInStore !== false) activeChannels.push('in_store');
-    if (merged.availableForKiosk !== false) activeChannels.push('kiosk');
+    const cleanDesc = cleanProductDescription(merged.description, true);
+    const editedKeys = Object.keys(product).filter(k => k !== 'updatedAt' && k !== 'manualFields');
+    const mergedManualFields = Array.from(new Set([...(existing?.manualFields || []), ...(product.manualFields || []), ...editedKeys]));
 
-    let cleanDesc = cleanProductDescription(merged.description, true);
-    if (activeChannels.length < 3) {
-      cleanDesc = `${cleanDesc} [channels:${activeChannels.join(',')}]`.trim();
-    }
-
-    const payload: any = { ...product, description: cleanDesc, updatedAt: Date.now() };
-    delete payload.availableForDelivery;
-    delete payload.availableInStore;
-    delete payload.availableForKiosk;
+    const payload: any = {
+      ...product,
+      ...(product.description !== undefined ? { description: cleanDesc } : {}),
+      manualFields: mergedManualFields,
+      updatedAt: Date.now()
+    };
 
     set(state => {
-      const next = state.products.map(p => p.id === id ? { ...p, ...merged, description: cleanDesc, updatedAt: Date.now() } : p);
+      const next = state.products.map(p => p.id === id ? { ...p, ...merged, description: cleanDesc, manualFields: mergedManualFields, updatedAt: payload.updatedAt } : p);
       saveProductsToStorage(next);
       return { products: next };
     });
@@ -1633,8 +1640,9 @@ export const useStore = create<StoreState>((set, get) => ({
         body: JSON.stringify(payload)
       });
       if (res.ok) {
+        const saved = await res.json().catch(() => null);
         set(state => {
-          const next = state.products.map(p => p.id === id ? { ...p, ...merged, description: cleanDesc, updatedAt: Date.now() } : p);
+          const next = state.products.map(p => p.id === id ? { ...p, ...merged, ...(saved || {}), description: cleanDesc, manualFields: mergedManualFields } : p);
           saveProductsToStorage(next);
           return { products: next };
         });

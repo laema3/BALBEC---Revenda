@@ -280,7 +280,7 @@ let memTotemBackups: any[] = [];
 let memDeletedIds: DeletedIdsRegistry = createEmptyDeletedRegistry();
 
 // Helper functions for safe disk persistence
-function loadJsonFile<T>(filePath: string, fallback: T): T {
+function loadJsonFile<T>(filePath: string, fallback: T, allowSeedFallback = true): T {
   try {
     const isOrdersPrimary = filePath === ORDERS_FILE || filePath.endsWith('.orders_data.json') || filePath.endsWith('orders_data.json');
     // 1. Prioritize direct primary file path if it exists and is valid
@@ -298,6 +298,10 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
           }
         }
       } catch (_) {}
+    }
+
+    if (!allowSeedFallback) {
+      return fallback;
     }
 
     // 2. Fall back to seed directories if primary file does not exist or was empty
@@ -448,16 +452,16 @@ const seedDeletedIds: any = loadJsonFile(path.join(process.cwd(), 'src', 'data',
 
 // 1. Carregar Estado Inicial de Todos os Arquivos Persistidos
 try {
-  const masterState = loadJsonFile<any>(MASTER_STATE_FILE, null);
-  const diskDeletedIds = loadJsonFile<any>(DELETED_IDS_FILE, null);
+  const masterState = loadJsonFile<any>(MASTER_STATE_FILE, null, false);
+  const diskDeletedIds = loadJsonFile<any>(DELETED_IDS_FILE, null, false);
   memDeletedIds = mergeDeletedRegistries(
     mergeDeletedRegistries(seedDeletedIds, masterState?.deletedIds),
     diskDeletedIds
   );
 
-  const diskCategories = loadJsonFile(CATEGORIES_FILE, []);
-  const diskProducts = loadJsonFile(PRODUCTS_FILE, []);
-  const diskCustomers = loadJsonFile(CUSTOMERS_FILE, []);
+  const diskCategories = loadJsonFile(CATEGORIES_FILE, [], false);
+  const diskProducts = loadJsonFile(PRODUCTS_FILE, [], false);
+  const diskCustomers = loadJsonFile(CUSTOMERS_FILE, [], false);
 
   // Smart Merge entre Seed, MasterState e Disco para NUNCA perder categorias ou produtos locais
   const mergedInitCats = smartMergeCollectionItems(
@@ -474,6 +478,7 @@ try {
   );
   memProducts = mergedInitProds.length > 0 ? mergedInitProds : DEFAULT_PRODUCTS;
 
+  const hasLiveDiskProducts = diskProducts.length > 0 || (Array.isArray(masterState?.products) && masterState.products.length > 0);
   let congeladoProd = memProducts.find(p => p.id === 'prod_congelado');
   if (!congeladoProd) {
     congeladoProd = {
@@ -489,17 +494,18 @@ try {
       availableForDelivery: true,
       availableInStore: true,
       availableForKiosk: true,
-      order: 9999
+      order: 9999,
+      ...(!hasLiveDiskProducts ? { _isSeed: true } : {})
     };
     memProducts.push(congeladoProd);
-    writeJsonFile(PRODUCTS_FILE, memProducts);
+    if (hasLiveDiskProducts) writeJsonFile(PRODUCTS_FILE, memProducts);
   } else if (!congeladoProd.price || congeladoProd.price > 1.0) {
     congeladoProd.price = 0.30;
-    writeJsonFile(PRODUCTS_FILE, memProducts);
+    if (hasLiveDiskProducts) writeJsonFile(PRODUCTS_FILE, memProducts);
   }
   memTvMedia = smartMergeCollectionItems(
     'tvMedia',
-    [seedTvMedia, masterState?.tvMedia || [], loadJsonFile(TV_MEDIA_FILE, [])],
+    [seedTvMedia, masterState?.tvMedia || [], loadJsonFile(TV_MEDIA_FILE, [], false)],
     memDeletedIds
   );
   const autoBackupPath = path.join(process.cwd(), 'public', 'assets', 'aistudio', 'balbec_backup_latest_auto.json');
@@ -512,7 +518,7 @@ try {
       }
     } catch {}
   }
-  const diskStoreInfo = loadJsonFile<any>(STORE_INFO_FILE, {});
+  const diskStoreInfo = loadJsonFile<any>(STORE_INFO_FILE, {}, false);
   const baseStore = { ...DEFAULT_STORE_INFO, ...seedStoreInfo, ...(backupStoreInfo || {}), ...(masterState?.storeInfo || {}) };
   memStoreInfo = {
     ...baseStore,
@@ -521,8 +527,8 @@ try {
       ? diskStoreInfo.weeklySchedule
       : (baseStore.weeklySchedule || DEFAULT_STORE_INFO.weeklySchedule)
   };
-  const initialDiskOrders = loadJsonFile(ORDERS_FILE, []);
-  const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []);
+  const initialDiskOrders = loadJsonFile(ORDERS_FILE, [], false);
+  const initialSeedOrders = loadJsonFile(path.join(process.cwd(), 'src', 'data', 'seed', 'orders_data.json'), []).map((o: any) => ({ ...o, _isSeed: true }));
   memOrders = smartMergeCollectionItems(
     'orders',
     [initialSeedOrders, masterState?.orders || [], initialDiskOrders],
@@ -539,7 +545,7 @@ try {
       ...c,
       status: (c.status === 'rejected') ? 'rejected' : 'approved'
     }));
-  memUsers = loadJsonFile(USERS_FILE, masterState?.users || DEFAULT_USERS);
+  memUsers = loadJsonFile(USERS_FILE, masterState?.users || DEFAULT_USERS, false);
   const adminMasterIdx = memUsers.findIndex((u: any) => (u.email || '').trim().toLowerCase() === 'admin@balbec.com.br');
   if (adminMasterIdx >= 0) {
     memUsers[adminMasterIdx] = {
@@ -553,13 +559,13 @@ try {
   }
   memTables = smartMergeCollectionItems(
     'tables',
-    [DEFAULT_TABLES, masterState?.tables || [], loadJsonFile(TABLES_FILE, [])],
+    [DEFAULT_TABLES, masterState?.tables || [], loadJsonFile(TABLES_FILE, [], false)],
     memDeletedIds
   );
-  memAppInstalls = loadJsonFile(APP_INSTALLS_FILE, []);
+  memAppInstalls = loadJsonFile(APP_INSTALLS_FILE, [], false);
   memTotemBackups = smartMergeCollectionItems(
     'totemBackups',
-    [Array.isArray(seedTotemBackups) ? seedTotemBackups : [], masterState?.totemBackups || [], loadJsonFile(TOTEM_BACKUPS_FILE, [])],
+    [Array.isArray(seedTotemBackups) ? seedTotemBackups : [], masterState?.totemBackups || [], loadJsonFile(TOTEM_BACKUPS_FILE, [], false)],
     memDeletedIds
   );
 
@@ -864,12 +870,30 @@ const parseDbBool = (primary: any, secondary: any, defaultVal = true): boolean =
 
 export function formatProductForDb(p: any) {
   const rawFrozenCat = p.frozenCategoryId !== undefined ? p.frozenCategoryId : p.frozen_category_id;
+  let availableForDelivery = parseDbBool(p.availableForDelivery, p.available_for_delivery, true);
+  let availableInStore = parseDbBool(p.availableInStore, p.available_in_store, true);
+  let availableForKiosk = parseDbBool(p.availableForKiosk, p.available_for_kiosk, true);
+
+  if (typeof p.description === 'string' && p.description.includes('[channels:')) {
+    const match = p.description.match(/\[channels:(.*?)\]/);
+    if (match) {
+      const ch = match[1].split(',');
+      availableForDelivery = ch.includes('delivery');
+      availableInStore = ch.includes('in_store');
+      availableForKiosk = ch.includes('kiosk');
+    }
+  }
+
+  const manualFields = Array.isArray(p.manualFields)
+    ? p.manualFields
+    : (Array.isArray(p.manual_fields) ? p.manual_fields : []);
+
   return {
     id: String(p.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
     categoryId: p.categoryId ? String(p.categoryId) : (p.category_id ? String(p.category_id) : null),
     frozenCategoryId: rawFrozenCat ? String(rawFrozenCat) : null,
     name: String(p.name || 'Produto sem nome').trim(),
-    description: cleanProductDescription(p.description || '', false),
+    description: cleanProductDescription(p.description || '', true),
     price: typeof p.price === 'number' ? (isNaN(p.price) ? 0 : p.price) : (parseFloat(p.price) || 0),
     imageUrl: p.imageUrl ? String(p.imageUrl) : (p.image_url ? String(p.image_url) : ''),
     isActive: parseDbBool(p.isActive, p.is_active, true),
@@ -882,10 +906,11 @@ export function formatProductForDb(p: any) {
     order: typeof p.order === 'number' ? p.order : (parseInt(p.order, 10) || 0),
     allowFrozen: parseDbBool(p.allowFrozen, p.allow_frozen, true),
     minFrozenQuantity: typeof p.minFrozenQuantity === 'number' ? (isNaN(p.minFrozenQuantity) ? 1 : p.minFrozenQuantity) : (parseInt(p.minFrozenQuantity || p.min_frozen_quantity, 10) || 1),
-    availableForDelivery: parseDbBool(p.availableForDelivery, p.available_for_delivery, true),
-    availableInStore: parseDbBool(p.availableInStore, p.available_in_store, true),
-    availableForKiosk: parseDbBool(p.availableForKiosk, p.available_for_kiosk, true),
-    updatedAt: Number(p.updatedAt || p.updated_at || Date.now()),
+    availableForDelivery,
+    availableInStore,
+    availableForKiosk,
+    manualFields,
+    updatedAt: Number(p.updatedAt || p.updated_at || 0),
   };
 }
 
@@ -895,6 +920,10 @@ export function formatCategoryForDb(c: any) {
   const finalModality = isNameFrozen
     ? 'congelado'
     : (c.modality === 'congelado' || c.modality === 'pronto' ? c.modality : 'pronto');
+  const manualFields = Array.isArray(c.manualFields)
+    ? c.manualFields
+    : (Array.isArray(c.manual_fields) ? c.manual_fields : []);
+
   return {
     id: String(c.id || `cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
     name: catName,
@@ -905,7 +934,8 @@ export function formatCategoryForDb(c: any) {
     availableInStore: parseDbBool(c.availableInStore, c.available_in_store, true),
     availableForKiosk: parseDbBool(c.availableForKiosk, c.available_for_kiosk, true),
     modality: finalModality,
-    updatedAt: Number(c.updatedAt || c.updated_at || Date.now()),
+    manualFields,
+    updatedAt: Number(c.updatedAt || c.updated_at || 0),
   };
 }
 
@@ -938,11 +968,13 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
                 maxAddons: item.maxAddons,
                 flavorIds: item.flavorIds,
                 externalId: item.externalId,
+                order: item.order,
                 allowFrozen: item.allowFrozen,
                 minFrozenQuantity: item.minFrozenQuantity,
                 availableForDelivery: item.availableForDelivery,
                 availableInStore: item.availableInStore,
                 availableForKiosk: item.availableForKiosk,
+                manualFields: item.manualFields,
                 updatedAt: item.updatedAt,
               }
             });
@@ -959,13 +991,23 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
               name: item.name,
               categoryId: item.categoryId,
               frozenCategoryId: item.frozenCategoryId,
-              allowFrozen: item.allowFrozen,
-              minFrozenQuantity: item.minFrozenQuantity,
               description: item.description,
               price: item.price,
               imageUrl: item.imageUrl,
               isActive: item.isActive,
+              isAddon: item.isAddon,
+              isFlavor: item.isFlavor,
+              addonIds: item.addonIds,
+              maxAddons: item.maxAddons,
+              flavorIds: item.flavorIds,
               externalId: item.externalId,
+              order: item.order,
+              allowFrozen: item.allowFrozen,
+              minFrozenQuantity: item.minFrozenQuantity,
+              availableForDelivery: item.availableForDelivery,
+              availableInStore: item.availableInStore,
+              availableForKiosk: item.availableForKiosk,
+              manualFields: item.manualFields,
               updatedAt: item.updatedAt,
             }
           });
@@ -997,6 +1039,7 @@ export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promis
             availableInStore: cat.availableInStore,
             availableForKiosk: cat.availableForKiosk,
             modality: cat.modality,
+            manualFields: cat.manualFields,
             updatedAt: cat.updatedAt,
           }
         })
@@ -1192,6 +1235,43 @@ export async function syncWithCloudFirestore(): Promise<void> {
           }
           if (ordersClearedAt > 0) {
             db.delete(orders).where(sql`${orders.createdAt} <= ${ordersClearedAt}`).catch(() => {});
+          }
+        }
+      }
+
+      // Prune deleted categories & products immediately from memory and PostgreSQL
+      const deletedCatsMap = memDeletedIds.categories || {};
+      const prunedCats = memCategories.filter(c => {
+        if (!c || !c.id) return false;
+        const delTs = Number(deletedCatsMap[String(c.id).trim()] || 0);
+        const itemTs = Number(c.updatedAt || 0);
+        if (delTs > 0 && (itemTs === 0 || itemTs <= delTs)) return false;
+        return true;
+      });
+      if (prunedCats.length !== memCategories.length) {
+        memCategories = prunedCats;
+        persistCategoriesToDisk(memCategories, false);
+        if (isDatabaseConfigured()) {
+          for (const delId of Object.keys(deletedCatsMap)) {
+            db.delete(categories).where(eq(categories.id, delId)).catch(() => {});
+          }
+        }
+      }
+
+      const deletedProdsMap = memDeletedIds.products || {};
+      const prunedProds = memProducts.filter(p => {
+        if (!p || !p.id) return false;
+        const delTs = Number(deletedProdsMap[String(p.id).trim()] || 0);
+        const itemTs = Number(p.updatedAt || 0);
+        if (delTs > 0 && (itemTs === 0 || itemTs <= delTs)) return false;
+        return true;
+      });
+      if (prunedProds.length !== memProducts.length) {
+        memProducts = prunedProds;
+        persistProductsToDisk(memProducts, false);
+        if (isDatabaseConfigured()) {
+          for (const delId of Object.keys(deletedProdsMap)) {
+            db.delete(products).where(eq(products.id, delId)).catch(() => {});
           }
         }
       }
@@ -2094,21 +2174,38 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.put('/api/db/categories/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
-    const data = req.body;
+    const data = req.body || {};
     unmarkDeletedItem('categories', id);
-    let updatedCat: any = { id, ...data, updatedAt: Date.now() };
-    memCategories = memCategories.map(c => {
-      if (c.id === id) {
-        const cleanBase = { ...c };
-        if (data.isVisible !== undefined) delete cleanBase.is_visible;
-        if (data.availableInStore !== undefined) delete cleanBase.available_in_store;
-        if (data.availableForDelivery !== undefined) delete cleanBase.available_for_delivery;
-        if (data.availableForKiosk !== undefined) delete cleanBase.available_for_kiosk;
-        updatedCat = { ...formatCategoryForDb({ ...cleanBase, ...data, id }), updatedAt: Date.now() };
-        return updatedCat;
-      }
-      return c;
-    });
+
+    let existingCat = memCategories.find(c => c.id === id);
+    if (!existingCat && isDatabaseConfigured()) {
+      try {
+        const dbRows = await withDbRetry(() => db.select().from(categories).where(eq(categories.id, id)));
+        if (dbRows && dbRows.length > 0) existingCat = dbRows[0];
+      } catch {}
+    }
+
+    const cleanBase = { ...(existingCat || {}) };
+    if (data.isVisible !== undefined) delete cleanBase.is_visible;
+    if (data.availableInStore !== undefined) delete cleanBase.available_in_store;
+    if (data.availableForDelivery !== undefined) delete cleanBase.available_for_delivery;
+    if (data.availableForKiosk !== undefined) delete cleanBase.available_for_kiosk;
+
+    const mergedManualFields = Array.from(new Set([
+      ...(Array.isArray(existingCat?.manualFields) ? existingCat.manualFields : []),
+      ...(Array.isArray(data.manualFields) ? data.manualFields : []),
+      ...Object.keys(data).filter(k => k !== 'updatedAt' && k !== 'manualFields')
+    ]));
+
+    const updatedCat = {
+      ...formatCategoryForDb({ ...cleanBase, ...data, id, manualFields: mergedManualFields }),
+      updatedAt: Date.now()
+    };
+
+    const existsInMem = memCategories.some(c => c.id === id);
+    memCategories = existsInMem
+      ? memCategories.map(c => (c.id === id ? updatedCat : c))
+      : [...memCategories, updatedCat];
     persistCategoriesToDisk(memCategories);
 
     if (isDatabaseConfigured()) {
@@ -2210,14 +2307,15 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         return res.status(400).json({ error: 'Backup inválido ou não encontrado.' });
       }
 
+      const now = Date.now();
       if (Array.isArray(targetBackup.categories)) {
-        memCategories = targetBackup.categories;
+        memCategories = targetBackup.categories.map((c: any) => ({ ...formatCategoryForDb(c), updatedAt: now }));
         persistCategoriesToDisk(memCategories);
         restoredCatCount = memCategories.length;
       }
 
       if (Array.isArray(targetBackup.products)) {
-        memProducts = targetBackup.products;
+        memProducts = targetBackup.products.map((p: any) => ({ ...formatProductForDb(p), updatedAt: now }));
         persistProductsToDisk(memProducts);
         restoredProdCount = memProducts.length;
       }
@@ -2228,14 +2326,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (isDatabaseConfigured()) {
         try {
           if (Array.isArray(targetBackup.categories)) {
-            for (const c of targetBackup.categories) {
-              await db.insert(categories).values(c).onConflictDoUpdate({ target: categories.id, set: c });
-            }
+            await saveCategoriesToPostgresBatch(memCategories);
           }
           if (Array.isArray(targetBackup.products)) {
-            for (const p of targetBackup.products) {
-              await db.insert(products).values(p).onConflictDoUpdate({ target: products.id, set: p });
-            }
+            await saveProductsToPostgresBatch(memProducts);
           }
         } catch (dbErr) {
           console.warn('[DB Restore] Aviso ao sincronizar com Postgres:', dbErr);
@@ -2339,7 +2433,15 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const itemMap = new Map(memProducts.map(p => [p.id, p]));
       const mergedItems: any[] = [];
       for (const item of items) {
-        const merged = { ...formatProductForDb({ ...(itemMap.get(item.id) || {}), ...item }), updatedAt: now };
+        const prev = itemMap.get(item.id) || {};
+        const mergedManualFields = Array.from(new Set([
+          ...(Array.isArray(prev.manualFields) ? prev.manualFields : []),
+          ...(Array.isArray(item.manualFields) ? item.manualFields : []),
+        ]));
+        const merged = {
+          ...formatProductForDb({ ...prev, ...item, manualFields: mergedManualFields }),
+          updatedAt: now
+        };
         unmarkDeletedItem('products', merged.id);
         itemMap.set(merged.id, merged);
         mergedItems.push(merged);
@@ -2361,16 +2463,32 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.put('/api/db/products/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
-    const data = req.body;
+    const data = req.body || {};
     unmarkDeletedItem('products', id);
-    let updatedProd: any = { id, ...data, updatedAt: Date.now() };
-    memProducts = memProducts.map(p => {
-      if (p.id === id) {
-        updatedProd = { ...formatProductForDb({ ...p, ...data, id }), updatedAt: Date.now() };
-        return updatedProd;
-      }
-      return p;
-    });
+
+    let existingProd = memProducts.find(p => p.id === id);
+    if (!existingProd && isDatabaseConfigured()) {
+      try {
+        const dbRows = await withDbRetry(() => db.select().from(products).where(eq(products.id, id)));
+        if (dbRows && dbRows.length > 0) existingProd = dbRows[0];
+      } catch {}
+    }
+
+    const mergedManualFields = Array.from(new Set([
+      ...(Array.isArray(existingProd?.manualFields) ? existingProd.manualFields : []),
+      ...(Array.isArray(data.manualFields) ? data.manualFields : []),
+      ...Object.keys(data).filter(k => k !== 'updatedAt' && k !== 'manualFields')
+    ]));
+
+    const updatedProd = {
+      ...formatProductForDb({ ...(existingProd || {}), ...data, id, manualFields: mergedManualFields }),
+      updatedAt: Date.now()
+    };
+
+    const existsInMem = memProducts.some(p => p.id === id);
+    memProducts = existsInMem
+      ? memProducts.map(p => (p.id === id ? updatedProd : p))
+      : [...memProducts, updatedProd];
     persistProductsToDisk(memProducts);
 
     if (isDatabaseConfigured()) {
@@ -4588,10 +4706,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.post('/api/db/restore', async (req: Request, res: Response) => {
     try {
       const data = req.body || {};
+      const now = Date.now();
       let restoredCount = 0;
 
       if (data.storeInfo && typeof data.storeInfo === 'object') {
-        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo, id: 'default' };
+        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo, id: 'default', updatedAt: now };
         persistStoreInfoToDisk(memStoreInfo);
         restoredCount++;
       }
@@ -4603,13 +4722,21 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }
 
       if (Array.isArray(data.categories)) {
-        memCategories = data.categories;
+        memCategories = data.categories.map((c: any) => {
+          const formatted = { ...formatCategoryForDb(c), updatedAt: now };
+          unmarkDeletedItem('categories', formatted.id);
+          return formatted;
+        });
         persistCategoriesToDisk(memCategories);
         restoredCount++;
       }
 
       if (Array.isArray(data.products)) {
-        memProducts = data.products;
+        memProducts = data.products.map((p: any) => {
+          const formatted = { ...formatProductForDb(p), updatedAt: now };
+          unmarkDeletedItem('products', formatted.id);
+          return formatted;
+        });
         persistProductsToDisk(memProducts);
         restoredCount++;
       }
@@ -4668,12 +4795,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             });
           }
           if (Array.isArray(data.categories)) {
-            for (const c of data.categories) {
-              await db.insert(categories).values(c).onConflictDoUpdate({ target: categories.id, set: c });
-            }
+            await saveCategoriesToPostgresBatch(memCategories);
           }
           if (Array.isArray(data.products)) {
-            await saveProductsToPostgresBatch(data.products);
+            await saveProductsToPostgresBatch(memProducts);
           }
           if (Array.isArray(data.customers)) {
             await saveCustomersToPostgresBatch(data.customers);
@@ -4776,16 +4901,17 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const raw = fs.readFileSync(latestPreSyncPath, 'utf8');
       const data = JSON.parse(raw);
 
+      const now = Date.now();
       if (data.categories && Array.isArray(data.categories)) {
-        memCategories = data.categories;
+        memCategories = data.categories.map((c: any) => ({ ...formatCategoryForDb(c), updatedAt: now }));
         persistCategoriesToDisk(memCategories);
       }
       if (data.products && Array.isArray(data.products)) {
-        memProducts = data.products;
+        memProducts = data.products.map((p: any) => ({ ...formatProductForDb(p), updatedAt: now }));
         persistProductsToDisk(memProducts);
       }
       if (data.storeInfo) {
-        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo };
+        memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo, updatedAt: now };
         persistStoreInfoToDisk(memStoreInfo);
       }
       if (data.totemBackups && Array.isArray(data.totemBackups)) {
@@ -4797,12 +4923,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (isDatabaseConfigured()) {
         try {
           if (Array.isArray(data.categories)) {
-            for (const c of data.categories) {
-              await db.insert(categories).values(c).onConflictDoUpdate({ target: categories.id, set: c });
-            }
+            await saveCategoriesToPostgresBatch(memCategories);
           }
           if (Array.isArray(data.products)) {
-            await saveProductsToPostgresBatch(data.products);
+            await saveProductsToPostgresBatch(memProducts);
           }
         } catch (_) {}
       }

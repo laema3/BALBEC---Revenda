@@ -1120,7 +1120,8 @@ export default function Admin() {
     startCargaSequencia: localStorage.getItem('bluefocus_start_carga_sequencia') || '0',
     authToken: localStorage.getItem('bluefocus_auth_token') || '',
     startProdutoId: localStorage.getItem('bluefocus_start_produto_id') || '0',
-    batchSize: localStorage.getItem('bluefocus_batch_size') || '4'
+    batchSize: localStorage.getItem('bluefocus_batch_size') || '4',
+    preserveManualPrices: localStorage.getItem('bluefocus_preserve_manual_prices') !== 'false'
   });
 
   // Garantir que a chave no localStorage tenha BALBEC como padrão se vazia
@@ -1579,42 +1580,74 @@ export default function Admin() {
         const bpNormName = normalizeText(bp.name);
 
         let existingProduct = null;
+        // Helper: nunca casar por nome se o produto local já tiver outro externalId diferente definido
+        const hasDifferentExternalId = (p: any) => {
+          const pExt = String(p?.externalId || '').trim();
+          const pCleanExt = pExt.replace(/^0+/, '');
+          return Boolean(pExt && pExt !== '0' && bpExt && bpExt !== '0' && pExt !== bpExt && pCleanExt !== bpCleanExt);
+        };
+
         // 1. Match exato ou sem zeros à esquerda por externalId ou ID interno
         if (bpExt && bpExt !== '0') {
           existingProduct = prodByExternalId.get(bpExt) || prodByCleanExternalId.get(bpCleanExt) || prodById.get(bpExt);
         }
-        // 2. Match exato por nome normalizado
+        // 2. Match exato por nome normalizado (apenas se não houver conflito de código externo)
         if (!existingProduct && bpNormName) {
-          existingProduct = prodByName.get(bpNormName);
+          const candidate = prodByName.get(bpNormName);
+          if (candidate && !hasDifferentExternalId(candidate)) {
+            existingProduct = candidate;
+          }
         }
         // 3. Match sem sufixos de medidas/peso (ex: "PÃO FRANCÊS" vs "Pão Francês (kg)")
         if (!existingProduct && bpNormName) {
           const bpClKey = cleanTitleKey(bp.name);
           if (bpClKey) {
-            existingProduct = prodByCleanTitle.get(bpClKey);
+            const candidate = prodByCleanTitle.get(bpClKey);
+            if (candidate && !hasDifferentExternalId(candidate)) {
+              existingProduct = candidate;
+            }
           }
         }
         // 4. Match por prefixo quando o nome tem pelo menos 7 caracteres
         if (!existingProduct && bpNormName && bpNormName.length >= 7) {
           existingProduct = currentProducts.find(p => {
+            if (hasDifferentExternalId(p)) return false;
             const pNorm = normalizeText(p.name || '');
             return pNorm.length >= 7 && (pNorm.startsWith(bpNormName) || bpNormName.startsWith(pNorm));
           });
         }
 
         if (existingProduct) {
-          productsUpdated++;
+          const manualFields: string[] = Array.isArray(existingProduct.manualFields) ? existingProduct.manualFields : [];
+          const isPriceProtected = manualFields.includes('price') || (activeConfig as any).preserveManualPrices !== false;
           const newPrice = Number(bp.price);
-          const hasCustomUploadedImage = existingProduct.imageUrl && String(existingProduct.imageUrl).startsWith('data:');
-          const updatedImageUrl = hasCustomUploadedImage
-            ? existingProduct.imageUrl
+          const nextPrice = isPriceProtected
+            ? existingProduct.price
+            : ((!isNaN(newPrice) && newPrice >= 0) ? newPrice : existingProduct.price);
+
+          const hasCustomImage =
+            manualFields.includes('imageUrl') ||
+            Boolean(existingProduct.imageUrl && String(existingProduct.imageUrl).trim() !== '');
+          const updatedImageUrl = hasCustomImage
+            ? (existingProduct.imageUrl || '')
             : (bp.imageUrl || existingProduct.imageUrl || '');
-          productsToSave.push({
-            ...existingProduct,
-            price: (!isNaN(newPrice) && newPrice >= 0) ? newPrice : existingProduct.price,
-            imageUrl: updatedImageUrl,
-            externalId: (bpExt && bpExt !== '0') ? bpExt : existingProduct.externalId
-          });
+
+          const nextExternalId = (bpExt && bpExt !== '0') ? bpExt : existingProduct.externalId;
+
+          const hasRealChange =
+            Number(nextPrice) !== Number(existingProduct.price) ||
+            String(updatedImageUrl || '') !== String(existingProduct.imageUrl || '') ||
+            String(nextExternalId || '') !== String(existingProduct.externalId || '');
+
+          if (hasRealChange) {
+            productsUpdated++;
+            productsToSave.push({
+              ...existingProduct,
+              price: nextPrice,
+              imageUrl: updatedImageUrl,
+              externalId: nextExternalId
+            });
+          }
         } else {
           // PRODUTO NOVO (NUNCA VISTO ANTES NO SISTEMA):
           productsCreated++;
@@ -8190,6 +8223,25 @@ export default function Admin() {
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none" 
                   />
                   <p className="text-[10px] text-stone-400 mt-1 uppercase font-bold text-stone-500">Pule produtos até um ID específico.</p>
+                </div>
+                <div className="md:col-span-2 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+                  <input
+                    id="preserveManualPrices"
+                    type="checkbox"
+                    checked={(blueFocusConfig as any).preserveManualPrices !== false}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setBlueFocusConfig(prev => ({ ...prev, preserveManualPrices: checked }));
+                      localStorage.setItem('bluefocus_preserve_manual_prices', String(checked));
+                    }}
+                    className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <label htmlFor="preserveManualPrices" className="text-xs text-emerald-950 cursor-pointer leading-relaxed">
+                    <strong className="block text-sm font-extrabold text-emerald-900">
+                      🔒 Proteger Todas as Alterações Manuais na Sincronização (Recomendado)
+                    </strong>
+                    Quando ativado, a sincronização automática ou manual apenas importa <strong>novos produtos/categorias</strong> e nunca sobrescreve preços, nomes, descrições, categorias trocadas, imagens ou canais já ajustados manualmente no sistema. Mesmo se desmarcado, produtos editados manualmente pelo painel continuam com suas alterações travadas contra sobrescrita.
+                  </label>
                 </div>
               </div>
             </div>
