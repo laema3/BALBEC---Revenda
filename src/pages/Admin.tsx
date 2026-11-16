@@ -406,10 +406,13 @@ export default function Admin() {
                 if (res.ok && data.success) {
                   await fetchData();
                   setIsTotemBackupModalOpen(false);
+                  const cloudNotice = data.cloudSyncOk === false
+                    ? `\n\n⚠️ ATENÇÃO (Nuvem / Deploy):\n${data.cloudWarning || 'Não foi possível gravar na nuvem agora.'}`
+                    : '\n\n☁️ Sincronizado com a nuvem com sucesso (seguro para próximos deploys).';
                   setConfirmModal({
                     isOpen: true,
-                    title: 'Backup Completo Restaurado!',
-                    message: `O sistema foi restaurado com sucesso!\n\n• Categorias: ${data.restoredCategories || 0}\n• Produtos: ${data.restoredProducts || 0}\n• Mesas: ${data.restoredTables || 0}\n• Vendas e Configurações atualizadas.`,
+                    title: data.cloudSyncOk === false ? 'Backup Restaurado (Apenas Local Hoje)' : 'Backup Completo Restaurado!',
+                    message: `O sistema foi restaurado com sucesso!\n\n• Categorias: ${data.restoredCategories || 0}\n• Produtos: ${data.restoredProducts || 0}\n• Mesas: ${data.restoredTables || 0}\n• Vendas e Configurações atualizadas.${cloudNotice}`,
                     cancelText: null,
                     onConfirm: () => setConfirmModal(null)
                   });

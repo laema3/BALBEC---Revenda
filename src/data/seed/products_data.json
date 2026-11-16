@@ -20,7 +20,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "vjgwwd1",
@@ -43,7 +44,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "3dyyo6p",
@@ -66,7 +68,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ypwsgp8",
@@ -89,7 +92,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "s6k84gn",
@@ -112,7 +116,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1akg7k5",
@@ -135,7 +140,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "u1q3yu3",
@@ -158,7 +164,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "frle5cd",
@@ -181,7 +188,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ph7mn2v",
@@ -204,7 +212,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "x2fw7np",
@@ -227,7 +236,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "sg0ztkv",
@@ -250,7 +260,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "fu9tjx0",
@@ -273,7 +284,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "18grxdk",
@@ -296,7 +308,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ov8bz8s",
@@ -319,13 +332,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4fduzhr",
     "categoryId": "rjhc9i7",
     "name": "COXINHA DE FRANGO",
-    "description": "COXINHA DE FRANGO [channels:delivery,in_store]",
+    "description": "COXINHA DE FRANGO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/101.jpg",
     "isActive": true,
@@ -342,14 +356,15 @@
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
     "updatedAt": 1794565775145,
-    "minFrozenQuantity": 20
+    "minFrozenQuantity": 20,
+    "manualFields": []
   },
   {
     "id": "gonkx5v",
     "categoryId": "rjhc9i7",
     "frozenCategoryId": "xqs010m",
     "name": "COXINHA DE BACALHAU",
-    "description": "COXINHA DE BACALHAU [channels:delivery,in_store]",
+    "description": "COXINHA DE BACALHAU",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/102.jpg",
     "isActive": true,
@@ -365,13 +380,14 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "updatedAt": 1794565768350
+    "updatedAt": 1794565768350,
+    "manualFields": []
   },
   {
     "id": "vr08ijb",
     "categoryId": "rjhc9i7",
     "name": "QUIBE DE CARNE",
-    "description": "QUIBE DE CARNE [channels:delivery,in_store]",
+    "description": "QUIBE DE CARNE",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/103.jpg",
     "isActive": true,
@@ -388,11 +404,12 @@
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
     "updatedAt": 1794567610927,
-    "minFrozenQuantity": 20
+    "minFrozenQuantity": 20,
+    "manualFields": []
   },
   {
     "id": "j9qyg9v",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "QUIBE DE QUEIJO",
     "description": "QUIBE DE QUEIJO",
     "price": 4.6,
@@ -409,15 +426,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794859631685,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "ekr65b5",
     "categoryId": "rjhc9i7",
     "name": "BOLINHO DE MANDIOCA",
-    "description": "BOLINHO DE MANDIOCA [channels:in_store]",
+    "description": "BOLINHO DE MANDIOCA",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/105.jpg",
     "isActive": true,
@@ -434,13 +452,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
     "updatedAt": 1794565876186,
-    "minFrozenQuantity": 15
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "s8lkgxy",
     "categoryId": "rjhc9i7",
     "name": "BOLINHO DE BACALHAU",
-    "description": "BOLINHO DE BACALHAU [channels:in_store]",
+    "description": "BOLINHO DE BACALHAU",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/106.jpg",
     "isActive": true,
@@ -457,13 +476,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
     "updatedAt": 1794565879691,
-    "minFrozenQuantity": 10
+    "minFrozenQuantity": 10,
+    "manualFields": []
   },
   {
     "id": "v9ml9f7",
     "categoryId": "rjhc9i7",
     "name": "ESPETINHO DE FRANGO",
-    "description": "ESPETINHO DE FRANGO [channels:delivery,in_store]",
+    "description": "ESPETINHO DE FRANGO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/107.jpg",
     "isActive": true,
@@ -480,11 +500,12 @@
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
     "updatedAt": 1794567562506,
-    "minFrozenQuantity": 20
+    "minFrozenQuantity": 20,
+    "manualFields": []
   },
   {
     "id": "fj3juc1",
-    "categoryId": "nyww21f",
+    "categoryId": "bjdjdho",
     "name": "PASTEL DE FRANGO",
     "description": "PASTEL DE FRANGO",
     "price": 4.6,
@@ -501,15 +522,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859538314,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "29ti0fc",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "ESFIRRA DE CARNE",
-    "description": "ESFIRRA DE CARNE [channels:delivery,in_store]",
+    "description": "ESFIRRA DE CARNE",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/109.jpg",
     "isActive": true,
@@ -524,15 +546,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794565968653,
-    "minFrozenQuantity": 15
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859388457,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "snrs7c4",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "ESFIRRA DE CALABRESA",
-    "description": "ESFIRRA DE CALABRESA [channels:delivery,in_store]",
+    "description": "ESFIRRA DE CALABRESA",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/110.jpg",
     "isActive": true,
@@ -547,15 +570,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794514700511,
-    "minFrozenQuantity": 15
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859355117,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "swpro05",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "ESFIRRA DE FRANGO",
-    "description": "ESFIRRA DE FRANGO [channels:delivery,in_store]",
+    "description": "ESFIRRA DE FRANGO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/111.jpg",
     "isActive": true,
@@ -570,13 +594,14 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794566000598,
-    "minFrozenQuantity": 15
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859398804,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "z2o962v",
-    "categoryId": "nyww21f",
+    "categoryId": "bjdjdho",
     "name": "ESFIRRA DE CHICORIA",
     "description": "ESFIRRA DE CHICORIA",
     "price": 4.6,
@@ -593,15 +618,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859508899,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "977aaza",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "CACHORRO QUENTE",
-    "description": "CACHORRO QUENTE [channels:delivery,in_store]",
+    "description": "CACHORRO QUENTE",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/113.jpg",
     "isActive": true,
@@ -616,13 +642,14 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794565738021,
-    "minFrozenQuantity": 20
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859373528,
+    "minFrozenQuantity": 20,
+    "manualFields": []
   },
   {
     "id": "v7vyy9a",
-    "categoryId": "nyww21f",
+    "categoryId": "bjdjdho",
     "name": "PASTEL DE BACALHAU",
     "description": "PASTEL DE BACALHAU",
     "price": 4.6,
@@ -639,15 +666,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859533608,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "i9v7c80",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "EMPADA DE FRANGO",
-    "description": "EMPADA DE FRANGO [channels:delivery,in_store]",
+    "description": "EMPADA DE FRANGO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/115.jpg",
     "isActive": true,
@@ -662,15 +690,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794565901481,
-    "minFrozenQuantity": 20
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859366529,
+    "minFrozenQuantity": 20,
+    "manualFields": []
   },
   {
     "id": "zs6tqso",
     "categoryId": "nyww21f",
     "name": "ESFIRRA DE BACALHAU",
-    "description": "ESFIRRA DE BACALHAU [channels:delivery,in_store]",
+    "description": "ESFIRRA DE BACALHAU",
     "price": 3.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/122.jpg",
     "isActive": false,
@@ -687,20 +716,21 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "y5gcjd4",
-    "categoryId": "6rxjvu9",
-    "name": "RISOLIS DE MILHO",
-    "description": "RISOLIS DE MILHO [channels:delivery,in_store]",
+    "categoryId": "rjhc9i7",
+    "name": "RISOLE DE MILHO",
+    "description": "RISOLIS DE MILHO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/123.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "123",
     "order": 0,
@@ -708,15 +738,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794860099657,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "shgns0s",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "ESFIRRA DE PRESUNTO COM R",
-    "description": "ESFIRRA DE PRESUNTO COM REQUEIJAO [channels:delivery,in_store]",
+    "description": "ESFIRRA DE PRESUNTO COM REQUEIJAO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/124.jpg",
     "isActive": true,
@@ -731,22 +762,23 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794566077146,
-    "minFrozenQuantity": 15
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859403786,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "aj53axn",
-    "categoryId": "rjhc9i7",
-    "name": "RISOLE DE CARNE",
-    "description": "RISOLE DE CARNE [channels:delivery,in_store]",
-    "price": 4,
+    "categoryId": "6rxjvu9",
+    "name": "RISOLE DE MILHO",
+    "description": "RISOLE DE CARNE",
+    "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/125.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "125",
     "order": 0,
@@ -755,8 +787,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794569720752,
-    "minFrozenQuantity": 15
+    "updatedAt": 1794860113491,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "x5j83v5",
@@ -779,7 +812,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "5jc7xzc",
@@ -802,11 +836,12 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "u8vtwbx",
-    "categoryId": "nyww21f",
+    "categoryId": "bjdjdho",
     "name": "ESFIHA DE RICOTA",
     "description": "ESFIHA DE RICOTA",
     "price": 4.6,
@@ -823,32 +858,10 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
-  },
-  {
-    "id": "r1xfgil",
-    "categoryId": "e0sv8sp",
-    "name": "FRETE",
-    "description": "FRETE",
-    "price": 16,
-    "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/250.jpg",
-    "isActive": true,
-    "isAddon": false,
-    "isFlavor": false,
-    "addonIds": [],
-    "maxAddons": 0,
-    "flavorIds": [],
-    "externalId": "250",
-    "order": 0,
-    "allowFrozen": true,
-    "availableForDelivery": true,
-    "availableInStore": true,
-    "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859517522,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "762851f",
@@ -871,7 +884,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "rjay1ft",
@@ -894,7 +908,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ezvtis6",
@@ -917,7 +932,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "riunog4",
@@ -940,7 +956,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ivlg8mi",
@@ -963,7 +980,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4h9z4p4",
@@ -986,7 +1004,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "bqbu2dx",
@@ -1009,7 +1028,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4xqskti",
@@ -1032,7 +1052,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ddhs55q",
@@ -1055,7 +1076,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "5jpanfo",
@@ -1078,7 +1100,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "24hd4ec",
@@ -1101,7 +1124,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2m9194n",
@@ -1124,7 +1148,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "mjhzosn",
@@ -1147,7 +1172,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510055968,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "x032z89",
@@ -1170,13 +1196,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "oq8zimz",
     "categoryId": "6rxjvu9",
     "name": "COXINHA DE BACALHAU",
-    "description": "COXINHA DE BACALHAU [channels:delivery,in_store]",
+    "description": "COXINHA DE BACALHAU",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/2.jpg",
     "isActive": true,
@@ -1193,13 +1220,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794567228830,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ao4xefs",
     "categoryId": "6rxjvu9",
     "name": "QUIBE DE CARNE",
-    "description": "QUIBE DE CARNE [channels:delivery,in_store]",
+    "description": "QUIBE DE CARNE",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/3.jpg",
     "isActive": false,
@@ -1216,13 +1244,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "oxyzdsw",
     "categoryId": "6rxjvu9",
     "name": "QUIBE DE QUEIJO",
-    "description": "QUIBE DE QUEIJO. [channels:delivery,in_store]",
+    "description": "QUIBE DE QUEIJO.",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/4.jpg",
     "isActive": false,
@@ -1239,7 +1268,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "wcattx2",
@@ -1262,7 +1292,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "6hav354",
@@ -1285,7 +1316,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1vegy1v",
@@ -1308,13 +1340,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "9m2n313",
     "categoryId": "6rxjvu9",
     "name": "PASTEL DE FRANGO",
-    "description": "PASTEL DE FRANGO [channels:delivery,in_store]",
+    "description": "PASTEL DE FRANGO",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/8.jpg",
     "isActive": false,
@@ -1331,7 +1364,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2qop3si",
@@ -1354,7 +1388,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "nh3cr1a",
@@ -1377,7 +1412,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "t5y2sgm",
@@ -1400,7 +1436,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "w2718rh",
@@ -1423,7 +1460,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ubrjqts",
@@ -1446,13 +1484,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "irfuqs2",
     "categoryId": "6rxjvu9",
     "name": "PASTEL DE BACALHAU",
-    "description": "PASTEL DE BACALHAU [channels:delivery,in_store]",
+    "description": "PASTEL DE BACALHAU",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/14.jpg",
     "isActive": false,
@@ -1469,7 +1508,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "32rez9a",
@@ -1492,7 +1532,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "vp06vfm",
@@ -1515,13 +1556,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "6136a86",
     "categoryId": "6rxjvu9",
     "name": "RISOLE CARNE",
-    "description": "RISOLE CARNE [channels:delivery,in_store]",
+    "description": "RISOLE CARNE",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/17.jpg",
     "isActive": false,
@@ -1538,7 +1580,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "bbxz6m4",
@@ -1561,13 +1604,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "gy7jo41",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "QUICHE DE CAMARAO",
-    "description": "QUICHE DE CAMARAO [channels:delivery,in_store]",
+    "description": "QUICHE DE CAMARAO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/20.jpg",
     "isActive": true,
@@ -1582,9 +1626,10 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794569681282,
-    "minFrozenQuantity": 10
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859428082,
+    "minFrozenQuantity": 10,
+    "manualFields": []
   },
   {
     "id": "tevtdpg",
@@ -1607,13 +1652,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "st9tklw",
     "categoryId": "6rxjvu9",
     "name": "QUICHE DE CAMARAO",
-    "description": "QUICHE DE CAMARAO [channels:delivery,in_store]",
+    "description": "QUICHE DE CAMARAO",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/22.jpg",
     "isActive": false,
@@ -1630,13 +1676,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2o0alqs",
     "categoryId": "6rxjvu9",
     "name": "RISOLE DE MILHO",
-    "description": "RISOLE DE MILHO [channels:delivery,in_store]",
+    "description": "RISOLE DE MILHO",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/23.jpg",
     "isActive": false,
@@ -1653,7 +1700,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7t9q99h",
@@ -1676,13 +1724,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "tduu3n2",
     "categoryId": "none",
     "name": "QUICHE DE ALHO PORO",
-    "description": "QUICHE DE ALHO PORO [channels:delivery,in_store]",
+    "description": "QUICHE DE ALHO PORO",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/25.jpg",
     "isActive": false,
@@ -1699,7 +1748,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794569646933,
-    "minFrozenQuantity": 10
+    "minFrozenQuantity": 10,
+    "manualFields": []
   },
   {
     "id": "dsomok8",
@@ -1722,7 +1772,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "l2wpdi0",
@@ -1745,7 +1796,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "04fe7u3",
@@ -1768,7 +1820,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4h4tjem",
@@ -1791,13 +1844,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "w4a3ixp",
     "categoryId": "6rxjvu9",
     "name": "SANDUICHE NATURAL",
-    "description": "SANDUICHE NATURAL [channels:delivery,in_store]",
+    "description": "SANDUICHE NATURAL",
     "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/30.jpg",
     "isActive": false,
@@ -1814,7 +1868,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "qljpp4q",
@@ -1837,7 +1892,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "n2k173h",
@@ -1860,7 +1916,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "j7l2hih",
@@ -1883,7 +1940,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "59hw2kt",
@@ -1906,11 +1964,12 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ie24h26",
-    "categoryId": "e0sv8sp",
+    "categoryId": "wmsqohp",
     "name": "GALINHADA",
     "description": "GALINHADA",
     "price": 10,
@@ -1919,7 +1978,7 @@
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "35",
     "order": 0,
@@ -1928,12 +1987,13 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861108875,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "z9vhpgo",
-    "categoryId": "nyww21f",
+    "categoryId": "wmsqohp",
     "name": "SANDUICHE NATURAL.",
     "description": "SANDUICHE NATURAL REVENDA.",
     "price": 8,
@@ -1951,8 +2011,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794859139416,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "xhbnro2",
@@ -1975,13 +2036,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "d57jpc6",
     "categoryId": "6rxjvu9",
     "name": "RISOLE DE CARNE",
-    "description": "RISOLE DE CARNE [channels:delivery,in_store]",
+    "description": "RISOLE DE CARNE",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/38.jpg",
     "isActive": false,
@@ -1998,7 +2060,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "me82nzy",
@@ -2021,7 +2084,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "99z80bs",
@@ -2030,7 +2094,7 @@
     "description": "SALGADO CONGELADO REVENDA",
     "price": 4.9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/40.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -2043,21 +2107,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794835904996,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "6w4wy6t",
-    "categoryId": "6rxjvu9",
+    "categoryId": "wmsqohp",
     "name": "MINI PIZZA MARGUERITA",
     "description": "MINI PIZZA MARGUERITA",
-    "price": 8,
+    "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/41.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "41",
     "order": 0,
@@ -2066,21 +2131,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861509937,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "tdxbkpv",
-    "categoryId": "6rxjvu9",
+    "categoryId": "wmsqohp",
     "name": "MINI PIZZA CALABRESA",
     "description": "MINI PIZZA CALABRESA",
-    "price": 8,
+    "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/42.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "42",
     "order": 0,
@@ -2089,21 +2155,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858253039,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "at6do1d",
-    "categoryId": "6rxjvu9",
+    "categoryId": "wmsqohp",
     "name": "MINI PIZZA FRANGO CATUPIRY",
     "description": "MINI PIZZA FRANGO CATUPIRY",
-    "price": 8,
+    "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/43.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "43",
     "order": 0,
@@ -2112,8 +2179,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858261944,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "cvqjmaf",
@@ -2136,7 +2204,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1lnjvr0",
@@ -2159,7 +2228,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "r7odr39",
@@ -2182,7 +2252,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "od59u5a",
@@ -2205,7 +2276,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "tkm40ju",
@@ -2228,7 +2300,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "kyjdvyq",
@@ -2251,7 +2324,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ek5g2d4",
@@ -2274,7 +2348,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "wvnntsc",
@@ -2297,7 +2372,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510052346,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "fmv0iqi",
@@ -2320,7 +2396,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "b5mzl7i",
@@ -2343,7 +2420,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "na24u3s",
@@ -2366,7 +2444,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ulcr80d",
@@ -2389,7 +2468,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "aa67v4g",
@@ -2412,7 +2492,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "5qp1cuo",
@@ -2435,7 +2516,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "0bt330q",
@@ -2458,7 +2540,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "q7hznf6",
@@ -2481,7 +2564,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "tkinr49",
@@ -2504,7 +2588,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "6c01ksc",
@@ -2527,7 +2612,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "wjtwleu",
@@ -2550,7 +2636,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7xey34p",
@@ -2573,7 +2660,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "iwz7qi6",
@@ -2596,7 +2684,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "v8h4wz8",
@@ -2619,7 +2708,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "xoncfzx",
@@ -2642,7 +2732,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "06t7r2t",
@@ -2665,7 +2756,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "n3zcma9",
@@ -2688,7 +2780,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "m4gbbe5",
@@ -2711,7 +2804,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ja63epw",
@@ -2734,7 +2828,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "bk2oukx",
@@ -2757,7 +2852,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "582zxam",
@@ -2780,7 +2876,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8mji3t8",
@@ -2803,7 +2900,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2w3ai5r",
@@ -2826,7 +2924,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "qc9sjox",
@@ -2849,13 +2948,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ecltp8w",
     "categoryId": "nyww21f",
     "name": "FESTA COXINHA FRANGO",
-    "description": "FESTA COXINHA FRANGO [channels:delivery,in_store]",
+    "description": "FESTA COXINHA FRANGO",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1326.jpg",
     "isActive": false,
@@ -2872,13 +2972,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "p7dwtr7",
     "categoryId": "nyww21f",
     "name": "FESTA RISOLIS",
-    "description": "FESTA RISOLIS [channels:delivery,in_store]",
+    "description": "FESTA RISOLIS",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1327.jpg",
     "isActive": false,
@@ -2895,13 +2996,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "xf0swzm",
     "categoryId": "nyww21f",
     "name": "FESTA BOL. BACALHAU",
-    "description": "FESTA BOL. BACALHAU [channels:delivery,in_store]",
+    "description": "FESTA BOL. BACALHAU",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1328.jpg",
     "isActive": false,
@@ -2918,13 +3020,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "uu4yp2w",
     "categoryId": "nyww21f",
     "name": "FESTA KIBE CARNE",
-    "description": "FESTA KIBE CARNE [channels:delivery,in_store]",
+    "description": "FESTA KIBE CARNE",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1329.jpg",
     "isActive": false,
@@ -2941,13 +3044,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1v5iir3",
     "categoryId": "nyww21f",
     "name": "FESTA KIBE QUEIJO",
-    "description": "FESTA KIBE QUEIJO [channels:delivery,in_store]",
+    "description": "FESTA KIBE QUEIJO",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1330.jpg",
     "isActive": false,
@@ -2964,13 +3068,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "52jlbmu",
     "categoryId": "nyww21f",
     "name": "FESTA BOL. QUEIJO",
-    "description": "FESTA BOL. QUEIJO [channels:delivery,in_store]",
+    "description": "FESTA BOL. QUEIJO",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1331.jpg",
     "isActive": false,
@@ -2987,13 +3092,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "17c1woy",
     "categoryId": "nyww21f",
     "name": "FESTA CROQUETE",
-    "description": "FESTA CROQUETE [channels:delivery,in_store]",
+    "description": "FESTA CROQUETE",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1332.jpg",
     "isActive": false,
@@ -3010,13 +3116,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hmjw9kf",
     "categoryId": "nyww21f",
     "name": "FESTA ESF. CARNE",
-    "description": "FESTA ESF. CARNE [channels:delivery,in_store]",
+    "description": "FESTA ESF. CARNE",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1333.jpg",
     "isActive": false,
@@ -3033,13 +3140,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "s1cyrqt",
     "categoryId": "nyww21f",
     "name": "FESTA ESF. CALAB",
-    "description": "FESTA ESF. CALABRESA [channels:delivery,in_store]",
+    "description": "FESTA ESF. CALABRESA",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1334.jpg",
     "isActive": false,
@@ -3056,13 +3164,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "oja4y9q",
     "categoryId": "nyww21f",
     "name": "FESTA ESF. PRESUNTO",
-    "description": "FESTA ESF. PRESUNTO [channels:delivery,in_store]",
+    "description": "FESTA ESF. PRESUNTO",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1335.jpg",
     "isActive": false,
@@ -3079,13 +3188,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "q6zb5l8",
     "categoryId": "nyww21f",
     "name": "FESTA ESF. FRANGO",
-    "description": "FESTA ESF. FRANGO [channels:delivery,in_store]",
+    "description": "FESTA ESF. FRANGO",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1336.jpg",
     "isActive": false,
@@ -3102,13 +3212,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "cbndyx6",
     "categoryId": "nyww21f",
     "name": "FESTA CACHORRO QUENTE",
-    "description": "FESTA CACHORRO QUENTE [channels:delivery,in_store]",
+    "description": "FESTA CACHORRO QUENTE",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1337.jpg",
     "isActive": false,
@@ -3125,13 +3236,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hxcfnqe",
     "categoryId": "nyww21f",
     "name": "FESTA EMPADA",
-    "description": "FESTA EMPADA [channels:delivery,in_store]",
+    "description": "FESTA EMPADA",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1338.jpg",
     "isActive": false,
@@ -3148,13 +3260,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "s9jf8rk",
     "categoryId": "nyww21f",
     "name": "FESTA BOL.MANDIOCA",
-    "description": "FESTA BOL.MANDIOCA [channels:delivery,in_store]",
+    "description": "FESTA BOL.MANDIOCA",
     "price": 0.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1339.jpg",
     "isActive": false,
@@ -3171,7 +3284,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "3qt1jjr",
@@ -3180,7 +3294,7 @@
     "description": "QUICHE DE PALMITO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1340.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -3193,14 +3307,15 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794859092450,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ooh9awx",
     "categoryId": "6rxjvu9",
     "name": "RISOLE  CARNE SECA CATUPIRY",
-    "description": "RISOLE CARNE SECA CATUPIRY [channels:delivery,in_store]",
+    "description": "RISOLE CARNE SECA CATUPIRY",
     "price": 5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1341.jpg",
     "isActive": false,
@@ -3217,20 +3332,21 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4ce488v",
-    "categoryId": "nyww21f",
+    "categoryId": "wmsqohp",
     "name": "MINI PIZZA CALABRESA",
     "description": "MINI PIZZA CALABRESA",
-    "price": 8,
+    "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1342.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1342",
     "order": 0,
@@ -3239,21 +3355,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858492453,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8xev4ct",
-    "categoryId": "nyww21f",
+    "categoryId": "wmsqohp",
     "name": "MINI PIZZA MARGUERITA",
     "description": "MINI PIZZA MARGUERITA",
-    "price": 7,
+    "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1343.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1343",
     "order": 0,
@@ -3262,17 +3379,18 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858504798,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "zv3clqs",
-    "categoryId": "nyww21f",
+    "categoryId": "wmsqohp",
     "name": "MINI PIZZA FRANGO",
     "description": "MINI PIZZA FRANGO",
     "price": 9,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1344.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -3285,14 +3403,15 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861496616,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8qq167h",
     "categoryId": "6rxjvu9",
     "name": "KAFTA CONGELADA",
-    "description": "KAFTA CONGELADA [channels:delivery,in_store]",
+    "description": "KAFTA CONGELADA",
     "price": 16,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1345.jpg",
     "isActive": false,
@@ -3309,13 +3428,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "do63sb3",
     "categoryId": "6rxjvu9",
     "name": "HAMBURGUER CONGELADO",
-    "description": "HAMBURGUER CONGELADO [channels:delivery,in_store]",
+    "description": "HAMBURGUER CONGELADO",
     "price": 11,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1346.jpg",
     "isActive": false,
@@ -3332,13 +3452,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "z2p5iwx",
     "categoryId": "nyww21f",
     "name": "FESTA ESF. RICOTA",
-    "description": "FESTA ESF. RICOTA [channels:delivery,in_store]",
+    "description": "FESTA ESF. RICOTA",
     "price": 0.38,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1360.jpg",
     "isActive": false,
@@ -3355,7 +3476,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "dywzbff",
@@ -3378,7 +3500,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "fjubxe9",
@@ -3401,7 +3524,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7rupfgl",
@@ -3424,7 +3548,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "uds31oo",
@@ -3447,7 +3572,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "bq60q5k",
@@ -3470,7 +3596,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "o2gs7xi",
@@ -3493,7 +3620,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "dsvvygg",
@@ -3516,7 +3644,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2j2du6a",
@@ -3539,7 +3668,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "h64h66l",
@@ -3562,7 +3692,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "rzb2lxn",
@@ -3585,7 +3716,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "nslt1vx",
@@ -3594,7 +3726,7 @@
     "description": "AZEITE OLIVA EV ALMA LUSA CX C/12 GARRAF",
     "price": 1,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1386.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -3607,8 +3739,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858456445,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "w7me7fz",
@@ -3631,7 +3764,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510060552,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "q5ga68t",
@@ -3654,7 +3788,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "kjo2dta",
@@ -3677,7 +3812,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "poyy07a",
@@ -3700,30 +3836,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
-  },
-  {
-    "id": "2ne2h6e",
-    "categoryId": "e0sv8sp",
-    "name": "MASSA ITALIANA SPAGHETTI",
-    "description": "MASSA ITALIANA SPAGHETTI 500GR [channels:delivery,in_store]",
-    "price": 0,
-    "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1058.jpg",
-    "isActive": true,
-    "isAddon": false,
-    "isFlavor": false,
-    "addonIds": [],
-    "maxAddons": 0,
-    "flavorIds": [],
-    "externalId": "1058",
-    "order": 0,
-    "allowFrozen": true,
-    "availableForDelivery": true,
-    "availableInStore": true,
-    "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "lrh2v78",
@@ -3746,7 +3860,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "vnfha3l",
@@ -3769,7 +3884,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2ekvcw2",
@@ -3792,7 +3908,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "cc5kbth",
@@ -3815,7 +3932,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "9kl2iee",
@@ -3838,7 +3956,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "awd2ncq",
@@ -3861,7 +3980,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "f0lzire",
@@ -3884,7 +4004,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "zf5k4tl",
@@ -3907,7 +4028,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1j8i2jt",
@@ -3930,7 +4052,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "vbrngha",
@@ -3953,7 +4076,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "440grm3",
@@ -3976,7 +4100,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "3g3b1s8",
@@ -3999,7 +4124,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "x3bbamg",
@@ -4022,7 +4148,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "jtqz3v6",
@@ -4045,7 +4172,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "op13b58",
@@ -4068,7 +4196,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4vlifz1",
@@ -4091,7 +4220,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "9ddufcd",
@@ -4114,7 +4244,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "t2dukl1",
@@ -4137,7 +4268,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "v23kwmq",
@@ -4160,7 +4292,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "cifr4vu",
@@ -4183,7 +4316,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8z1rn79",
@@ -4206,7 +4340,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hp3ccsx",
@@ -4229,7 +4364,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "wxvt8sx",
@@ -4252,7 +4388,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "xkt4qej",
@@ -4275,7 +4412,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4a2o3s9",
@@ -4298,7 +4436,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1dlepdo",
@@ -4321,7 +4460,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "grx53k4",
@@ -4344,7 +4484,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "g9fnnzh",
@@ -4367,7 +4508,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ec39d1t",
@@ -4390,7 +4532,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "exk4iyj",
@@ -4413,7 +4556,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "vi4dbsm",
@@ -4436,7 +4580,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ej5dqnu",
@@ -4459,7 +4604,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "s4sapwg",
@@ -4482,7 +4628,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "b6jdoa0",
@@ -4505,7 +4652,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "10gigu4",
@@ -4528,7 +4676,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "arrsvf5",
@@ -4551,7 +4700,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "593k96q",
@@ -4574,7 +4724,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "4e2pji2",
@@ -4597,7 +4748,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "0b45thn",
@@ -4620,7 +4772,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "gkdmrho",
@@ -4643,7 +4796,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "lc59yuu",
@@ -4666,7 +4820,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7uqa8gz",
@@ -4689,7 +4844,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "bsyljl1",
@@ -4712,7 +4868,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "sxvfbla",
@@ -4735,7 +4892,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8lbqyo3",
@@ -4758,7 +4916,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hrag5rd",
@@ -4781,7 +4940,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "6dzn37v",
@@ -4804,7 +4964,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510058589,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "9mip0yp",
@@ -4827,13 +4988,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "01sk6p6",
     "categoryId": "nwc89q5",
     "name": "COXINHA REV 1",
-    "description": "COXINHA REV 1 [channels:delivery,in_store]",
+    "description": "COXINHA REV 1",
     "price": 5.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1508.jpg",
     "isActive": false,
@@ -4850,7 +5012,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "6pw5c6g",
@@ -4873,7 +5036,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "zl3kji5",
@@ -4896,7 +5060,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2yi3mwk",
@@ -4919,7 +5084,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "e80hnzk",
@@ -4942,7 +5108,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "jyhgo83",
@@ -4965,7 +5132,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "dhp1jgg",
@@ -4988,7 +5156,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "cs4yb2c",
@@ -5011,7 +5180,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ufefvow",
@@ -5034,7 +5204,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "zzit2gn",
@@ -5057,7 +5228,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "n8pf0rd",
@@ -5080,7 +5252,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ieabyre",
@@ -5089,7 +5262,7 @@
     "description": "SALGADO REVENDA 2",
     "price": 5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1528.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -5102,17 +5275,18 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794859133376,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "wsuy1eg",
-    "categoryId": "nyww21f",
+    "categoryId": "wmsqohp",
     "name": "SALGADO REV.2",
     "description": "SALGADO REVENDA 2",
     "price": 6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1529.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -5125,8 +5299,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794859143802,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1zwbnjn",
@@ -5149,7 +5324,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "cocacjc",
@@ -5172,7 +5348,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2al3jlf",
@@ -5195,7 +5372,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7bacqvh",
@@ -5218,7 +5396,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "icmwjcj",
@@ -5241,7 +5420,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "rgthhcr",
@@ -5264,7 +5444,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "coxad1z",
@@ -5287,7 +5468,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "2oa0deh",
@@ -5310,7 +5492,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "zw70v2h",
@@ -5333,7 +5516,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "q19eqep",
@@ -5356,7 +5540,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ld8gy1u",
@@ -5379,13 +5564,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "k66q7rz",
     "categoryId": "6rxjvu9",
     "name": "PASTEL FRITO CARNE",
-    "description": "PASTEL FRITO CARNE [channels:delivery,in_store]",
+    "description": "PASTEL FRITO CARNE",
     "price": 6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1561.jpg",
     "isActive": false,
@@ -5402,13 +5588,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "3jhhvdi",
     "categoryId": "6rxjvu9",
     "name": "PASTEL FRITO DE BACALHAU C/ BATATA",
-    "description": "PASTEL FRITO DE BACALHAU C/ BATATA [channels:delivery,in_store]",
+    "description": "PASTEL FRITO DE BACALHAU C/ BATATA",
     "price": 6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1564.jpg",
     "isActive": false,
@@ -5425,13 +5612,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "gk213zb",
     "categoryId": "nyww21f",
     "name": "PASTEL FRITO BACALHAU C/ BATATA REV",
-    "description": "PASTEL FRITO BACALHAU C/ BATATA REV [channels:delivery,in_store]",
+    "description": "PASTEL FRITO BACALHAU C/ BATATA REV",
     "price": 4.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1565.jpg",
     "isActive": false,
@@ -5448,13 +5636,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "osx3hqm",
     "categoryId": "6rxjvu9",
     "name": "QUICHE DE PALMITO",
-    "description": "QUICHE DE PALMITO [channels:delivery,in_store]",
+    "description": "QUICHE DE PALMITO",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1602.jpg",
     "isActive": false,
@@ -5471,13 +5660,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "esnpyfq",
     "categoryId": "6rxjvu9",
     "name": "QUICHE DE CREME DE MILHO",
-    "description": "QUICHE DE CREME DE MILHO [channels:delivery,in_store]",
+    "description": "QUICHE DE CREME DE MILHO",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1603.jpg",
     "isActive": false,
@@ -5494,13 +5684,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "5o1sh9i",
     "categoryId": "nyww21f",
     "name": "QUICHE CREME DE MILHO",
-    "description": "QUICHE CREME DEMILHO [channels:delivery,in_store]",
+    "description": "QUICHE CREME DEMILHO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1614.jpg",
     "isActive": false,
@@ -5517,13 +5708,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "af5qvfk",
-    "categoryId": "rjhc9i7",
+    "categoryId": "bjdjdho",
     "name": "QUICHE DE ALHO PORO",
-    "description": "QUICHE DE ALHO PORO [channels:delivery,in_store]",
+    "description": "QUICHE DE ALHO PORO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1616.jpg",
     "isActive": true,
@@ -5538,9 +5730,10 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": "xqs010m",
-    "updatedAt": 1794569660495,
-    "minFrozenQuantity": 10
+    "frozenCategoryId": "lmh1bv4",
+    "updatedAt": 1794859420878,
+    "minFrozenQuantity": 10,
+    "manualFields": []
   },
   {
     "id": "8uykprm",
@@ -5563,7 +5756,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "f4oeleu",
@@ -5586,7 +5780,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "l5ajx67",
@@ -5609,7 +5804,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ap4d5ok",
@@ -5632,7 +5828,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8urul2f",
@@ -5655,7 +5852,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "v5meliv",
@@ -5678,7 +5876,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "qz98jlc",
@@ -5701,7 +5900,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ficia7a",
@@ -5724,13 +5924,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "u2p84yb",
     "categoryId": "6rxjvu9",
     "name": "QUICHE DE BACALHAU",
-    "description": "QUICHE DE BACALHAU [channels:delivery,in_store]",
+    "description": "QUICHE DE BACALHAU",
     "price": 6.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1694.jpg",
     "isActive": false,
@@ -5747,13 +5948,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8ysyjdp",
     "categoryId": "6rxjvu9",
     "name": "QUICHE DE DAMASCO",
-    "description": "QUICHE DE DAMASCO [channels:delivery,in_store]",
+    "description": "QUICHE DE DAMASCO",
     "price": 8,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1695.jpg",
     "isActive": false,
@@ -5770,7 +5972,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ap4q4s2",
@@ -5793,7 +5996,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hqv2v5m",
@@ -5816,7 +6020,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "blf9kt2",
@@ -5839,7 +6044,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8szqm83",
@@ -5862,7 +6068,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ic03a7b",
@@ -5885,7 +6092,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "z8ye8qv",
@@ -5908,7 +6116,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "sfmx0pe",
@@ -5931,7 +6140,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510064495,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "usy5ka5",
@@ -5954,7 +6164,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "q7nyuw1",
@@ -5977,12 +6188,13 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "wm3nzlb",
-    "categoryId": "nyww21f",
-    "name": "KIBE DE CARNE COM CATUPIRY",
+    "categoryId": "rjhc9i7",
+    "name": "QUIBE DE CARNE COM CATUPIRY",
     "description": "KIBE DE CARNE COM CATUPIRY",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1392.jpg",
@@ -5990,7 +6202,7 @@
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1392",
     "order": 0,
@@ -5998,9 +6210,10 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794860057724,
+    "minFrozenQuantity": 20,
+    "manualFields": []
   },
   {
     "id": "1vyaz2z",
@@ -6023,13 +6236,14 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "fqhkxsc",
     "categoryId": "6rxjvu9",
     "name": "RISOLE CARNE SECA CATUPIRY",
-    "description": "RISOLE CARNE SECA CATUPIRY [channels:delivery,in_store]",
+    "description": "RISOLE CARNE SECA CATUPIRY",
     "price": 6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1396.jpg",
     "isActive": false,
@@ -6046,7 +6260,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "j2oduuz",
@@ -6055,7 +6270,7 @@
     "description": "REFRIGERADOR EXPOSITOR VERTICAL VR08SLIM",
     "price": 0.1,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1397.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6068,8 +6283,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858674090,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "s7elvpt",
@@ -6092,7 +6308,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "5498pes",
@@ -6115,7 +6332,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "5gclf7c",
@@ -6138,7 +6356,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "dzxwf62",
@@ -6147,7 +6366,7 @@
     "description": "PASTEL DE CARNE C/ BATATA",
     "price": 4.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1401.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6160,8 +6379,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794835887604,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "677phqb",
@@ -6184,7 +6404,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "t08npuk",
@@ -6193,7 +6414,7 @@
     "description": "QUEIJO MUSSARELA FATIADO 200G SADIA",
     "price": 0.01,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1405.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6206,21 +6427,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858662975,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "pcfifa2",
     "categoryId": "wscjzcx",
-    "name": "FESTA BOL.BACALHAU",
-    "description": "FESTA BOL.BACALHAU [channels:delivery,in_store]",
+    "name": "BOLINHO DE BACALHAU",
+    "description": "25 UNIDADES",
     "price": 24.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1413.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1413",
     "order": 0,
@@ -6229,21 +6451,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794860927897,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "9bg5ja8",
     "categoryId": "wscjzcx",
-    "name": "FESTA BOL. MANDIOCA",
-    "description": "FESTA BOL. MANDIOCA [channels:delivery,in_store]",
+    "name": "BOLINHO DE MANDIOCA",
+    "description": "25 UNIDADES",
     "price": 15,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1414.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1414",
     "order": 0,
@@ -6252,21 +6475,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794860933252,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1pen64b",
     "categoryId": "wscjzcx",
-    "name": "FESTA BOL. QUEIJO",
-    "description": "FESTA BOL. QUEIJO [channels:delivery,in_store]",
+    "name": "BOLINHA DE QUEIJO",
+    "description": "25 UNIDADES",
     "price": 15,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1415.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1415",
     "order": 0,
@@ -6275,21 +6499,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794860912301,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "tdbxu7i",
-    "categoryId": "wscjzcx",
-    "name": "FESTA CACHORRO QUENTE",
-    "description": "FESTA CACHORRO QUENTE [channels:delivery,in_store]",
+    "categoryId": "e0sv8sp",
+    "name": "CACHORRO QUENTE",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1416.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1416",
     "order": 0,
@@ -6298,21 +6523,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861193587,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ub0po57",
     "categoryId": "wscjzcx",
-    "name": "FESTA COX.FRG",
-    "description": "FESTA COX.FRG [channels:delivery,in_store]",
+    "name": "COXINHA DE FRANGO",
+    "description": "25 UNIDADES",
     "price": 15,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1417.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1417",
     "order": 0,
@@ -6321,21 +6547,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794860941325,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "k9rk7me",
     "categoryId": "wscjzcx",
-    "name": "FESTA CROQUETE CARNE",
-    "description": "FESTA CROQUETE CARNE",
+    "name": "CROQUETE DE CARNE",
+    "description": "25 UNIDADES",
     "price": 18.5,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1418.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1418",
     "order": 0,
@@ -6344,21 +6571,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794860949525,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "8nxejo0",
-    "categoryId": "wscjzcx",
-    "name": "FESTA EMPADA FRG",
-    "description": "FESTA EMPADA FRG",
+    "categoryId": "e0sv8sp",
+    "name": "EMPADA DE FRANGO",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1419.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1419",
     "order": 0,
@@ -6367,21 +6595,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861184457,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7m4wyat",
-    "categoryId": "wscjzcx",
-    "name": "FESTA ESF.CALABRESA",
-    "description": "FESTA ESF.CALABRESA",
+    "categoryId": "e0sv8sp",
+    "name": "ESFIHA DE CALABRESA",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1420.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1420",
     "order": 0,
@@ -6390,21 +6619,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861174542,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "232t1ts",
-    "categoryId": "wscjzcx",
-    "name": "FESTA ESF.CARNE",
-    "description": "FESTA ESF.CARNE",
+    "categoryId": "e0sv8sp",
+    "name": "ESFIHA DE CARNE",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1421.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1421",
     "order": 0,
@@ -6413,21 +6643,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861165420,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "i9ov5sw",
-    "categoryId": "wscjzcx",
-    "name": "FESTA ESF.FRG",
-    "description": "FESTA ESF.FRG",
+    "categoryId": "e0sv8sp",
+    "name": "ESFIHA DE FRANGO",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1422.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1422",
     "order": 0,
@@ -6436,21 +6667,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861156084,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "v7pyfmy",
-    "categoryId": "wscjzcx",
-    "name": "FESTA ESF.PRES C REQUEIJA",
-    "description": "FESTA ESF.PRES C REQUEIJA",
+    "categoryId": "e0sv8sp",
+    "name": "ESFIHA DE PRESUNTO",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1423.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1423",
     "order": 0,
@@ -6459,21 +6691,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861149293,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "dnvnj6q",
-    "categoryId": "wscjzcx",
-    "name": "FESTA ESF RICOTA",
-    "description": "FESTA ESF RICOTA",
+    "categoryId": "e0sv8sp",
+    "name": "ESFIHA DE RICOTA",
+    "description": "20 UNIDADES",
     "price": 17.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1424.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1424",
     "order": 0,
@@ -6482,21 +6715,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861142356,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "7ro74dc",
     "categoryId": "wscjzcx",
-    "name": "FESTA KIBE BAT C QUEIJO",
-    "description": "FESTA KIBE BAT C QUEIJO",
+    "name": "QUIBE DE BATATA COM QUEIJO",
+    "description": "25 UNIDADES",
     "price": 15,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1425.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1425",
     "order": 0,
@@ -6505,21 +6739,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794860959794,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ldvz6t5",
     "categoryId": "wscjzcx",
-    "name": "FESTA KIBE CARNE C REQUEIJAO",
-    "description": "Pão francês fresquinho chapeado com generosa camada de requeijão cremoso derretido.",
+    "name": "QUIBE DE CARNE COM REQUEIJAO",
+    "description": "25 UNIDADES",
     "price": 15,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1426.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1426",
     "order": 0,
@@ -6528,21 +6763,22 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861061279,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hbs4mg6",
     "categoryId": "wscjzcx",
-    "name": "FESTA RISOLE MILHO",
-    "description": "FESTA RISOLE MILHO [channels:delivery,in_store]",
+    "name": "RISOLE DE MILHO",
+    "description": "25 UNIDADES",
     "price": 15,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1427.jpg",
     "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
-    "maxAddons": 0,
+    "maxAddons": 2,
     "flavorIds": [],
     "externalId": "1427",
     "order": 0,
@@ -6551,8 +6787,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794861018723,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "td74osz",
@@ -6575,7 +6812,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "pce4bx8",
@@ -6598,7 +6836,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "3awbkyt",
@@ -6607,7 +6846,7 @@
     "description": "Acessos a plataforma de estudos Ead adqu",
     "price": 0.01,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1432.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6620,14 +6859,15 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858451304,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "busnjmm",
     "categoryId": "bjdjdho",
     "name": "ENROLADINHO PRE./QJO",
-    "description": "ENROLADINHO PRE./QJO [channels:delivery,in_store]",
+    "description": "ENROLADINHO PRE./QJO",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1433.jpg",
     "isActive": true,
@@ -6644,16 +6884,17 @@
     "availableForKiosk": false,
     "frozenCategoryId": "lmh1bv4",
     "updatedAt": 1794572453840,
-    "minFrozenQuantity": 15
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "amav5qg",
-    "categoryId": "nyww21f",
+    "categoryId": "rjhc9i7",
     "name": "RISOLE DE CARNE",
-    "description": "RISOLE DE CARNE [channels:delivery,in_store]",
+    "description": "RISOLE DE CARNE",
     "price": 4.6,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1434.jpg",
-    "isActive": false,
+    "isActive": true,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6665,15 +6906,16 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": false,
-    "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "frozenCategoryId": "xqs010m",
+    "updatedAt": 1794859960868,
+    "minFrozenQuantity": 15,
+    "manualFields": []
   },
   {
     "id": "dl46yf1",
     "categoryId": "nyww21f",
     "name": "RISOLE DE CARNE",
-    "description": "RISOLE DE CARNE [channels:delivery,in_store]",
+    "description": "RISOLE DE CARNE",
     "price": 3.75,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1435.jpg",
     "isActive": false,
@@ -6690,7 +6932,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ea7zthl",
@@ -6713,7 +6956,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "0k4wtru",
@@ -6722,7 +6966,7 @@
     "description": "TANQUE P-500 VERTICAL",
     "price": 2876.27,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1442.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6735,8 +6979,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858691864,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "r8zr5b9",
@@ -6745,7 +6990,7 @@
     "description": "PAO DE QUEIJO PALITO 110G",
     "price": 16.25,
     "imageUrl": "https://www.app.bluefocus.com.br/BlueFocusCloud/b022f872-e257-4453-beba-3e4f4bf5ab19/mercadoria/1447.jpg",
-    "isActive": true,
+    "isActive": false,
     "isAddon": false,
     "isFlavor": false,
     "addonIds": [],
@@ -6758,8 +7003,9 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "frozenCategoryId": null,
-    "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "updatedAt": 1794858650057,
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "ryvi7g0",
@@ -6782,7 +7028,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "1728egs",
@@ -6805,7 +7052,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "65gxnjv",
@@ -6828,7 +7076,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "bo4yetw",
@@ -6851,7 +7100,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "a322yx6",
@@ -6874,7 +7124,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "dnyumny",
@@ -6897,7 +7148,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "gibfiza",
@@ -6920,7 +7172,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "46bkiyl",
@@ -6943,7 +7196,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "odtgr9m",
@@ -6966,7 +7220,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "j7wsjib",
@@ -6989,7 +7244,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hexn1o5",
@@ -7012,7 +7268,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "61gcayr",
@@ -7035,7 +7292,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "v68hvx3",
@@ -7058,7 +7316,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "hexgnnm",
@@ -7081,7 +7340,8 @@
     "availableForKiosk": false,
     "frozenCategoryId": null,
     "updatedAt": 1794510062496,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "jhzx6cv",
@@ -7104,7 +7364,8 @@
     "availableInStore": true,
     "availableForKiosk": false,
     "updatedAt": 1794510066604,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   },
   {
     "id": "prod_congelado",
@@ -7127,6 +7388,7 @@
     "flavorIds": [],
     "allowFrozen": true,
     "updatedAt": 1794444749634,
-    "minFrozenQuantity": 1
+    "minFrozenQuantity": 1,
+    "manualFields": []
   }
 ]

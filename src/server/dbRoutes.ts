@@ -21,6 +21,8 @@ import {
   saveCollectionToCloudDebounced,
   loadCollectionFromCloud,
   smartMergeCollectionItems,
+  getLastCloudWriteStatus,
+  clearLastCloudWriteError,
 } from './cloudPersistence';
 
 // Initial default data for auto-seeding & in-memory fallback (clean state for new ERP integration)
@@ -1479,7 +1481,7 @@ export async function hydrateFromPostgres(): Promise<void> {
       cloudSyncIntervalStarted = true;
       setInterval(() => {
         syncWithCloudFirestore().catch(() => {});
-      }, 25000);
+      }, 180000);
     }
 
     if (!isDatabaseConfigured()) {
@@ -1531,7 +1533,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           }
 
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
-          persistStoreInfoToDisk(memStoreInfo);
+          persistStoreInfoToDisk(memStoreInfo, false);
           console.log(`[DB Hydrate] StoreInfo carregada e mesclada: "${memStoreInfo.name}"`);
         } else {
           const merged: any = { 
@@ -1542,7 +1544,7 @@ export async function hydrateFromPostgres(): Promise<void> {
             id: 'default' 
           };
           memStoreInfo = sanitizeStoreInfoPrinters(merged);
-          persistStoreInfoToDisk(memStoreInfo);
+          persistStoreInfoToDisk(memStoreInfo, false);
           await withDbRetry(() => db.insert(storeInfo).values(memStoreInfo).onConflictDoNothing());
           console.log('[DB Hydrate] Restaurada linha default em store_info no PostgreSQL.');
         }
@@ -1555,12 +1557,12 @@ export async function hydrateFromPostgres(): Promise<void> {
         const catList = await withDbRetry(() => db.select().from(categories));
         if (catList && catList.length > 0) {
           memCategories = smartMergeCollectionItems('categories', [memCategories, catList], memDeletedIds);
-          persistCategoriesToDisk(memCategories);
+          persistCategoriesToDisk(memCategories, false);
           await saveCategoriesToPostgresBatch(memCategories);
           console.log(`[DB Hydrate] ${memCategories.length} categorias mescladas (PostgreSQL + Cloud Firestore + Seed).`);
         } else if (memCategories.length > 0) {
           const saved = await saveCategoriesToPostgresBatch(memCategories);
-          persistCategoriesToDisk(memCategories);
+          persistCategoriesToDisk(memCategories, false);
           console.log(`[DB Hydrate] Banco sem categorias; ${saved} categorias sincronizadas para o PostgreSQL.`);
         }
       } catch (catErr: any) {
@@ -1582,12 +1584,12 @@ export async function hydrateFromPostgres(): Promise<void> {
         }
         if (prodList && prodList.length > 0) {
           memProducts = smartMergeCollectionItems('products', [memProducts, prodList], memDeletedIds);
-          persistProductsToDisk(memProducts);
+          persistProductsToDisk(memProducts, false);
           await saveProductsToPostgresBatch(memProducts);
           console.log(`[DB Hydrate] ${memProducts.length} produtos mesclados (PostgreSQL + Cloud Firestore + Seed).`);
         } else if (memProducts.length > 0) {
           const saved = await saveProductsToPostgresBatch(memProducts);
-          persistProductsToDisk(memProducts);
+          persistProductsToDisk(memProducts, false);
           console.log(`[DB Hydrate] Banco sem produtos; ${saved} produtos sincronizados para o PostgreSQL.`);
         }
       } catch (prodErr: any) {
@@ -1598,7 +1600,7 @@ export async function hydrateFromPostgres(): Promise<void> {
       try {
         const tbList = await withDbRetry(() => db.select().from(totemBackups).orderBy(desc(totemBackups.createdAt)));
         memTotemBackups = smartMergeCollectionItems('totemBackups', [memTotemBackups, tbList || []], memDeletedIds);
-        persistTotemBackupsToDisk(memTotemBackups);
+        persistTotemBackupsToDisk(memTotemBackups, false);
         if (isDatabaseConfigured() && memTotemBackups.length > 0) {
           for (const item of memTotemBackups) {
             try {
@@ -1634,12 +1636,12 @@ export async function hydrateFromPostgres(): Promise<void> {
         }
         if (custList && custList.length > 0) {
           memCustomers = smartMergeCollectionItems('customers', [memCustomers, custList], memDeletedIds);
-          persistCustomersToDisk(memCustomers);
+          persistCustomersToDisk(memCustomers, false);
           await saveCustomersToPostgresBatch(memCustomers);
           console.log(`[DB Hydrate] ${memCustomers.length} clientes mesclados (PostgreSQL + Cloud Firestore + Seed).`);
         } else if (memCustomers.length > 0) {
           const saved = await saveCustomersToPostgresBatch(memCustomers);
-          persistCustomersToDisk(memCustomers);
+          persistCustomersToDisk(memCustomers, false);
           console.log(`[DB Hydrate] Banco sem clientes; ${saved} clientes restaurados para o PostgreSQL.`);
         }
       } catch (custErr: any) {
@@ -1671,7 +1673,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           memDeletedIds
         );
 
-        persistOrdersToDisk(memOrders);
+        persistOrdersToDisk(memOrders, false);
         if (memOrders.length > parsedDbOrders.length) {
           for (const ord of memOrders) {
             try {
@@ -1693,7 +1695,7 @@ export async function hydrateFromPostgres(): Promise<void> {
         const tableList = await db.select().from(restaurantTables);
         if (tableList && tableList.length > 0) {
           memTables = smartMergeCollectionItems('tables', [tableList, memTables], memDeletedIds);
-          persistTablesToDisk(memTables);
+          persistTablesToDisk(memTables, false);
           console.log(`[DB Hydrate] ${memTables.length} mesas carregadas do PostgreSQL.`);
         }
       } catch (tblErr: any) {
@@ -1705,7 +1707,7 @@ export async function hydrateFromPostgres(): Promise<void> {
         const drvList = await db.select().from(drivers);
         if (drvList && drvList.length > 0) {
           memDrivers = drvList;
-          persistDriversToDisk(memDrivers);
+          persistDriversToDisk(memDrivers, false);
           console.log(`[DB Hydrate] ${memDrivers.length} motoboys carregados do PostgreSQL.`);
         }
       } catch (drvErr: any) {
@@ -1729,7 +1731,7 @@ export async function hydrateFromPostgres(): Promise<void> {
         const tvList = await db.select().from(tvMedia);
         if (tvList && tvList.length > 0) {
           memTvMedia = smartMergeCollectionItems('tvMedia', [tvList, memTvMedia], memDeletedIds);
-          persistTvMediaToDisk(memTvMedia);
+          persistTvMediaToDisk(memTvMedia, false);
           console.log(`[DB Hydrate] ${memTvMedia.length} mídias de TV carregadas do PostgreSQL.`);
         } else if (memTvMedia.length > 0) {
           for (const item of memTvMedia) {
@@ -1768,7 +1770,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           userList = await db.select().from(users);
         }
         memUsers = userList;
-        persistUsersToDisk(memUsers);
+        persistUsersToDisk(memUsers, false);
         console.log(`[DB Hydrate] ${memUsers.length} usuários carregados do PostgreSQL (admin@balbec.com.br configurado como Master).`);
       } catch (usrErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar users do PostgreSQL:', usrErr?.message || usrErr);
@@ -1792,7 +1794,7 @@ export async function hydrateFromPostgres(): Promise<void> {
           return c;
         });
         if (migrationCount > 0) {
-          persistCustomersToDisk(memCustomers);
+          persistCustomersToDisk(memCustomers, false);
         }
       } catch (migErr: any) {
         console.warn('[Migration] Aviso ao normalizar clientes:', migErr.message);
@@ -4708,16 +4710,17 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const data = req.body || {};
       const now = Date.now();
       let restoredCount = 0;
+      clearLastCloudWriteError();
 
       if (data.storeInfo && typeof data.storeInfo === 'object') {
         memStoreInfo = { ...DEFAULT_STORE_INFO, ...memStoreInfo, ...data.storeInfo, id: 'default', updatedAt: now };
-        persistStoreInfoToDisk(memStoreInfo);
+        persistStoreInfoToDisk(memStoreInfo, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.tvMedia)) {
         memTvMedia = data.tvMedia;
-        persistTvMediaToDisk(memTvMedia);
+        persistTvMediaToDisk(memTvMedia, false);
         restoredCount++;
       }
 
@@ -4727,7 +4730,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           unmarkDeletedItem('categories', formatted.id);
           return formatted;
         });
-        persistCategoriesToDisk(memCategories);
+        persistCategoriesToDisk(memCategories, false);
         restoredCount++;
       }
 
@@ -4737,43 +4740,43 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           unmarkDeletedItem('products', formatted.id);
           return formatted;
         });
-        persistProductsToDisk(memProducts);
+        persistProductsToDisk(memProducts, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.users)) {
         memUsers = data.users;
-        persistUsersToDisk(memUsers);
+        persistUsersToDisk(memUsers, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.tables)) {
         memTables = data.tables;
-        persistTablesToDisk(memTables);
+        persistTablesToDisk(memTables, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.customers)) {
         memCustomers = data.customers;
-        persistCustomersToDisk(memCustomers);
+        persistCustomersToDisk(memCustomers, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.orders)) {
         memOrders = data.orders;
-        persistOrdersToDisk(memOrders);
+        persistOrdersToDisk(memOrders, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.totemBackups)) {
         memTotemBackups = data.totemBackups;
-        persistTotemBackupsToDisk(memTotemBackups);
+        persistTotemBackupsToDisk(memTotemBackups, false);
         restoredCount++;
       }
 
       if (Array.isArray(data.drivers)) {
         memDrivers = data.drivers;
-        persistDriversToDisk(memDrivers);
+        persistDriversToDisk(memDrivers, false);
         restoredCount++;
       }
 
@@ -4833,10 +4836,40 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         }
       }
 
+      // Grava explicitamente e aguarda a persistência no Cloud Firestore antes de responder
+      let cloudSyncOk = true;
+      const cloudTasks: Promise<boolean>[] = [];
+      if (data.storeInfo) cloudTasks.push(saveSingleToCloud('storeInfo', memStoreInfo, true));
+      if (Array.isArray(data.categories)) cloudTasks.push(saveCollectionToCloud('categories', memCategories, true));
+      if (Array.isArray(data.products)) cloudTasks.push(saveCollectionToCloud('products', memProducts, true));
+      if (Array.isArray(data.customers)) cloudTasks.push(saveCollectionToCloud('customers', memCustomers, true));
+      if (Array.isArray(data.orders)) cloudTasks.push(saveCollectionToCloud('orders', memOrders, true));
+      if (Array.isArray(data.tables)) cloudTasks.push(saveCollectionToCloud('tables', memTables, true));
+      if (Array.isArray(data.tvMedia)) cloudTasks.push(saveCollectionToCloud('tvMedia', memTvMedia, true));
+      if (Array.isArray(data.users)) cloudTasks.push(saveCollectionToCloud('users', memUsers, true));
+      if (Array.isArray(data.totemBackups)) cloudTasks.push(saveCollectionToCloud('totemBackups', memTotemBackups, true));
+
+      if (cloudTasks.length > 0) {
+        const results = await Promise.all(cloudTasks);
+        cloudSyncOk = results.every(Boolean);
+      }
+      const cloudErr = getLastCloudWriteStatus();
+      const cloudQuotaExceeded = Boolean(!cloudSyncOk && cloudErr?.isQuotaExceeded);
+      const cloudWarning = !cloudSyncOk
+        ? (cloudQuotaExceeded
+            ? 'A cota diária gratuita de gravação do Cloud Firestore foi atingida hoje. Os dados foram restaurados apenas neste servidor temporário e precisam ser salvos novamente amanhã após o reset da cota antes de um novo deploy.'
+            : (cloudErr?.message || 'Não foi possível confirmar a gravação no Cloud Firestore agora.'))
+        : null;
+
       onUpdate?.();
       return res.json({
         success: true,
-        message: 'Backup restaurado com sucesso!',
+        message: cloudSyncOk
+          ? 'Backup restaurado e sincronizado na nuvem com sucesso!'
+          : 'Backup restaurado localmente (atenção: falha ao gravar na nuvem).',
+        cloudSyncOk,
+        cloudQuotaExceeded,
+        cloudWarning,
         restoredCategories: memCategories.length,
         restoredProducts: memProducts.length,
         restoredTvMedia: memTvMedia.length,

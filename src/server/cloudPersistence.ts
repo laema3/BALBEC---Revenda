@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import firebaseConfigJson from '../../firebase-applet-config.json';
@@ -7,6 +8,37 @@ import firebaseConfigJson from '../../firebase-applet-config.json';
 const SYNC_KEY = 'balbec_server_sync_v1';
 const COLLECTION_NAME = 'balbec_cloud_store';
 const MAX_CHUNK_BYTES = 600_000; // Safe margin below Firestore 1MB limit
+
+const lastCloudHashes: Record<string, string> = {};
+let lastCloudWriteError: { code: string; message: string; isQuotaExceeded: boolean; at: number } | null = null;
+
+function hashPayload(str: string): string {
+  return crypto.createHash('sha256').update(str).digest('hex');
+}
+
+export function getLastCloudWriteStatus() {
+  return lastCloudWriteError;
+}
+
+export function clearLastCloudWriteError() {
+  lastCloudWriteError = null;
+}
+
+function recordCloudWriteError(scope: string, err: any) {
+  const msg = String(err?.message || err || '');
+  const code = String(err?.code || '');
+  const isQuotaExceeded =
+    code === 'resource-exhausted' ||
+    msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.toLowerCase().includes('quota');
+  lastCloudWriteError = {
+    code: code || (isQuotaExceeded ? 'resource-exhausted' : 'unknown'),
+    message: msg,
+    isQuotaExceeded,
+    at: Date.now(),
+  };
+  console.warn(`[CloudPersistence] Aviso ao salvar ${scope}:`, msg);
+}
 
 function loadFirebaseConfig() {
   const candidates = [
@@ -102,7 +134,7 @@ export function mergeDeletedRegistries(
   return result;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms = 2500, fallback: T): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms = 8000, fallback: T): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
@@ -112,7 +144,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 2500, fallback: T): Promise<T>
 /**
  * Salva um objeto único (ex: storeInfo ou deletedIds) no Cloud Firestore.
  */
-export async function saveSingleToCloud(key: string, data: any): Promise<boolean> {
+export async function saveSingleToCloud(key: string, data: any, force = false): Promise<boolean> {
   const db = getCloudFirestore();
   if (!db || data === undefined || data === null) return false;
   try {
@@ -125,19 +157,36 @@ export async function saveSingleToCloud(key: string, data: any): Promise<boolean
       }
       payloadJson = JSON.stringify(copy);
     }
+
+    const digest = hashPayload(payloadJson);
+    if (!force && lastCloudHashes[`single_${key}`] === digest) {
+      return true;
+    }
+
     const ref = doc(db, COLLECTION_NAME, `single_${key}`);
     const writeRes = await withTimeout(
       setDoc(ref, {
         syncKey: SYNC_KEY,
         updatedAt: Date.now(),
         payloadJson,
-      }),
-      2500,
-      null
+      }).then(() => true),
+      8000,
+      false
     );
-    return writeRes !== null;
+    if (writeRes) {
+      lastCloudHashes[`single_${key}`] = digest;
+      lastCloudWriteError = null;
+    } else if (!lastCloudWriteError || Date.now() - lastCloudWriteError.at > 10000) {
+      lastCloudWriteError = {
+        code: 'timeout-or-quota',
+        message: `Tempo limite esgotado ao salvar ${key} no Cloud Firestore.`,
+        isQuotaExceeded: false,
+        at: Date.now(),
+      };
+    }
+    return writeRes;
   } catch (err: any) {
-    console.warn(`[CloudPersistence] Aviso ao salvar single_${key}:`, err?.message || err);
+    recordCloudWriteError(`single_${key}`, err);
     return false;
   }
 }
@@ -150,10 +199,11 @@ export async function loadSingleFromCloud<T>(key: string, fallback: T): Promise<
   if (!db) return fallback;
   try {
     const ref = doc(db, COLLECTION_NAME, `single_${key}`);
-    const snap = await withTimeout(getDoc(ref), 2500, null);
+    const snap = await withTimeout(getDoc(ref), 4000, null);
     if (snap && snap.exists()) {
       const d = snap.data();
       if (d && typeof d.payloadJson === 'string') {
+        lastCloudHashes[`single_${key}`] = hashPayload(d.payloadJson);
         return JSON.parse(d.payloadJson) as T;
       }
     }
@@ -177,17 +227,70 @@ export function saveCollectionToCloudDebounced(collectionKey: string, items: any
   }, delayMs);
 }
 
-export async function saveCollectionToCloud(collectionKey: string, items: any[]): Promise<boolean> {
+function compactItemForCloud(collectionKey: string, rawItem: any): any {
+  if (!rawItem || typeof rawItem !== 'object') return rawItem;
+
+  // Compacta snapshots de Totem Backups para não consumir megabytes de cota diária do Firestore
+  if (collectionKey === 'totemBackups') {
+    return {
+      ...rawItem,
+      categories: Array.isArray(rawItem.categories)
+        ? rawItem.categories.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            externalId: c.externalId ?? null,
+            order: c.order ?? 0,
+            isVisible: c.isVisible !== false,
+            modality: c.modality || 'pronto',
+            availableForDelivery: c.availableForDelivery !== false,
+            availableInStore: c.availableInStore !== false,
+            availableForKiosk: c.availableForKiosk !== false,
+          }))
+        : [],
+      products: Array.isArray(rawItem.products)
+        ? rawItem.products.map((p: any) => ({
+            id: p.id,
+            categoryId: p.categoryId ?? null,
+            frozenCategoryId: p.frozenCategoryId ?? null,
+            name: p.name,
+            externalId: p.externalId ?? null,
+            price: p.price ?? 0,
+            isActive: p.isActive !== false,
+            availableForDelivery: p.availableForDelivery !== false,
+            availableInStore: p.availableInStore !== false,
+            availableForKiosk: p.availableForKiosk !== false,
+            minFrozenQuantity: p.minFrozenQuantity ?? 1,
+            imageUrl: p.imageUrl && !String(p.imageUrl).startsWith('data:') ? p.imageUrl : '',
+          }))
+        : [],
+    };
+  }
+
+  return rawItem;
+}
+
+export async function saveCollectionToCloud(collectionKey: string, items: any[], force = false): Promise<boolean> {
   const db = getCloudFirestore();
   if (!db || !Array.isArray(items)) return false;
 
   try {
+    // Para totemBackups, mantém no máximo os 5 snapshots mais recentes na nuvem para economizar cota
+    const effectiveItems = collectionKey === 'totemBackups' ? items.slice(0, 5) : items;
+
+    const preparedItems = effectiveItems
+      .filter((rawItem) => rawItem && typeof rawItem === 'object')
+      .map((rawItem) => compactItemForCloud(collectionKey, rawItem));
+
+    const collectionDigest = hashPayload(JSON.stringify(preparedItems));
+    if (!force && lastCloudHashes[`col_${collectionKey}`] === collectionDigest) {
+      return true;
+    }
+
     const chunks: any[][] = [];
     let currentChunk: any[] = [];
     let currentBytes = 2;
 
-    for (const rawItem of items) {
-      if (!rawItem || typeof rawItem !== 'object') continue;
+    for (const rawItem of preparedItems) {
       let itemToStore = rawItem;
       let serialized = JSON.stringify(itemToStore);
       let itemBytes = Buffer.byteLength(serialized, 'utf8');
@@ -220,7 +323,7 @@ export async function saveCollectionToCloud(collectionKey: string, items: any[])
     }
 
     const now = Date.now();
-    // Grava cada chunk em paralelo com timeout de 2500ms
+    // Grava cada chunk em paralelo com timeout de 8000ms
     const writeRes = await withTimeout(
       Promise.all(
         chunks.map((chunk, idx) => {
@@ -233,29 +336,42 @@ export async function saveCollectionToCloud(collectionKey: string, items: any[])
             payloadJson: JSON.stringify(chunk),
           });
         })
-      ),
-      2500,
-      null
+      ).then(() => true),
+      8000,
+      false
     );
 
-    if (writeRes !== null) {
+    if (writeRes) {
       // Grava o metadado da coleção por último (commit atômico lógico)
       const metaRef = doc(db, COLLECTION_NAME, `${collectionKey}_meta`);
-      await withTimeout(
+      const metaOk = await withTimeout(
         setDoc(metaRef, {
           syncKey: SYNC_KEY,
           updatedAt: now,
           chunkCount: chunks.length,
-          totalItems: items.length,
-        }),
-        2500,
-        null
+          totalItems: preparedItems.length,
+        }).then(() => true),
+        8000,
+        false
       );
+      if (metaOk) {
+        lastCloudHashes[`col_${collectionKey}`] = collectionDigest;
+        lastCloudWriteError = null;
+        return true;
+      }
     }
 
-    return writeRes !== null;
+    if (!lastCloudWriteError || Date.now() - lastCloudWriteError.at > 10000) {
+      lastCloudWriteError = {
+        code: 'timeout-or-quota',
+        message: `Falha ou tempo limite ao gravar coleção ${collectionKey} no Cloud Firestore.`,
+        isQuotaExceeded: false,
+        at: Date.now(),
+      };
+    }
+    return false;
   } catch (err: any) {
-    console.warn(`[CloudPersistence] Aviso ao salvar coleção ${collectionKey}:`, err?.message || err);
+    recordCloudWriteError(`coleção ${collectionKey}`, err);
     return false;
   }
 }
@@ -275,7 +391,7 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<Cl
 
   try {
     const metaRef = doc(db, COLLECTION_NAME, `${collectionKey}_meta`);
-    const metaSnap = await withTimeout(getDoc(metaRef), 2500, null);
+    const metaSnap = await withTimeout(getDoc(metaRef), 4000, null);
     if (!metaSnap) {
       // Timeout ou erro de rede: retorna null para que o servidor NUNCA sobrescreva a nuvem com seed
       return null;
@@ -290,6 +406,7 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<Cl
     const updatedAt = Number(meta?.updatedAt || 0);
 
     if (chunkCount <= 0) {
+      lastCloudHashes[`col_${collectionKey}`] = hashPayload('[]');
       return { items: [], updatedAt, existsInCloud: true };
     }
 
@@ -299,7 +416,7 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<Cl
           getDoc(doc(db, COLLECTION_NAME, `${collectionKey}_chunk_${idx}`))
         )
       ),
-      2500,
+      5000,
       []
     );
 
@@ -316,6 +433,10 @@ export async function loadCollectionFromCloud(collectionKey: string): Promise<Cl
           } catch {}
         }
       }
+    }
+
+    if (chunkSnaps.length === chunkCount) {
+      lastCloudHashes[`col_${collectionKey}`] = hashPayload(JSON.stringify(allItems));
     }
 
     return { items: allItems, updatedAt, existsInCloud: true };
