@@ -390,9 +390,17 @@ export interface StoreInfo {
   onlinePaymentSecretKey?: string;
   deliveryScheduleEnabled?: boolean;
   deliveryScheduleSlots?: string[] | string;
+  scheduleIntervalMinutes?: number;
+  scheduleStartTime?: string;
+  scheduleEndTime?: string;
+  scheduleSlotCapacities?: Record<string, number> | string;
   scheduleSlotItemCapacity?: number;
   schedulePrepTimeNormalMinutes?: number;
   schedulePrepTimeFrozenMinutes?: number;
+  salgadoPrepFritoEnabled?: boolean;
+  salgadoPrepAssadoEnabled?: boolean;
+  salgadoPrepFritoCongeladoEnabled?: boolean;
+  salgadoPrepAssadoCongeladoEnabled?: boolean;
   minOrderValue?: number;
   showSystemIntroButton?: boolean;
 }
@@ -647,10 +655,18 @@ export const defaultStoreInfo: StoreInfo = {
   networkPrinterIp: '192.168.0.90',
   networkPrinterPort: 9100,
   deliveryScheduleEnabled: true,
-  deliveryScheduleSlots: ['09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '09:00'],
+  deliveryScheduleSlots: ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'],
+  scheduleIntervalMinutes: 30,
+  scheduleStartTime: '08:00',
+  scheduleEndTime: '19:30',
+  scheduleSlotCapacities: '{}',
   scheduleSlotItemCapacity: 100,
   schedulePrepTimeNormalMinutes: 40,
   schedulePrepTimeFrozenMinutes: 90,
+  salgadoPrepFritoEnabled: true,
+  salgadoPrepAssadoEnabled: true,
+  salgadoPrepFritoCongeladoEnabled: true,
+  salgadoPrepAssadoCongeladoEnabled: true,
   minOrderValue: 150,
   showSystemIntroButton: false,
 };

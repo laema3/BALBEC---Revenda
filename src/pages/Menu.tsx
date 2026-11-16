@@ -13,7 +13,7 @@ import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCo
 import { sendNtfyNotification } from '../utils/ntfy';
 import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
-import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime } from '../utils/scheduleHelper';
+import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime, parseSlotCapacities, parseScheduleSlots } from '../utils/scheduleHelper';
 import { CustomerOrderTrackerModal } from '../components/CustomerOrderTrackerModal';
 
 // Detecção de bandeiras de cartões de crédito e débito
@@ -2416,8 +2416,8 @@ export default function Menu() {
     const finalQty = Math.max(minRequired, qty);
 
     if (isFrozenContext) {
-      const chosenPrepType: PrepChoiceType = selectedPrepType || 'congelado_cru';
-      const chosenPrepLabel = getPrepChoiceLabel(chosenPrepType) || 'CRU CONGELADO';
+      const chosenPrepType = selectedPrepType;
+      const chosenPrepLabel = chosenPrepType ? (getPrepChoiceLabel(chosenPrepType) || undefined) : undefined;
       const foundCong = products.find(p => p.id === 'prod_congelado');
       const pVal = foundCong && foundCong.price && foundCong.price < 2.0 ? Number(foundCong.price) : 0.30;
       const congeladoProd = foundCong || { id: 'prod_congelado', name: 'Salgado Congelado', price: pVal, externalId: '9999' };
@@ -3346,16 +3346,8 @@ export default function Menu() {
 
   // Etapa de Agendamento de Horários (Segunda a Sábado, Capacidade de Salgados e Preparo Normal vs Congelado)
   if (showScheduleSelectionStep) {
-    const rawSlots = storeInfo.deliveryScheduleSlots;
-    let slots = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'];
-    if (Array.isArray(rawSlots) && rawSlots.length > 0) {
-      slots = rawSlots;
-    } else if (typeof rawSlots === 'string') {
-      try {
-        const p = JSON.parse(rawSlots);
-        if (Array.isArray(p) && p.length > 0) slots = p;
-      } catch (e) {}
-    }
+    const slots = parseScheduleSlots(storeInfo.deliveryScheduleSlots);
+    const slotCapacitiesMap = parseSlotCapacities(storeInfo.scheduleSlotCapacities);
 
     // Gerar dias da semana disponíveis: Segunda a Sábado (Domingo a loja fecha)
     const availableWeekDays: {
@@ -3438,13 +3430,14 @@ export default function Menu() {
     const frozenPrepMinutes = Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90;
     const activePrepBuffer = hasFrozenInCart ? frozenPrepMinutes : normalPrepMinutes;
 
-    // Capacidade máxima de salgados por bloco de horário
-    const slotItemCapacity = Number(storeInfo.scheduleSlotItemCapacity) || 100;
+    // Capacidade padrão de salgados por horário (usada quando o horário não tem limite próprio configurado)
+    const defaultSlotCapacity = storeInfo.scheduleSlotItemCapacity !== undefined ? Number(storeInfo.scheduleSlotItemCapacity) : 100;
 
-    // Helper para verificar status de um slot no dia ativo
+    // Helper para verificar status e capacidade individual de um slot no dia ativo
     const getSlotStatus = (slot: string) => {
+      const slotCap = slotCapacitiesMap[slot] !== undefined ? slotCapacitiesMap[slot] : defaultSlotCapacity;
       const bookedUnits = slotBookedItemsMap[`${activeDay.dateStr}_${slot}`] || 0;
-      const remainingUnits = Math.max(0, slotItemCapacity - bookedUnits);
+      const remainingUnits = Math.max(0, slotCap - bookedUnits);
       const isFull = remainingUnits <= 0;
 
       let isPast = false;
@@ -3459,7 +3452,8 @@ export default function Menu() {
         isFull,
         isDisabled: isPast || isFull,
         bookedUnits,
-        remainingUnits
+        remainingUnits,
+        slotCap
       };
     };
 
@@ -3577,12 +3571,12 @@ export default function Menu() {
 
           {/* 3. GRADE DE HORÁRIOS DISPONÍVEIS POR CAPACIDADE DE SALGADOS */}
           <div ref={scheduleSlotsSectionRef} className="space-y-2 text-left mb-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
                 2. Horários ({activeDay.dayName}):
               </label>
               <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
-                Capacidade: {slotItemCapacity} salgados/bloco
+                {Number(storeInfo.scheduleIntervalMinutes) === 60 ? 'Intervalo: 1 em 1 hora' : 'Intervalo: 30 em 30 min'}
               </span>
             </div>
 
@@ -3632,10 +3626,10 @@ export default function Menu() {
                             : 'bg-emerald-100 text-emerald-800'
                     }`}>
                       {status.isFull 
-                        ? `Esgotado (${slotItemCapacity}/${slotItemCapacity})` 
+                        ? `Esgotado (${status.slotCap}/${status.slotCap})` 
                         : status.isPast 
                           ? 'Encerrado' 
-                          : `${status.remainingUnits} de ${slotItemCapacity} un.`}
+                          : `${status.remainingUnits} de ${status.slotCap} un.`}
                     </span>
                   </button>
                 );
@@ -6273,7 +6267,14 @@ export default function Menu() {
                           (normCatName.includes('grande') && normCatName.includes('norma')) ||
                           normCatName.includes('salgad')
                         );
-                        const needsPrepChoice = (isFrozenCategoryContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(product) && canBuy;
+                        const isPrepOptionEnabledForCard = isBakedCategory
+                          ? (isFrozenCategoryContext
+                              ? storeInfo.salgadoPrepAssadoCongeladoEnabled !== false
+                              : storeInfo.salgadoPrepAssadoEnabled !== false)
+                          : (isFrozenCategoryContext
+                              ? storeInfo.salgadoPrepFritoCongeladoEnabled !== false
+                              : (isFriedNormalCategory ? storeInfo.salgadoPrepFritoEnabled !== false : false));
+                        const needsPrepChoice = isPrepOptionEnabledForCard && (isFrozenCategoryContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(product) && canBuy;
                         const prepChoiceKey = `${category.id}_${product.id}`;
 
                         const prepOption1: { key: PrepChoiceType; label: string } = isBakedCategory

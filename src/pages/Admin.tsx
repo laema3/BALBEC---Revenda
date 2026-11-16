@@ -84,7 +84,7 @@ import {
 } from 'lucide-react';
 import { getCurrentPosition } from '../utils/geolocation';
 import { sendNtfyNotification } from '../utils/ntfy';
-import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp, getOrderDateInfo, DayTheme, getDayTheme, ALL_DAYS_THEME } from '../utils/scheduleHelper';
+import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, DEFAULT_WEEKLY_SCHEDULE, getEffectivePickupTimestamp, getOrderDateInfo, DayTheme, getDayTheme, ALL_DAYS_THEME, generateScheduleTimeSlots, parseSlotCapacities, parseScheduleSlots } from '../utils/scheduleHelper';
 import { AiAssistantModal } from '../components/AiAssistantModal';
 import { AdminSettingsCollapsible } from '../components/AdminSettingsCollapsible';
 import { CaixaPrinterStationCard } from '../components/CaixaPrinterStationCard';
@@ -749,19 +749,18 @@ export default function Admin() {
   const [inStoreEnabledState, setInStoreEnabledState] = useState<boolean>(storeInfo.inStoreEnabled !== false);
   const [deliveryEnabledState, setDeliveryEnabledState] = useState<boolean>(storeInfo.deliveryEnabled !== false);
   const [deliveryScheduleEnabledState, setDeliveryScheduleEnabledState] = useState<boolean>(!!storeInfo.deliveryScheduleEnabled);
-  const [deliveryScheduleSlotsState, setDeliveryScheduleSlotsState] = useState<string[]>(() => {
-    if (Array.isArray(storeInfo.deliveryScheduleSlots)) return storeInfo.deliveryScheduleSlots;
-    if (typeof storeInfo.deliveryScheduleSlots === 'string') {
-      try {
-        const p = JSON.parse(storeInfo.deliveryScheduleSlots);
-        if (Array.isArray(p)) return p;
-      } catch (e) {}
-    }
-    return ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'];
-  });
+  const [deliveryScheduleSlotsState, setDeliveryScheduleSlotsState] = useState<string[]>(() => parseScheduleSlots(storeInfo.deliveryScheduleSlots));
+  const [scheduleIntervalMinutesState, setScheduleIntervalMinutesState] = useState<number>(Number(storeInfo.scheduleIntervalMinutes) === 60 ? 60 : 30);
+  const [scheduleStartTimeState, setScheduleStartTimeState] = useState<string>(storeInfo.scheduleStartTime || '08:00');
+  const [scheduleEndTimeState, setScheduleEndTimeState] = useState<string>(storeInfo.scheduleEndTime || '19:30');
+  const [scheduleSlotCapacitiesState, setScheduleSlotCapacitiesState] = useState<Record<string, number>>(() => parseSlotCapacities(storeInfo.scheduleSlotCapacities));
   const [scheduleSlotItemCapacityState, setScheduleSlotItemCapacityState] = useState<number>(storeInfo.scheduleSlotItemCapacity ?? 100);
   const [schedulePrepTimeNormalMinutesState, setSchedulePrepTimeNormalMinutesState] = useState<number>(storeInfo.schedulePrepTimeNormalMinutes ?? 40);
   const [schedulePrepTimeFrozenMinutesState, setSchedulePrepTimeFrozenMinutesState] = useState<number>(storeInfo.schedulePrepTimeFrozenMinutes ?? 90);
+  const [salgadoPrepFritoEnabledState, setSalgadoPrepFritoEnabledState] = useState<boolean>(storeInfo.salgadoPrepFritoEnabled !== false);
+  const [salgadoPrepAssadoEnabledState, setSalgadoPrepAssadoEnabledState] = useState<boolean>(storeInfo.salgadoPrepAssadoEnabled !== false);
+  const [salgadoPrepFritoCongeladoEnabledState, setSalgadoPrepFritoCongeladoEnabledState] = useState<boolean>(storeInfo.salgadoPrepFritoCongeladoEnabled !== false);
+  const [salgadoPrepAssadoCongeladoEnabledState, setSalgadoPrepAssadoCongeladoEnabledState] = useState<boolean>(storeInfo.salgadoPrepAssadoCongeladoEnabled !== false);
   const [kioskEnabledState, setKioskEnabledState] = useState<boolean>(storeInfo.kioskEnabled !== false);
   const [requireQrCodeForOrderingState, setRequireQrCodeForOrderingState] = useState<boolean>(storeInfo.requireQrCodeForOrdering !== false);
   const [isMaintenanceState, setIsMaintenanceState] = useState<boolean>(storeInfo.isMaintenance || false);
@@ -1011,6 +1010,19 @@ export default function Admin() {
     setForceOpenState(!!storeInfo.forceOpen);
     setInStoreEnabledState(storeInfo.inStoreEnabled !== false);
     setDeliveryEnabledState(storeInfo.deliveryEnabled !== false);
+    if (storeInfo.deliveryScheduleEnabled !== undefined) setDeliveryScheduleEnabledState(!!storeInfo.deliveryScheduleEnabled);
+    if (storeInfo.deliveryScheduleSlots !== undefined) setDeliveryScheduleSlotsState(parseScheduleSlots(storeInfo.deliveryScheduleSlots));
+    if (storeInfo.scheduleIntervalMinutes !== undefined) setScheduleIntervalMinutesState(Number(storeInfo.scheduleIntervalMinutes) === 60 ? 60 : 30);
+    if (storeInfo.scheduleStartTime !== undefined) setScheduleStartTimeState(storeInfo.scheduleStartTime || '08:00');
+    if (storeInfo.scheduleEndTime !== undefined) setScheduleEndTimeState(storeInfo.scheduleEndTime || '19:30');
+    if (storeInfo.scheduleSlotCapacities !== undefined) setScheduleSlotCapacitiesState(parseSlotCapacities(storeInfo.scheduleSlotCapacities));
+    if (storeInfo.scheduleSlotItemCapacity !== undefined) setScheduleSlotItemCapacityState(Number(storeInfo.scheduleSlotItemCapacity) || 100);
+    if (storeInfo.schedulePrepTimeNormalMinutes !== undefined) setSchedulePrepTimeNormalMinutesState(Number(storeInfo.schedulePrepTimeNormalMinutes) || 40);
+    if (storeInfo.schedulePrepTimeFrozenMinutes !== undefined) setSchedulePrepTimeFrozenMinutesState(Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90);
+    if (storeInfo.salgadoPrepFritoEnabled !== undefined) setSalgadoPrepFritoEnabledState(storeInfo.salgadoPrepFritoEnabled !== false);
+    if (storeInfo.salgadoPrepAssadoEnabled !== undefined) setSalgadoPrepAssadoEnabledState(storeInfo.salgadoPrepAssadoEnabled !== false);
+    if (storeInfo.salgadoPrepFritoCongeladoEnabled !== undefined) setSalgadoPrepFritoCongeladoEnabledState(storeInfo.salgadoPrepFritoCongeladoEnabled !== false);
+    if (storeInfo.salgadoPrepAssadoCongeladoEnabled !== undefined) setSalgadoPrepAssadoCongeladoEnabledState(storeInfo.salgadoPrepAssadoCongeladoEnabled !== false);
     setKioskEnabledState(storeInfo.kioskEnabled !== false);
     setRequireQrCodeForOrderingState(storeInfo.requireQrCodeForOrdering !== false);
     setIsMaintenanceState(storeInfo.isMaintenance || false);
@@ -1081,7 +1093,20 @@ export default function Admin() {
     storeInfo.mercadoPagoPublicKey,
     storeInfo.mercadoPagoPixKey,
     storeInfo.deliveryEstimatedTimeMin,
-    storeInfo.deliveryEstimatedTimeMax
+    storeInfo.deliveryEstimatedTimeMax,
+    storeInfo.deliveryScheduleEnabled,
+    storeInfo.deliveryScheduleSlots,
+    storeInfo.scheduleIntervalMinutes,
+    storeInfo.scheduleStartTime,
+    storeInfo.scheduleEndTime,
+    storeInfo.scheduleSlotCapacities,
+    storeInfo.scheduleSlotItemCapacity,
+    storeInfo.schedulePrepTimeNormalMinutes,
+    storeInfo.schedulePrepTimeFrozenMinutes,
+    storeInfo.salgadoPrepFritoEnabled,
+    storeInfo.salgadoPrepAssadoEnabled,
+    storeInfo.salgadoPrepFritoCongeladoEnabled,
+    storeInfo.salgadoPrepAssadoCongeladoEnabled
   ]);
   const [productImagePreview, setProductImagePreview] = useState('');
   
@@ -2765,9 +2790,17 @@ export default function Admin() {
       deliveryEnabled: deliveryEnabledState,
       deliveryScheduleEnabled: deliveryScheduleEnabledState,
       deliveryScheduleSlots: JSON.stringify(deliveryScheduleSlotsState),
+      scheduleIntervalMinutes: scheduleIntervalMinutesState,
+      scheduleStartTime: scheduleStartTimeState,
+      scheduleEndTime: scheduleEndTimeState,
+      scheduleSlotCapacities: JSON.stringify(scheduleSlotCapacitiesState),
       scheduleSlotItemCapacity: scheduleSlotItemCapacityState,
       schedulePrepTimeNormalMinutes: schedulePrepTimeNormalMinutesState,
       schedulePrepTimeFrozenMinutes: schedulePrepTimeFrozenMinutesState,
+      salgadoPrepFritoEnabled: salgadoPrepFritoEnabledState,
+      salgadoPrepAssadoEnabled: salgadoPrepAssadoEnabledState,
+      salgadoPrepFritoCongeladoEnabled: salgadoPrepFritoCongeladoEnabledState,
+      salgadoPrepAssadoCongeladoEnabled: salgadoPrepAssadoCongeladoEnabledState,
       inStoreEnabled: inStoreEnabledState,
       kioskEnabled: kioskEnabledState,
       requireQrCodeForOrdering: requireQrCodeForOrderingState,
@@ -6550,9 +6583,46 @@ export default function Admin() {
     updateStoreInfo({ deliveryScheduleEnabled: val });
   };
 
-  const handleUpdateScheduleSlots = (slots: string[]) => {
-    setDeliveryScheduleSlotsState(slots);
-    updateStoreInfo({ deliveryScheduleSlots: JSON.stringify(slots) });
+  const handleUpdateScheduleSlots = (slots: string[] | ((prev: string[]) => string[])) => {
+    const next = typeof slots === 'function' ? slots(deliveryScheduleSlotsState) : slots;
+    const sorted = Array.from(new Set(next)).sort();
+    setDeliveryScheduleSlotsState(sorted);
+    updateStoreInfo({ deliveryScheduleSlots: JSON.stringify(sorted) });
+  };
+
+  const handleUpdateScheduleInterval = (interval: number) => {
+    const safeInterval = interval === 60 ? 60 : 30;
+    const generated = generateScheduleTimeSlots(safeInterval, scheduleStartTimeState, scheduleEndTimeState);
+    const updatedSlots = safeInterval === 60
+      ? generated.filter(s => deliveryScheduleSlotsState.includes(s))
+      : generated;
+    const finalSlots = updatedSlots.length > 0 ? updatedSlots : generated;
+    setScheduleIntervalMinutesState(safeInterval);
+    setDeliveryScheduleSlotsState(finalSlots);
+    updateStoreInfo({
+      scheduleIntervalMinutes: safeInterval,
+      deliveryScheduleSlots: JSON.stringify(finalSlots),
+    });
+  };
+
+  const handleUpdateScheduleTimeBounds = (start: string, end: string) => {
+    const oldGenerated = new Set(generateScheduleTimeSlots(scheduleIntervalMinutesState, scheduleStartTimeState, scheduleEndTimeState));
+    setScheduleStartTimeState(start);
+    setScheduleEndTimeState(end);
+    const generated = generateScheduleTimeSlots(scheduleIntervalMinutesState, start, end);
+    const prevSet = new Set(deliveryScheduleSlotsState);
+    const nextSlots = generated.filter(s => prevSet.has(s) || !oldGenerated.has(s));
+    setDeliveryScheduleSlotsState(nextSlots);
+    updateStoreInfo({
+      scheduleStartTime: start,
+      scheduleEndTime: end,
+      deliveryScheduleSlots: JSON.stringify(nextSlots),
+    });
+  };
+
+  const handleUpdateScheduleSlotCapacities = (caps: Record<string, number>) => {
+    setScheduleSlotCapacitiesState(caps);
+    updateStoreInfo({ scheduleSlotCapacities: JSON.stringify(caps) });
   };
 
   const handleUpdateScheduleSlotCapacity = (cap: number) => {
@@ -6568,6 +6638,26 @@ export default function Admin() {
   const handleUpdateSchedulePrepTimeFrozen = (min: number) => {
     setSchedulePrepTimeFrozenMinutesState(min);
     updateStoreInfo({ schedulePrepTimeFrozenMinutes: min });
+  };
+
+  const handleToggleSalgadoPrepFrito = (val: boolean) => {
+    setSalgadoPrepFritoEnabledState(val);
+    updateStoreInfo({ salgadoPrepFritoEnabled: val });
+  };
+
+  const handleToggleSalgadoPrepAssado = (val: boolean) => {
+    setSalgadoPrepAssadoEnabledState(val);
+    updateStoreInfo({ salgadoPrepAssadoEnabled: val });
+  };
+
+  const handleToggleSalgadoPrepFritoCongelado = (val: boolean) => {
+    setSalgadoPrepFritoCongeladoEnabledState(val);
+    updateStoreInfo({ salgadoPrepFritoCongeladoEnabled: val });
+  };
+
+  const handleToggleSalgadoPrepAssadoCongelado = (val: boolean) => {
+    setSalgadoPrepAssadoCongeladoEnabledState(val);
+    updateStoreInfo({ salgadoPrepAssadoCongeladoEnabled: val });
   };
 
   const handleToggleKiosk = (val: boolean) => {
@@ -6629,12 +6719,27 @@ export default function Admin() {
       setDeliveryScheduleEnabledState={handleToggleDeliverySchedule}
       deliveryScheduleSlotsState={deliveryScheduleSlotsState}
       setDeliveryScheduleSlotsState={handleUpdateScheduleSlots}
+      scheduleIntervalMinutesState={scheduleIntervalMinutesState}
+      setScheduleIntervalMinutesState={handleUpdateScheduleInterval}
+      scheduleStartTimeState={scheduleStartTimeState}
+      scheduleEndTimeState={scheduleEndTimeState}
+      onUpdateScheduleTimeBounds={handleUpdateScheduleTimeBounds}
+      scheduleSlotCapacitiesState={scheduleSlotCapacitiesState}
+      setScheduleSlotCapacitiesState={handleUpdateScheduleSlotCapacities}
       scheduleSlotItemCapacityState={scheduleSlotItemCapacityState}
       setScheduleSlotItemCapacityState={handleUpdateScheduleSlotCapacity}
       schedulePrepTimeNormalMinutesState={schedulePrepTimeNormalMinutesState}
       setSchedulePrepTimeNormalMinutesState={handleUpdateSchedulePrepTimeNormal}
       schedulePrepTimeFrozenMinutesState={schedulePrepTimeFrozenMinutesState}
       setSchedulePrepTimeFrozenMinutesState={handleUpdateSchedulePrepTimeFrozen}
+      salgadoPrepFritoEnabledState={salgadoPrepFritoEnabledState}
+      setSalgadoPrepFritoEnabledState={handleToggleSalgadoPrepFrito}
+      salgadoPrepAssadoEnabledState={salgadoPrepAssadoEnabledState}
+      setSalgadoPrepAssadoEnabledState={handleToggleSalgadoPrepAssado}
+      salgadoPrepFritoCongeladoEnabledState={salgadoPrepFritoCongeladoEnabledState}
+      setSalgadoPrepFritoCongeladoEnabledState={handleToggleSalgadoPrepFritoCongelado}
+      salgadoPrepAssadoCongeladoEnabledState={salgadoPrepAssadoCongeladoEnabledState}
+      setSalgadoPrepAssadoCongeladoEnabledState={handleToggleSalgadoPrepAssadoCongelado}
       setDeliveryEnabledState={handleToggleDelivery}
       kioskEnabledState={kioskEnabledState}
       setKioskEnabledState={handleToggleKiosk}

@@ -44,7 +44,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { StoreInfo, AiTrainingExample, DEFAULT_AI_TRAINING_EXAMPLES } from '../store/useStore';
-import { DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus } from '../utils/scheduleHelper';
+import { DaySchedule, formatWeeklyScheduleSummary, getStoreCurrentStatus, generateScheduleTimeSlots } from '../utils/scheduleHelper';
 import { sendNtfyNotification } from '../utils/ntfy';
 import { AiAssistantModal } from './AiAssistantModal';
 import { 
@@ -95,13 +95,28 @@ interface AdminSettingsCollapsibleProps {
   deliveryScheduleEnabledState: boolean;
   setDeliveryScheduleEnabledState: (v: boolean) => void;
   deliveryScheduleSlotsState: string[];
-  setDeliveryScheduleSlotsState: React.Dispatch<React.SetStateAction<string[]>>;
+  setDeliveryScheduleSlotsState: (slots: string[]) => void;
+  scheduleIntervalMinutesState?: number;
+  setScheduleIntervalMinutesState?: (interval: number) => void;
+  scheduleStartTimeState?: string;
+  scheduleEndTimeState?: string;
+  onUpdateScheduleTimeBounds?: (start: string, end: string) => void;
+  scheduleSlotCapacitiesState?: Record<string, number>;
+  setScheduleSlotCapacitiesState?: (caps: Record<string, number>) => void;
   scheduleSlotItemCapacityState?: number;
   setScheduleSlotItemCapacityState?: (v: number) => void;
   schedulePrepTimeNormalMinutesState?: number;
   setSchedulePrepTimeNormalMinutesState?: (v: number) => void;
   schedulePrepTimeFrozenMinutesState?: number;
   setSchedulePrepTimeFrozenMinutesState?: (v: number) => void;
+  salgadoPrepFritoEnabledState?: boolean;
+  setSalgadoPrepFritoEnabledState?: (v: boolean) => void;
+  salgadoPrepAssadoEnabledState?: boolean;
+  setSalgadoPrepAssadoEnabledState?: (v: boolean) => void;
+  salgadoPrepFritoCongeladoEnabledState?: boolean;
+  setSalgadoPrepFritoCongeladoEnabledState?: (v: boolean) => void;
+  salgadoPrepAssadoCongeladoEnabledState?: boolean;
+  setSalgadoPrepAssadoCongeladoEnabledState?: (v: boolean) => void;
   
   // Maintenance
   isMaintenanceState: boolean;
@@ -246,12 +261,27 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     setDeliveryScheduleEnabledState,
     deliveryScheduleSlotsState,
     setDeliveryScheduleSlotsState,
+    scheduleIntervalMinutesState = 30,
+    setScheduleIntervalMinutesState,
+    scheduleStartTimeState = '08:00',
+    scheduleEndTimeState = '19:30',
+    onUpdateScheduleTimeBounds,
+    scheduleSlotCapacitiesState = {},
+    setScheduleSlotCapacitiesState,
     scheduleSlotItemCapacityState = 100,
     setScheduleSlotItemCapacityState,
     schedulePrepTimeNormalMinutesState = 40,
     setSchedulePrepTimeNormalMinutesState,
     schedulePrepTimeFrozenMinutesState = 90,
     setSchedulePrepTimeFrozenMinutesState,
+    salgadoPrepFritoEnabledState = true,
+    setSalgadoPrepFritoEnabledState,
+    salgadoPrepAssadoEnabledState = true,
+    setSalgadoPrepAssadoEnabledState,
+    salgadoPrepFritoCongeladoEnabledState = true,
+    setSalgadoPrepFritoCongeladoEnabledState,
+    salgadoPrepAssadoCongeladoEnabledState = true,
+    setSalgadoPrepAssadoCongeladoEnabledState,
     isMaintenanceState,
     setIsMaintenanceState,
     weeklyScheduleState,
@@ -1757,7 +1787,9 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                               {deliveryScheduleEnabledState ? 'Habilitado' : 'Desabilitado'}
                             </span>
                           </div>
-                          <span className="text-[11px] text-stone-500">Permite que o cliente escolha um horário (de 30 em 30 min, das 08:00 às 19:30) para o pedido.</span>
+                          <span className="text-[11px] text-stone-500">
+                            Permite escolher horários ({scheduleIntervalMinutesState === 60 ? 'de 1 em 1 hora' : 'de 30 em 30 min'}, das {scheduleStartTimeState} às {scheduleEndTimeState}) e definir a quantidade de salgados por cada horário.
+                          </span>
                         </label>
                         <label 
                           htmlFor="toggle-delivery-schedule"
@@ -1774,140 +1806,394 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                         </label>
                       </div>
 
-                      {deliveryScheduleEnabledState && (
-                        <div className="space-y-4 pt-3 border-t border-stone-200 animate-fadeIn">
-                          {/* Configurações de Capacidade e Tempos de Preparo */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 shadow-2xs">
-                            {/* 1. Capacidade por Horário em Quantidade de Salgados / Itens */}
-                            <div>
-                              <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
-                                Capacidade por Bloco (Qtd. de Salgados)
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="9999"
-                                  value={scheduleSlotItemCapacityState ?? 100}
-                                  onChange={(e) => {
-                                    const val = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                    setScheduleSlotItemCapacityState?.(val);
-                                  }}
-                                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
-                                  placeholder="Ex: 100"
-                                />
-                                <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
-                                  unidades
-                                </span>
+                      {deliveryScheduleEnabledState && (() => {
+                        const generatedGridSlots = generateScheduleTimeSlots(
+                          scheduleIntervalMinutesState,
+                          scheduleStartTimeState,
+                          scheduleEndTimeState
+                        );
+                        const halfHourOptions = generateScheduleTimeSlots(30, '05:00', '23:30');
+
+                        return (
+                          <div className="space-y-4 pt-3 border-t border-stone-200 animate-fadeIn">
+                            {/* Intervalo dos Horários + Faixa de Início e Fim */}
+                            <div className="bg-white p-3.5 rounded-2xl border border-stone-200 space-y-3 shadow-2xs">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+                                <div>
+                                  <span className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                                    Intervalo dos Horários de Agendamento
+                                  </span>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setScheduleIntervalMinutesState?.(30)}
+                                      className={`px-3 py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                        scheduleIntervalMinutesState === 30
+                                          ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-orange-50'
+                                      }`}
+                                    >
+                                      <span>⏱️</span>
+                                      <span>De 30 em 30 min</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setScheduleIntervalMinutesState?.(60)}
+                                      className={`px-3 py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                        scheduleIntervalMinutesState === 60
+                                          ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-orange-50'
+                                      }`}
+                                    >
+                                      <span>🕐</span>
+                                      <span>De 1 em 1 hora</span>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                                      Horário Inicial
+                                    </label>
+                                    <select
+                                      value={scheduleStartTimeState}
+                                      onChange={(e) => {
+                                        const newStart = e.target.value;
+                                        const safeEnd = newStart > scheduleEndTimeState ? newStart : scheduleEndTimeState;
+                                        onUpdateScheduleTimeBounds?.(newStart, safeEnd);
+                                      }}
+                                      className="w-full p-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-black text-stone-900 font-mono"
+                                    >
+                                      {halfHourOptions.map(t => (
+                                        <option key={`start-${t}`} value={t}>{t}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                                      Horário Final
+                                    </label>
+                                    <select
+                                      value={scheduleEndTimeState}
+                                      onChange={(e) => {
+                                        const newEnd = e.target.value;
+                                        const safeStart = newEnd < scheduleStartTimeState ? newEnd : scheduleStartTimeState;
+                                        onUpdateScheduleTimeBounds?.(safeStart, newEnd);
+                                      }}
+                                      className="w-full p-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-black text-stone-900 font-mono"
+                                    >
+                                      {halfHourOptions.map(t => (
+                                        <option key={`end-${t}`} value={t}>{t}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
                               </div>
-                              <p className="text-[10px] text-stone-600 mt-1 leading-tight">
-                                Limite máximo de salgados que podem ser agendados para o mesmo horário. A cada pedido, os itens são abatidos até esgotar.
-                              </p>
                             </div>
 
-                            {/* 2. Tempo para Retirada de Pedido Normal */}
-                            <div>
-                              <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
-                                Tempo Retirada: Pedido Normal
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="number"
-                                  min="5"
-                                  max="360"
-                                  value={schedulePrepTimeNormalMinutesState ?? 40}
-                                  onChange={(e) => {
-                                    const val = Math.max(5, parseInt(e.target.value, 10) || 40);
-                                    setSchedulePrepTimeNormalMinutesState?.(val);
-                                  }}
-                                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
-                                  placeholder="Ex: 40"
-                                />
-                                <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
-                                  minutos
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-stone-600 mt-1 leading-tight">
-                                Tempo mínimo de antecedência necessário para preparar pedidos comuns (fritos/assados). Padrão: 40 min.
-                              </p>
-                            </div>
-
-                            {/* 3. Tempo para Retirada de Pedido Congelado */}
-                            <div>
-                              <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
-                                Tempo Retirada: Pedido Congelado
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="number"
-                                  min="10"
-                                  max="720"
-                                  value={schedulePrepTimeFrozenMinutesState ?? 90}
-                                  onChange={(e) => {
-                                    const val = Math.max(10, parseInt(e.target.value, 10) || 90);
-                                    setSchedulePrepTimeFrozenMinutesState?.(val);
-                                  }}
-                                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
-                                  placeholder="Ex: 90"
-                                />
-                                <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
-                                  minutos
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-stone-600 mt-1 leading-tight">
-                                Tempo de preparo aplicado automaticamente quando houver salgados congelados no carrinho. Padrão: 90 min.
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-stone-700">Horários Atendidos (De 30 em 30 min):</span>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setDeliveryScheduleSlotsState(['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'])}
-                                className="text-[10px] font-bold text-orange-600 hover:underline cursor-pointer"
-                              >
-                                Selecionar Todos
-                              </button>
-                              <span className="text-stone-300">|</span>
-                              <button
-                                type="button"
-                                onClick={() => setDeliveryScheduleSlotsState([])}
-                                className="text-[10px] font-bold text-stone-500 hover:underline cursor-pointer"
-                              >
-                                Desmarcar Todos
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                            {['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'].map(slot => {
-                              const isChecked = deliveryScheduleSlotsState.includes(slot);
-                              return (
-                                <label 
-                                  key={slot}
-                                  className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${isChecked ? 'bg-orange-600 text-white border-orange-600 shadow-xs' : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'}`}
-                                >
-                                  <input 
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setDeliveryScheduleSlotsState([...deliveryScheduleSlotsState, slot]);
-                                      } else {
-                                        setDeliveryScheduleSlotsState(deliveryScheduleSlotsState.filter(s => s !== slot));
-                                      }
+                            {/* Configurações de Capacidade Padrão e Tempos de Preparo */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 shadow-2xs">
+                              {/* 1. Capacidade Padrão por Horário */}
+                              <div>
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950">
+                                    Capacidade Padrão (Salgados)
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const defaultVal = Number(scheduleSlotItemCapacityState) || 100;
+                                      const updated: Record<string, number> = { ...scheduleSlotCapacitiesState };
+                                      generatedGridSlots.forEach(s => {
+                                        updated[s] = defaultVal;
+                                      });
+                                      setScheduleSlotCapacitiesState?.(updated);
                                     }}
-                                    className="hidden"
+                                    className="text-[10px] font-black text-orange-700 hover:text-orange-900 underline cursor-pointer shrink-0"
+                                    title="Preencher todos os horários abaixo com este valor"
+                                  >
+                                    Aplicar a todos
+                                  </button>
+                                </div>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="99999"
+                                    value={scheduleSlotItemCapacityState ?? 100}
+                                    onChange={(e) => {
+                                      const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                      setScheduleSlotItemCapacityState?.(val);
+                                    }}
+                                    className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                                    placeholder="Ex: 100"
                                   />
-                                  <span>{slot}</span>
+                                  <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
+                                    unidades
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-stone-600 mt-1 leading-tight">
+                                  Valor padrão usado quando um horário não tiver limite próprio abaixo.
+                                </p>
+                              </div>
+
+                              {/* 2. Tempo para Retirada de Pedido Normal */}
+                              <div>
+                                <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
+                                  Tempo Retirada: Pedido Normal
                                 </label>
-                              );
-                            })}
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="5"
+                                    max="360"
+                                    value={schedulePrepTimeNormalMinutesState ?? 40}
+                                    onChange={(e) => {
+                                      const val = Math.max(5, parseInt(e.target.value, 10) || 40);
+                                      setSchedulePrepTimeNormalMinutesState?.(val);
+                                    }}
+                                    className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                                    placeholder="Ex: 40"
+                                  />
+                                  <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
+                                    minutos
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-stone-600 mt-1 leading-tight">
+                                  Tempo mínimo de antecedência necessário para preparar pedidos comuns (fritos/assados). Padrão: 40 min.
+                                </p>
+                              </div>
+
+                              {/* 3. Tempo para Retirada de Pedido Congelado */}
+                              <div>
+                                <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
+                                  Tempo Retirada: Pedido Congelado
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="10"
+                                    max="720"
+                                    value={schedulePrepTimeFrozenMinutesState ?? 90}
+                                    onChange={(e) => {
+                                      const val = Math.max(10, parseInt(e.target.value, 10) || 90);
+                                      setSchedulePrepTimeFrozenMinutesState?.(val);
+                                    }}
+                                    className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs font-black text-stone-900 focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                                    placeholder="Ex: 90"
+                                  />
+                                  <span className="absolute right-3 top-2.5 text-[10px] font-bold text-amber-800">
+                                    minutos
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-stone-600 mt-1 leading-tight">
+                                  Tempo de preparo aplicado automaticamente quando houver salgados congelados no carrinho. Padrão: 90 min.
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-stone-700">
+                                Horários Atendidos &amp; Quantidade de Salgados por Horário ({scheduleIntervalMinutesState === 60 ? 'De 1 em 1 hora' : 'De 30 em 30 min'}):
+                              </span>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setDeliveryScheduleSlotsState(generatedGridSlots)}
+                                  className="text-[10px] font-bold text-orange-600 hover:underline cursor-pointer"
+                                >
+                                  Selecionar Todos
+                                </button>
+                                <span className="text-stone-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeliveryScheduleSlotsState([])}
+                                  className="text-[10px] font-bold text-stone-500 hover:underline cursor-pointer"
+                                >
+                                  Desmarcar Todos
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                              {generatedGridSlots.map(slot => {
+                                const isChecked = deliveryScheduleSlotsState.includes(slot);
+                                const slotCapacity = scheduleSlotCapacitiesState[slot] !== undefined
+                                  ? scheduleSlotCapacitiesState[slot]
+                                  : (scheduleSlotItemCapacityState ?? 100);
+                                return (
+                                  <div
+                                    key={slot}
+                                    className={`p-2.5 rounded-xl border transition-all space-y-2 ${
+                                      isChecked
+                                        ? 'bg-white border-orange-300 shadow-2xs'
+                                        : 'bg-stone-100/70 border-stone-200 opacity-65'
+                                    }`}
+                                  >
+                                    <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setDeliveryScheduleSlotsState([...deliveryScheduleSlotsState, slot]);
+                                            } else {
+                                              setDeliveryScheduleSlotsState(deliveryScheduleSlotsState.filter(s => s !== slot));
+                                            }
+                                          }}
+                                          className="w-4 h-4 rounded accent-orange-600 cursor-pointer"
+                                        />
+                                        <span className="font-mono text-xs font-black text-stone-900">{slot}</span>
+                                      </div>
+                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${
+                                        isChecked ? 'bg-orange-100 text-orange-800' : 'bg-stone-200 text-stone-500'
+                                      }`}>
+                                        {isChecked ? 'Ativo' : 'Oculto'}
+                                      </span>
+                                    </label>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] font-bold text-stone-500 shrink-0">Qtd:</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="99999"
+                                        disabled={!isChecked}
+                                        value={slotCapacity}
+                                        onChange={(e) => {
+                                          const raw = e.target.value;
+                                          const val = raw === '' ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+                                          setScheduleSlotCapacitiesState?.({
+                                            ...scheduleSlotCapacitiesState,
+                                            [slot]: val
+                                          });
+                                        }}
+                                        className="w-full px-2 py-1 bg-stone-50 border border-stone-300 rounded-lg text-xs font-black text-stone-900 font-mono text-center focus:ring-2 focus:ring-orange-500 disabled:bg-stone-100 disabled:text-stone-400"
+                                        title={`Quantidade de salgados disponíveis às ${slot}`}
+                                      />
+                                      <span className="text-[10px] font-bold text-stone-400 shrink-0">un</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Opções de Preparo nos Salgados (Habilitar / Desabilitar alternativas no Cardápio) */}
+                    <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-stone-800">🥟 Opções de Preparo nos Salgados (Cardápio)</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            Controle Global
+                          </span>
                         </div>
-                      )}
+                        <span className="text-[11px] text-stone-500 block mt-0.5">
+                          Habilite ou desabilite estas alternativas. Ao desabilitar uma opção, ela desaparece automaticamente em todos os produtos correspondentes do cardápio.
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {/* 1. CRU e FRITO */}
+                        <label className="flex items-center justify-between p-3 bg-white rounded-xl border border-stone-200 cursor-pointer hover:border-orange-300 transition-colors">
+                          <div className="pr-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-black text-stone-900">CRU e FRITO</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${salgadoPrepFritoEnabledState ? 'bg-green-100 text-green-700' : 'bg-stone-200 text-stone-600'}`}>
+                                {salgadoPrepFritoEnabledState ? 'Habilitado' : 'Desabilitado'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-stone-500 block mt-0.5">
+                              Opções &quot;CRU&quot; ou &quot;FRITO&quot; nos salgados fritos.
+                            </span>
+                          </div>
+                          <div className="relative shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={salgadoPrepFritoEnabledState}
+                              onChange={(e) => setSalgadoPrepFritoEnabledState?.(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                          </div>
+                        </label>
+
+                        {/* 2. PRÉ-ASSADO ou ASSADO PRONTO */}
+                        <label className="flex items-center justify-between p-3 bg-white rounded-xl border border-stone-200 cursor-pointer hover:border-orange-300 transition-colors">
+                          <div className="pr-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-black text-stone-900">PRÉ-ASSADO ou ASSADO PRONTO</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${salgadoPrepAssadoEnabledState ? 'bg-green-100 text-green-700' : 'bg-stone-200 text-stone-600'}`}>
+                                {salgadoPrepAssadoEnabledState ? 'Habilitado' : 'Desabilitado'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-stone-500 block mt-0.5">
+                              Opções &quot;PRÉ-ASSADO&quot; ou &quot;ASSADO PRONTO&quot; nos assados.
+                            </span>
+                          </div>
+                          <div className="relative shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={salgadoPrepAssadoEnabledState}
+                              onChange={(e) => setSalgadoPrepAssadoEnabledState?.(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                          </div>
+                        </label>
+
+                        {/* 3. FRITOS CONGELADOS */}
+                        <label className="flex items-center justify-between p-3 bg-white rounded-xl border border-stone-200 cursor-pointer hover:border-blue-300 transition-colors">
+                          <div className="pr-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-black text-stone-900">FRITOS CONGELADOS</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${salgadoPrepFritoCongeladoEnabledState ? 'bg-blue-100 text-blue-700' : 'bg-stone-200 text-stone-600'}`}>
+                                {salgadoPrepFritoCongeladoEnabledState ? 'Habilitado' : 'Desabilitado'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-stone-500 block mt-0.5">
+                              Opções &quot;CRU CONGELADO&quot; ou &quot;FRITO CONGELADO&quot;.
+                            </span>
+                          </div>
+                          <div className="relative shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={salgadoPrepFritoCongeladoEnabledState}
+                              onChange={(e) => setSalgadoPrepFritoCongeladoEnabledState?.(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </div>
+                        </label>
+
+                        {/* 4. ASSADOS CONGELADOS */}
+                        <label className="flex items-center justify-between p-3 bg-white rounded-xl border border-stone-200 cursor-pointer hover:border-blue-300 transition-colors">
+                          <div className="pr-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-black text-stone-900">ASSADOS CONGELADOS</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${salgadoPrepAssadoCongeladoEnabledState ? 'bg-blue-100 text-blue-700' : 'bg-stone-200 text-stone-600'}`}>
+                                {salgadoPrepAssadoCongeladoEnabledState ? 'Habilitado' : 'Desabilitado'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-stone-500 block mt-0.5">
+                              Opções &quot;PRÉ-ASSADO&quot; ou &quot;ASSADO PRONTO&quot; em congelados.
+                            </span>
+                          </div>
+                          <div className="relative shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={salgadoPrepAssadoCongeladoEnabledState}
+                              onChange={(e) => setSalgadoPrepAssadoCongeladoEnabledState?.(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </div>
+                        </label>
+                      </div>
                     </div>
 
                     {/* Totem (Desativado) */}

@@ -45,10 +45,18 @@ const DEFAULT_STORE_INFO = {
   categoryTitleColor: '#dc2626',
   deliveryEnabled: false,
   deliveryScheduleEnabled: true,
-  deliveryScheduleSlots: '["09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","09:00"]',
+  deliveryScheduleSlots: '["09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"]',
+  scheduleIntervalMinutes: 30,
+  scheduleStartTime: '08:00',
+  scheduleEndTime: '19:30',
+  scheduleSlotCapacities: '{}',
   scheduleSlotItemCapacity: 100,
   schedulePrepTimeNormalMinutes: 40,
   schedulePrepTimeFrozenMinutes: 90,
+  salgadoPrepFritoEnabled: true,
+  salgadoPrepAssadoEnabled: true,
+  salgadoPrepFritoCongeladoEnabled: true,
+  salgadoPrepAssadoCongeladoEnabled: true,
   inStoreEnabled: true,
   kioskEnabled: false,
   requireQrCodeForOrdering: false,
@@ -3236,9 +3244,23 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           ? body.deliveryScheduleSlots
           : JSON.stringify(body.deliveryScheduleSlots);
       }
+      if (body.scheduleIntervalMinutes !== undefined) {
+        sanitized.scheduleIntervalMinutes = Number(body.scheduleIntervalMinutes) === 60 ? 60 : 30;
+      }
+      if (body.scheduleStartTime !== undefined) sanitized.scheduleStartTime = String(body.scheduleStartTime || '08:00');
+      if (body.scheduleEndTime !== undefined) sanitized.scheduleEndTime = String(body.scheduleEndTime || '19:30');
+      if (body.scheduleSlotCapacities !== undefined) {
+        sanitized.scheduleSlotCapacities = typeof body.scheduleSlotCapacities === 'string'
+          ? body.scheduleSlotCapacities
+          : JSON.stringify(body.scheduleSlotCapacities);
+      }
       if (body.scheduleSlotItemCapacity !== undefined) sanitized.scheduleSlotItemCapacity = Number(body.scheduleSlotItemCapacity) || 100;
       if (body.schedulePrepTimeNormalMinutes !== undefined) sanitized.schedulePrepTimeNormalMinutes = Number(body.schedulePrepTimeNormalMinutes) || 40;
       if (body.schedulePrepTimeFrozenMinutes !== undefined) sanitized.schedulePrepTimeFrozenMinutes = Number(body.schedulePrepTimeFrozenMinutes) || 90;
+      if (body.salgadoPrepFritoEnabled !== undefined) sanitized.salgadoPrepFritoEnabled = Boolean(body.salgadoPrepFritoEnabled);
+      if (body.salgadoPrepAssadoEnabled !== undefined) sanitized.salgadoPrepAssadoEnabled = Boolean(body.salgadoPrepAssadoEnabled);
+      if (body.salgadoPrepFritoCongeladoEnabled !== undefined) sanitized.salgadoPrepFritoCongeladoEnabled = Boolean(body.salgadoPrepFritoCongeladoEnabled);
+      if (body.salgadoPrepAssadoCongeladoEnabled !== undefined) sanitized.salgadoPrepAssadoCongeladoEnabled = Boolean(body.salgadoPrepAssadoCongeladoEnabled);
       if (body.inStoreEnabled !== undefined) sanitized.inStoreEnabled = Boolean(body.inStoreEnabled);
       if (body.kioskEnabled !== undefined) sanitized.kioskEnabled = Boolean(body.kioskEnabled);
       if (body.requireQrCodeForOrdering !== undefined) sanitized.requireQrCodeForOrdering = Boolean(body.requireQrCodeForOrdering);
@@ -3312,6 +3334,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (body.deliveryEstimatedTimeMin !== undefined) sanitized.deliveryEstimatedTimeMin = Number(body.deliveryEstimatedTimeMin) || 35;
       if (body.deliveryEstimatedTimeMax !== undefined) sanitized.deliveryEstimatedTimeMax = Number(body.deliveryEstimatedTimeMax) || 50;
       if (body.showSystemIntroButton !== undefined) sanitized.showSystemIntroButton = Boolean(body.showSystemIntroButton);
+      sanitized.updatedAt = Date.now();
 
       // Preserve existing memory properties if not explicitly provided
       memStoreInfo = { ...memStoreInfo, ...sanitized };

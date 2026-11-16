@@ -629,6 +629,14 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS auto_sms_api_key TEXT DEFAULT '';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_sound_enabled BOOLEAN DEFAULT TRUE;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_chime_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_interval_minutes INTEGER DEFAULT 30;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_start_time TEXT DEFAULT '08:00';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_end_time TEXT DEFAULT '19:30';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_slot_capacities TEXT DEFAULT '{}';
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS salgado_prep_frito_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS salgado_prep_assado_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS salgado_prep_frito_congelado_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS salgado_prep_assado_congelado_enabled BOOLEAN DEFAULT TRUE;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS updated_at BIGINT;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS updated_at BIGINT;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS manual_fields JSONB DEFAULT '[]'::jsonb;

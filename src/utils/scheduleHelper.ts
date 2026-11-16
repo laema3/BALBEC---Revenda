@@ -614,3 +614,66 @@ export function getOrderDateInfo(order: any): OrderDateInfo {
   };
 }
 
+export function generateScheduleTimeSlots(
+  intervalMinutes: number = 30,
+  startTime: string = '08:00',
+  endTime: string = '19:30'
+): string[] {
+  const safeInterval = Number(intervalMinutes) === 60 ? 60 : 30;
+  const parseToMins = (t: string, fallback: number): number => {
+    const m = String(t || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return fallback;
+    const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+    const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+    return hh * 60 + mm;
+  };
+  const startMin = parseToMins(startTime, 8 * 60);
+  const endMin = Math.max(startMin, parseToMins(endTime, 19 * 60 + 30));
+  const result: string[] = [];
+  for (let mins = startMin; mins <= endMin; mins += safeInterval) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    result.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+  return result;
+}
+
+export function parseSlotCapacities(raw: any): Record<string, number> {
+  if (!raw) return {};
+  let obj = raw;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return {};
+    try {
+      obj = JSON.parse(trimmed);
+    } catch {
+      return {};
+    }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+  const result: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const num = Number(v);
+    if (k && !isNaN(num) && num >= 0) {
+      result[String(k)] = Math.floor(num);
+    }
+  }
+  return result;
+}
+
+export function parseScheduleSlots(raw: any): string[] {
+  const fallback = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'];
+  let arr: any[] = [];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === 'string' && raw.trim() !== '') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) arr = parsed;
+    } catch {}
+  }
+  if (arr.length === 0) return fallback;
+  return Array.from(new Set(arr.map(s => String(s).trim()).filter(Boolean))).sort();
+}
+
+
