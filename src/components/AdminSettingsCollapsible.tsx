@@ -368,7 +368,8 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
       startCargaSequencia: String(blueFocusConfig.startCargaSequencia || '0'),
       startProdutoId: String(blueFocusConfig.startProdutoId || '0'),
       authToken: blueFocusConfig.authToken || '',
-      batchSize: String(blueFocusConfig.batchSize || '4')
+      batchSize: String(blueFocusConfig.batchSize || '4'),
+      preserveManualPrices: blueFocusConfig.preserveManualPrices !== false
     };
 
     localStorage.setItem('bluefocus_empresa_id', cfg.empresaId);
@@ -385,6 +386,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     localStorage.setItem('bluefocus_start_produto_id', cfg.startProdutoId);
     localStorage.setItem('bluefocus_auth_token', cfg.authToken);
     localStorage.setItem('bluefocus_batch_size', cfg.batchSize);
+    localStorage.setItem('bluefocus_preserve_manual_prices', String(cfg.preserveManualPrices));
 
     setBlueFocusConfig((prev: any) => ({ ...prev, ...cfg }));
     setBlueFocusSaveFeedback('Configurações da integração BlueFocus salvas com sucesso!');
@@ -3269,6 +3271,27 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                       <p className="text-[10px] text-stone-400 mt-0.5">Marcador ProdutoId para pular até ID</p>
                     </div>
                   </div>
+                </div>
+
+                {/* Proteção de Alterações Manuais na Sincronização */}
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+                  <input
+                    id="preserveManualPricesCollapsible"
+                    type="checkbox"
+                    checked={blueFocusConfig.preserveManualPrices !== false}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setBlueFocusConfig((prev: any) => ({ ...prev, preserveManualPrices: checked }));
+                      localStorage.setItem('bluefocus_preserve_manual_prices', String(checked));
+                    }}
+                    className="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer shrink-0"
+                  />
+                  <label htmlFor="preserveManualPricesCollapsible" className="text-xs text-emerald-950 cursor-pointer leading-relaxed">
+                    <strong className="block text-xs sm:text-sm font-extrabold text-emerald-900">
+                      🔒 Proteger Todas as Alterações Manuais na Sincronização (Recomendado)
+                    </strong>
+                    Quando ativado, a sincronização automática ou manual apenas importa <strong>novos produtos/categorias</strong> e nunca sobrescreve preços, nomes, descrições, categorias trocadas, imagens ou canais já ajustados manualmente no sistema. Mesmo se desmarcado, produtos editados manualmente pelo painel continuam com suas alterações travadas contra sobrescrita.
+                  </label>
                 </div>
 
                 {/* 4. Barra de Ações */}
