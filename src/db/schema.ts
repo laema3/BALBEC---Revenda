@@ -85,6 +85,9 @@ export const orders = pgTable('orders', {
   scheduledPickupTime: text('scheduled_pickup_time'),
   isPrinted: boolean('is_printed').default(false),
   printedAt: bigint('printed_at', { mode: 'number' }),
+  blueFocusExported: boolean('bluefocus_exported').default(false),
+  blueFocusExportedAt: bigint('bluefocus_exported_at', { mode: 'number' }),
+  blueFocusExportError: text('bluefocus_export_error'),
   updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
@@ -224,6 +227,7 @@ export const storeInfo = pgTable('store_info', {
   autoSmsApiKey: text('auto_sms_api_key').default(''),
   orderSoundEnabled: boolean('order_sound_enabled').default(true),
   orderChimeEnabled: boolean('order_chime_enabled').default(true),
+  blueFocusExportConfig: text('blue_focus_export_config').default('{}'),
   updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 

@@ -10,6 +10,7 @@ import { cleanProductDescription } from '../constants';
 import { printOrderToNetworkPrinter } from './printerRoutes';
 import { queueOrderForAgent } from './printerAgentRoutes';
 import { createPixPayment, checkPixStatus, confirmPixPayment, processCardPayment } from './mercadoPagoService';
+import { exportOrderToBlueFocusSoap, parseBlueFocusExportConfig } from './bluefocusOrderExporter';
 import { buildBalbecDocumentationPdf } from '../utils/generateBalbecPdf';
 import {
   DeletedIdsRegistry,
@@ -132,6 +133,7 @@ const DEFAULT_STORE_INFO = {
   smsRemindersEnabled: true,
   autoSmsWebhookUrl: '',
   autoSmsApiKey: '',
+  blueFocusExportConfig: '{}',
 };
 
 export function sanitizeStoreInfoPrinters(info: any) {
@@ -788,6 +790,11 @@ export function formatOrderForDb(order: any) {
     scheduledDate: order.scheduledDate || null,
     scheduledDay: order.scheduledDay || null,
     scheduledPickupTime: order.scheduledPickupTime || null,
+    isPrinted: Boolean(order.isPrinted || order.printedAt || order.autoPrinted90Min),
+    printedAt: order.printedAt ? Number(order.printedAt) : null,
+    blueFocusExported: Boolean(order.blueFocusExported),
+    blueFocusExportedAt: order.blueFocusExportedAt ? Number(order.blueFocusExportedAt) : null,
+    blueFocusExportError: order.blueFocusExportError ? String(order.blueFocusExportError) : null,
     updatedAt: Number(order.updatedAt) || createdAt
   };
 }
@@ -868,6 +875,24 @@ function calculateNextOrderNumber(currentOrders: any[] = []): string {
 
 export function getMemStoreInfo() {
   return memStoreInfo || DEFAULT_STORE_INFO;
+}
+
+export function getMemOrderById(orderId: string) {
+  const targetId = String(orderId || '').trim();
+  if (!targetId) return null;
+  let matched = memOrders.find(o => String(o.id).trim() === targetId);
+  if (!matched && targetId.length >= 4) {
+    matched = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+  }
+  return matched || null;
+}
+
+export function getMemProductsList() {
+  return memProducts || [];
+}
+
+export function getMemCustomersList() {
+  return memCustomers || [];
 }
 
 const parseDbBool = (primary: any, secondary: any, defaultVal = true): boolean => {
@@ -2068,6 +2093,93 @@ export async function markOrderAsPrintedOnServer(orderId: string): Promise<any |
   return updatedOrder;
 }
 
+export async function markOrderBlueFocusExportedOnServer(
+  orderId: string,
+  params: { success: boolean; exportedAt?: number; error?: string | null }
+): Promise<any | null> {
+  const targetId = String(orderId || '').trim();
+  if (!targetId) return null;
+
+  let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
+  if (!matchedOrder && targetId.length >= 4) {
+    matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+  }
+  if (!matchedOrder) return null;
+
+  const resolvedId = String(matchedOrder.id).trim();
+  const nowTs = Date.now();
+  const exportedAtTs = params.success ? (Number(params.exportedAt) || nowTs) : (matchedOrder.blueFocusExportedAt || null);
+
+  const updatedOrder = {
+    ...matchedOrder,
+    blueFocusExported: params.success ? true : Boolean(matchedOrder.blueFocusExported),
+    blueFocusExportedAt: exportedAtTs,
+    blueFocusExportError: params.success ? null : (params.error || 'Erro ao exportar para BlueFocus'),
+    updatedAt: nowTs,
+  };
+
+  memOrders = memOrders.map(o => (String(o.id).trim() === resolvedId ? updatedOrder : o));
+  persistOrdersToDisk(memOrders);
+
+  if (isDatabaseConfigured()) {
+    try {
+      await withDbRetry(() =>
+        db
+          .update(orders)
+          .set({
+            blueFocusExported: updatedOrder.blueFocusExported,
+            blueFocusExportedAt: exportedAtTs,
+            blueFocusExportError: updatedOrder.blueFocusExportError,
+            updatedAt: nowTs,
+          })
+          .where(eq(orders.id, resolvedId))
+      );
+    } catch (err: any) {
+      console.warn(`[DB Order BlueFocus] Erro ao persistir status BlueFocus do pedido #${resolvedId}:`, err?.message);
+    }
+  }
+
+  broadcastSSE({
+    type: 'sync',
+    target: 'orders',
+    action: 'order_bluefocus_exported',
+    orderId: resolvedId,
+    blueFocusExported: updatedOrder.blueFocusExported,
+    blueFocusExportedAt: updatedOrder.blueFocusExportedAt,
+    blueFocusExportError: updatedOrder.blueFocusExportError,
+    time: nowTs,
+  });
+
+  return updatedOrder;
+}
+
+async function triggerServerAutoExportBlueFocus(order: any, mode: 'on_create' | 'on_complete') {
+  try {
+    if (!order || !order.id || order.blueFocusExported) return;
+    const cfg = parseBlueFocusExportConfig(memStoreInfo);
+    if (cfg.autoExportMode !== mode) return;
+
+    console.log(`[BlueFocus Auto-Export] Iniciando envio automático (${mode}) do pedido #${order.id}...`);
+    const result = await exportOrderToBlueFocusSoap({
+      order,
+      config: cfg,
+      productsList: memProducts,
+      customersList: memCustomers,
+    });
+    await markOrderBlueFocusExportedOnServer(order.id, {
+      success: result.success,
+      error: result.error,
+    });
+    if (result.success) {
+      console.log(`[BlueFocus Auto-Export] Pedido #${order.id} enviado com sucesso (Venda FCX ${result.saleNumber}).`);
+    } else {
+      console.warn(`[BlueFocus Auto-Export] Falha ao enviar pedido #${order.id}: ${result.error}`);
+    }
+  } catch (err: any) {
+    console.warn(`[BlueFocus Auto-Export] Erro inesperado:`, err?.message || err);
+  }
+}
+
 export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) => void) {
   // Wait briefly for initial DB + Cloud Firestore hydration on cold start so deleted/stale disk snapshots are pruned before serving
   app.use('/api/db', async (req: Request, res: Response, next) => {
@@ -2784,7 +2896,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       scheduledDay: newOrder.scheduledDay || null,
       scheduledPickupTime: newOrder.scheduledPickupTime || null,
       isPrinted: Boolean(newOrder.isPrinted),
-      printedAt: newOrder.printedAt ? Number(newOrder.printedAt) : null
+      printedAt: newOrder.printedAt ? Number(newOrder.printedAt) : null,
+      blueFocusExported: Boolean(newOrder.blueFocusExported),
+      blueFocusExportedAt: newOrder.blueFocusExportedAt ? Number(newOrder.blueFocusExportedAt) : null,
+      blueFocusExportError: newOrder.blueFocusExportError ? String(newOrder.blueFocusExportError) : null
     };
 
     if (isDatabaseConfigured()) {
@@ -2797,6 +2912,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           }).returning();
         });
         broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
+        void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
         if (result && result.length > 0) {
           console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
           return result[0];
@@ -2807,10 +2923,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       } catch (error: any) {
         console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${orderForDb.id} no PostgreSQL:`, error?.message || error);
         broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
+        void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
         return newOrder;
       }
     }
     broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
+    void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
     return newOrder;
   }
 
@@ -3027,7 +3145,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           'scheduledDate', 'scheduledDay', 'scheduledPickupTime', 'items', 'total',
           'paymentMethod', 'customerName', 'customerPhone', 'customerEmail', 'customerCpf',
           'deliveryType', 'deliveryAddress', 'deliveryCep', 'deliveryNeighborhood', 'deliveryFee',
-          'tableNumber', 'tableId', 'isPrinted', 'printedAt'
+          'tableNumber', 'tableId', 'isPrinted', 'printedAt',
+          'blueFocusExported', 'blueFocusExportedAt', 'blueFocusExportError'
         ];
         const updatePayload: any = { updatedAt: updatedTimestamp };
         for (const k of allowedKeys) {
@@ -3036,9 +3155,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
               updatePayload.items = safeParseJsonArray(data.items);
             } else if (k === 'total' || k === 'deliveryFee') {
               updatePayload[k] = Number(data[k]) || 0;
-            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt' || k === 'printedAt') {
+            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt' || k === 'printedAt' || k === 'blueFocusExportedAt') {
               updatePayload[k] = data[k] ? Number(data[k]) : null;
-            } else if (k === 'isPrinted') {
+            } else if (k === 'isPrinted' || k === 'blueFocusExported') {
               updatePayload[k] = Boolean(data[k]);
             } else {
               updatePayload[k] = data[k];
@@ -3065,6 +3184,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       customerPhone: orderData.customerPhone || '',
       time: Date.now()
     });
+    if (data.status === 'completed') {
+      void triggerServerAutoExportBlueFocus(orderData, 'on_complete');
+    }
     res.json(dbUpdatedOrder || orderData);
   });
 
@@ -3407,6 +3529,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (body.deliveryEstimatedTimeMin !== undefined) sanitized.deliveryEstimatedTimeMin = Number(body.deliveryEstimatedTimeMin) || 35;
       if (body.deliveryEstimatedTimeMax !== undefined) sanitized.deliveryEstimatedTimeMax = Number(body.deliveryEstimatedTimeMax) || 50;
       if (body.showSystemIntroButton !== undefined) sanitized.showSystemIntroButton = Boolean(body.showSystemIntroButton);
+      if (body.blueFocusExportConfig !== undefined) {
+        sanitized.blueFocusExportConfig = typeof body.blueFocusExportConfig === 'string'
+          ? body.blueFocusExportConfig
+          : JSON.stringify(body.blueFocusExportConfig || {});
+      }
       sanitized.updatedAt = Date.now();
 
       // Preserve existing memory properties if not explicitly provided

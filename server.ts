@@ -4,7 +4,8 @@ import axios from "axios";
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import dotenv from "dotenv";
 import compression from "compression";
-import { setupDatabaseRoutes, hydrateFromPostgres, getMemStoreInfo, broadcastSSE, markOrderAsPrintedOnServer } from "./src/server/dbRoutes";
+import { setupDatabaseRoutes, hydrateFromPostgres, getMemStoreInfo, getMemOrderById, getMemProductsList, getMemCustomersList, broadcastSSE, markOrderAsPrintedOnServer, markOrderBlueFocusExportedOnServer } from "./src/server/dbRoutes";
+import { exportOrderToBlueFocusSoap, parseBlueFocusExportConfig } from "./src/server/bluefocusOrderExporter";
 import { setupPrinterRoutes } from "./src/server/printerRoutes";
 import { setupPrinterAgentRoutes } from "./src/server/printerAgentRoutes";
 import { ensureTablesExist, testDatabaseConnection } from "./src/db/index";
@@ -1005,127 +1006,90 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
   // API Route for BlueFocus Order Export (Pre-Sale)
   app.post("/api/bluefocus/export-order", async (req, res) => {
-    console.log(`[Order] Recebida exportação de pedido: ${req.url}`);
+    console.log(`[Order] Recebida exportação de pedido BlueFocus: ${req.url}`);
     try {
-      const { 
-        order,
-        empresaId: reqEmpresaId,
-        usuarioId: reqUsuarioId,
-        pdvCodigo: reqPdvCodigo,
-        orderUrl: reqOrderUrl,
-        authToken
-      } = req.body;
-      
-      const authKey = process.env.BLUE_FOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_TOKEN;
-      const empresaId = reqEmpresaId || process.env.BLUEFOCUS_EMPRESA_ID || process.env.BLUEFOCUS_EMPRESA || 'BALBEC';
-      const usuarioId = reqUsuarioId || process.env.BLUEFOCUS_USUARIO_ID || process.env.BLUEFOCUS_USUARIO || 'CONSULTA';
-      const pdvCodigo = reqPdvCodigo || process.env.BLUEFOCUS_PDV_CODIGO || '1000';
+      const {
+        order: reqOrder,
+        orderId: reqOrderId,
+        forceReexport,
+        empresaId,
+        usuarioId,
+        pdvCodigo,
+        orderUrl,
+        authToken,
+        defaultClienteId,
+        formaDinheiroId,
+        formaPixId,
+        formaDebitoId,
+        formaCreditoId,
+      } = req.body || {};
 
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0];
-      const dateTimeStr = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const lookupId = reqOrder?.id || reqOrderId;
+      const serverOrder = lookupId ? getMemOrderById(String(lookupId)) : null;
+      const targetOrder = serverOrder
+        ? { ...serverOrder, ...(reqOrder || {}), items: (Array.isArray(serverOrder.items) && serverOrder.items.length > 0 ? serverOrder.items : reqOrder?.items) || [] }
+        : reqOrder;
 
-      // Map items to BlueFocus XML format
-      const itemsXml = order.items.map((item: any, index: number) => `
-        <ProdutoItem>
-          <SaidaItemSeq>${index + 1}</SaidaItemSeq>
-          <SaidaItemLoteProdutoId>${item.externalId || item.productId}</SaidaItemLoteProdutoId>
-          <SaidaItemUnidadeId>UN</SaidaItemUnidadeId>
-          <SaidaItemCodigoBarras>${item.externalId || item.productId}</SaidaItemCodigoBarras>
-          <SaidaItemQuantidade>${item.quantity}</SaidaItemQuantidade>
-          <SaidaItemValorUnitario>${item.price}</SaidaItemValorUnitario>
-          <SaidaItemCancelado>N</SaidaItemCancelado>
-          <SaidaItemTotalizador>T1</SaidaItemTotalizador>
-          <SaidaItemTipoTributacao>T</SaidaItemTipoTributacao>
-        </ProdutoItem>`).join('');
-
-      const resolvedClienteId = order.customerExternalId ||
-        (order.customerId && String(order.customerId).startsWith('bf_cust_') ? String(order.customerId).replace('bf_cust_', '') : null) ||
-        '100';
-
-      const soapEnvelope = `<?xml version="1.0"?>
-<SOAP-ENV:Envelope 
-xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
-xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
-xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-<SOAP-ENV:Body>
-<IntegracaoFcxRegistraVenda.Execute xmlns="Valim">
-<Sdtwebserviceentradavenda>
-<Venda>
-<TipoVenda>P</TipoVenda>
-<EmpresaId>${empresaId}</EmpresaId>
-<UsuarioId>${usuarioId}</UsuarioId>
-<PDVCodigo>${pdvCodigo}</PDVCodigo>
-<SaidaSNCancela>N</SaidaSNCancela>
-<SaidaDataEmissao>${dateStr}</SaidaDataEmissao>
-<SaidaClienteId>${resolvedClienteId}</SaidaClienteId>
-<SaidaDataHoraInclusao>${dateTimeStr}</SaidaDataHoraInclusao>
-<SaidaUsuarioInclusao>${usuarioId}</SaidaUsuarioInclusao>
-<SaidaNumeroVendaFCX>${order.id.replace(/\D/g, '').substring(0, 9) || Math.floor(Math.random() * 100000)}</SaidaNumeroVendaFCX>
-${itemsXml}
-<ParcelaItem>
-<SaidaPagtoParcelaSequencia>1</SaidaPagtoParcelaSequencia>
-<SaidaPagtoParcelaFormaId>1</SaidaPagtoParcelaFormaId>
-<SaidaPagtoParcelaValor>${order.total}</SaidaPagtoParcelaValor>
-<SaidaPagtoParcelaVencimento>${dateStr}</SaidaPagtoParcelaVencimento>
-</ParcelaItem>
-</Venda>
-</Sdtwebserviceentradavenda>
-</IntegracaoFcxRegistraVenda.Execute>
-</SOAP-ENV:Body>
-</SOAP-ENV:Envelope>`;
-
-      const isValidToken = (t?: string) => {
-        if (!t) return false;
-        const clean = String(t).trim();
-        return clean.length > 5 && !clean.includes('XXXX') && clean !== 'AGUARDANDO_CHAVE';
-      };
-
-      const headers: any = {
-        "Content-Type": "text/xml; charset=utf-8"
-      };
-      
-      if (isValidToken(authToken)) {
-        headers["autentica"] = authToken.trim();
-      } else if (isValidToken(authKey)) {
-        headers["autentica"] = authKey.trim();
+      if (!targetOrder || !targetOrder.id) {
+        return res.status(400).json({ error: "Pedido não encontrado para exportação." });
       }
 
-      const response = await axios.post(
-        reqOrderUrl || process.env.BLUEFOCUS_ORDER_URL || "http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda",
-        soapEnvelope,
-        { headers }
-      );
-
-      const parser = new XMLParser();
-      const jsonObj = parser.parse(response.data);
-      
-      const body = jsonObj["SOAP-ENV:Envelope"]?.["SOAP-ENV:Body"];
-      const executeResponse = body?.["IntegracaoFcxRegistraVenda.ExecuteResponse"] || body?.["IntegracaoFcxRegPreVendaSat.ExecuteResponse"];
-      const saiaVenda = executeResponse?.["Sdtwebservicesaidavenda"];
-      const msgErro = saiaVenda?.["MsgErro"];
-
-      if (msgErro) {
-        return res.status(400).json({ error: msgErro });
+      if ((serverOrder?.blueFocusExported || targetOrder.blueFocusExported) && !forceReexport) {
+        return res.status(409).json({
+          error: "Este pedido já foi exportado anteriormente para o BlueFocus.",
+          alreadyExported: true,
+          order: serverOrder || targetOrder,
+        });
       }
 
-      res.json({ success: true });
+      const config = parseBlueFocusExportConfig(getMemStoreInfo(), {
+        empresaId,
+        usuarioId,
+        pdvCodigo,
+        orderUrl,
+        authToken,
+        defaultClienteId,
+        formaDinheiroId,
+        formaPixId,
+        formaDebitoId,
+        formaCreditoId,
+      });
+
+      const result = await exportOrderToBlueFocusSoap({
+        order: targetOrder,
+        config,
+        productsList: getMemProductsList(),
+        customersList: getMemCustomersList(),
+      });
+
+      const updatedOrder = await markOrderBlueFocusExportedOnServer(targetOrder.id, {
+        success: result.success,
+        error: result.error,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({
+          error: result.error || "Erro ao exportar venda para BlueFocus",
+          details: result.details,
+          order: updatedOrder || targetOrder,
+        });
+      }
+
+      return res.json({
+        success: true,
+        saleNumber: result.saleNumber,
+        order: updatedOrder || {
+          ...targetOrder,
+          blueFocusExported: true,
+          blueFocusExportedAt: Date.now(),
+          blueFocusExportError: null,
+        },
+      });
     } catch (error: any) {
-      console.error("BlueFocus Export Error!");
-      if (error.response) {
-        console.error("Status:", error.response.status);
-        console.error("Data:", error.response.data);
-      } else if (error.request) {
-        console.error("No response received from BlueFocus.");
-      } else {
-        console.error("Error setting up request:", error.message);
-      }
-      
-      const errorDetail = error.response?.data || error.message;
-      console.error("BlueFocus Export Error Details:", errorDetail);
-      res.status(500).json({ 
+      console.error("BlueFocus Export Error Details:", error?.message || error);
+      return res.status(500).json({
         error: "Erro ao exportar venda para BlueFocus",
-        details: errorDetail
+        details: error?.response?.data || error?.message,
       });
     }
   });

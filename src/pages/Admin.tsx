@@ -81,7 +81,8 @@ import {
   MapPin,
   KeyRound,
   ShieldCheck,
-  LocateFixed
+  LocateFixed,
+  Upload
 } from 'lucide-react';
 import { getCurrentPosition } from '../utils/geolocation';
 import { sendNtfyNotification } from '../utils/ntfy';
@@ -1130,24 +1131,65 @@ export default function Admin() {
   const [isTestingBlueFocus, setIsTestingBlueFocus] = useState(false);
   const [exportingOrderId, setExportingOrderId] = useState<string | null>(null);
   
-  // BlueFocus Config State
-  const [blueFocusConfig, setBlueFocusConfig] = useState({
-    empresaId: localStorage.getItem('bluefocus_empresa_id') || 'BALBEC',
-    usuarioId: localStorage.getItem('bluefocus_usuario_id') || 'CONSULTA',
-    pdvCodigo: localStorage.getItem('bluefocus_pdv_codigo') || '1000',
-    pessoaId: localStorage.getItem('bluefocus_pessoa_id') || '0',
-    syncUrl: localStorage.getItem('bluefocus_sync_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat',
-    orderUrl: localStorage.getItem('bluefocus_order_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
-    tipoAtualizacao: localStorage.getItem('bluefocus_tipo_atualizacao') || 'A',
-    tipo: localStorage.getItem('bluefocus_tipo') || '4',
-    dataInicial: localStorage.getItem('bluefocus_data_inicial') || '30/12/1899',
-    startCargaNumero: localStorage.getItem('bluefocus_start_carga_numero') || '0',
-    startCargaSequencia: localStorage.getItem('bluefocus_start_carga_sequencia') || '0',
-    authToken: localStorage.getItem('bluefocus_auth_token') || '',
-    startProdutoId: localStorage.getItem('bluefocus_start_produto_id') || '0',
-    batchSize: localStorage.getItem('bluefocus_batch_size') || '4',
-    preserveManualPrices: localStorage.getItem('bluefocus_preserve_manual_prices') !== 'false'
+  // BlueFocus Config State (mescla configurações persistidas no servidor com preferências locais do navegador)
+  const [blueFocusConfig, setBlueFocusConfig] = useState(() => {
+    let serverCfg: any = {};
+    try {
+      if (storeInfo?.blueFocusExportConfig) {
+        serverCfg = typeof storeInfo.blueFocusExportConfig === 'string'
+          ? JSON.parse(storeInfo.blueFocusExportConfig)
+          : storeInfo.blueFocusExportConfig;
+      }
+    } catch {}
+    return {
+      empresaId: serverCfg?.empresaId || localStorage.getItem('bluefocus_empresa_id') || 'BALBEC',
+      usuarioId: serverCfg?.usuarioId || localStorage.getItem('bluefocus_usuario_id') || 'CONSULTA',
+      pdvCodigo: serverCfg?.pdvCodigo || localStorage.getItem('bluefocus_pdv_codigo') || '1000',
+      pessoaId: localStorage.getItem('bluefocus_pessoa_id') || '0',
+      syncUrl: localStorage.getItem('bluefocus_sync_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat',
+      orderUrl: serverCfg?.orderUrl || localStorage.getItem('bluefocus_order_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
+      tipoAtualizacao: localStorage.getItem('bluefocus_tipo_atualizacao') || 'A',
+      tipo: localStorage.getItem('bluefocus_tipo') || '4',
+      dataInicial: localStorage.getItem('bluefocus_data_inicial') || '30/12/1899',
+      startCargaNumero: localStorage.getItem('bluefocus_start_carga_numero') || '0',
+      startCargaSequencia: localStorage.getItem('bluefocus_start_carga_sequencia') || '0',
+      authToken: serverCfg?.authToken ?? localStorage.getItem('bluefocus_auth_token') ?? '',
+      startProdutoId: localStorage.getItem('bluefocus_start_produto_id') || '0',
+      batchSize: localStorage.getItem('bluefocus_batch_size') || '4',
+      preserveManualPrices: localStorage.getItem('bluefocus_preserve_manual_prices') !== 'false',
+      autoExportMode: serverCfg?.autoExportMode || localStorage.getItem('bluefocus_auto_export_mode') || 'manual',
+      defaultClienteId: serverCfg?.defaultClienteId || localStorage.getItem('bluefocus_default_cliente_id') || '100',
+      formaDinheiroId: serverCfg?.formaDinheiroId || localStorage.getItem('bluefocus_forma_dinheiro_id') || '1',
+      formaPixId: serverCfg?.formaPixId || localStorage.getItem('bluefocus_forma_pix_id') || '1',
+      formaDebitoId: serverCfg?.formaDebitoId || localStorage.getItem('bluefocus_forma_debito_id') || '1',
+      formaCreditoId: serverCfg?.formaCreditoId || localStorage.getItem('bluefocus_forma_credito_id') || '1',
+    };
   });
+
+  useEffect(() => {
+    if (!storeInfo?.blueFocusExportConfig) return;
+    try {
+      const parsed = typeof storeInfo.blueFocusExportConfig === 'string'
+        ? JSON.parse(storeInfo.blueFocusExportConfig)
+        : storeInfo.blueFocusExportConfig;
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        setBlueFocusConfig((prev: any) => ({
+          ...prev,
+          ...(parsed.empresaId ? { empresaId: parsed.empresaId } : {}),
+          ...(parsed.usuarioId ? { usuarioId: parsed.usuarioId } : {}),
+          ...(parsed.pdvCodigo ? { pdvCodigo: parsed.pdvCodigo } : {}),
+          ...(parsed.orderUrl ? { orderUrl: parsed.orderUrl } : {}),
+          ...(parsed.authToken !== undefined ? { authToken: parsed.authToken } : {}),
+          ...(parsed.autoExportMode ? { autoExportMode: parsed.autoExportMode } : {}),
+          ...(parsed.defaultClienteId ? { defaultClienteId: parsed.defaultClienteId } : {}),
+          ...(parsed.formaDinheiroId ? { formaDinheiroId: parsed.formaDinheiroId } : {}),
+          ...(parsed.formaPixId ? { formaPixId: parsed.formaPixId } : {}),
+          ...(parsed.formaDebitoId ? { formaDebitoId: parsed.formaDebitoId } : {}),
+          ...(parsed.formaCreditoId ? { formaCreditoId: parsed.formaCreditoId } : {}),
+        }));
+      }
+    } catch {}
+  }, [storeInfo?.blueFocusExportConfig]);
 
   // Garantir que a chave no localStorage tenha BALBEC como padrão se vazia
   useEffect(() => {
@@ -2127,23 +2169,46 @@ export default function Admin() {
     }
   };
 
-  const handleExportOrder = async (order: Order) => {
+  const handleExportOrder = async (order: Order, forceReexport = false) => {
     if (exportingOrderId) return;
-    setExportingOrderId(order.id);
-    try {
-      await exportOrderToBlueFocus(order, blueFocusConfig);
+
+    if (order.blueFocusExported && !forceReexport) {
+      const exportedDateStr = order.blueFocusExportedAt
+        ? new Date(order.blueFocusExportedAt).toLocaleString('pt-BR')
+        : '';
       setConfirmModal({
         isOpen: true,
-        title: 'Sucesso',
-        message: `Pedido #${order.id.slice(-4)} exportado com sucesso para o sistema BlueFocus!`,
+        title: 'Pedido já exportado para o BlueFocus',
+        message: `O pedido #${String(order.id).slice(-4)} já foi enviado para o BlueFocus${exportedDateStr ? ` em ${exportedDateStr}` : ''}.\n\nDeseja realmente reenviar este pedido? (Reenviar pode gerar duplicidade no ERP se a venda anterior não tiver sido cancelada).`,
+        confirmText: 'Sim, Reenviar',
+        cancelText: 'Cancelar',
+        onConfirm: async () => {
+          setConfirmModal(null);
+          await handleExportOrder(order, true);
+        }
+      });
+      return;
+    }
+
+    setExportingOrderId(order.id);
+    try {
+      const res = await exportOrderToBlueFocus(order, { ...blueFocusConfig, forceReexport });
+      setConfirmModal({
+        isOpen: true,
+        title: 'Exportado para o BlueFocus',
+        message: `Pedido #${String(order.id).slice(-4)} exportado com sucesso como Pré-Venda para o BlueFocus!${res?.saleNumber ? `\nNúmero da Venda FCX: ${res.saleNumber}` : ''}`,
+        confirmText: 'OK',
+        cancelText: null,
         onConfirm: () => setConfirmModal(null)
       });
     } catch (error: any) {
       console.error('Export Error:', error);
       setConfirmModal({
         isOpen: true,
-        title: 'Erro na Exportação',
+        title: 'Erro na Exportação BlueFocus',
         message: error.message || 'Não foi possível exportar o pedido para o sistema local.',
+        confirmText: 'OK',
+        cancelText: null,
         onConfirm: () => setConfirmModal(null)
       });
     } finally {
@@ -2862,6 +2927,19 @@ export default function Admin() {
       tvShowClock: storeInfo.tvShowClock ?? true,
       tvShowCaptions: storeInfo.tvShowCaptions ?? false,
       showSystemIntroButton: showSystemIntroButtonState,
+      blueFocusExportConfig: JSON.stringify({
+        empresaId: blueFocusConfig.empresaId || 'BALBEC',
+        usuarioId: blueFocusConfig.usuarioId || 'CONSULTA',
+        pdvCodigo: blueFocusConfig.pdvCodigo || '1000',
+        orderUrl: blueFocusConfig.orderUrl || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
+        authToken: blueFocusConfig.authToken || '',
+        autoExportMode: blueFocusConfig.autoExportMode || 'manual',
+        defaultClienteId: blueFocusConfig.defaultClienteId || '100',
+        formaDinheiroId: blueFocusConfig.formaDinheiroId || '1',
+        formaPixId: blueFocusConfig.formaPixId || '1',
+        formaDebitoId: blueFocusConfig.formaDebitoId || '1',
+        formaCreditoId: blueFocusConfig.formaCreditoId || '1',
+      }),
     };
     try {
       await updateStoreInfo(data);
@@ -4095,6 +4173,46 @@ export default function Admin() {
                         >
                           <Printer className="w-3.5 h-3.5" />
                         </button>
+                        {isAdminOrMaster && (
+                          <button
+                            type="button"
+                            onClick={() => handleExportOrder(ord)}
+                            disabled={exportingOrderId === ord.id}
+                            title={
+                              ord.blueFocusExported
+                                ? `Exportado para BlueFocus${ord.blueFocusExportedAt ? ` em ${new Date(ord.blueFocusExportedAt).toLocaleString('pt-BR')}` : ''} (Clique para reenviar)`
+                                : ord.blueFocusExportError
+                                ? `Erro ao exportar: ${ord.blueFocusExportError} (Clique para tentar novamente)`
+                                : 'Exportar pedido para o BlueFocus'
+                            }
+                            className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50 ${
+                              ord.blueFocusExported
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                                : ord.blueFocusExportError
+                                ? 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
+                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-200'
+                            }`}
+                          >
+                            {exportingOrderId === ord.id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : ord.blueFocusExported ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : ord.blueFocusExportError ? (
+                              <AlertTriangle className="w-3 h-3" />
+                            ) : (
+                              <Upload className="w-3 h-3" />
+                            )}
+                            <span>
+                              {exportingOrderId === ord.id
+                                ? 'Enviando...'
+                                : ord.blueFocusExported
+                                ? 'BlueFocus ✓'
+                                : ord.blueFocusExportError
+                                ? 'Erro ERP'
+                                : 'BlueFocus'}
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -5044,10 +5162,39 @@ export default function Admin() {
                         <button type="button" 
                           onClick={() => handleExportOrder(order)}
                           disabled={exportingOrderId === order.id}
-                          className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 flex items-center justify-center transition-colors disabled:opacity-50"
-                          title="Exportar para BlueFocus"
+                          className={`px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 font-bold text-xs shadow-xs ${
+                            order.blueFocusExported
+                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                              : order.blueFocusExportError
+                              ? 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                          title={
+                            order.blueFocusExported
+                              ? `Já exportado para o BlueFocus${order.blueFocusExportedAt ? ` em ${new Date(order.blueFocusExportedAt).toLocaleString('pt-BR')}` : ''}. Clique se precisar reenviar.`
+                              : order.blueFocusExportError
+                              ? `Erro na última tentativa: ${order.blueFocusExportError}. Clique para tentar novamente.`
+                              : 'Exportar este pedido como Pré-Venda para o BlueFocus'
+                          }
                         >
-                          <RefreshCw className={`w-5 h-5 ${exportingOrderId === order.id ? 'animate-spin' : ''}`} />
+                          {exportingOrderId === order.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : order.blueFocusExported ? (
+                            <CheckCircle2 className="w-4 h-4" />
+                          ) : order.blueFocusExportError ? (
+                            <AlertTriangle className="w-4 h-4" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                          <span>
+                            {exportingOrderId === order.id
+                              ? 'Exportando...'
+                              : order.blueFocusExported
+                              ? 'Exportado ✓'
+                              : order.blueFocusExportError
+                              ? 'Tentar BlueFocus'
+                              : 'Exportar BlueFocus'}
+                          </span>
                         </button>
                       )}
                       {order.status === 'pending' && (
@@ -5227,10 +5374,39 @@ export default function Admin() {
                         <button type="button" 
                           onClick={() => handleExportOrder(order)}
                           disabled={exportingOrderId === order.id}
-                          className="text-blue-500 hover:text-blue-700 p-1 disabled:opacity-50"
-                          title="Exportar para BlueFocus"
+                          className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 transition-colors disabled:opacity-50 ${
+                            order.blueFocusExported
+                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                              : order.blueFocusExportError
+                              ? 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                          title={
+                            order.blueFocusExported
+                              ? `Exportado para BlueFocus${order.blueFocusExportedAt ? ` em ${new Date(order.blueFocusExportedAt).toLocaleString('pt-BR')}` : ''} (Clique para reenviar)`
+                              : order.blueFocusExportError
+                              ? `Erro: ${order.blueFocusExportError} (Clique para tentar novamente)`
+                              : 'Exportar para BlueFocus'
+                          }
                         >
-                          <RefreshCw className={`w-4 h-4 ${exportingOrderId === order.id ? 'animate-spin' : ''}`} />
+                          {exportingOrderId === order.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : order.blueFocusExported ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : order.blueFocusExportError ? (
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          <span>
+                            {exportingOrderId === order.id
+                              ? 'Enviando...'
+                              : order.blueFocusExported
+                              ? 'Exportado ✓'
+                              : order.blueFocusExportError
+                              ? 'Tentar ERP'
+                              : 'Exportar BlueFocus'}
+                          </span>
                         </button>
                       )}
                       {order.status !== 'cancelled' && (
@@ -6846,6 +7022,23 @@ export default function Admin() {
       setIsAiTestModalOpen={setIsAiTestModalOpen}
       blueFocusConfig={blueFocusConfig}
       setBlueFocusConfig={setBlueFocusConfig}
+      onSaveBlueFocusStoreConfig={async (cfg) => {
+        await updateStoreInfo({
+          blueFocusExportConfig: JSON.stringify({
+            empresaId: cfg.empresaId,
+            usuarioId: cfg.usuarioId,
+            pdvCodigo: cfg.pdvCodigo,
+            orderUrl: cfg.orderUrl,
+            authToken: cfg.authToken,
+            autoExportMode: cfg.autoExportMode || 'manual',
+            defaultClienteId: cfg.defaultClienteId || '100',
+            formaDinheiroId: cfg.formaDinheiroId || '1',
+            formaPixId: cfg.formaPixId || '1',
+            formaDebitoId: cfg.formaDebitoId || '1',
+            formaCreditoId: cfg.formaCreditoId || '1',
+          }),
+        });
+      }}
       handleSyncBlueFocus={handleSyncBlueFocus}
       handleSyncCustomersBlueFocus={handleSyncCustomersBlueFocus}
       handleTestBlueFocus={handleTestBlueFocus}

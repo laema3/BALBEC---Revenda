@@ -306,6 +306,9 @@ export interface Order {
   isPrinted?: boolean;
   printedAt?: number | null;
   autoPrinted90Min?: boolean;
+  blueFocusExported?: boolean;
+  blueFocusExportedAt?: number | null;
+  blueFocusExportError?: string | null;
 }
 
 export interface TvMediaItem {
@@ -409,6 +412,7 @@ export interface StoreInfo {
   salgadoPrepAssadoCongeladoEnabled?: boolean;
   minOrderValue?: number;
   showSystemIntroButton?: boolean;
+  blueFocusExportConfig?: string;
 }
 
 export interface PrinterItem {
@@ -581,7 +585,7 @@ interface StoreState {
   clearAllOrders: () => Promise<void>;
   
   updateStoreInfo: (info: Partial<StoreInfo>) => Promise<void>;
-  exportOrderToBlueFocus: (order: Order, config?: any) => Promise<void>;
+  exportOrderToBlueFocus: (order: Order, config?: any) => Promise<{ success: boolean; saleNumber?: string; order?: Order }>;
   
   currentNotification: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning'; orderId?: string; badge?: string } | null;
   setCurrentNotification: (notif: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning'; orderId?: string; badge?: string } | null) => void;
@@ -676,6 +680,7 @@ export const defaultStoreInfo: StoreInfo = {
   salgadoPrepAssadoCongeladoEnabled: true,
   minOrderValue: 150,
   showSystemIntroButton: false,
+  blueFocusExportConfig: '{}',
 };
 
 const getInitialStoreInfo = (): StoreInfo => {
@@ -860,6 +865,9 @@ let recentOrdersClearedUntil = 0;
 const normalizeServerOrder = (o: any): Order => {
   const printedAtVal = Number(o.printedAt || o.printed_at || 0) || undefined;
   const isPrintedVal = Boolean(o.isPrinted || o.is_printed || printedAtVal || o.autoPrinted90Min);
+  const bfExportedAtVal = Number(o.blueFocusExportedAt || o.bluefocus_exported_at || 0) || undefined;
+  const bfExportedVal = Boolean(o.blueFocusExported || o.bluefocus_exported || bfExportedAtVal);
+  const bfExportErrorVal = o.blueFocusExportError ?? o.bluefocus_export_error ?? null;
   return {
     ...o,
     id: String(o.id),
@@ -867,6 +875,9 @@ const normalizeServerOrder = (o: any): Order => {
     items: safeParseJsonArray(o.items),
     isPrinted: isPrintedVal,
     ...(printedAtVal ? { printedAt: printedAtVal } : {}),
+    blueFocusExported: bfExportedVal,
+    ...(bfExportedAtVal ? { blueFocusExportedAt: bfExportedAtVal } : {}),
+    blueFocusExportError: bfExportErrorVal,
     createdAt: Number(o.createdAt) || Date.now(),
     updatedAt: Number(o.updatedAt || o.createdAt) || Date.now()
   };
@@ -929,6 +940,14 @@ const reconcileServerOrders = (
         ...normalized,
         isPrinted: true,
         printedAt: existingLocal.printedAt || lock.printedAt || Date.now(),
+      };
+    }
+    if (existingLocal && existingLocal.blueFocusExported && !normalized.blueFocusExported) {
+      normalized = {
+        ...normalized,
+        blueFocusExported: true,
+        blueFocusExportedAt: existingLocal.blueFocusExportedAt || normalized.blueFocusExportedAt,
+        blueFocusExportError: null,
       };
     }
 
@@ -1943,14 +1962,7 @@ export const useStore = create<StoreState>((set, get) => ({
           return { orders: next };
         });
 
-        // Auto-export to BlueFocus
-        try {
-          await get().exportOrderToBlueFocus(parsedSaved, {});
-          console.log('Pedido exportado para BlueFocus automaticamente');
-        } catch (bfError) {
-          console.error('Erro ao exportar automaticamente para BlueFocus:', bfError);
-        }
-
+        // Auto-exportação para BlueFocus agora é executada no servidor conforme configuração ("on_create" ou "on_complete").
         // Auto-save or update customer lead record
         // REGRA DE NEGÓCIO: Apenas clientes de delivery e consumo na loja viram leads no sistema.
         // Pedidos feitos pelo totem NÃO viram leads.
@@ -2209,21 +2221,41 @@ export const useStore = create<StoreState>((set, get) => ({
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ 
-        order, 
+      body: JSON.stringify({
+        order,
+        orderId: order.id,
+        forceReexport: Boolean(config?.forceReexport),
         empresaId: localStorage.getItem('bluefocus_empresa_id') || 'BALBEC',
         usuarioId: localStorage.getItem('bluefocus_usuario_id') || 'CONSULTA',
         pdvCodigo: localStorage.getItem('bluefocus_pdv_codigo') || '1000',
         orderUrl: localStorage.getItem('bluefocus_order_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
         authToken: localStorage.getItem('bluefocus_auth_token') || '',
-        ...config 
+        ...config
       })
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Erro ao exportar pedido para BlueFocus');
+
+    const data = await response.json().catch(() => ({}));
+    if (data?.order) {
+      ordersMutationEpoch++;
+      const normalized = normalizeServerOrder(data.order);
+      set(state => {
+        const next = state.orders.map(o =>
+          String(o.id).trim() === String(normalized.id).trim() ? normalized : o
+        );
+        saveOrdersToStorage(next);
+        return { orders: next };
+      });
     }
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao exportar pedido para BlueFocus');
+    }
+
+    return {
+      success: true,
+      saleNumber: data?.saleNumber,
+      order: data?.order ? normalizeServerOrder(data.order) : undefined,
+    };
   },
 
   fetchCustomers: async () => {

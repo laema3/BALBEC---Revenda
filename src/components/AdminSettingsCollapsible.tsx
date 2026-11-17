@@ -162,6 +162,7 @@ interface AdminSettingsCollapsibleProps {
   // BlueFocus
   blueFocusConfig: any;
   setBlueFocusConfig: React.Dispatch<React.SetStateAction<any>>;
+  onSaveBlueFocusStoreConfig?: (cfg: any) => Promise<void>;
   handleSyncBlueFocus: (override?: any) => Promise<void>;
   handleSyncCustomersBlueFocus?: (override?: any) => Promise<void>;
   handleTestBlueFocus: () => Promise<void>;
@@ -318,6 +319,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     setIsAiTestModalOpen,
     blueFocusConfig,
     setBlueFocusConfig,
+    onSaveBlueFocusStoreConfig,
     handleSyncBlueFocus,
     handleSyncCustomersBlueFocus,
     handleTestBlueFocus,
@@ -383,7 +385,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
   const [blueFocusSaveFeedback, setBlueFocusSaveFeedback] = useState<string | null>(null);
 
 
-  const handleSaveBlueFocusConfig = () => {
+  const handleSaveBlueFocusConfig = async () => {
     const cfg = {
       empresaId: blueFocusConfig.empresaId || 'BALBEC',
       usuarioId: blueFocusConfig.usuarioId || 'CONSULTA',
@@ -399,7 +401,13 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
       startProdutoId: String(blueFocusConfig.startProdutoId || '0'),
       authToken: blueFocusConfig.authToken || '',
       batchSize: String(blueFocusConfig.batchSize || '4'),
-      preserveManualPrices: blueFocusConfig.preserveManualPrices !== false
+      preserveManualPrices: blueFocusConfig.preserveManualPrices !== false,
+      autoExportMode: (blueFocusConfig.autoExportMode === 'on_create' || blueFocusConfig.autoExportMode === 'on_complete') ? blueFocusConfig.autoExportMode : 'manual',
+      defaultClienteId: String(blueFocusConfig.defaultClienteId || '100'),
+      formaDinheiroId: String(blueFocusConfig.formaDinheiroId || '1'),
+      formaPixId: String(blueFocusConfig.formaPixId || '1'),
+      formaDebitoId: String(blueFocusConfig.formaDebitoId || '1'),
+      formaCreditoId: String(blueFocusConfig.formaCreditoId || '1'),
     };
 
     localStorage.setItem('bluefocus_empresa_id', cfg.empresaId);
@@ -417,10 +425,23 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
     localStorage.setItem('bluefocus_auth_token', cfg.authToken);
     localStorage.setItem('bluefocus_batch_size', cfg.batchSize);
     localStorage.setItem('bluefocus_preserve_manual_prices', String(cfg.preserveManualPrices));
+    localStorage.setItem('bluefocus_auto_export_mode', cfg.autoExportMode);
+    localStorage.setItem('bluefocus_default_cliente_id', cfg.defaultClienteId);
+    localStorage.setItem('bluefocus_forma_dinheiro_id', cfg.formaDinheiroId);
+    localStorage.setItem('bluefocus_forma_pix_id', cfg.formaPixId);
+    localStorage.setItem('bluefocus_forma_debito_id', cfg.formaDebitoId);
+    localStorage.setItem('bluefocus_forma_credito_id', cfg.formaCreditoId);
 
     setBlueFocusConfig((prev: any) => ({ ...prev, ...cfg }));
-    setBlueFocusSaveFeedback('Configurações da integração BlueFocus salvas com sucesso!');
-    setTimeout(() => setBlueFocusSaveFeedback(null), 3500);
+    if (onSaveBlueFocusStoreConfig) {
+      try {
+        await onSaveBlueFocusStoreConfig(cfg);
+      } catch (err) {
+        console.warn('Aviso ao sincronizar config BlueFocus no servidor:', err);
+      }
+    }
+    setBlueFocusSaveFeedback('Configurações da integração BlueFocus salvas no navegador e no servidor!');
+    setTimeout(() => setBlueFocusSaveFeedback(null), 4000);
   };
 
   const activePrinter = getActiveOrderPrinter(storeInfo);
@@ -3532,6 +3553,126 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                         className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-xs font-mono" 
                       />
                       <p className="text-[10px] text-stone-400 mt-0.5">Marcador ProdutoId para pular até ID</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Exportação de Pedidos (Pré-Venda para BlueFocus) */}
+                <div>
+                  <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5 text-blue-600" />
+                    4. Regras de Exportação de Pedidos (Pré-Venda BlueFocus)
+                  </h4>
+                  <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-xl space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                          Quando exportar os pedidos?
+                        </label>
+                        <select
+                          value={blueFocusConfig.autoExportMode || 'manual'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBlueFocusConfig((prev: any) => ({ ...prev, autoExportMode: val }));
+                            localStorage.setItem('bluefocus_auto_export_mode', val);
+                          }}
+                          className="w-full p-2.5 border border-blue-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none text-xs font-semibold text-stone-800"
+                        >
+                          <option value="manual">Manual — Usar botão "Exportar BlueFocus" no Painel de Pedidos</option>
+                          <option value="on_create">Automático — Exportar assim que o pedido for recebido</option>
+                          <option value="on_complete">Automático — Exportar quando marcar o pedido como Entregue</option>
+                        </select>
+                        <p className="text-[10px] text-stone-500 mt-1">
+                          Mesmo no modo automático, o botão manual continua disponível na aba Pedidos com proteção anti-duplicidade.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                          Código do Cliente Consumidor Padrão (SaidaClienteId)
+                        </label>
+                        <input
+                          type="text"
+                          value={blueFocusConfig.defaultClienteId ?? '100'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBlueFocusConfig((prev: any) => ({ ...prev, defaultClienteId: val }));
+                            localStorage.setItem('bluefocus_default_cliente_id', val);
+                          }}
+                          placeholder="100"
+                          className="w-full p-2.5 border border-blue-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none text-xs font-mono"
+                        />
+                        <p className="text-[10px] text-stone-500 mt-1">
+                          Usado quando o cliente não possuir vínculo com código do ERP (padrão: 100).
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold text-stone-700 uppercase mb-2">
+                        Códigos das Formas de Pagamento no BlueFocus (SaidaPagtoParcelaFormaId)
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-600 mb-1">Dinheiro (FormaId)</label>
+                          <input
+                            type="text"
+                            value={blueFocusConfig.formaDinheiroId ?? '1'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setBlueFocusConfig((prev: any) => ({ ...prev, formaDinheiroId: val }));
+                              localStorage.setItem('bluefocus_forma_dinheiro_id', val);
+                            }}
+                            placeholder="1"
+                            className="w-full p-2 border border-blue-200 rounded-lg bg-white text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-600 mb-1">PIX (FormaId)</label>
+                          <input
+                            type="text"
+                            value={blueFocusConfig.formaPixId ?? '1'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setBlueFocusConfig((prev: any) => ({ ...prev, formaPixId: val }));
+                              localStorage.setItem('bluefocus_forma_pix_id', val);
+                            }}
+                            placeholder="1"
+                            className="w-full p-2 border border-blue-200 rounded-lg bg-white text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-600 mb-1">Débito (FormaId)</label>
+                          <input
+                            type="text"
+                            value={blueFocusConfig.formaDebitoId ?? '1'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setBlueFocusConfig((prev: any) => ({ ...prev, formaDebitoId: val }));
+                              localStorage.setItem('bluefocus_forma_debito_id', val);
+                            }}
+                            placeholder="1"
+                            className="w-full p-2 border border-blue-200 rounded-lg bg-white text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-600 mb-1">Crédito (FormaId)</label>
+                          <input
+                            type="text"
+                            value={blueFocusConfig.formaCreditoId ?? '1'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setBlueFocusConfig((prev: any) => ({ ...prev, formaCreditoId: val }));
+                              localStorage.setItem('bluefocus_forma_credito_id', val);
+                            }}
+                            placeholder="1"
+                            className="w-full p-2 border border-blue-200 rounded-lg bg-white text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-blue-900/80 mt-2">
+                        💡 Dica: pedidos congelados pagos em <strong>50% parcial</strong> são enviados automaticamente com 2 parcelas (sinal pago + restante na retirada). Após alterações aqui, clique em <strong>Salvar Configurações</strong> abaixo.
+                      </p>
                     </div>
                   </div>
                 </div>

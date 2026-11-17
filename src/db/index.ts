@@ -583,6 +583,9 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_pickup_time TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_printed BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at BIGINT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_exported BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_exported_at BIGINT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_export_error TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at BIGINT;
 
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS external_id TEXT;
@@ -631,6 +634,7 @@ export async function ensureTablesExist() {
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS auto_sms_api_key TEXT DEFAULT '';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_sound_enabled BOOLEAN DEFAULT TRUE;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS order_chime_enabled BOOLEAN DEFAULT TRUE;
+    ALTER TABLE store_info ADD COLUMN IF NOT EXISTS blue_focus_export_config TEXT DEFAULT '{}';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_interval_minutes INTEGER DEFAULT 30;
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_start_time TEXT DEFAULT '08:00';
     ALTER TABLE store_info ADD COLUMN IF NOT EXISTS schedule_end_time TEXT DEFAULT '19:30';
