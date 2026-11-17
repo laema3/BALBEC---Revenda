@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Order, StoreInfo } from '../store/useStore';
 import { getFullReceiptHTML, printReceipt, getActiveOrderPrinter, resolveItemCode, resolveAddonCode, resolveOrderModality } from '../utils/printer';
-import { Printer, X, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { getOrderPaymentBreakdown, sharePixReceipt } from '../utils/paymentStatusHelper';
+import { Printer, X, Copy, Check, ExternalLink, Loader2, Share2 } from 'lucide-react';
 
 interface ReceiptModalProps {
   order: Order | null;
@@ -12,8 +13,12 @@ interface ReceiptModalProps {
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, onClose }) => {
   const [copied, setCopied] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [isSharingPix, setIsSharingPix] = useState(false);
 
   if (!order) return null;
+
+  const paymentBreakdown = getOrderPaymentBreakdown(order);
 
   const activePrinter = getActiveOrderPrinter(storeInfo);
   const modalityText = resolveOrderModality(order);
@@ -110,6 +115,7 @@ ${items.map(item => {
 ------------------------------
 *TOTAL : ${formatCurrency(order.total || 0)}*
 Pagamento: ${order.paymentMethod || 'Não informado'}
+Status Cobrança: ${paymentBreakdown.receiptLine}
 ------------------------------
     `.trim();
 
@@ -268,6 +274,9 @@ Pagamento: ${order.paymentMethod || 'Não informado'}
             <div className="text-center text-[11px] font-bold mt-1">
               Pagamento: {order.paymentMethod || 'Não informado'}
             </div>
+            <div className="mt-1.5 border border-black p-1.5 text-center text-[10px] font-black uppercase bg-stone-50">
+              {paymentBreakdown.receiptLine}
+            </div>
 
             <div className="border-t-2 border-black my-2"></div>
             <div className="text-center font-bold text-[10px]">*** OBRIGADO PELA PREFERÊNCIA ***</div>
@@ -284,28 +293,54 @@ Pagamento: ${order.paymentMethod || 'Não informado'}
         </div>
 
         {/* Rodapé e Ações */}
-        <div className="p-3 bg-white border-t border-stone-200 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleCopyText}
-            className="bg-stone-100 text-stone-700 hover:bg-stone-200 py-2.5 px-3 rounded-xl font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-            title="Copiar texto do pedido para colar no WhatsApp"
-          >
-            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-            <span>{copied ? 'Copiado!' : 'Copiar'}</span>
-          </button>
-          
+        <div className="p-3 bg-white border-t border-stone-200 space-y-2">
+          {shareFeedback && (
+            <div className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-center">
+              {shareFeedback}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyText}
+              className="bg-stone-100 text-stone-700 hover:bg-stone-200 py-2.5 px-3 rounded-xl font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              title="Copiar texto do pedido para colar no WhatsApp"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              <span>{copied ? 'Copiado!' : 'Copiar'}</span>
+            </button>
 
+            {paymentBreakdown.isPix && (
+              <button
+                type="button"
+                disabled={isSharingPix}
+                onClick={async () => {
+                  setIsSharingPix(true);
+                  try {
+                    const res = await sharePixReceipt(order, storeInfo);
+                    setShareFeedback(res.message);
+                    setTimeout(() => setShareFeedback(null), 5000);
+                  } finally {
+                    setIsSharingPix(false);
+                  }
+                }}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>{isSharingPix ? 'Gerando...' : 'Compartilhar Comprovante Pix'}</span>
+              </button>
+            )}
 
-          <a
-            href={receiptBlobUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-stone-100 hover:bg-stone-200 text-stone-600 p-2.5 rounded-xl flex items-center justify-center transition-colors cursor-pointer"
-            title="Abrir em Nova Aba"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+            <a
+              href={receiptBlobUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-stone-100 hover:bg-stone-200 text-stone-600 p-2.5 rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+              title="Abrir em Nova Aba"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </div>
     </div>

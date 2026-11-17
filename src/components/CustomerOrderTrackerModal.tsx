@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, Clock, CheckCircle2, MessageCircle, 
   Volume2, VolumeX, X, Store, RefreshCw, ChefHat, 
-  PackageCheck, AlertCircle, ShieldCheck, Plus
+  PackageCheck, AlertCircle, ShieldCheck, Plus, Share2
 } from 'lucide-react';
 import { Order } from '../store/useStore';
+import { getOrderPaymentBreakdown, formatBRL, sharePixReceipt } from '../utils/paymentStatusHelper';
 
 interface CustomerOrderTrackerModalProps {
   orderId: string;
@@ -21,6 +22,8 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
     return localStorage.getItem('balbec_customer_sound') !== 'false';
   });
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
+  const [pixShareFeedback, setPixShareFeedback] = useState<string | null>(null);
+  const [isSharingPix, setIsSharingPix] = useState(false);
 
   const prevStatusRef = useRef<string | null>(null);
 
@@ -504,12 +507,77 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
               })}
             </div>
 
-            <div className="pt-3 border-t border-stone-200 flex items-center justify-between text-sm">
-              <span className="font-black text-stone-900">Total Pago:</span>
-              <span className="font-black text-orange-600 font-mono text-base">
-                R$ {Number(order.total || 0).toFixed(2).replace('.', ',')}
-              </span>
-            </div>
+            {(() => {
+              const paymentBreakdown = getOrderPaymentBreakdown(order);
+              return (
+                <div className="pt-3 border-t border-stone-200 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-black text-stone-900">Total do Pedido:</span>
+                    <span className="font-black text-orange-600 font-mono text-base">
+                      {formatBRL(paymentBreakdown.totalAmount)}
+                    </span>
+                  </div>
+
+                  {paymentBreakdown.kind === 'partial_50' && (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-3.5 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
+                        <span>✅ Pago Antecipado (50%):</span>
+                        <span className="font-mono font-black">{formatBRL(paymentBreakdown.paidAmount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-black text-amber-950">
+                        <span>⚠️ Restante na Retirada (50%):</span>
+                        <span className="font-mono text-sm text-red-700">{formatBRL(paymentBreakdown.remainingAmount)}</span>
+                      </div>
+                      <p className="text-[11px] text-amber-900 font-semibold leading-relaxed pt-1 border-t border-amber-200">
+                        {paymentBreakdown.customerMessage}
+                      </p>
+                    </div>
+                  )}
+
+                  {paymentBreakdown.kind === 'paid_full' && (
+                    <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 text-xs text-emerald-900 font-semibold leading-relaxed">
+                      <span className="font-black block text-emerald-800 mb-0.5">✅ {paymentBreakdown.customerTitle}</span>
+                      <span>{paymentBreakdown.customerMessage}</span>
+                    </div>
+                  )}
+
+                  {paymentBreakdown.kind === 'pay_on_pickup' && (
+                    <div className="bg-orange-50 border border-orange-300 rounded-2xl p-3 text-xs text-orange-950 font-semibold leading-relaxed">
+                      <span className="font-black block text-orange-800 mb-0.5">🏪 {paymentBreakdown.customerTitle}</span>
+                      <span>{paymentBreakdown.customerMessage}</span>
+                    </div>
+                  )}
+
+                  {paymentBreakdown.isPix && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        disabled={isSharingPix}
+                        onClick={async () => {
+                          setIsSharingPix(true);
+                          try {
+                            const res = await sharePixReceipt(order, storeInfo);
+                            setPixShareFeedback(res.message);
+                            setTimeout(() => setPixShareFeedback(null), 5000);
+                          } finally {
+                            setIsSharingPix(false);
+                          }
+                        }}
+                        className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span>{isSharingPix ? 'Gerando Comprovante...' : 'Compartilhar Comprovante Pix'}</span>
+                      </button>
+                      {pixShareFeedback && (
+                        <p className="text-[11px] font-bold text-emerald-700 text-center bg-emerald-50 border border-emerald-200 rounded-lg py-1.5 px-2">
+                          {pixShareFeedback}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Opção de Fazer Acréscimo no Pedido (se ainda na fila e pagamento na retirada) */}
             {order && order.status === 'pending' && !((order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved') && onStartAppend && (

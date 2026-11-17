@@ -1471,7 +1471,7 @@ COMO CONDUZIR O ATENDIMENTO COM AS FERRAMENTAS (REGRAS OBRIGATÓRIAS):
 3. Depois de montar os itens, pergunte se deseja mais alguma coisa e conduza naturalmente para:
    - Escolha do **dia e horário de retirada** (mostre apenas dias abertos e horários com saldo suficiente usando \`consultar_dias_e_horarios_disponiveis\`, citando também o horário estimado de retirada se relevante);
    - **Nome e WhatsApp** (se já informado ou reconhecido via \`definir_dados_retirada_cliente_pagamento\`, confirme sem pedir de novo);
-   - **Forma de pagamento** (PIX, Cartão ou Dinheiro).
+   - **Forma de pagamento** (PIX, Cartão ou Dinheiro). IMPORTANTE: para pedidos com **produtos congelados**, mesmo que o cliente opte por pagar na retirada, informe que há duas opções no fechamento: **Pagamento Integral (100%)** ou **Pagamento Parcial (50% de entrada via PIX ou Cartão de Débito + 50% na retirada)**.
 4. Sempre que o cliente informar dia, horário, nome, telefone, CPF/CNPJ ou pagamento, salve usando \`definir_dados_retirada_cliente_pagamento\`.
 5. Antes de enviar o pedido definitivo, mostre um **resumo completo e claro** (itens + preparo + dia/horário + cliente + pagamento + total) e peça confirmação final ("Posso confirmar e enviar o seu pedido?").
 6. Somente após o cliente confirmar expressamente ("sim", "pode enviar", "confirmo", "fechado", etc.), chame \`finalizar_e_enviar_pedido(clienteConfirmou: true)\` para gravar o pedido de verdade no sistema e informe o número do pedido!

@@ -300,6 +300,9 @@ export interface Order {
   scheduledPickupTime?: string;
   hasFrozenItems?: boolean;
   isFrozen?: boolean;
+  paymentPlan?: 'integral' | 'parcial';
+  paidAmount?: number;
+  remainingAmount?: number;
 }
 
 export interface TvMediaItem {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations, formatDateBR, formatAllDatesBR } from '../lib/utils';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff, Share2, MessageCircle } from 'lucide-react';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
@@ -10,6 +10,7 @@ import { MaintenancePage } from '../components/MaintenancePage';
 import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct, isCategoryFrozenModality } from '../constants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCode, resolveAddonCode } from '../utils/printer';
+import { getOrderPaymentBreakdown, sharePixReceipt, buildPixReceiptShareText } from '../utils/paymentStatusHelper';
 import { sendNtfyNotification } from '../utils/ntfy';
 import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
@@ -161,6 +162,7 @@ export default function Menu() {
 
   const [paymentMode, setPaymentMode] = useState<'online' | 'delivery' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [frozenPaymentPlan, setFrozenPaymentPlan] = useState<'integral' | 'parcial' | null>(null);
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedScheduleTime, setSelectedScheduleTime] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_time') || '');
@@ -452,6 +454,9 @@ export default function Menu() {
     }
     setOnlinePaymentData(null);
     setLastPlacedOrder(null);
+    setFrozenPaymentPlan(null);
+    setPaymentMode(null);
+    setPaymentMethod('');
     setCart([]);
     setIsCartOpen(false);
   }, [isTotemPath, activeCustomer]);
@@ -779,14 +784,22 @@ export default function Menu() {
     qrCode: string;
     brCode?: string;
     amount: number;
+    totalOrderAmount?: number;
+    isPartialPayment?: boolean;
+    remainingAmount?: number;
     copied?: boolean;
   } | null>(null);
   const [isVerifyingPix, setIsVerifyingPix] = useState(false);
   const [pixTimeRemaining, setPixTimeRemaining] = useState(900);
+  const [pixShareFeedback, setPixShareFeedback] = useState<string | null>(null);
+  const [isSharingPix, setIsSharingPix] = useState(false);
 
   const [activeCardPayment, setActiveCardPayment] = useState<{
     type: 'credit' | 'debit';
     amount: number;
+    totalOrderAmount?: number;
+    isPartialPayment?: boolean;
+    remainingAmount?: number;
   } | null>(null);
   const [cardFormData, setCardFormData] = useState({
     number: '',
@@ -2486,6 +2499,14 @@ export default function Menu() {
 
   const currentDeliveryFee = 0;
   const total = subtotal;
+  const partialFrozenAmount = Number((total * 0.5).toFixed(2));
+  const remainingFrozenAmount = Number((total - partialFrozenAmount).toFixed(2));
+
+  useEffect(() => {
+    if (!hasFrozenInCart) {
+      setFrozenPaymentPlan(null);
+    }
+  }, [hasFrozenInCart]);
 
   // Validação de CEP para Delivery (Desabilitado)
   const isCustomerWithSavedAddress = Boolean(activeCustomer?.address || customerAddresses.length > 0);
@@ -2511,7 +2532,14 @@ export default function Menu() {
         const data = await res.json();
         if (data && data.approved) {
           clearInterval(interval);
-          handlePaymentApproved('Pix (Online)', activePixPayment.paymentId);
+          const pixLabel = activePixPayment.isPartialPayment
+            ? `Pix (Online - 50% Entrada: ${formatCurrency(activePixPayment.amount)} | Saldo na Retirada: ${formatCurrency(activePixPayment.remainingAmount || 0)})`
+            : 'Pix (Online)';
+          handlePaymentApproved(pixLabel, activePixPayment.paymentId, activePixPayment.isPartialPayment ? {
+            plan: 'parcial',
+            paidAmount: activePixPayment.amount,
+            remainingAmount: activePixPayment.remainingAmount || 0
+          } : (hasFrozenInCart ? { plan: 'integral', paidAmount: activePixPayment.amount, remainingAmount: 0 } : undefined));
         }
       } catch (err) {
         console.warn('Erro ao verificar status do Pix:', err);
@@ -2535,16 +2563,26 @@ export default function Menu() {
       clearInterval(interval);
       clearInterval(timer);
     };
-  }, [activePixPayment]);
+  }, [activePixPayment, hasFrozenInCart]);
 
   const handleCheckPixManual = async () => {
     if (!activePixPayment || isVerifyingPix) return;
     setIsVerifyingPix(true);
+    const pixLabel = activePixPayment.isPartialPayment
+      ? `Pix (Online - 50% Entrada: ${formatCurrency(activePixPayment.amount)} | Saldo na Retirada: ${formatCurrency(activePixPayment.remainingAmount || 0)})`
+      : 'Pix (Online)';
+    const pixDetails = activePixPayment.isPartialPayment
+      ? {
+          plan: 'parcial' as const,
+          paidAmount: activePixPayment.amount,
+          remainingAmount: activePixPayment.remainingAmount || 0
+        }
+      : (hasFrozenInCart ? { plan: 'integral' as const, paidAmount: activePixPayment.amount, remainingAmount: 0 } : undefined);
     try {
       const checkRes = await fetch(`/api/mercadopago/check-status/${activePixPayment.paymentId}`);
       const checkData = await checkRes.json();
       if (checkData && checkData.approved) {
-        handlePaymentApproved('Pix (Online)', activePixPayment.paymentId);
+        handlePaymentApproved(pixLabel, activePixPayment.paymentId, pixDetails);
         return;
       }
 
@@ -2553,7 +2591,7 @@ export default function Menu() {
       });
       const confData = await confRes.json();
       if (confData && confData.approved) {
-        handlePaymentApproved('Pix (Online)', activePixPayment.paymentId);
+        handlePaymentApproved(pixLabel, activePixPayment.paymentId, pixDetails);
       } else {
         alert('Aguardando compensação do Pix pelo sistema bancário. Se você já transferiu, aguarde alguns instantes que a confirmação é automática.');
       }
@@ -2564,10 +2602,14 @@ export default function Menu() {
     }
   };
 
-  const handlePaymentApproved = async (method: string, paymentId?: string) => {
+  const handlePaymentApproved = async (
+    method: string,
+    paymentId?: string,
+    paymentDetails?: { plan?: 'integral' | 'parcial'; paidAmount?: number; remainingAmount?: number }
+  ) => {
     setActivePixPayment(null);
     setActiveCardPayment(null);
-    await executeFinalOrderPlacement(method, paymentId, 'approved');
+    await executeFinalOrderPlacement(method, paymentId, 'approved', paymentDetails);
   };
 
   const handleProcessCardPayment = async () => {
@@ -2602,7 +2644,7 @@ export default function Menu() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: total,
+          amount: activeCardPayment.amount,
           cardType: activeCardPayment.type,
           card: {
             number: cleanNum,
@@ -2629,13 +2671,23 @@ export default function Menu() {
       }
 
       const brandName = data.cardBrand || detectCardBrand(cleanNum);
-      const methodName = activeCardPayment.type === 'credit'
+      const baseMethodName = activeCardPayment.type === 'credit'
         ? `Cartão de Crédito (Online - ${brandName})`
         : `Cartão de Débito (Online - ${brandName})`;
+      const methodName = activeCardPayment.isPartialPayment
+        ? `Cartão de Débito (Online - ${brandName} | 50% Entrada: ${formatCurrency(activeCardPayment.amount)} • Saldo na Retirada: ${formatCurrency(activeCardPayment.remainingAmount || 0)})`
+        : baseMethodName;
+      const cardDetails = activeCardPayment.isPartialPayment
+        ? {
+            plan: 'parcial' as const,
+            paidAmount: activeCardPayment.amount,
+            remainingAmount: activeCardPayment.remainingAmount || 0
+          }
+        : (hasFrozenInCart ? { plan: 'integral' as const, paidAmount: activeCardPayment.amount, remainingAmount: 0 } : undefined);
 
       setActiveCardPayment(null);
       setIsProcessingCard(false);
-      await executeFinalOrderPlacement(methodName, data.paymentId, 'approved');
+      await executeFinalOrderPlacement(methodName, data.paymentId, 'approved', cardDetails);
     } catch (err: any) {
       setCardPaymentError('Falha ao processar pagamento com o cartão. Tente novamente.');
       setIsProcessingCard(false);
@@ -2645,7 +2697,8 @@ export default function Menu() {
   const executeFinalOrderPlacement = async (
     confirmedPaymentMethod: string,
     confirmedPaymentId?: string,
-    confirmedPaymentStatus: 'approved' | 'pending' = 'approved'
+    confirmedPaymentStatus: 'approved' | 'pending' = 'approved',
+    paymentDetails?: { plan?: 'integral' | 'parcial'; paidAmount?: number; remainingAmount?: number }
   ) => {
     setIsSendingOrder(true);
     
@@ -2704,12 +2757,18 @@ export default function Menu() {
         scheduledDay: selectedScheduleDay || undefined,
         hasFrozenItems: hasFrozenInOrder,
         isFrozen: hasFrozenInOrder,
+        paymentPlan: paymentDetails?.plan,
+        paidAmount: paymentDetails?.paidAmount,
+        remainingAmount: paymentDetails?.remainingAmount,
       });
 
       if (createdOrder) {
         setLastPlacedOrder(createdOrder);
         setCustomerOrders(prev => [createdOrder, ...prev]);
         setCart([]);
+        setFrozenPaymentPlan(null);
+        setPaymentMode(null);
+        setPaymentMethod('');
         safeStorage.removeItem('balbec_active_cart');
         safeStorage.removeItem('balbec_selected_schedule_time');
         safeStorage.removeItem('balbec_selected_schedule_date');
@@ -2849,19 +2908,40 @@ export default function Menu() {
       return;
     }
 
-    if (!paymentMethod) {
-      alert('Por favor, selecione uma forma de pagamento (Online ou na Entrega) para continuar.');
+    if (hasFrozenInCart && !frozenPaymentPlan) {
+      alert('❄️ Para pedidos com salgados congelados, selecione primeiro entre PAGAMENTO INTEGRAL ou PAGAMENTO PARCIAL (50% de entrada via Pix ou Cartão de Débito).');
+      checkoutPaymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+
+    if (!paymentMethod) {
+      alert(hasFrozenInCart
+        ? 'Por favor, selecione Pix ou Cartão de Débito para concluir o pagamento do seu pedido com congelados.'
+        : 'Por favor, selecione uma forma de pagamento (Online ou na Entrega) para continuar.');
+      checkoutPaymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    const isPartialFrozenPlan = hasFrozenInCart && frozenPaymentPlan === 'parcial';
+    const chargeAmount = isPartialFrozenPlan ? partialFrozenAmount : total;
+    const remainingBalance = isPartialFrozenPlan ? remainingFrozenAmount : 0;
 
     // Pagamento Online: Pix, Crédito ou Débito
     const isPixOnline = paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)';
     const isCreditOnline = paymentMethod === 'Cartão de Crédito (Online)';
     const isDebitOnline = paymentMethod === 'Cartão de Débito (Online)';
 
-    // REGRA DE NEGÓCIO: No Pagamento Online, o pedido NÃO pode ser enviado antes da aprovação!
+    if (hasFrozenInCart && !isPixOnline && !isDebitOnline && !isCreditOnline) {
+      alert('❄️ Para pedidos com congelados, mesmo optando por pagar na retirada, é necessário realizar o pagamento de 50% (ou integral) via Pix ou Cartão de Débito.');
+      setPaymentMode(null);
+      setPaymentMethod('');
+      checkoutPaymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    // REGRA DE NEGÓCIO: No Pagamento Online (ou Entrada 50% Congelados), o pedido NÃO pode ser enviado antes da aprovação!
     if (isPixOnline) {
-      if (!storeInfo.mercadoPagoEnabled) {
+      if (!storeInfo.mercadoPagoEnabled && !hasFrozenInCart) {
         alert('O módulo de pagamento online está desativado pelo estabelecimento. Por favor, selecione uma opção de pagamento na entrega.');
         return;
       }
@@ -2871,8 +2951,10 @@ export default function Menu() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            amount: total,
-            description: `Pedido BALBEC #${Date.now().toString().slice(-4)}`,
+            amount: chargeAmount,
+            description: isPartialFrozenPlan
+              ? `Entrada 50% Congelados BALBEC #${Date.now().toString().slice(-4)}`
+              : `Pedido BALBEC #${Date.now().toString().slice(-4)}`,
             payer: {
               email: customerEmail.trim(),
               first_name: customerName.split(' ')[0],
@@ -2889,12 +2971,15 @@ export default function Menu() {
           paymentId: pixData.paymentId,
           qrCode: pixData.qrCodeBase64 ? `data:image/png;base64,${pixData.qrCodeBase64}` : pixData.qrCode,
           brCode: pixData.qrCode,
-          amount: total,
+          amount: chargeAmount,
+          totalOrderAmount: total,
+          isPartialPayment: isPartialFrozenPlan,
+          remainingAmount: remainingBalance,
           copied: false
         });
         setPixTimeRemaining(900); // 15 minutos
       } catch (pixErr: any) {
-        alert(pixErr.message || 'Erro ao gerar Pix online. Tente novamente ou selecione pagamento na entrega.');
+        alert(pixErr.message || 'Erro ao gerar Pix online. Tente novamente ou selecione outra opção.');
       } finally {
         setIsSendingOrder(false);
       }
@@ -2902,14 +2987,17 @@ export default function Menu() {
     }
 
     if (isCreditOnline || isDebitOnline) {
-      if (!storeInfo.mercadoPagoEnabled) {
+      if (!storeInfo.mercadoPagoEnabled && !hasFrozenInCart) {
         alert('O módulo de pagamento online está desativado pelo estabelecimento. Por favor, selecione uma opção de pagamento na entrega.');
         return;
       }
       // Abre o modal de cartão online para o cliente preencher dados com segurança
       setActiveCardPayment({
         type: isCreditOnline ? 'credit' : 'debit',
-        amount: total
+        amount: chargeAmount,
+        totalOrderAmount: total,
+        isPartialPayment: isPartialFrozenPlan,
+        remainingAmount: remainingBalance
       });
       setCardFormData({
         number: '',
@@ -2923,8 +3011,7 @@ export default function Menu() {
       return; // CRÍTICO: NÃO EXECUTA O PEDIDO AQUI! AGUARDA APROVAÇÃO DO CARTÃO!
     }
 
-    // Pagamentos na Entrega (Pix na Entrega, Cartão na Entrega, Dinheiro)
-    // Nos pagamentos na entrega, o pedido é enviado normalmente com status 'pending' para delivery
+    // Pagamentos no Balcão (apenas pedidos sem congelados)
     await executeFinalOrderPlacement(paymentMethod, undefined, 'pending');
   };
 
@@ -2959,6 +3046,7 @@ export default function Menu() {
     const orderNumber = lastPlacedOrder?.id ? String(lastPlacedOrder.id).slice(-4).padStart(4, '0') : '0001';
     const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
     const clientNameDisplay = (lastPlacedOrder?.customerName || customerName || safeStorage.getItem('balbec_customer_name') || 'CLIENTE').trim().toUpperCase();
+    const successPaymentBreakdown = getOrderPaymentBreakdown(lastPlacedOrder);
 
     const orderHasFrozen = lastPlacedOrder?.items?.some((it: any) => 
       Boolean(it.isFrozen) || 
@@ -3039,7 +3127,56 @@ export default function Menu() {
           </div>
 
           {/* SUA SENHA DE CHAMADA (CARD BRANCO) */}
-          <div className="p-6 sm:p-8 bg-white space-y-6">
+          <div className="p-6 sm:p-8 bg-white space-y-5">
+            {/* Aviso claro de situação do pagamento no resumo do cliente */}
+            {lastPlacedOrder && (
+              <div className={`rounded-2xl p-4 border-2 shadow-xs space-y-1.5 ${
+                successPaymentBreakdown.kind === 'partial_50'
+                  ? 'bg-amber-50 border-amber-400 text-amber-950'
+                  : successPaymentBreakdown.kind === 'paid_full'
+                  ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                  : 'bg-orange-50 border-orange-300 text-orange-950'
+              }`}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-tight">
+                    {successPaymentBreakdown.kind === 'partial_50'
+                      ? '⚠️ Pagamento Parcial (50% Pago)'
+                      : successPaymentBreakdown.kind === 'paid_full'
+                      ? '✅ Pagamento Integral Confirmado'
+                      : '🏪 Pagamento na Retirada'}
+                  </span>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
+                    successPaymentBreakdown.kind === 'partial_50'
+                      ? 'bg-amber-500 text-white'
+                      : successPaymentBreakdown.kind === 'paid_full'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-orange-600 text-white'
+                  }`}>
+                    {successPaymentBreakdown.customerBadge}
+                  </span>
+                </div>
+                {successPaymentBreakdown.kind === 'partial_50' && (
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                    <div className="bg-white rounded-xl p-2 border border-amber-200">
+                      <span className="block text-[9px] font-bold uppercase text-stone-500">Total</span>
+                      <span className="text-xs font-black font-mono text-stone-800">{formatCurrency(successPaymentBreakdown.totalAmount)}</span>
+                    </div>
+                    <div className="bg-emerald-600 text-white rounded-xl p-2">
+                      <span className="block text-[9px] font-bold uppercase text-emerald-100">Pago (50%)</span>
+                      <span className="text-xs font-black font-mono">{formatCurrency(successPaymentBreakdown.paidAmount)}</span>
+                    </div>
+                    <div className="bg-red-600 text-white rounded-xl p-2">
+                      <span className="block text-[9px] font-bold uppercase text-red-100">Falta Retirada</span>
+                      <span className="text-xs font-black font-mono">{formatCurrency(successPaymentBreakdown.remainingAmount)}</span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs font-bold leading-relaxed pt-0.5">
+                  {successPaymentBreakdown.customerMessage}
+                </p>
+              </div>
+            )}
+
             <div className="relative p-6 sm:p-8 rounded-[40px] border-2 border-stone-100 shadow-xl overflow-hidden bg-gradient-to-b from-white to-stone-50/50">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
                 <div className="text-center sm:text-left">
@@ -3282,6 +3419,9 @@ export default function Menu() {
                 <div className="text-center text-[10px] text-stone-600 mt-1">
                   Pagamento: <span className="font-bold text-stone-900">{lastPlacedOrder.paymentMethod || 'No Balcão'}</span>
                 </div>
+                <div className="mt-1.5 border border-stone-800 bg-stone-50 p-1.5 text-center text-[10px] font-black uppercase text-stone-900">
+                  {successPaymentBreakdown.receiptLine}
+                </div>
 
                 <div className="text-center text-[9px] text-stone-400 mt-2">
                   {lastPlacedOrder.createdAt ? new Date(lastPlacedOrder.createdAt).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
@@ -3320,8 +3460,48 @@ export default function Menu() {
           )}
 
 
-          {/* Botões de Ação: Totem (Imprimir) vs Smartphone/Consumo na Loja (Finalizar Pedido) */}
+          {/* Botões de Ação: Compartilhar Comprovante Pix + Totem/Smartphone */}
           <div className="p-5 space-y-3 bg-white">
+            {lastPlacedOrder && successPaymentBreakdown.isPix && (
+              <div className="space-y-2 pb-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isSharingPix}
+                    onClick={async () => {
+                      setIsSharingPix(true);
+                      try {
+                        const res = await sharePixReceipt(lastPlacedOrder, storeInfo);
+                        setPixShareFeedback(res.message);
+                        setTimeout(() => setPixShareFeedback(null), 6000);
+                      } finally {
+                        setIsSharingPix(false);
+                      }
+                    }}
+                    className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>{isSharingPix ? 'Gerando...' : 'Compartilhar Comprovante Pix'}</span>
+                  </button>
+
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(buildPixReceiptShareText(lastPlacedOrder, storeInfo))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4 text-emerald-600" />
+                    <span>Enviar no WhatsApp</span>
+                  </a>
+                </div>
+                {pixShareFeedback && (
+                  <p className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-center">
+                    {pixShareFeedback}
+                  </p>
+                )}
+              </div>
+            )}
+
             {isKioskMode ? (
               <>
                 <button 
@@ -3833,6 +4013,19 @@ export default function Menu() {
                 <span style={{ color: storeInfo.themeColor }}>{formatCurrency(total)}</span>
               </div>
 
+              {hasFrozenInCart && frozenPaymentPlan === 'parcial' && (
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-3.5 space-y-1.5 animate-in fade-in">
+                  <div className="flex items-center justify-between text-xs font-black text-blue-900">
+                    <span>💳 Entrada Agora (50% Pix/Débito)</span>
+                    <span className="text-sm text-blue-700 font-mono">{formatCurrency(partialFrozenAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-bold text-stone-600">
+                    <span>🏪 Saldo na Retirada (50%)</span>
+                    <span className="font-mono">{formatCurrency(remainingFrozenAmount)}</span>
+                  </div>
+                </div>
+              )}
+
               {storeInfo.deliveryScheduleEnabled && (
                 <div ref={checkoutScheduleRef} className={`mt-4 p-3.5 rounded-2xl border-2 transition-all ${
                   selectedScheduleTime ? 'bg-amber-50/90 border-amber-300' : 'bg-red-50 border-red-300'
@@ -4314,231 +4507,468 @@ export default function Menu() {
                 {/* Condições de Pagamento: Ocultadas para Atendimento de Mesas e Totem */}
                 {!isTableOrder ? (
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                    <h2 ref={checkoutPaymentRef} className="text-xl font-bold flex items-center gap-2 text-stone-800">
-                      <CreditCard className="w-5 h-5 text-orange-600" />
-                      Forma de Pagamento
-                    </h2>
-                      {paymentMode !== null && (
+                    <div className="flex items-center justify-between mb-4 gap-2">
+                      <h2 ref={checkoutPaymentRef} className="text-xl font-bold flex items-center gap-2 text-stone-800">
+                        <CreditCard className="w-5 h-5 text-orange-600" />
+                        Forma de Pagamento
+                      </h2>
+                      {(paymentMode !== null || frozenPaymentPlan !== null) && (
                         <button
                           type="button"
                           onClick={() => {
+                            setFrozenPaymentPlan(null);
                             setPaymentMode(null);
                             setPaymentMethod('');
                           }}
-                          className="text-[10px] font-black text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2.5 py-1.5 rounded-xl border border-orange-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs uppercase tracking-wider"
+                          className="text-[10px] font-black text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2.5 py-1.5 rounded-xl border border-orange-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs uppercase tracking-wider shrink-0"
                         >
                           <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Voltar / Mudar</span>
+                          <span>{hasFrozenInCart ? 'Voltar e Refazer Escolhas' : 'Voltar / Mudar'}</span>
                         </button>
                       )}
                     </div>
-                    <p className="text-[10px] text-stone-500 mb-4 -mt-3 italic">Escolha uma modalidade abaixo para habilitar as opções específicas.</p>
 
-                    <div className="space-y-4">
-                      {/* Seção 1: Pagamento Online (Mercado Pago: Pix, Crédito e Débito) */}
-                      {paymentMode === 'delivery' ? (
-                        /* Se o cliente escolheu Pagamento na Entrega, a seção online fica desabilitada e travada */
-                        <div className="p-4 bg-stone-100/80 border-2 border-dashed border-stone-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-stone-500 opacity-60">
-                          <div className="flex items-center gap-2.5 text-center sm:text-left">
-                            <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center shrink-0">
-                              <Lock className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-xs font-black uppercase tracking-wider text-stone-600">
-                                Pagamento Online Desabilitado
-                              </p>
-                              <p className="text-[11px] text-stone-500 font-medium">
-                                Você selecionou pagamento no balcão ({paymentMethod}).
-                              </p>
-                            </div>
+                    {hasFrozenInCart ? (
+                      <div className="space-y-4">
+                        {/* Regra obrigatória para pedidos com produtos congelados */}
+                        <div className="bg-blue-50 border-2 border-blue-300 rounded-2xl p-4 space-y-2 shadow-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                              <span>❄️</span>
+                              <span>Pagamento para Produtos Congelados</span>
+                            </span>
+                            {frozenPaymentPlan && (
+                              <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                                frozenPaymentPlan === 'parcial'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-blue-700 text-white'
+                              }`}>
+                                {frozenPaymentPlan === 'parcial' ? 'Parcial (50%)' : 'Integral (100%)'}
+                              </span>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPaymentMode(null);
-                              setPaymentMethod('');
-                            }}
-                            className="px-3.5 py-2 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 hover:text-orange-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer shrink-0"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Mudar para Online</span>
-                          </button>
+                          <p className="text-xs text-blue-900 font-medium leading-relaxed">
+                            Para pedidos com itens congelados, mesmo optando por pagar na retirada, é necessário confirmar com <strong>50% de entrada via Pix ou Cartão de Débito</strong> (Pagamento Parcial) ou quitar <strong>100% agora</strong> (Pagamento Integral).
+                          </p>
                         </div>
-                      ) : storeInfo.mercadoPagoEnabled ? (
-                        <div className={`p-4 rounded-2xl border-2 transition-all ${
-                          paymentMode === 'online' 
-                            ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
-                            : 'border-stone-200 bg-white hover:border-blue-200'
-                        }`}>
-                          <div className="flex items-center justify-between pl-1 mb-2.5">
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
-                              Pagamento Online (Liberação Imediata)
-                              {paymentMode === 'online' && (
-                                <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
-                                  Ativo
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
-                              Mercado Pago
-                            </span>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 gap-2.5">
-                            {/* Pix Online */}
-                            <label 
-                              className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
-                                paymentMethod === 'Pix (Online)' 
-                                  ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.01]' 
-                                  : 'border-stone-200 bg-white hover:bg-stone-50'
-                              }`}
+
+                        {frozenPaymentPlan === null ? (
+                          <div className="grid grid-cols-1 gap-3">
+                            {/* Opção 1: PAGAMENTO INTEGRAL */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFrozenPaymentPlan('integral');
+                                setPaymentMode('online');
+                                setPaymentMethod('');
+                              }}
+                              className="w-full text-left p-4 rounded-2xl border-2 border-stone-200 bg-white hover:border-blue-500 hover:bg-blue-50/40 transition-all cursor-pointer shadow-xs group"
                             >
-                              <input 
-                                type="radio" 
-                                name="payment" 
-                                value="Pix (Online)"
-                                checked={paymentMethod === 'Pix (Online)'}
-                                onChange={(e) => {
-                                  setPaymentMode('online');
-                                  setPaymentMethod(e.target.value);
-                                }}
-                                className="w-5 h-5 text-blue-600 focus:ring-blue-500 mt-0.5"
-                              />
-                              <div className="ml-3 flex flex-col flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
-                                    <QrCode className="w-4 h-4 text-emerald-600" />
-                                    Pix
-                                  </span>
-                                  <span className="bg-emerald-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
-                                    Aprovação Imediata
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
-                                  QR Code e Copia e Cola.
+                              <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <span className="font-black text-sm sm:text-base text-stone-900 uppercase tracking-tight flex items-center gap-2">
+                                  <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
+                                  <span>PAGAMENTO INTEGRAL</span>
+                                </span>
+                                <span className="bg-blue-600 text-white text-xs font-black px-2.5 py-1 rounded-xl font-mono shrink-0">
+                                  {formatCurrency(total)}
                                 </span>
                               </div>
-                            </label>
+                              <p className="text-xs text-stone-600 font-medium leading-relaxed">
+                                Pague <strong>100% do valor do pedido</strong> agora no <strong>Pix</strong> ou <strong>Cartão de Débito</strong> e finalize sua compra normalmente.
+                              </p>
+                            </button>
 
-                            {/* Cartão de Débito Online */}
-                            <label 
-                              className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
-                                paymentMethod === 'Cartão de Débito (Online)'
-                                  ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.01]' 
-                                  : 'border-stone-200 bg-white hover:bg-stone-50'
-                              }`}
+                            {/* Opção 2: PAGAMENTO PARCIAL (50%) */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFrozenPaymentPlan('parcial');
+                                setPaymentMode('online');
+                                setPaymentMethod('');
+                              }}
+                              className="w-full text-left p-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 hover:border-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer shadow-xs group"
                             >
-                              <input 
-                                type="radio" 
-                                name="payment" 
-                                value="Cartão de Débito (Online)"
-                                checked={paymentMethod === 'Cartão de Débito (Online)'}
-                                onChange={(e) => {
-                                  setPaymentMode('online');
-                                  setPaymentMethod(e.target.value);
-                                }}
-                                className="w-5 h-5 text-blue-600 focus:ring-blue-500 mt-0.5"
-                              />
-                              <div className="ml-3 flex flex-col flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
-                                    <CreditCard className="w-4 h-4 text-purple-600" />
-                                    Cartão de Débito
-                                  </span>
-                                  <span className="bg-purple-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
-                                    Débito Imediato
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
-                                  Débito virtual seguro.
+                              <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <span className="font-black text-sm sm:text-base text-emerald-950 uppercase tracking-tight flex items-center gap-2">
+                                  <QrCode className="w-5 h-5 text-emerald-600 shrink-0" />
+                                  <span>PAGAMENTO PARCIAL (50%)</span>
+                                </span>
+                                <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl font-mono shrink-0">
+                                  50%: {formatCurrency(partialFrozenAmount)}
                                 </span>
                               </div>
-                            </label>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-stone-100 p-3.5 rounded-2xl border border-stone-200 text-stone-600 text-xs flex items-center gap-2.5">
-                          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                          <span>Pagamento Online desativado no momento. Escolha uma opção de pagamento no balcão.</span>
-                        </div>
-                      )}
-
-                      {/* Seção 2: Pagamento no Balcão */}
-                      {paymentMode === 'online' ? (
-                        /* Se o cliente escolheu Pagamento Online, a seção no balcão fica desabilitada e travada */
-                        <div className="p-4 bg-stone-100/80 border-2 border-dashed border-stone-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-stone-500 opacity-60">
-                          <div className="flex items-center gap-2.5 text-center sm:text-left">
-                            <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center shrink-0">
-                              <Lock className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-xs font-black uppercase tracking-wider text-stone-600">
-                                Pagamento no Balcão Desabilitado
+                              <p className="text-xs text-emerald-900 font-medium leading-relaxed">
+                                Pague na retirada garantindo com <strong>50% de entrada agora ({formatCurrency(partialFrozenAmount)})</strong> via <strong>Pix</strong> ou <strong>Cartão de Débito</strong>, e os <strong>50% restantes ({formatCurrency(remainingFrozenAmount)})</strong> no balcão ao retirar.
                               </p>
-                              <p className="text-[11px] text-stone-500 font-medium">
-                                Você selecionou pagamento online ({paymentMethod}).
-                              </p>
-                            </div>
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPaymentMode(null);
-                              setPaymentMethod('');
-                            }}
-                            className="px-3.5 py-2 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 hover:text-orange-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer shrink-0"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
-                            <span>Mudar para Pagamento na Retirada</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className={`p-4 rounded-2xl border-2 transition-all ${
-                          paymentMode === 'delivery' 
-                            ? 'border-orange-600 bg-orange-50/40 shadow-sm' 
-                            : 'border-stone-200 bg-white hover:border-orange-200'
-                        }`}>
-                          <div className="flex items-center justify-between pl-1 mb-2.5">
-                            <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-1.5">
-                              Pagamento no Balcão
-                              {paymentMode === 'delivery' && (
-                                <span className="bg-orange-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
-                                  Ativo
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full">
-                              Presencial
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-2.5">
-                            {['Pix', 'Dinheiro', 'Débito'].map(method => (
-                              <label 
-                                key={method} 
-                                className={`flex items-center p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
-                                  paymentMethod === method ? 'border-orange-600 bg-orange-50/90 shadow-sm' : 'border-stone-200 bg-white hover:bg-stone-50'
-                                }`}
-                              >
-                                <input 
-                                  type="radio" 
-                                  name="payment" 
-                                  value={method}
-                                  checked={paymentMethod === method}
-                                  onChange={(e) => {
-                                    setPaymentMode('delivery');
-                                    setPaymentMethod(e.target.value);
+                        ) : (
+                          <div className="space-y-4 animate-in fade-in duration-150">
+                            {/* Resumo dos valores conforme plano escolhido */}
+                            {frozenPaymentPlan === 'parcial' ? (
+                              <div className="bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 space-y-2 shadow-xs">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">
+                                    Pagamento Parcial Selecionado (50% Entrada)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFrozenPaymentPlan(null);
+                                      setPaymentMode(null);
+                                      setPaymentMethod('');
+                                    }}
+                                    className="text-[11px] font-black text-emerald-900 bg-white hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                    <span>Voltar e Refazer Escolhas</span>
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                                  <div className="bg-white rounded-xl p-2 border border-emerald-200">
+                                    <span className="block text-[9px] font-bold uppercase text-stone-500">Total Pedido</span>
+                                    <span className="text-xs sm:text-sm font-black text-stone-800 font-mono">{formatCurrency(total)}</span>
+                                  </div>
+                                  <div className="bg-emerald-600 text-white rounded-xl p-2 shadow-xs">
+                                    <span className="block text-[9px] font-black uppercase text-emerald-100">Pagar Agora (50%)</span>
+                                    <span className="text-sm sm:text-base font-black font-mono">{formatCurrency(partialFrozenAmount)}</span>
+                                  </div>
+                                  <div className="bg-white rounded-xl p-2 border border-emerald-200">
+                                    <span className="block text-[9px] font-bold uppercase text-stone-500">Na Retirada (50%)</span>
+                                    <span className="text-xs sm:text-sm font-black text-stone-800 font-mono">{formatCurrency(remainingFrozenAmount)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-blue-50 border-2 border-blue-400 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                                <div>
+                                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-800 block">
+                                    Pagamento Integral Selecionado (100%)
+                                  </span>
+                                  <span className="text-sm font-black text-blue-950 font-mono">
+                                    Valor Total a Pagar: {formatCurrency(total)}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFrozenPaymentPlan(null);
+                                    setPaymentMode(null);
+                                    setPaymentMethod('');
                                   }}
-                                  className="w-5 h-5 text-orange-600 focus:ring-orange-500"
-                                />
-                                <span className="ml-3 font-black text-stone-800 uppercase tracking-tight text-sm">{method}</span>
-                              </label>
-                            ))}
+                                  className="text-[11px] font-black text-blue-900 bg-white hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-300 flex items-center gap-1.5 cursor-pointer transition-colors self-start sm:self-center shrink-0"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  <span>Voltar e Refazer Escolhas</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Escolha entre PIX ou Cartão de Débito para o valor calculado (100% ou 50%) */}
+                            <div className={`p-4 rounded-2xl border-2 transition-all ${
+                              paymentMethod
+                                ? (frozenPaymentPlan === 'parcial' ? 'border-emerald-600 bg-emerald-50/30 shadow-sm' : 'border-blue-600 bg-blue-50/30 shadow-sm')
+                                : 'border-stone-200 bg-white'
+                            }`}>
+                              <div className="flex items-center justify-between pl-1 mb-2.5">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${
+                                  frozenPaymentPlan === 'parcial' ? 'text-emerald-700' : 'text-blue-700'
+                                }`}>
+                                  {frozenPaymentPlan === 'parcial'
+                                    ? `Escolha como pagar a entrada de 50% (${formatCurrency(partialFrozenAmount)})`
+                                    : `Escolha como pagar o valor integral (${formatCurrency(total)})`}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {/* Pix */}
+                                <label
+                                  className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
+                                    paymentMethod === 'Pix (Online)'
+                                      ? 'border-emerald-600 bg-emerald-50/90 shadow-md scale-[1.01]'
+                                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="payment"
+                                    value="Pix (Online)"
+                                    checked={paymentMethod === 'Pix (Online)'}
+                                    onChange={(e) => {
+                                      setPaymentMode('online');
+                                      setPaymentMethod(e.target.value);
+                                    }}
+                                    className="w-5 h-5 text-emerald-600 focus:ring-emerald-500 mt-0.5"
+                                  />
+                                  <div className="ml-3 flex flex-col flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
+                                        <QrCode className="w-4 h-4 text-emerald-600" />
+                                        <span>{frozenPaymentPlan === 'parcial' ? 'Pix (50% Entrada)' : 'Pix'}</span>
+                                      </span>
+                                      <span className="bg-emerald-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-black font-mono">
+                                        {formatCurrency(frozenPaymentPlan === 'parcial' ? partialFrozenAmount : total)}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
+                                      {frozenPaymentPlan === 'parcial'
+                                        ? `QR Code e Copia e Cola de 50% agora + ${formatCurrency(remainingFrozenAmount)} na retirada.`
+                                        : 'QR Code e Copia e Cola com aprovação imediata.'}
+                                    </span>
+                                  </div>
+                                </label>
+
+                                {/* Cartão de Débito */}
+                                <label
+                                  className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
+                                    paymentMethod === 'Cartão de Débito (Online)'
+                                      ? 'border-purple-600 bg-purple-50/90 shadow-md scale-[1.01]'
+                                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="payment"
+                                    value="Cartão de Débito (Online)"
+                                    checked={paymentMethod === 'Cartão de Débito (Online)'}
+                                    onChange={(e) => {
+                                      setPaymentMode('online');
+                                      setPaymentMethod(e.target.value);
+                                    }}
+                                    className="w-5 h-5 text-purple-600 focus:ring-purple-500 mt-0.5"
+                                  />
+                                  <div className="ml-3 flex flex-col flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
+                                        <CreditCard className="w-4 h-4 text-purple-600" />
+                                        <span>{frozenPaymentPlan === 'parcial' ? 'Cartão de Débito (50% Entrada)' : 'Cartão de Débito'}</span>
+                                      </span>
+                                      <span className="bg-purple-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-black font-mono">
+                                        {formatCurrency(frozenPaymentPlan === 'parcial' ? partialFrozenAmount : total)}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
+                                      {frozenPaymentPlan === 'parcial'
+                                        ? `Débito de 50% agora + ${formatCurrency(remainingFrozenAmount)} na retirada no balcão.`
+                                        : 'Débito virtual seguro com aprovação imediata.'}
+                                    </span>
+                                  </div>
+                                </label>
+                              </div>
+                            </div>
                           </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-[10px] text-stone-500 mb-4 -mt-3 italic">Escolha uma modalidade abaixo para habilitar as opções específicas.</p>
+
+                        <div className="space-y-4">
+                          {/* Seção 1: Pagamento Online (Mercado Pago: Pix, Crédito e Débito) */}
+                          {paymentMode === 'delivery' ? (
+                            /* Se o cliente escolheu Pagamento na Entrega, a seção online fica desabilitada e travada */
+                            <div className="p-4 bg-stone-100/80 border-2 border-dashed border-stone-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-stone-500 opacity-60">
+                              <div className="flex items-center gap-2.5 text-center sm:text-left">
+                                <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center shrink-0">
+                                  <Lock className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wider text-stone-600">
+                                    Pagamento Online Desabilitado
+                                  </p>
+                                  <p className="text-[11px] text-stone-500 font-medium">
+                                    Você selecionou pagamento no balcão ({paymentMethod}).
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPaymentMode(null);
+                                  setPaymentMethod('');
+                                }}
+                                className="px-3.5 py-2 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 hover:text-orange-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer shrink-0"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Mudar para Online</span>
+                              </button>
+                            </div>
+                          ) : storeInfo.mercadoPagoEnabled ? (
+                            <div className={`p-4 rounded-2xl border-2 transition-all ${
+                              paymentMode === 'online' 
+                                ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
+                                : 'border-stone-200 bg-white hover:border-blue-200'
+                            }`}>
+                              <div className="flex items-center justify-between pl-1 mb-2.5">
+                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                                  Pagamento Online (Liberação Imediata)
+                                  {paymentMode === 'online' && (
+                                    <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
+                                      Ativo
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
+                                  Mercado Pago
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {/* Pix Online */}
+                                <label 
+                                  className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
+                                    paymentMethod === 'Pix (Online)' 
+                                      ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.01]' 
+                                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <input 
+                                    type="radio" 
+                                    name="payment" 
+                                    value="Pix (Online)"
+                                    checked={paymentMethod === 'Pix (Online)'}
+                                    onChange={(e) => {
+                                      setPaymentMode('online');
+                                      setPaymentMethod(e.target.value);
+                                    }}
+                                    className="w-5 h-5 text-blue-600 focus:ring-blue-500 mt-0.5"
+                                  />
+                                  <div className="ml-3 flex flex-col flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
+                                        <QrCode className="w-4 h-4 text-emerald-600" />
+                                        Pix
+                                      </span>
+                                      <span className="bg-emerald-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
+                                        Aprovação Imediata
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
+                                      QR Code e Copia e Cola.
+                                    </span>
+                                  </div>
+                                </label>
+
+                                {/* Cartão de Débito Online */}
+                                <label 
+                                  className={`flex items-start p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
+                                    paymentMethod === 'Cartão de Débito (Online)'
+                                      ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.01]' 
+                                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <input 
+                                    type="radio" 
+                                    name="payment" 
+                                    value="Cartão de Débito (Online)"
+                                    checked={paymentMethod === 'Cartão de Débito (Online)'}
+                                    onChange={(e) => {
+                                      setPaymentMode('online');
+                                      setPaymentMethod(e.target.value);
+                                    }}
+                                    className="w-5 h-5 text-blue-600 focus:ring-blue-500 mt-0.5"
+                                  />
+                                  <div className="ml-3 flex flex-col flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-black text-stone-900 flex items-center gap-1.5 uppercase tracking-tight text-sm">
+                                        <CreditCard className="w-4 h-4 text-purple-600" />
+                                        Cartão de Débito
+                                      </span>
+                                      <span className="bg-purple-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
+                                        Débito Imediato
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-stone-500 font-medium leading-tight mt-0.5">
+                                      Débito virtual seguro.
+                                    </span>
+                                  </div>
+                                </label>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-stone-100 p-3.5 rounded-2xl border border-stone-200 text-stone-600 text-xs flex items-center gap-2.5">
+                              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                              <span>Pagamento Online desativado no momento. Escolha uma opção de pagamento no balcão.</span>
+                            </div>
+                          )}
+
+                          {/* Seção 2: Pagamento no Balcão */}
+                          {paymentMode === 'online' ? (
+                            /* Se o cliente escolheu Pagamento Online, a seção no balcão fica desabilitada e travada */
+                            <div className="p-4 bg-stone-100/80 border-2 border-dashed border-stone-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-stone-500 opacity-60">
+                              <div className="flex items-center gap-2.5 text-center sm:text-left">
+                                <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center shrink-0">
+                                  <Lock className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wider text-stone-600">
+                                    Pagamento no Balcão Desabilitado
+                                  </p>
+                                  <p className="text-[11px] text-stone-500 font-medium">
+                                    Você selecionou pagamento online ({paymentMethod}).
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPaymentMode(null);
+                                  setPaymentMethod('');
+                                }}
+                                className="px-3.5 py-2 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 hover:text-orange-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer shrink-0"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
+                                <span>Mudar para Pagamento na Retirada</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className={`p-4 rounded-2xl border-2 transition-all ${
+                              paymentMode === 'delivery' 
+                                ? 'border-orange-600 bg-orange-50/40 shadow-sm' 
+                                : 'border-stone-200 bg-white hover:border-orange-200'
+                            }`}>
+                              <div className="flex items-center justify-between pl-1 mb-2.5">
+                                <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-1.5">
+                                  Pagamento no Balcão
+                                  {paymentMode === 'delivery' && (
+                                    <span className="bg-orange-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black">
+                                      Ativo
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full">
+                                  Presencial
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {['Pix', 'Dinheiro', 'Débito'].map(method => (
+                                  <label 
+                                    key={method} 
+                                    className={`flex items-center p-3.5 sm:p-4 border-2 rounded-2xl cursor-pointer transition-all ${
+                                      paymentMethod === method ? 'border-orange-600 bg-orange-50/90 shadow-sm' : 'border-stone-200 bg-white hover:bg-stone-50'
+                                    }`}
+                                  >
+                                    <input 
+                                      type="radio" 
+                                      name="payment" 
+                                      value={method}
+                                      checked={paymentMethod === method}
+                                      onChange={(e) => {
+                                        setPaymentMode('delivery');
+                                        setPaymentMethod(e.target.value);
+                                      }}
+                                      className="w-5 h-5 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <span className="ml-3 font-black text-stone-800 uppercase tracking-tight text-sm">{method}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-amber-50/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 mb-4 text-amber-950 shadow-xs">
@@ -4616,9 +5046,17 @@ export default function Menu() {
                   <span>
                     {isSendingOrder ? 'Processando...' : (
                       isTableOrder ? 'Confirmar Pedido da Mesa' : (
-                        paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)' 
-                          ? 'Ir para Pagamento Pix' 
-                          : (paymentMethod.includes('Online') ? 'Pagar com Cartão Online' : 'Finalizar Pedido')
+                        hasFrozenInCart && !frozenPaymentPlan
+                          ? 'Escolha Pagamento Integral ou Parcial'
+                          : (hasFrozenInCart && frozenPaymentPlan === 'parcial'
+                              ? (paymentMethod === 'Pix (Online)'
+                                  ? `Pagar 50% no Pix (${formatCurrency(partialFrozenAmount)})`
+                                  : paymentMethod === 'Cartão de Débito (Online)'
+                                    ? `Pagar 50% no Débito (${formatCurrency(partialFrozenAmount)})`
+                                    : 'Selecione Pix ou Débito (50%)')
+                              : (paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)' 
+                                  ? `Ir para Pagamento Pix (${formatCurrency(total)})` 
+                                  : (paymentMethod.includes('Online') ? `Pagar com Cartão Online (${formatCurrency(total)})` : 'Finalizar Pedido')))
                       )
                     )}
                   </span>
@@ -4662,8 +5100,15 @@ export default function Menu() {
 
               {/* Total Amount Notice */}
               <div className="w-full bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 mb-4 text-center">
-                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Valor do Pedido</p>
+                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                  {activePixPayment.isPartialPayment ? 'Valor da Entrada (50% - Congelados)' : 'Valor do Pedido'}
+                </p>
                 <p className="text-3xl font-black text-emerald-950 font-mono mt-0.5">{formatCurrency(activePixPayment.amount)}</p>
+                {activePixPayment.isPartialPayment && (
+                  <p className="text-[11px] font-bold text-stone-700 mt-1">
+                    Total: {formatCurrency(activePixPayment.totalOrderAmount || total)} • Saldo 50% na Retirada: {formatCurrency(activePixPayment.remainingAmount || 0)}
+                  </p>
+                )}
                 <p className="text-[11px] font-bold text-emerald-800 mt-1.5 flex items-center justify-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>O pedido só será enviado à loja após a confirmação do Pix</span>
@@ -4749,13 +5194,14 @@ export default function Menu() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm('Deseja cancelar a cobrança Pix e voltar para escolher outra forma de pagamento? Seus itens continuarão no carrinho.')) {
-                      setActivePixPayment(null);
-                    }
+                    setActivePixPayment(null);
+                    setFrozenPaymentPlan(null);
+                    setPaymentMode(null);
+                    setPaymentMethod('');
                   }}
-                  className="w-full py-2.5 text-stone-500 hover:text-stone-800 text-xs font-bold transition-colors cursor-pointer text-center"
+                  className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold transition-colors cursor-pointer text-center bg-stone-100 hover:bg-stone-200 rounded-xl"
                 >
-                  ← Cancelar e Escolher Outra Forma de Pagamento
+                  ← Voltar e Refazer Escolhas
                 </button>
               </div>
 
@@ -4780,7 +5226,9 @@ export default function Menu() {
                     <h3 className="text-base font-black text-stone-900 leading-tight">
                       {activeCardPayment.type === 'credit' ? 'Cartão de Crédito Online' : 'Cartão de Débito Online'}
                     </h3>
-                    <p className="text-[11px] text-stone-500 font-semibold">Pagamento Seguro com Criptografia</p>
+                    <p className="text-[11px] text-stone-500 font-semibold">
+                      {activeCardPayment.isPartialPayment ? 'Entrada 50% • Saldo na Retirada' : 'Pagamento Seguro com Criptografia'}
+                    </p>
                   </div>
                 </div>
                 <button 
@@ -4794,8 +5242,15 @@ export default function Menu() {
 
               {/* Amount banner */}
               <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-3.5 mb-4 text-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">Total a Pagar</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">
+                  {activeCardPayment.isPartialPayment ? 'Entrada 50% a Pagar Agora' : 'Total a Pagar'}
+                </span>
                 <div className="text-2xl font-black text-blue-950 font-mono mt-0.5">{formatCurrency(activeCardPayment.amount)}</div>
+                {activeCardPayment.isPartialPayment && (
+                  <div className="text-[11px] font-bold text-stone-700 mt-1">
+                    Total do Pedido: {formatCurrency(activeCardPayment.totalOrderAmount || total)} • Restante na Retirada: {formatCurrency(activeCardPayment.remainingAmount || 0)}
+                  </div>
+                )}
                 <span className="text-[11px] font-bold text-stone-600 mt-1.5 flex items-center justify-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>O pedido só será enviado à loja após aprovação da operadora</span>
@@ -4946,11 +5401,16 @@ export default function Menu() {
 
                 <button
                   type="button"
-                  onClick={() => setActiveCardPayment(null)}
+                  onClick={() => {
+                    setActiveCardPayment(null);
+                    setFrozenPaymentPlan(null);
+                    setPaymentMode(null);
+                    setPaymentMethod('');
+                  }}
                   disabled={isProcessingCard}
-                  className="w-full py-2.5 text-stone-500 hover:text-stone-800 text-xs font-bold transition-colors cursor-pointer text-center"
+                  className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold transition-colors cursor-pointer text-center bg-stone-100 hover:bg-stone-200 rounded-xl"
                 >
-                  ← Voltar e Trocar Forma de Pagamento
+                  ← Voltar e Refazer Escolhas
                 </button>
               </div>
 

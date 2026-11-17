@@ -1,5 +1,6 @@
 import { Order, StoreInfo, useStore } from '../store/useStore';
 import { formatDateBR } from '../lib/utils';
+import { getOrderPaymentBreakdown } from './paymentStatusHelper';
 
 /**
  * Utilitário de impressão de cupom térmico (58mm e 80mm).
@@ -885,6 +886,10 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
         <div class="center text-sm bold" style="margin-top: 4px;">
           Pagamento: ${order.paymentMethod || 'Não informado'}
         </div>
+        ${(() => {
+          const pb = getOrderPaymentBreakdown(order);
+          return `<div class="center" style="margin-top: 5px; padding: 4px 6px; border: 1.5px solid #000; font-size: 11px; font-weight: 900; text-transform: uppercase;">${pb.receiptLine}</div>`;
+        })()}
 
         ${!isClient ? `
         <div class="attendant-box" style="margin-top: 8px; font-size: 11px; border-top: 1px dashed #000; padding-top: 5px; text-align: left;">
@@ -1115,6 +1120,10 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
 
     lines.push('\x1B\x61\x01'); // Center alignment
     lines.push(`Pagamento: ${normalizeEscPosText(order.paymentMethod || 'Balcao / Dinheiro')}\n`);
+    const pbEsc = getOrderPaymentBreakdown(order);
+    lines.push('\x1D\x42\x01\x1B\x45\x01');
+    lines.push(` ${normalizeEscPosText(pbEsc.receiptLine)} \n`);
+    lines.push('\x1B\x45\x00\x1D\x42\x00');
     lines.push('--------------------------------\n');
 
     if (isClient) {

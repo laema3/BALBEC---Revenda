@@ -3,6 +3,7 @@ import { db, auth } from '../firebase';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, Category, Product, Order, User, AiTrainingExample, DEFAULT_AI_TRAINING_EXAMPLES } from '../store/useStore';
 import { printReceipt, resolveItemCode, resolveAddonCode } from '../utils/printer';
+import { getOrderPaymentBreakdown } from '../utils/paymentStatusHelper';
 import { formatCurrency, formatDateBR, formatAllDatesBR } from '../lib/utils';
 import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode, isCategoryFrozenModality } from '../constants';
 import { getCollectionPath, getDocPath } from '../lib/tenants';
@@ -4042,8 +4043,22 @@ export default function Admin() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 self-end sm:self-auto">
-                        <span className="text-stone-500 text-[11px] capitalize bg-stone-100 px-2 py-0.5 rounded">
+                      <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-auto">
+                        {(() => {
+                          const pb = getOrderPaymentBreakdown(ord);
+                          return (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                              pb.kind === 'partial_50'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : pb.kind === 'paid_full'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : 'bg-orange-100 text-orange-900 border-orange-300'
+                            }`}>
+                              {pb.operatorBadge}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-stone-500 text-[11px] capitalize bg-stone-100 px-2 py-0.5 rounded max-w-[200px] truncate" title={ord.paymentMethod || 'Não informado'}>
                           {ord.paymentMethod || 'Não informado'}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -4878,6 +4893,25 @@ export default function Admin() {
                     <div className="text-sm text-stone-500 mb-2">
                       {(order.createdAt && !isNaN(new Date(order.createdAt).getTime())) ? new Date(order.createdAt).toLocaleTimeString() : '--:--'} • {order.paymentMethod}
                     </div>
+                    {(() => {
+                      const pb = getOrderPaymentBreakdown(order);
+                      return (
+                        <div className={`mb-3 px-3 py-2.5 rounded-xl border-2 text-xs shadow-2xs space-y-0.5 ${
+                          pb.kind === 'partial_50'
+                            ? 'bg-amber-50 border-amber-400 text-amber-950'
+                            : pb.kind === 'paid_full'
+                            ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                            : 'bg-orange-50 border-orange-300 text-orange-950'
+                        }`}>
+                          <div className="font-black uppercase tracking-tight flex items-center justify-between gap-2">
+                            <span>{pb.operatorTitle}</span>
+                          </div>
+                          <p className="text-[11px] font-semibold leading-snug opacity-95">
+                            {pb.operatorMessage}
+                          </p>
+                        </div>
+                      );
+                    })()}
                     {(order.scheduledTime || (order as any).scheduled_time) && (
                       <div className={`mb-3 px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-xs font-bold border ${dayTheme.cardScheduleBg}`}>
                         <div className="flex items-center gap-2">
@@ -5122,6 +5156,20 @@ export default function Admin() {
                     </td>
                     <td className="p-4 font-medium">
                       <div className="font-bold text-stone-900">{formatCurrency(order.total)}</div>
+                      {(() => {
+                        const pb = getOrderPaymentBreakdown(order);
+                        return (
+                          <div className={`mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-black border ${
+                            pb.kind === 'partial_50'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : pb.kind === 'paid_full'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-orange-100 text-orange-900 border-orange-300'
+                          }`}>
+                            {pb.operatorBadge}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-4">
                       <select
