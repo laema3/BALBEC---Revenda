@@ -3919,62 +3919,6 @@ export default function Menu() {
               </div>
             ) : (
               <div>
-                {/* Destaque Obrigatório de Horário de Retirada */}
-                {storeInfo.deliveryScheduleEnabled && (
-                  <div ref={checkoutScheduleRef} className={`p-4 sm:p-5 rounded-2xl border-2 mb-6 transition-all shadow-sm ${
-                    selectedScheduleTime 
-                      ? 'bg-gradient-to-r from-amber-50 to-orange-50/60 border-amber-300' 
-                      : 'bg-red-50 border-red-400 ring-2 ring-red-300 animate-pulse'
-                  }`}>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 ${
-                          selectedScheduleTime ? 'bg-amber-500 text-stone-950 font-black' : 'bg-red-600 text-white'
-                        }`}>
-                          <Clock className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider mb-0.5 bg-amber-200/80 text-amber-950">
-                            <span>Retirada Agendada</span>
-                            <span className="text-red-700 font-extrabold">• Obrigatório</span>
-                          </div>
-                          <h3 className="text-base sm:text-lg font-black text-stone-900">
-                            {selectedScheduleTime ? (
-                              <span>Agendado para <strong className="text-amber-800 underline decoration-amber-400">{selectedScheduleDay ? `${selectedScheduleDay} às ` : 'às '}{selectedScheduleTime}</strong></span>
-                            ) : (
-                              <span className="text-red-700">Por favor, escolha o dia e horário de retirada</span>
-                            )}
-                          </h3>
-                          {selectedScheduleTime && checkoutPickupTime ? (
-                            <p className="text-xs font-black text-amber-950 mt-1 bg-amber-200/80 px-2.5 py-1 rounded-lg border border-amber-300 w-fit">
-                              {hasFrozenInCart ? '❄️ Retirada estimada às ' : '🥖 Retirada estimada às '}<strong>{checkoutPickupTime}h</strong> ({hasFrozenInCart ? `${frozenPrepMins} min - Pedido Congelado` : `${normalPrepMins} min - Pedido Normal`})
-                            </p>
-                          ) : (
-                            <p className="text-xs text-stone-600 font-medium">
-                              Seu pedido será preparado com antecedência para este horário escolhido.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScheduleStepMode('pickup');
-                          setShowScheduleSelectionStep(true);
-                          window.scrollTo(0, 0);
-                        }}
-                        className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer shrink-0 ${
-                          selectedScheduleTime
-                            ? 'bg-white hover:bg-amber-100 text-stone-900 border border-stone-300'
-                            : 'bg-red-600 hover:bg-red-700 text-white animate-bounce'
-                        }`}
-                      >
-                        {selectedScheduleTime ? 'Alterar Horário 🕒' : 'Escolher Horário Agora 👉'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Modalidade do Pedido (Exclusivo Retirada no Balcão) */}
                 {!selectedTableNumber && (
                   <div className="mb-6">
