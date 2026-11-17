@@ -29,7 +29,7 @@ function detectCardBrand(num: string): string {
 }
 
 export default function Menu() {
-  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData, appendItemsToOrder } = useStore();
+  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData, fetchOrdersOnly, appendItemsToOrder } = useStore();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -714,10 +714,12 @@ export default function Menu() {
 
   // Validador de elegibilidade para acréscimo:
   // 1. Status ainda não mudou para preparando (apenas 'pending')
-  // 2. Condição de pagamento é presencial na retirada (não pagamento online aprovado)
+  // 2. Pedido ainda NÃO foi impresso (pelo atendente ou impressão automática)
+  // 3. Condição de pagamento é presencial na retirada (não pagamento online aprovado)
   const isOrderEligibleForAppend = useCallback((order: any): boolean => {
     if (!order) return false;
     if (order.status !== 'pending') return false;
+    if (order.isPrinted || order.printedAt || order.autoPrinted90Min) return false;
     const isOnlineApproved = (order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved';
     if (isOnlineApproved) return false;
     return true;
@@ -738,7 +740,7 @@ export default function Menu() {
 
   const handleStartAppendOrder = useCallback((order: Order) => {
     if (!isOrderEligibleForAppend(order)) {
-      alert('Este pedido não está disponível para acréscimo (já está em preparo ou com pagamento online aprovado).');
+      setCartToastMessage('⚠️ Este pedido já foi impresso para produção ou mudou de etapa e não aceita mais acréscimos.');
       return;
     }
     setAppendOrderTarget(order);
@@ -763,6 +765,27 @@ export default function Menu() {
     setIsAppendReviewModalOpen(false);
     setAppendErrorMessage(null);
   }, [appendCart.length]);
+
+  // Se o pedido em modo de acréscimo for impresso ou mudar de status em tempo real, encerra o modo de acréscimo automaticamente
+  useEffect(() => {
+    if (!appendOrderTarget) return;
+    const liveOrder = orders.find(o => String(o.id).trim() === String(appendOrderTarget.id).trim());
+    if (!liveOrder) return;
+    if (!isOrderEligibleForAppend(liveOrder)) {
+      setAppendOrderTarget(null);
+      setAppendCart([]);
+      setIsAppendReviewModalOpen(false);
+      setAppendErrorMessage(null);
+      setCartToastMessage('⚠️ Este pedido já foi impresso ou entrou em preparo e não aceita mais acréscimos.');
+      return;
+    }
+    if (
+      Number(liveOrder.updatedAt || 0) > Number(appendOrderTarget.updatedAt || 0) &&
+      (liveOrder.items?.length !== appendOrderTarget.items?.length || liveOrder.total !== appendOrderTarget.total)
+    ) {
+      setAppendOrderTarget(liveOrder);
+    }
+  }, [orders, appendOrderTarget, isOrderEligibleForAppend]);
 
   // Persistir carrinho no localStorage sempre que houver alterações
   useEffect(() => {
@@ -8467,6 +8490,7 @@ export default function Menu() {
                       setTrackingOrderId(updated.id);
                     } else {
                       setAppendErrorMessage(result.error || 'Erro ao acrescentar itens ao pedido.');
+                      fetchOrdersOnly().catch(() => {});
                     }
                   } catch (err: any) {
                     setAppendErrorMessage('Erro de conexão ao salvar acréscimo. Tente novamente.');

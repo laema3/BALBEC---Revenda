@@ -527,6 +527,15 @@ export function smartMergeCollectionItems(
           if ((!merged.modality || merged.modality === 'pronto') && existing.modality === 'congelado' && !item.updatedAt) {
             merged.modality = existing.modality;
           }
+          if (collectionKey === 'orders') {
+            if (existing.isPrinted || item.isPrinted || existing.printedAt || item.printedAt) {
+              merged.isPrinted = true;
+              merged.printedAt = Number(existing.printedAt || item.printedAt || 0) || undefined;
+            }
+            if (existing.autoPrinted90Min || item.autoPrinted90Min) {
+              merged.autoPrinted90Min = true;
+            }
+          }
           delete merged._isSeed;
           mergedMap.set(id, merged);
         } else {
@@ -541,6 +550,15 @@ export function smartMergeCollectionItems(
           }
           if ((!merged.modality || merged.modality === 'pronto') && item.modality === 'congelado' && !existing.updatedAt) {
             merged.modality = item.modality;
+          }
+          if (collectionKey === 'orders') {
+            if (existing.isPrinted || item.isPrinted || existing.printedAt || item.printedAt) {
+              merged.isPrinted = true;
+              merged.printedAt = Number(existing.printedAt || item.printedAt || 0) || undefined;
+            }
+            if (existing.autoPrinted90Min || item.autoPrinted90Min) {
+              merged.autoPrinted90Min = true;
+            }
           }
           delete merged._isSeed;
           mergedMap.set(id, merged);

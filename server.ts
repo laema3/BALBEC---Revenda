@@ -4,7 +4,7 @@ import axios from "axios";
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import dotenv from "dotenv";
 import compression from "compression";
-import { setupDatabaseRoutes, hydrateFromPostgres, getMemStoreInfo, broadcastSSE } from "./src/server/dbRoutes";
+import { setupDatabaseRoutes, hydrateFromPostgres, getMemStoreInfo, broadcastSSE, markOrderAsPrintedOnServer } from "./src/server/dbRoutes";
 import { setupPrinterRoutes } from "./src/server/printerRoutes";
 import { setupPrinterAgentRoutes } from "./src/server/printerAgentRoutes";
 import { ensureTablesExist, testDatabaseConnection } from "./src/db/index";
@@ -97,7 +97,9 @@ export function broadcastSync(target = 'sync') {
 try {
   setupDatabaseRoutes(app, broadcastSync);
   setupPrinterRoutes(app);
-  setupPrinterAgentRoutes(app, getMemStoreInfo);
+  setupPrinterAgentRoutes(app, getMemStoreInfo, (orderId: string) => {
+    markOrderAsPrintedOnServer(orderId).catch(() => {});
+  });
 } catch (err) {
   console.error("Erro ao registrar rotas do DB:", err);
 }

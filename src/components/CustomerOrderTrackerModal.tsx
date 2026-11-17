@@ -579,8 +579,8 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
               );
             })()}
 
-            {/* Opção de Fazer Acréscimo no Pedido (se ainda na fila e pagamento na retirada) */}
-            {order && order.status === 'pending' && !((order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved') && onStartAppend && (
+            {/* Opção de Fazer Acréscimo no Pedido (se ainda na fila, não impresso e pagamento na retirada) */}
+            {order && order.status === 'pending' && !order.isPrinted && !order.printedAt && !(order as any).autoPrinted90Min && !((order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved') && onStartAppend && (
               <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-orange-300 rounded-2xl p-4 space-y-2.5 shadow-xs">
                 <div className="flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm shrink-0">
@@ -591,7 +591,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
                       Deseja fazer um acréscimo neste pedido?
                     </h5>
                     <p className="text-[11px] text-orange-800 font-medium leading-relaxed">
-                      Seu pedido ainda está na fila aguardando início do preparo e o pagamento é na retirada. Você pode adicionar mais itens agora!
+                      Seu pedido ainda está na fila aguardando impressão/preparo e o pagamento é na retirada. Você pode adicionar mais itens agora!
                     </p>
                   </div>
                 </div>
@@ -604,6 +604,12 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
                   <Plus className="w-4 h-4" />
                   <span>Fazer Acréscimo / Adicionar Mais Itens</span>
                 </button>
+              </div>
+            )}
+
+            {order && order.status === 'pending' && (order.isPrinted || order.printedAt || (order as any).autoPrinted90Min) && !((order.paymentMethod && order.paymentMethod.includes('Online')) || order.paymentStatus === 'approved') && (
+              <div className="bg-stone-100 border border-stone-300 rounded-2xl p-3 text-xs text-stone-700 font-semibold leading-relaxed">
+                🖨️ <strong>Comanda já impressa para produção:</strong> novos itens devem ser feitos em um novo pedido separado.
               </div>
             )}
           </div>

@@ -111,7 +111,7 @@ export default function Admin() {
     addCategory, updateCategory, deleteCategory,
     addProduct, updateProduct, deleteProduct,
     addUser, updateUser, deleteUser,
-    updateOrderStatus, deleteOrder, clearAllOrders, updateStoreInfo, exportOrderToBlueFocus,
+    updateOrderStatus, markOrderPrinted, deleteOrder, clearAllOrders, updateStoreInfo, exportOrderToBlueFocus,
     fetchData, fetchCustomers
   } = useStore();
 
@@ -2291,7 +2291,10 @@ export default function Admin() {
           autoPrintedOrderIds.current.add(newOrder.id);
           try {
             console.log(`[Caixa Auto-Print Queue] Imprimindo pedido acumulado da fila #${newOrder.id} (Canal: ${newOrder.type || 'loja'})...`);
-            await printReceipt(newOrder, storeInfo, true);
+            const printResult = await printReceipt(newOrder, storeInfo, true);
+            if (printResult && printResult !== 'kiosk-silent-skip') {
+              markOrderPrinted(newOrder.id).catch(() => {});
+            }
             await new Promise(res => setTimeout(res, 400));
           } catch (err) {
             console.error('[Caixa Auto-Print Queue] Erro ao imprimir da fila:', err);
@@ -2301,7 +2304,7 @@ export default function Admin() {
     } finally {
       isFlushingQueue.current = false;
     }
-  }, [storeInfo]);
+  }, [storeInfo, markOrderPrinted]);
 
   useEffect(() => {
     const handleVis = () => {
@@ -2379,7 +2382,10 @@ export default function Admin() {
           autoPrintedOrderIds.current.add(newOrder.id);
           try {
             console.log(`[Caixa Auto-Print] Disparando impressão automática no Caixa para pedido #${newOrder.id} (Canal: ${newOrder.type || 'loja'})...`);
-            await printReceipt(newOrder, storeInfo, true);
+            const printResult = await printReceipt(newOrder, storeInfo, true);
+            if (printResult && printResult !== 'kiosk-silent-skip') {
+              markOrderPrinted(newOrder.id).catch(() => {});
+            }
           } catch (err) {
             console.error('[Caixa Auto-Print] Erro ao auto-imprimir pedido no Caixa:', err);
             // Se falhou, adiciona à fila de garantia para tentar novamente
@@ -2390,7 +2396,7 @@ export default function Admin() {
         }
       });
     }
-  }, [orders, isSoundEnabled, storeInfo]);
+  }, [orders, isSoundEnabled, storeInfo, markOrderPrinted]);
 
   // Auto-atualização: Apenas pedidos recém-chegados ('pending') do Totem e Consumo na Loja (Mesa) são auto-concluídos.
   // Nunca sobrescreve pedidos que o administrador já moveu manualmente para 'preparing' ou 'ready'.
@@ -3049,6 +3055,7 @@ export default function Admin() {
 
   const printOrder = (order: Order) => {
     setSelectedOrderForReceipt(order);
+    markOrderPrinted(order.id).catch(() => {});
     try {
       printReceipt(order, storeInfo);
     } catch (e) {
@@ -4890,8 +4897,13 @@ export default function Admin() {
                     </span>
                   </div>
                   <div className="p-4 flex-1">
-                    <div className="text-sm text-stone-500 mb-2">
-                      {(order.createdAt && !isNaN(new Date(order.createdAt).getTime())) ? new Date(order.createdAt).toLocaleTimeString() : '--:--'} • {order.paymentMethod}
+                    <div className="text-sm text-stone-500 mb-2 flex items-center justify-between gap-2 flex-wrap">
+                      <span>{(order.createdAt && !isNaN(new Date(order.createdAt).getTime())) ? new Date(order.createdAt).toLocaleTimeString() : '--:--'} • {order.paymentMethod}</span>
+                      {(order.isPrinted || order.printedAt || order.autoPrinted90Min) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-wide">
+                          <Printer className="w-3 h-3 text-emerald-700" /> Impresso • Acréscimo Bloqueado
+                        </span>
+                      )}
                     </div>
                     {(() => {
                       const pb = getOrderPaymentBreakdown(order);
@@ -5011,8 +5023,12 @@ export default function Admin() {
                     <div className="flex flex-wrap items-center gap-2">
                       <button type="button" 
                         onClick={() => printOrder(order)}
-                        className="bg-stone-200 text-stone-700 p-2 rounded-lg hover:bg-stone-300 flex items-center justify-center transition-colors"
-                        title="Imprimir Cupom"
+                        className={`p-2 rounded-lg flex items-center justify-center transition-colors ${
+                          (order.isPrinted || order.printedAt || order.autoPrinted90Min)
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                            : 'bg-stone-200 text-stone-700 hover:bg-stone-300'
+                        }`}
+                        title={(order.isPrinted || order.printedAt || order.autoPrinted90Min) ? 'Cupom já impresso (Reimprimir)' : 'Imprimir Cupom'}
                       >
                         <Printer className="w-5 h-5" />
                       </button>
@@ -9993,6 +10009,7 @@ export default function Admin() {
         <ReceiptModal
           order={selectedOrderForReceipt}
           storeInfo={storeInfo}
+          onPrinted={(orderId) => markOrderPrinted(orderId).catch(() => {})}
           onClose={() => setSelectedOrderForReceipt(null)}
         />
       )}

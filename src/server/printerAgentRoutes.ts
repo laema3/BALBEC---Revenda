@@ -131,7 +131,7 @@ export function queueTestJobForAgent(storeInfo: any): AgentPrintJob {
   return job;
 }
 
-export function setupPrinterAgentRoutes(app: Express, getStoreInfo: () => any) {
+export function setupPrinterAgentRoutes(app: Express, getStoreInfo: () => any, onOrderPrinted?: (orderId: string) => void) {
   // 1. Heartbeat do Agente Windows (enviado a cada 5-10s)
   app.post('/api/printer-agent/heartbeat', (req: Request, res: Response) => {
     const { hostname, ip, version, printerIp } = req.body || {};
@@ -214,6 +214,13 @@ export function setupPrinterAgentRoutes(app: Express, getStoreInfo: () => any) {
         // Remove da fila pendente
         pendingJobs.splice(jobIndex, 1);
         console.log(`[Printer Agent ACK] Pedido #${job.orderId} impresso com sucesso pelo Agente Windows!`);
+        try {
+          if (job.orderId && !String(job.orderId).startsWith('TEST-')) {
+            onOrderPrinted?.(String(job.orderId));
+          }
+        } catch (cbErr) {
+          console.warn('[Printer Agent ACK] Erro ao marcar pedido como impresso:', cbErr);
+        }
       } else {
         job.status = 'failed';
         job.error = String(error || 'Erro desconhecido');

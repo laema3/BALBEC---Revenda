@@ -581,6 +581,8 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_date TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_day TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_pickup_time TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_printed BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at BIGINT;
 
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS external_id TEXT;

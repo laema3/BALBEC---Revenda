@@ -83,6 +83,8 @@ export const orders = pgTable('orders', {
   scheduledDate: text('scheduled_date'),
   scheduledDay: text('scheduled_day'),
   scheduledPickupTime: text('scheduled_pickup_time'),
+  isPrinted: boolean('is_printed').default(false),
+  printedAt: bigint('printed_at', { mode: 'number' }),
   updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 

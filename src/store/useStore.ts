@@ -303,6 +303,9 @@ export interface Order {
   paymentPlan?: 'integral' | 'parcial';
   paidAmount?: number;
   remainingAmount?: number;
+  isPrinted?: boolean;
+  printedAt?: number | null;
+  autoPrinted90Min?: boolean;
 }
 
 export interface TvMediaItem {
@@ -572,6 +575,7 @@ interface StoreState {
 
   placeOrder: (order: Omit<Order, 'id' | 'createdAt' | 'status'> & { status?: Order['status']; deliveryStatus?: Order['deliveryStatus'] }) => Promise<Order>;
   updateOrderStatus: (id: string, status: Order['status']) => Promise<void>;
+  markOrderPrinted: (id: string) => Promise<void>;
   appendItemsToOrder: (orderId: string, newItems: OrderItem[]) => Promise<{ success: boolean; order?: Order; error?: string }>;
   deleteOrder: (id: string) => Promise<void>;
   clearAllOrders: () => Promise<void>;
@@ -844,6 +848,8 @@ let ordersMutationEpoch = 0;
 interface OrderMutationLock {
   status?: Order['status'];
   deliveryStatus?: Order['deliveryStatus'];
+  isPrinted?: boolean;
+  printedAt?: number;
   deleted?: boolean;
   updatedAt: number;
   expiresAt: number;
@@ -851,14 +857,20 @@ interface OrderMutationLock {
 const recentOrderMutationLocks = new Map<string, OrderMutationLock>();
 let recentOrdersClearedUntil = 0;
 
-const normalizeServerOrder = (o: any): Order => ({
-  ...o,
-  id: String(o.id),
-  status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
-  items: safeParseJsonArray(o.items),
-  createdAt: Number(o.createdAt) || Date.now(),
-  updatedAt: Number(o.updatedAt || o.createdAt) || Date.now()
-});
+const normalizeServerOrder = (o: any): Order => {
+  const printedAtVal = Number(o.printedAt || o.printed_at || 0) || undefined;
+  const isPrintedVal = Boolean(o.isPrinted || o.is_printed || printedAtVal || o.autoPrinted90Min);
+  return {
+    ...o,
+    id: String(o.id),
+    status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
+    items: safeParseJsonArray(o.items),
+    isPrinted: isPrintedVal,
+    ...(printedAtVal ? { printedAt: printedAtVal } : {}),
+    createdAt: Number(o.createdAt) || Date.now(),
+    updatedAt: Number(o.updatedAt || o.createdAt) || Date.now()
+  };
+};
 
 const reconcileServerOrders = (
   ordersData: any[],
@@ -895,16 +907,29 @@ const reconcileServerOrders = (
     const lock = recentOrderMutationLocks.get(oid);
     if (lock && lock.deleted) continue;
 
+    const existingLocal = Array.isArray(currentOrders)
+      ? currentOrders.find(lo => lo && String(lo.id).trim() === oid)
+      : undefined;
+
     let normalized = normalizeServerOrder(raw);
-    if (lock && lock.status && updatedAt <= lock.updatedAt) {
+    if (lock && (lock.status || lock.isPrinted) && updatedAt <= lock.updatedAt) {
       normalized = {
         ...normalized,
-        status: lock.status,
+        ...(lock.status ? { status: lock.status } : {}),
         ...(lock.deliveryStatus ? { deliveryStatus: lock.deliveryStatus } : {}),
+        ...(lock.isPrinted ? { isPrinted: true, printedAt: lock.printedAt || normalized.printedAt || lock.updatedAt } : {}),
         updatedAt: lock.updatedAt
       };
-    } else if (lock && lock.status && normalized.status === lock.status) {
+    } else if (lock && (!lock.status || normalized.status === lock.status) && (!lock.isPrinted || normalized.isPrinted)) {
       recentOrderMutationLocks.delete(oid);
+    }
+
+    if (existingLocal && (existingLocal.isPrinted || existingLocal.printedAt) && !normalized.isPrinted && lock?.isPrinted) {
+      normalized = {
+        ...normalized,
+        isPrinted: true,
+        printedAt: existingLocal.printedAt || lock.printedAt || Date.now(),
+      };
     }
 
     orderById.set(oid, normalized);
@@ -2001,6 +2026,55 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ orders: prevOrders });
       console.error('Error updating order status:', error);
       throw error;
+    }
+  },
+
+  markOrderPrinted: async (id) => {
+    const targetId = String(id).trim();
+    if (!targetId) return;
+
+    const existingOrder = (get().orders || []).find(o => String(o.id).trim() === targetId);
+    if (existingOrder?.isPrinted && existingOrder?.printedAt) return;
+
+    const nowTs = Date.now();
+    const existingLock = recentOrderMutationLocks.get(targetId);
+    ordersMutationEpoch++;
+    recentOrderMutationLocks.set(targetId, {
+      ...(existingLock || {}),
+      isPrinted: true,
+      printedAt: nowTs,
+      updatedAt: nowTs,
+      expiresAt: nowTs + 10000
+    });
+
+    set(state => {
+      const next: Order[] = state.orders.map(o =>
+        String(o.id).trim() === targetId
+          ? { ...o, isPrinted: true, printedAt: o.printedAt || nowTs, updatedAt: nowTs }
+          : o
+      );
+      saveOrdersToStorage(next);
+      return { orders: next };
+    });
+
+    try {
+      const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}/mark-printed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.order) {
+          const normalized = normalizeServerOrder(data.order);
+          set(state => {
+            const next = state.orders.map(o => String(o.id).trim() === targetId ? normalized : o);
+            saveOrdersToStorage(next);
+            return { orders: next };
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('Error marking order printed:', error);
     }
   },
 

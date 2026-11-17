@@ -8,9 +8,10 @@ interface ReceiptModalProps {
   order: Order | null;
   storeInfo: StoreInfo;
   onClose: () => void;
+  onPrinted?: (orderId: string) => void;
 }
 
-export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, onClose }) => {
+export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, onClose, onPrinted }) => {
   const [copied, setCopied] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -80,6 +81,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
   const handlePrint = async () => {
     setIsPrinting(true);
     try {
+      onPrinted?.(order.id);
       await printReceipt(order, storeInfo);
     } catch (e) {
       console.warn('Erro ao disparar impressão:', e);
@@ -335,6 +337,7 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
               href={receiptBlobUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => onPrinted?.(order.id)}
               className="bg-stone-100 hover:bg-stone-200 text-stone-600 p-2.5 rounded-xl flex items-center justify-center transition-colors cursor-pointer"
               title="Abrir em Nova Aba"
             >

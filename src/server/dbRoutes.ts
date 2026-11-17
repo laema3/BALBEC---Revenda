@@ -2015,6 +2015,59 @@ setInterval(() => {
   broadcastSSE({ type: 'ping', time: Date.now() });
 }, 15000);
 
+export async function markOrderAsPrintedOnServer(orderId: string): Promise<any | null> {
+  const targetId = String(orderId || '').trim();
+  if (!targetId) return null;
+
+  let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
+  if (!matchedOrder && targetId.length >= 4) {
+    matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+  }
+  if (!matchedOrder) return null;
+
+  const resolvedId = String(matchedOrder.id).trim();
+  const nowTs = Date.now();
+  const printedAtTs = Number(matchedOrder.printedAt) || nowTs;
+
+  const alreadyPrinted = Boolean(matchedOrder.isPrinted && matchedOrder.printedAt);
+  const updatedOrder = {
+    ...matchedOrder,
+    isPrinted: true,
+    printedAt: printedAtTs,
+    updatedAt: alreadyPrinted ? (Number(matchedOrder.updatedAt) || nowTs) : nowTs,
+  };
+
+  if (!alreadyPrinted) {
+    memOrders = memOrders.map(o => (String(o.id).trim() === resolvedId ? updatedOrder : o));
+    persistOrdersToDisk(memOrders);
+
+    if (isDatabaseConfigured()) {
+      try {
+        await withDbRetry(() =>
+          db
+            .update(orders)
+            .set({ isPrinted: true, printedAt: printedAtTs, updatedAt: updatedOrder.updatedAt })
+            .where(eq(orders.id, resolvedId))
+        );
+      } catch (err: any) {
+        console.warn(`[DB Order Print] Erro ao marcar pedido #${resolvedId} como impresso no PostgreSQL:`, err?.message);
+      }
+    }
+
+    broadcastSSE({
+      type: 'sync',
+      target: 'orders',
+      action: 'order_printed',
+      orderId: resolvedId,
+      isPrinted: true,
+      printedAt: printedAtTs,
+      time: nowTs,
+    });
+  }
+
+  return updatedOrder;
+}
+
 export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) => void) {
   // Wait briefly for initial DB + Cloud Firestore hydration on cold start so deleted/stale disk snapshots are pruned before serving
   app.use('/api/db', async (req: Request, res: Response, next) => {
@@ -2663,6 +2716,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         printOrderToNetworkPrinter(newOrder, { ...memStoreInfo, networkPrinterIp: targetPrinterIp }).then(printRes => {
           if (printRes.success) {
             console.log(`[Auto-Print Servidor] Pedido #${newOrder.id} (${newOrder.type}) impresso na impressora de rede (${targetPrinterIp})!`);
+            markOrderAsPrintedOnServer(newOrder.id).catch(() => {});
           } else {
             console.log(`[Auto-Print Servidor] Envio para impressora de rede: ${printRes.message}`);
           }
@@ -2728,7 +2782,9 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       scheduledTime: newOrder.scheduledTime || null,
       scheduledDate: newOrder.scheduledDate || null,
       scheduledDay: newOrder.scheduledDay || null,
-      scheduledPickupTime: newOrder.scheduledPickupTime || null
+      scheduledPickupTime: newOrder.scheduledPickupTime || null,
+      isPrinted: Boolean(newOrder.isPrinted),
+      printedAt: newOrder.printedAt ? Number(newOrder.printedAt) : null
     };
 
     if (isDatabaseConfigured()) {
@@ -2971,7 +3027,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           'scheduledDate', 'scheduledDay', 'scheduledPickupTime', 'items', 'total',
           'paymentMethod', 'customerName', 'customerPhone', 'customerEmail', 'customerCpf',
           'deliveryType', 'deliveryAddress', 'deliveryCep', 'deliveryNeighborhood', 'deliveryFee',
-          'tableNumber', 'tableId'
+          'tableNumber', 'tableId', 'isPrinted', 'printedAt'
         ];
         const updatePayload: any = { updatedAt: updatedTimestamp };
         for (const k of allowedKeys) {
@@ -2980,8 +3036,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
               updatePayload.items = safeParseJsonArray(data.items);
             } else if (k === 'total' || k === 'deliveryFee') {
               updatePayload[k] = Number(data[k]) || 0;
-            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt') {
+            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt' || k === 'printedAt') {
               updatePayload[k] = data[k] ? Number(data[k]) : null;
+            } else if (k === 'isPrinted') {
+              updatePayload[k] = Boolean(data[k]);
             } else {
               updatePayload[k] = data[k];
             }
@@ -3010,6 +3068,19 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     res.json(dbUpdatedOrder || orderData);
   });
 
+  app.post('/api/db/orders/:id/mark-printed', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updated = await markOrderAsPrintedOnServer(id);
+      if (!updated) {
+        return res.status(404).json({ error: 'Pedido não encontrado.' });
+      }
+      return res.json({ success: true, order: updated });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao marcar pedido como impresso.' });
+    }
+  });
+
   app.post('/api/db/orders/:id/append-items', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -3031,6 +3102,13 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       if (existingOrder.status !== 'pending') {
         return res.status(400).json({ 
           error: 'O pedido já entrou em preparo pela cozinha ou foi finalizado, portanto não é mais possível fazer acréscimos.' 
+        });
+      }
+
+      // Regra 1b: Pedido já impresso pelo atendente ou impressão automática também bloqueia acréscimos
+      if (existingOrder.isPrinted || existingOrder.printedAt || (existingOrder as any).autoPrinted90Min) {
+        return res.status(400).json({
+          error: 'Este pedido já foi impresso para produção e não aceita mais acréscimos.'
         });
       }
 
@@ -5846,10 +5924,25 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           }
 
           if (newStatus !== order.status || newDeliveryStatus !== order.deliveryStatus || needsPrint) {
-            const updatedOrd = { ...order, status: newStatus, deliveryStatus: newDeliveryStatus, updatedAt: now };
+            const printedAtVal = needsPrint ? (Number(order.printedAt) || now) : order.printedAt;
+            const isPrintedVal = needsPrint ? true : Boolean(order.isPrinted);
+            const updatedOrd = {
+              ...order,
+              status: newStatus,
+              deliveryStatus: newDeliveryStatus,
+              isPrinted: isPrintedVal,
+              ...(printedAtVal ? { printedAt: printedAtVal } : {}),
+              updatedAt: now
+            };
             if (isDatabaseConfigured()) {
               db.update(orders)
-                .set({ status: newStatus, deliveryStatus: newDeliveryStatus, updatedAt: now })
+                .set({
+                  status: newStatus,
+                  deliveryStatus: newDeliveryStatus,
+                  isPrinted: isPrintedVal,
+                  ...(printedAtVal ? { printedAt: printedAtVal } : {}),
+                  updatedAt: now
+                })
                 .where(eq(orders.id, order.id))
                 .catch(() => {});
             }
