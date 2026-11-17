@@ -6128,36 +6128,40 @@ export default function Menu() {
         )}
 
         {/* Categories Bar (Sticky sub-header on Top for All Devices) */}
-        <div 
-          ref={categoryBarRef}
-          className="bg-white border-b border-stone-200 shrink-0 z-20 overflow-x-auto no-scrollbar scroll-smooth shadow-xs py-1.5 sm:py-2 px-2.5 sm:px-6"
-        >
-          <div className="flex gap-2 sm:gap-3 items-center relative max-w-4xl lg:max-w-7xl mx-auto">
-            {availableCategories.map(cat => {
-              const count = categoryCountMap[cat.id] || 0;
-              return (
-                <button
-                  key={cat.id}
-                  ref={el => { categoryButtonRefs.current[cat.id] = el; }}
-                  onClick={() => scrollToCategory(cat.id)}
-                  className={`px-3.5 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl whitespace-nowrap text-xs sm:text-base font-black transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 cursor-pointer ${
-                    activeCategory === cat.id 
-                      ? 'text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-500/30' 
-                      : 'bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200'
-                  }`}
-                  style={activeCategory === cat.id ? { backgroundColor: storeInfo.themeColor || '#ea580c' } : {}}
-                >
-                  <span>{formatCapitalized(cat.name)}</span>
-                  <span className={`text-[11px] sm:text-sm px-1.5 sm:px-2 py-0.5 rounded-full font-bold ${
-                    activeCategory === cat.id 
-                      ? 'bg-black/20 text-white' 
-                      : 'bg-stone-200 text-stone-700'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="bg-white border-b border-stone-200 shrink-0 z-20 shadow-xs">
+          <div className="max-w-4xl lg:max-w-7xl mx-auto px-2.5 sm:px-6">
+            <div 
+              ref={categoryBarRef}
+              className="relative overflow-x-auto no-scrollbar md:desktop-custom-scrollbar scroll-smooth py-1.5 sm:py-2 md:pb-2.5"
+            >
+              <div className="flex gap-2 sm:gap-3 items-center w-max">
+                {availableCategories.map(cat => {
+                  const count = categoryCountMap[cat.id] || 0;
+                  return (
+                    <button
+                      key={cat.id}
+                      ref={el => { categoryButtonRefs.current[cat.id] = el; }}
+                      onClick={() => scrollToCategory(cat.id)}
+                      className={`px-3.5 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl whitespace-nowrap text-xs sm:text-base font-black transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 cursor-pointer ${
+                        activeCategory === cat.id 
+                          ? 'text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-500/30' 
+                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200'
+                      }`}
+                      style={activeCategory === cat.id ? { backgroundColor: storeInfo.themeColor || '#ea580c' } : {}}
+                    >
+                      <span>{formatCapitalized(cat.name)}</span>
+                      <span className={`text-[11px] sm:text-sm px-1.5 sm:px-2 py-0.5 rounded-full font-bold ${
+                        activeCategory === cat.id 
+                          ? 'bg-black/20 text-white' 
+                          : 'bg-stone-200 text-stone-700'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 

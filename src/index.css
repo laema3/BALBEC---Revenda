@@ -78,6 +78,33 @@ body.totem-mode,
   background: #c2410c;
 }
 
+@media (min-width: 768px) {
+  .desktop-custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #f97316 #f5f5f4;
+  }
+
+  .desktop-custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .desktop-custom-scrollbar::-webkit-scrollbar-track {
+    background: #f5f5f4;
+    border-radius: 8px;
+  }
+
+  .desktop-custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #ea580c;
+    border-radius: 8px;
+    border: 2px solid #f5f5f4;
+  }
+
+  .desktop-custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #c2410c;
+  }
+}
+
 /* =========================================================================
    Leaflet Map Styling & Tracking Pins
    ========================================================================= */
