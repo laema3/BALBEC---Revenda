@@ -2152,6 +2152,8 @@ export default function Menu() {
       setProductQuantities(prev => {
         const next = { ...prev };
         delete next[product.id];
+        delete next[`${product.id}_pronto`];
+        delete next[`${product.id}_congelado`];
         return next;
       });
 
@@ -2237,6 +2239,8 @@ export default function Menu() {
     setProductQuantities(prev => {
       const next = { ...prev };
       delete next[product.id];
+      delete next[`${product.id}_pronto`];
+      delete next[`${product.id}_congelado`];
       return next;
     });
     setCartToastMessage(`"${product.name}" adicionado com sucesso! 🛒✨`);
@@ -2452,6 +2456,20 @@ export default function Menu() {
       }
       return item;
     }).filter(item => item.quantity > 0));
+    setProductQuantities(prev => {
+      if (
+        prev[productId] === undefined &&
+        prev[`${productId}_pronto`] === undefined &&
+        prev[`${productId}_congelado`] === undefined
+      ) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[productId];
+      delete next[`${productId}_pronto`];
+      delete next[`${productId}_congelado`];
+      return next;
+    });
   };
 
   const subtotal = cart.reduce((sum, item) => {
@@ -6291,9 +6309,23 @@ export default function Menu() {
                         const isItemFrozenHelper = (ci: any) => Boolean(
                           ci.isFrozen || ci.prepType?.startsWith('congelado') || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))
                         );
-                        const cartItemsForProd = cart.filter(ci => ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext);
+                        const activeCartList = appendOrderTarget ? appendCart : cart;
+                        const setActiveCartList = appendOrderTarget ? setAppendCart : setCart;
+                        const cartItemsForProd = activeCartList.filter(ci => ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext);
                         const totalCartQty = cartItemsForProd.reduce((sum, ci) => sum + ci.quantity, 0);
-                        const mainCartItem = cartItemsForProd[0];
+                        const rawSelectedPrep = needsPrepChoice ? frozenPrepChoices[prepChoiceKey] : undefined;
+                        const mainCartItem = (rawSelectedPrep
+                          ? cartItemsForProd.find(ci => (ci.prepType || '') === rawSelectedPrep)
+                          : undefined) || cartItemsForProd[0];
+
+                        const isSameCartItem = (ci: any, target: any) => Boolean(
+                          target &&
+                          ci.productId === target.productId &&
+                          (ci.prepType || '') === (target.prepType || '') &&
+                          isItemFrozenHelper(ci) === isFrozenCategoryContext &&
+                          JSON.stringify(ci.addons || []) === JSON.stringify(target.addons || []) &&
+                          JSON.stringify(ci.flavor || null) === JSON.stringify(target.flavor || null)
+                        );
 
                         const validKeysForCard: PrepChoiceType[] = [prepOption1.key, prepOption2.key];
                         const rawCartPrep = mainCartItem?.prepType as PrepChoiceType | undefined;
@@ -6313,22 +6345,11 @@ export default function Menu() {
                           setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: false }));
                           if (cartItemsForProd.length === 1 && mainCartItem) {
                             const newLabel = getPrepChoiceLabel(choice);
-                            setCart(prev => prev.map(ci => {
-                              if (
-                                ci.productId === mainCartItem.productId &&
-                                (ci.prepType || '') === (mainCartItem.prepType || '') &&
-                                isItemFrozenHelper(ci) === isFrozenCategoryContext &&
-                                JSON.stringify(ci.addons) === JSON.stringify(mainCartItem.addons) &&
-                                JSON.stringify(ci.flavor) === JSON.stringify(mainCartItem.flavor)
-                              ) {
-                                return {
-                                  ...ci,
-                                  prepType: choice,
-                                  prepLabel: newLabel
-                                };
-                              }
-                              return ci;
-                            }));
+                            setActiveCartList(prev => prev.map(ci => (
+                              isSameCartItem(ci, mainCartItem)
+                                ? { ...ci, prepType: choice, prepLabel: newLabel }
+                                : ci
+                            )));
                           }
                         };
 
@@ -6491,7 +6512,7 @@ export default function Menu() {
                                           type="button"
                                           onClick={() => {
                                             if (totalCartQty > 0) {
-                                              setCart(prev => prev.filter(ci => !(ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext)));
+                                              setActiveCartList(prev => prev.filter(ci => !(ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext)));
                                             }
                                             setProductQuantities(prev => {
                                               const next = { ...prev };
@@ -6521,21 +6542,24 @@ export default function Menu() {
                                           type="button"
                                           onClick={() => {
                                             const step = minRequired > 1 ? minRequired : 1;
-                                            if (totalCartQty > 0) {
-                                              if (mainCartItem) {
-                                                const newQ = mainCartItem.quantity - step;
-                                                if (newQ < minRequired) {
-                                                  setCart(prev => prev.filter(ci => !(ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext)));
-                                                  setProductQuantities(prev => ({ ...prev, [qtyKey]: minRequired }));
-                                                } else {
-                                                  setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: newQ } : ci));
-                                                }
+                                            if (totalCartQty > 0 && mainCartItem) {
+                                              const newQ = mainCartItem.quantity - step;
+                                              if (newQ < minRequired) {
+                                                setActiveCartList(prev => prev.filter(ci => !isSameCartItem(ci, mainCartItem)));
+                                              } else {
+                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, mainCartItem) ? { ...ci, quantity: newQ } : ci));
                                               }
+                                              setProductQuantities(prev => {
+                                                if (prev[qtyKey] === undefined) return prev;
+                                                const next = { ...prev };
+                                                delete next[qtyKey];
+                                                return next;
+                                              });
                                             } else {
-                                              const next = Math.max(minRequired, numericQty - step);
+                                              const nextQty = Math.max(minRequired, numericQty - step);
                                               setProductQuantities(prev => ({
                                                 ...prev,
-                                                [qtyKey]: next
+                                                [qtyKey]: nextQty
                                               }));
                                             }
                                           }}
@@ -6558,23 +6582,40 @@ export default function Menu() {
                                             setProductQuantities(prev => ({ ...prev, [qtyKey]: raw }));
                                             if (raw !== '') {
                                               const val = parseInt(raw, 10);
-                                              if (!isNaN(val) && val >= minRequired && totalCartQty > 0) {
-                                                setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: val } : ci));
+                                              if (!isNaN(val) && val >= minRequired && totalCartQty > 0 && mainCartItem) {
+                                                const otherVariantsQty = totalCartQty - mainCartItem.quantity;
+                                                const updatedMainQty = Math.max(minRequired, val - otherVariantsQty);
+                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, mainCartItem) ? { ...ci, quantity: updatedMainQty } : ci));
                                               }
                                             }
                                           }}
                                           onBlur={() => {
                                             if (minRequired > 1) return;
                                             const raw = productQuantities[qtyKey];
-                                            if (raw === '' || raw === undefined) {
-                                              const safe = totalCartQty > 0 ? totalCartQty : minRequired;
-                                              setProductQuantities(prev => ({ ...prev, [qtyKey]: safe }));
+                                            if (totalCartQty > 0) {
+                                              if (raw !== '' && raw !== undefined && mainCartItem) {
+                                                const parsed = parseInt(String(raw), 10);
+                                                const safe = isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
+                                                const otherVariantsQty = totalCartQty - mainCartItem.quantity;
+                                                const updatedMainQty = Math.max(minRequired, safe - otherVariantsQty);
+                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, mainCartItem) ? { ...ci, quantity: updatedMainQty } : ci));
+                                              }
+                                              setProductQuantities(prev => {
+                                                if (prev[qtyKey] === undefined) return prev;
+                                                const next = { ...prev };
+                                                delete next[qtyKey];
+                                                return next;
+                                              });
+                                            } else if (raw === '' || raw === undefined) {
+                                              setProductQuantities(prev => {
+                                                if (prev[qtyKey] === undefined) return prev;
+                                                const next = { ...prev };
+                                                delete next[qtyKey];
+                                                return next;
+                                              });
                                             } else {
                                               const parsed = parseInt(String(raw), 10);
                                               const safe = isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
-                                              if (totalCartQty > 0) {
-                                                setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: safe } : ci));
-                                              }
                                               setProductQuantities(prev => ({ ...prev, [qtyKey]: safe }));
                                             }
                                           }}
@@ -6605,10 +6646,19 @@ export default function Menu() {
                                           type="button"
                                           onClick={() => {
                                             const step = minRequired > 1 ? minRequired : 1;
+                                            setProductQuantities(prev => {
+                                              if (prev[qtyKey] === undefined) return prev;
+                                              const next = { ...prev };
+                                              delete next[qtyKey];
+                                              return next;
+                                            });
                                             if (totalCartQty > 0) {
-                                              if (mainCartItem) {
-                                                const newQ = mainCartItem.quantity + step;
-                                                setCart(prev => prev.map(ci => (ci.productId === product.id && isItemFrozenHelper(ci) === isFrozenCategoryContext) ? { ...ci, quantity: newQ } : ci));
+                                              const matchingPrepItem = (needsPrepChoice && selectedPrepChoice)
+                                                ? cartItemsForProd.find(ci => (ci.prepType || '') === selectedPrepChoice)
+                                                : mainCartItem;
+                                              if (matchingPrepItem) {
+                                                const newQ = matchingPrepItem.quantity + step;
+                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, matchingPrepItem) ? { ...ci, quantity: newQ } : ci));
                                               } else {
                                                 if (needsPrepChoice && !selectedPrepChoice) {
                                                   setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: true }));
