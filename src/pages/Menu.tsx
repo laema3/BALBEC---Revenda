@@ -8314,11 +8314,42 @@ export default function Menu() {
         <AiAssistantFloatingButton 
           onAddToCart={(p) => initiateAddToCart(p)} 
           onAddDirectToCart={(product, qty) => {
-            for (let i = 0; i < qty; i++) {
-              addToCart(product);
+            addToCart(product, [], null, qty);
+          }}
+          onApplyAiDraftToCart={(draft) => {
+            draft.items.forEach((it) => {
+              const prod = products.find((p) => p.id === it.productId) || {
+                id: it.productId,
+                externalId: it.externalId,
+                code: it.code,
+                name: it.name,
+                description: it.description || '',
+                price: it.price,
+                imageUrl: it.imageUrl,
+                isActive: true,
+                availableInStore: true,
+              };
+              addToCart(
+                prod,
+                it.addons || [],
+                it.flavor || null,
+                it.quantity,
+                it.prepType,
+                it.prepLabel,
+                false
+              );
+            });
+            if (draft.scheduledDate && draft.scheduledTime) {
+              setSelectedScheduleDate(draft.scheduledDate);
+              if (draft.scheduledDay) setSelectedScheduleDay(draft.scheduledDay);
+              setSelectedScheduleTime(draft.scheduledTime);
+              safeStorage.setItem('balbec_selected_schedule_date', draft.scheduledDate);
+              if (draft.scheduledDay) safeStorage.setItem('balbec_selected_schedule_day', draft.scheduledDay);
+              safeStorage.setItem('balbec_selected_schedule_time', draft.scheduledTime);
             }
           }}
           onOpenCart={() => setIsCartOpen(true)}
+          activeCustomer={activeCustomer}
           hasCartItems={cart.length > 0}
         />
       )}

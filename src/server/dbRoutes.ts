@@ -2581,9 +2581,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   });
 
-  app.post('/api/db/orders', async (req: Request, res: Response) => {
-    const data = req.body || {};
-    
+  async function createOrderInternal(data: any) {
     // Obter lista atualizada de pedidos para calcular o próximo número sequencial garantido
     let currentOrders = [...memOrders];
     if (isDatabaseConfigured()) {
@@ -2610,9 +2608,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     // Regra de Negócio:
     // 1. Pedidos do Totem (type === 'kiosk' ou canal totem) e Consumo na Loja (Mesa / dine_in) chegam como 'completed' (Entregue).
     //    Eles disparam impressão automática IMEDIATAMENTE (no servidor e no Caixa).
-    // 2. Pedidos de Delivery chegam estritamente como 'pending' (Pendente) e NÃO imprimem na chegada;
-    //    eles serão impressos automaticamente após 3 minutos pelo temporizador.
-    // 3. Pedidos online de Retirada/Balcão feitos pelo smartphone sem mesa chegam como 'pending'.
+    // 2. Pedidos online de Retirada/Balcão feitos pelo smartphone sem mesa chegam como 'pending'.
     const isKiosk = data.type === 'kiosk' || data.mode === 'kiosk' || (data.customerName && String(data.customerName).toLowerCase().includes('totem'));
     const isDineIn = Boolean(data.tableNumber) || data.type === 'dine_in' || data.deliveryType === 'dine_in';
     const isTotemOrDineIn = isKiosk || isDineIn;
@@ -2639,38 +2635,28 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     memOrders = [newOrder, ...memOrders.filter(o => o.id !== newOrder.id)];
     persistOrdersToDisk(memOrders);
 
-    // Auto-capture customer as lead / client for marketing
-    // REGRA DE NEGÓCIO: Apenas clientes de delivery e consumo na loja viram leads no sistema.
-    // Pedidos feitos pelo totem NÃO viram leads.
+    // Auto-capture customer as lead / client for marketing (exceto Totem)
     if (newOrder.type !== 'kiosk') {
       const custName = (newOrder.customerName || '').trim();
       const custPhone = (newOrder.customerPhone || '').trim();
       if ((custName && custName.toLowerCase() !== 'cliente' && custName.toLowerCase() !== 'cliente totem') || custPhone) {
-        const isDelivery = newOrder.type === 'delivery' || newOrder.deliveryType === 'delivery';
         upsertCustomerLead({
           name: newOrder.customerName,
           phone: newOrder.customerPhone,
           address: newOrder.deliveryAddress || newOrder.address || '',
-          source: isDelivery ? 'pedido_delivery' : 'pedido_loja',
+          source: 'pedido_loja',
           orderTotal: Number(newOrder.total) || 0,
           isOrder: true,
-          tags: isDelivery ? ['Cliente', 'Delivery'] : ['Cliente', 'Consumo Loja']
+          tags: ['Cliente', 'Retirada Balcão']
         }).catch(err => console.warn('Erro ao auto-cadastrar lead do pedido:', err));
       }
     }
 
-    // Regra de Negócio:
-    // Apenas pedidos que chegam com status 'completed' (Totem e Consumo na Loja/Mesa) disparam impressão automática imediata.
-    // Pedidos de Delivery chegam com status 'pending' (Pendente) e NÃO devem ser impressos imediatamente na chegada;
-    // eles serão impressos automaticamente após 3 minutos pelo temporizador da cozinha ou quando o operador aceitar/finalizar o pedido.
     const shouldAutoPrintImmediately = (newOrder.status === 'completed' || isTotemOrDineIn) && !isDeliveryOrder;
 
     if (shouldAutoPrintImmediately) {
-      // Enfileira automaticamente para o Agente Windows do Caixa
       queueOrderForAgent(newOrder, memStoreInfo);
 
-      // Impressão automática na Impressora de Rede da Loja (Opção A)
-      // Envia diretamente para o IP da impressora térmica com o nome do cliente e número do pedido
       const rawPrinterIp = (memStoreInfo?.networkPrinterIp || '').trim();
       const targetPrinterIp = (rawPrinterIp === '192.168.1.200' || !rawPrinterIp) ? '192.168.0.90' : rawPrinterIp;
       if (targetPrinterIp) {
@@ -2685,7 +2671,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         });
       }
     } else {
-      console.log(`[Auto-Print Servidor] Pedido #${newOrder.id} recebido com status pendente (${newOrder.type || newOrder.deliveryType || 'delivery'}). Não imprime imediatamente; aguardando 3 minutos.`);
+      console.log(`[Auto-Print Servidor] Pedido #${newOrder.id} recebido com status pendente (${newOrder.type || newOrder.deliveryType || 'online'}). Aguardando conferência/impressão.`);
     }
 
     // Enviar notificação via NTFY se estiver ativado
@@ -2757,19 +2743,28 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
         if (result && result.length > 0) {
           console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
-          return res.json(result[0]);
+          return result[0];
         } else {
           console.warn(`[DB Order] AVISO: O banco retornou vazio ao salvar #${orderForDb.id}.`);
-          return res.json(newOrder);
+          return newOrder;
         }
       } catch (error: any) {
         console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${orderForDb.id} no PostgreSQL:`, error?.message || error);
         broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
-        return res.json(newOrder);
+        return newOrder;
       }
     }
     broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
-    res.json(newOrder);
+    return newOrder;
+  }
+
+  app.post('/api/db/orders', async (req: Request, res: Response) => {
+    try {
+      const created = await createOrderInternal(req.body || {});
+      return res.json(created);
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Erro ao criar pedido' });
+    }
   });
 
   app.post('/api/db/orders/batch', async (req: Request, res: Response) => {
@@ -6281,7 +6276,10 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   registerAiRoutes(app, () => ({
     categories: memCategories,
     products: memProducts,
-    storeInfo: memStoreInfo
+    storeInfo: memStoreInfo,
+    orders: memOrders,
+    customers: memCustomers,
+    createOrder: createOrderInternal
   }));
 }
 

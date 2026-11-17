@@ -1,17 +1,27 @@
 import { useState } from 'react';
 import { useStore, Product } from '../store/useStore';
 import { Bot, Sparkles, MessageCircle } from 'lucide-react';
-import { AiAssistantModal } from './AiAssistantModal';
+import { AiAssistantModal, AiDraftOrder } from './AiAssistantModal';
 
 interface AiAssistantFloatingButtonProps {
   onAddToCart?: (product: Product) => void;
   onAddDirectToCart?: (product: any, quantity: number) => void;
+  onApplyAiDraftToCart?: (draft: AiDraftOrder) => void;
   onOpenCart?: () => void;
+  activeCustomer?: { id?: string; name?: string; phone?: string; cpf?: string } | null;
   className?: string;
   hasCartItems?: boolean;
 }
 
-export function AiAssistantFloatingButton({ onAddToCart, onAddDirectToCart, onOpenCart, className = '', hasCartItems = false }: AiAssistantFloatingButtonProps) {
+export function AiAssistantFloatingButton({
+  onAddToCart,
+  onAddDirectToCart,
+  onApplyAiDraftToCart,
+  onOpenCart,
+  activeCustomer,
+  className = '',
+  hasCartItems = false,
+}: AiAssistantFloatingButtonProps) {
   const { storeInfo } = useStore();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -74,7 +84,9 @@ export function AiAssistantFloatingButton({ onAddToCart, onAddDirectToCart, onOp
         onClose={() => setIsOpen(false)}
         onAddToCart={onAddToCart}
         onAddDirectToCart={onAddDirectToCart}
+        onApplyAiDraftToCart={onApplyAiDraftToCart}
         onOpenCart={onOpenCart}
+        activeCustomer={activeCustomer}
       />
     </>
   );
