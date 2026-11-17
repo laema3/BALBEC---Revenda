@@ -40,6 +40,14 @@ export default function Menu() {
   const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
   const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!cartToastMessage) return;
+    const timer = setTimeout(() => {
+      setCartToastMessage(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [cartToastMessage]);
+
   const getPrepChoiceLabel = (prepType?: string): string => {
     switch (prepType) {
       case 'congelado_cru': return 'CRU CONGELADO';
@@ -9361,11 +9369,19 @@ export default function Menu() {
         </div>
       )}
 
-      {/* Toast de Sucesso ao Adicionar ao Carrinho */}
+      {/* Toast de Sucesso ao Adicionar ao Carrinho / Acréscimo */}
       {cartToastMessage && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[150] bg-emerald-600 text-white font-black px-6 py-3.5 rounded-2xl shadow-2xl animate-in fade-in zoom-in slide-in-from-bottom-5 duration-200 flex items-center gap-3 border border-emerald-400/50">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[150] bg-emerald-600 text-white font-black px-5 py-3.5 rounded-2xl shadow-2xl animate-in fade-in zoom-in slide-in-from-bottom-5 duration-200 flex items-center gap-3 border border-emerald-400/50 max-w-[92vw]">
           <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
           <span className="text-xs sm:text-sm uppercase tracking-wide">{cartToastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setCartToastMessage(null)}
+            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer shrink-0"
+            aria-label="Fechar notificação"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
         </div>
       )}
 
