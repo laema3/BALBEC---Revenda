@@ -14,7 +14,7 @@ import { getOrderPaymentBreakdown, sharePixReceipt, buildPixReceiptShareText } f
 import { sendNtfyNotification } from '../utils/ntfy';
 import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
-import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime, parseSlotCapacities, parseScheduleSlots } from '../utils/scheduleHelper';
+import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime, parseSlotCapacities, parseScheduleSlots, getBrazilNowDate, getMinFrozenScheduleDateKey, isDateAllowedForFrozenOrder, getAvailableScheduleDays } from '../utils/scheduleHelper';
 import { CustomerOrderTrackerModal } from '../components/CustomerOrderTrackerModal';
 
 // Detecção de bandeiras de cartões de crédito e débito
@@ -178,6 +178,29 @@ export default function Menu() {
   const [selectedScheduleDay, setSelectedScheduleDay] = useState<string>(() => safeStorage.getItem('balbec_selected_schedule_day') || '');
   const [showScheduleSelectionStep, setShowScheduleSelectionStep] = useState<boolean>(false);
   const [scheduleStepMode, setScheduleStepMode] = useState<'delivery' | 'pickup'>('pickup');
+  const [orderModalityPreference, setOrderModalityPreference] = useState<'frozen' | 'normal' | null>(() => {
+    const saved = safeStorage.getSession('balbec_order_modality_preference');
+    return saved === 'frozen' || saved === 'normal' ? saved : null;
+  });
+  const [showOrderTypeChoiceModal, setShowOrderTypeChoiceModal] = useState<boolean>(false);
+
+  const updateOrderModalityPreference = useCallback((pref: 'frozen' | 'normal' | null) => {
+    setOrderModalityPreference(pref);
+    if (pref) {
+      safeStorage.setSession('balbec_order_modality_preference', pref);
+    } else {
+      safeStorage.removeSession('balbec_order_modality_preference');
+    }
+  }, []);
+
+  const clearScheduleSelection = useCallback(() => {
+    setSelectedScheduleTime('');
+    setSelectedScheduleDate('');
+    setSelectedScheduleDay('');
+    safeStorage.removeItem('balbec_selected_schedule_time');
+    safeStorage.removeItem('balbec_selected_schedule_date');
+    safeStorage.removeItem('balbec_selected_schedule_day');
+  }, []);
 
   const checkoutScheduleRef = useRef<HTMLDivElement>(null);
   const checkoutCustomerRef = useRef<HTMLHeadingElement>(null);
@@ -425,7 +448,11 @@ export default function Menu() {
     setDeliveryType('pickup');
     setIsProfileModalOpen(false);
     setIsAuthModalOpen(false);
-  }, []);
+    setShowOrderTypeChoiceModal(false);
+    setShowScheduleSelectionStep(false);
+    updateOrderModalityPreference(null);
+    clearScheduleSelection();
+  }, [clearScheduleSelection, updateOrderModalityPreference]);
 
   // Função central para resetar o totem/aplicativo para o próximo pedido
   const handleResetForNewCustomer = useCallback(() => {
@@ -467,7 +494,9 @@ export default function Menu() {
     setPaymentMethod('');
     setCart([]);
     setIsCartOpen(false);
-  }, [isTotemPath, activeCustomer]);
+    updateOrderModalityPreference(null);
+    clearScheduleSelection();
+  }, [isTotemPath, activeCustomer, clearScheduleSelection, updateOrderModalityPreference]);
 
   // Timer na tela de conclusão / impressão do pedido (5s no totem, 45s no celular para dar tempo do cliente ir ao balcão)
   useEffect(() => {
@@ -1559,12 +1588,21 @@ export default function Menu() {
           setNewCustPassword('');
           setConfirmCustPassword('');
         } else {
-          if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
-            setScheduleStepMode('pickup');
-            setShowScheduleSelectionStep(true);
+          setHasName(true);
+          setHasChosenChannel(true);
+          if (hasFrozenInCart) {
+            updateOrderModalityPreference('frozen');
+            if (storeInfo.deliveryScheduleEnabled) {
+              if (!isDateAllowedForFrozenOrder(selectedScheduleDate)) {
+                clearScheduleSelection();
+              }
+              setScheduleStepMode('pickup');
+              setShowScheduleSelectionStep(true);
+            }
           } else {
-            setHasName(true);
-            setHasChosenChannel(true);
+            clearScheduleSelection();
+            updateOrderModalityPreference(null);
+            setShowOrderTypeChoiceModal(true);
           }
         }
       } else {
@@ -1631,12 +1669,21 @@ export default function Menu() {
           setMustChangePasswordModal(false);
           setNewCustPassword('');
           setConfirmCustPassword('');
-          if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
-            setScheduleStepMode('pickup');
-            setShowScheduleSelectionStep(true);
+          setHasName(true);
+          setHasChosenChannel(true);
+          if (hasFrozenInCart) {
+            updateOrderModalityPreference('frozen');
+            if (storeInfo.deliveryScheduleEnabled) {
+              if (!isDateAllowedForFrozenOrder(selectedScheduleDate)) {
+                clearScheduleSelection();
+              }
+              setScheduleStepMode('pickup');
+              setShowScheduleSelectionStep(true);
+            }
           } else {
-            setHasName(true);
-            setHasChosenChannel(true);
+            clearScheduleSelection();
+            updateOrderModalityPreference(null);
+            setShowOrderTypeChoiceModal(true);
           }
         }, 1200);
       } else {
@@ -1885,10 +1932,10 @@ export default function Menu() {
   const [congeladoCruQty, setCongeladoCruQty] = useState<number>(0);
   const [congeladoFritoQty, setCongeladoFritoQty] = useState<number>(0);
 
-  // Modal de Conflito de Carrinho (quando tenta misturar normal e congelado)
+  // Modal de Conflito de Carrinho / Modalidade (quando tenta misturar ou sair de congelados)
   const [cartConflictModal, setCartConflictModal] = useState<{
     isOpen: boolean;
-    type: 'has_frozen_blocked_normal' | 'has_normal_blocked_frozen';
+    type: 'has_frozen_blocked_normal' | 'has_normal_blocked_frozen' | 'frozen_mode_blocked_normal';
     product?: any;
     qty?: number;
     isFrozenContext?: boolean;
@@ -1897,6 +1944,25 @@ export default function Menu() {
     isOpen: false,
     type: 'has_frozen_blocked_normal'
   });
+
+  const switchFromFrozenToNormalAndReschedule = useCallback(() => {
+    setCart([]);
+    safeStorage.removeItem('balbec_active_cart');
+    setProntoFritoQty(0);
+    setProntoCruQty(0);
+    setCongeladoCruQty(0);
+    setCongeladoFritoQty(0);
+    setFrozenPrepChoices({});
+    setFrozenPrepErrors({});
+    setFrozenPaymentPlan(null);
+    updateOrderModalityPreference('normal');
+    clearScheduleSelection();
+    setCartConflictModal(prev => ({ ...prev, isOpen: false }));
+    setIsCartOpen(false);
+    setIsCheckout(false);
+    setScheduleStepMode('pickup');
+    setShowScheduleSelectionStep(true);
+  }, [clearScheduleSelection, updateOrderModalityPreference]);
 
   const openFrozenModal = (product: any, qty: number = 1, mode: 'pronto' | 'congelado' = 'pronto') => {
     // Buscar se já existem itens deste produto no carrinho ou no appendCart
@@ -2337,10 +2403,10 @@ export default function Menu() {
 
     // FLUXO NORMAL DO CARRINHO:
     if (!bypassConflictCheck) {
-      if (hasFrozenInCart && !isFrozenChoice) {
+      if ((hasFrozenInCart || orderModalityPreference === 'frozen') && !isFrozenChoice) {
         setCartConflictModal({
           isOpen: true,
-          type: 'has_frozen_blocked_normal',
+          type: hasFrozenInCart ? 'has_frozen_blocked_normal' : 'frozen_mode_blocked_normal',
           product,
           qty: quantity,
           isFrozenContext: false
@@ -2357,6 +2423,15 @@ export default function Menu() {
           prepType: (prepType === 'congelado_frito' ? 'congelado_frito' : 'congelado_cru')
         });
         return;
+      }
+    }
+
+    if (isFrozenChoice) {
+      updateOrderModalityPreference('frozen');
+      if (storeInfo.deliveryScheduleEnabled && selectedScheduleTime && !isDateAllowedForFrozenOrder(selectedScheduleDate)) {
+        clearScheduleSelection();
+        setScheduleStepMode('pickup');
+        setShowScheduleSelectionStep(true);
       }
     }
 
@@ -2447,11 +2522,11 @@ export default function Menu() {
         return;
       }
     } else if (!bypassConflictCheck) {
-      // 2. Verificação de conflito de modalidade no Carrinho Normal:
-      if (hasFrozenInCart && !isFrozenContext) {
+      // 2. Verificação de conflito de modalidade no Carrinho Normal ou Preferência Congelado:
+      if ((hasFrozenInCart || orderModalityPreference === 'frozen') && !isFrozenContext) {
         setCartConflictModal({
           isOpen: true,
-          type: 'has_frozen_blocked_normal',
+          type: hasFrozenInCart ? 'has_frozen_blocked_normal' : 'frozen_mode_blocked_normal',
           product,
           qty,
           isFrozenContext: false,
@@ -2935,6 +3010,7 @@ export default function Menu() {
         setSelectedScheduleTime('');
         setSelectedScheduleDate('');
         setSelectedScheduleDay('');
+        updateOrderModalityPreference(null);
 
         // Persistir dados do cliente e último pedido para notificações em tempo real
         safeStorage.setItem('balbec_last_order_id', String(createdOrder.id));
@@ -3027,11 +3103,18 @@ export default function Menu() {
       return;
     }
 
-    // Validação obrigatória de agendamento de retirada
-    if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+    // Validação obrigatória de agendamento de retirada (e regra de +2 dias para congelados)
+    const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+      if (frozenNeedsLaterDate) {
+        updateOrderModalityPreference('frozen');
+        clearScheduleSelection();
+      }
       setScheduleStepMode('pickup');
       setShowScheduleSelectionStep(true);
-      alert('⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
+      alert(frozenNeedsLaterDate
+        ? '❄️ Pedidos com itens congelados precisam de 48h (disponível a partir de +2 dias). Por favor, selecione uma nova data e horário de retirada.'
+        : '⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
       return;
     }
 
@@ -3701,91 +3784,131 @@ export default function Menu() {
     );
   }
 
+  // Etapa Inicial após Login: Perguntar se o pedido será de Congelados ou Outros Produtos
+  if (showOrderTypeChoiceModal && !isTotemPath && salesChannel !== 'kiosk') {
+    const minFrozenDateKey = getMinFrozenScheduleDateKey();
+    const minFrozenFormatted = minFrozenDateKey.split('-').reverse().join('/');
+
+    return (
+      <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-4 sm:p-6 animate-fadeIn">
+        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xl max-w-lg w-full text-center border border-stone-200 relative overflow-hidden">
+          <div className="h-1.5 w-full bg-orange-600 rounded-full mb-5" />
+
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight text-balance">
+            Como será o seu pedido hoje?
+          </h2>
+          <p className="text-stone-600 text-xs sm:text-sm mt-1.5 mb-6 leading-relaxed">
+            Escolha a modalidade abaixo para mostrarmos os dias disponíveis de agendamento e os produtos compatíveis no cardápio.
+          </p>
+
+          <div className="space-y-3.5 text-left">
+            <button
+              type="button"
+              onClick={() => {
+                updateOrderModalityPreference('frozen');
+                if (!isDateAllowedForFrozenOrder(selectedScheduleDate)) {
+                  clearScheduleSelection();
+                }
+                setShowOrderTypeChoiceModal(false);
+                if (storeInfo.deliveryScheduleEnabled) {
+                  setScheduleStepMode('pickup');
+                  setShowScheduleSelectionStep(true);
+                } else {
+                  setHasName(true);
+                  setHasChosenChannel(true);
+                  const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
+                  if (firstFrozenCat) {
+                    setTimeout(() => scrollToCategory(firstFrozenCat.id), 150);
+                  }
+                }
+              }}
+              className="w-full p-4 sm:p-5 rounded-2xl border-2 border-blue-200 bg-blue-50/70 hover:bg-blue-50 hover:border-blue-500 transition-all text-left flex items-start gap-3.5 cursor-pointer group active:scale-[0.99]"
+            >
+              <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-2xl shrink-0 shadow-xs">
+                ❄️
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-base font-black text-blue-950 group-hover:text-blue-700">
+                    Pedido de Congelados
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-blue-600 shrink-0" />
+                </div>
+                <p className="text-xs text-blue-900 font-semibold mt-1 leading-relaxed">
+                  Produção de até 48 horas — agendamento disponível a partir de <strong>{minFrozenFormatted}</strong> (+2 dias).
+                </p>
+                <p className="text-[11px] text-blue-800/90 mt-1 leading-snug">
+                  Caso fique pronto antes, você será avisado pelas notificações. Neste pedido entram apenas itens congelados.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                updateOrderModalityPreference('normal');
+                clearScheduleSelection();
+                setShowOrderTypeChoiceModal(false);
+                if (storeInfo.deliveryScheduleEnabled) {
+                  setScheduleStepMode('pickup');
+                  setShowScheduleSelectionStep(true);
+                } else {
+                  setHasName(true);
+                  setHasChosenChannel(true);
+                }
+              }}
+              className="w-full p-4 sm:p-5 rounded-2xl border-2 border-amber-200 bg-amber-50/70 hover:bg-amber-50 hover:border-orange-500 transition-all text-left flex items-start gap-3.5 cursor-pointer group active:scale-[0.99]"
+            >
+              <div className="w-12 h-12 rounded-xl bg-orange-600 text-white flex items-center justify-center text-2xl shrink-0 shadow-xs">
+                🥖
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-base font-black text-stone-900 group-hover:text-orange-700">
+                    Outros Produtos (Prontos / Normal)
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-orange-600 shrink-0" />
+                </div>
+                <p className="text-xs text-stone-700 font-semibold mt-1 leading-relaxed">
+                  Salgados assados ou fritos, lanches, bebidas e demais itens — agendamento a partir de hoje, sem espera de 2 dias.
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Etapa de Agendamento de Horários (Segunda a Sábado, Capacidade de Salgados e Preparo Normal vs Congelado)
   if (showScheduleSelectionStep) {
     const slots = parseScheduleSlots(storeInfo.deliveryScheduleSlots);
     const slotCapacitiesMap = parseSlotCapacities(storeInfo.scheduleSlotCapacities);
 
-    // Gerar dias da semana disponíveis: Segunda a Sábado (Domingo a loja fecha)
-    const availableWeekDays: {
-      dateStr: string;
-      dayOfWeek: number;
-      shortDayName: string;
-      dayName: string;
-      dateFormatted: string;
-      isToday: boolean;
-    }[] = [];
-    const dayShortNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const dayFullNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-
     // Carregar os dias de funcionamento configurados no Painel (Horários de Atendimento por Dia)
     const storeWeeklySchedule = parseWeeklySchedule(storeInfo.weeklySchedule);
-    console.log('[Schedule Sync Mobile Debug] storeWeeklySchedule:', storeWeeklySchedule);
-
-    const now = new Date();
-    let currentHours = now.getHours();
-    let currentMinutes = now.getMinutes();
-    
-    // Obter data e hora exatas no fuso horário do Brasil (America/Sao_Paulo)
-    let brazilDate = new Date();
-    try {
-      const brazilDateStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
-      brazilDate = new Date(brazilDateStr);
-      currentHours = brazilDate.getHours();
-      currentMinutes = brazilDate.getMinutes();
-    } catch {}
-
+    const brazilDate = getBrazilNowDate();
+    const currentHours = brazilDate.getHours();
+    const currentMinutes = brazilDate.getMinutes();
     const currentTimeInMinutes = (currentHours * 60) + currentMinutes;
 
-    const dayCursor = new Date(brazilDate);
-    while (availableWeekDays.length < 6) {
-      const dOfWeek = dayCursor.getDay(); // 0 = Domingo, 1 = Segunda, etc.
-      const dayConfig = storeWeeklySchedule.find(s => Number(s.dayOfWeek) === Number(dOfWeek));
-      
-      // Se houver configuração explícita no painel, respeita estritamente. Se não houver, padrão fechado para domingo e aberto para os demais.
-      let isDayOpen = dOfWeek !== 0; 
-      if (dayConfig) {
-        if (typeof dayConfig.isOpen === 'boolean') {
-          isDayOpen = dayConfig.isOpen;
-        } else if (typeof (dayConfig as any).isOpen === 'string') {
-          isDayOpen = (dayConfig as any).isOpen === 'true';
-        }
-      }
+    const isFrozenOrderActive = hasFrozenInCart || orderModalityPreference === 'frozen';
 
-      if (isDayOpen) {
-        const y = dayCursor.getFullYear();
-        const m = String(dayCursor.getMonth() + 1).padStart(2, '0');
-        const d = String(dayCursor.getDate()).padStart(2, '0');
-        const dateStr = `${y}-${m}-${d}`;
-        const isToday = dayCursor.toDateString() === brazilDate.toDateString();
+    // Gerar dias da semana disponíveis: se for congelado, inicia em +2 dias corridos (48h)
+    const availableWeekDays = getAvailableScheduleDays(storeWeeklySchedule, {
+      isFrozenOrder: isFrozenOrderActive,
+      daysCount: 6,
+      referenceDate: brazilDate,
+    });
 
-        availableWeekDays.push({
-          dateStr,
-          dayOfWeek: dOfWeek,
-          shortDayName: dayShortNames[dOfWeek],
-          dayName: `${dayFullNames[dOfWeek]}, ${d}/${m}`,
-          dateFormatted: `${d}/${m}`,
-          isToday
-        });
-      }
-      dayCursor.setDate(dayCursor.getDate() + 1);
-    }
-
-    // Dia ativo selecionado (ou o primeiro dia útil disponível)
+    // Dia ativo selecionado (garantindo que nunca fique em data anterior ao mínimo quando for congelado)
     const activeDay = availableWeekDays.find(d => d.dateStr === selectedScheduleDate) || availableWeekDays[0];
     const isTodaySelected = activeDay?.isToday || false;
-
-    // Detecção de itens congelados no carrinho
-    const hasFrozenInCart = cart.some(it => 
-      Boolean(it.isFrozen) || 
-      (Array.isArray(it.addons) && it.addons.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))) ||
-      (it.options && Array.isArray(it.options) && it.options.some((o: any) => o.isFrozen || (o.name && o.name.toLowerCase().includes('congelad'))))
-    );
 
     // Tempos de retirada configuráveis no Painel (padrão: 40 min normal, 90 min congelado)
     const normalPrepMinutes = Number(storeInfo.schedulePrepTimeNormalMinutes) || 40;
     const frozenPrepMinutes = Number(storeInfo.schedulePrepTimeFrozenMinutes) || 90;
-    const activePrepBuffer = hasFrozenInCart ? frozenPrepMinutes : normalPrepMinutes;
+    const activePrepBuffer = isFrozenOrderActive ? frozenPrepMinutes : normalPrepMinutes;
 
     // Capacidade padrão de salgados por horário (usada quando o horário não tem limite próprio configurado)
     const defaultSlotCapacity = storeInfo.scheduleSlotItemCapacity !== undefined ? Number(storeInfo.scheduleSlotItemCapacity) : 100;
@@ -3793,7 +3916,7 @@ export default function Menu() {
     // Helper para verificar status e capacidade individual de um slot no dia ativo
     const getSlotStatus = (slot: string) => {
       const slotCap = slotCapacitiesMap[slot] !== undefined ? slotCapacitiesMap[slot] : defaultSlotCapacity;
-      const bookedUnits = slotBookedItemsMap[`${activeDay.dateStr}_${slot}`] || 0;
+      const bookedUnits = activeDay ? (slotBookedItemsMap[`${activeDay.dateStr}_${slot}`] || 0) : 0;
       const remainingUnits = Math.max(0, slotCap - bookedUnits);
       const isFull = remainingUnits <= 0;
 
@@ -3825,15 +3948,20 @@ export default function Menu() {
     }
 
     const previewPickup = effectiveSelectedTime 
-      ? calculatePickupTime(effectiveSelectedTime, hasFrozenInCart, normalPrepMinutes, frozenPrepMinutes) 
+      ? calculatePickupTime(effectiveSelectedTime, isFrozenOrderActive, normalPrepMinutes, frozenPrepMinutes) 
       : '';
+
+    const canGoBackWithoutChange = Boolean(
+      (selectedScheduleTime || isCheckout) &&
+      (!isFrozenOrderActive || isDateAllowedForFrozenOrder(selectedScheduleDate, brazilDate))
+    );
 
     return (
       <div className="min-h-screen bg-[#f8f7f5] flex flex-col items-center justify-center p-3 sm:p-6 animate-fadeIn">
         <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-xl max-w-lg w-full text-center border border-stone-200 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500"></div>
 
-          {(selectedScheduleTime || isCheckout) && (
+          {canGoBackWithoutChange && (
             <button
               type="button"
               onClick={() => setShowScheduleSelectionStep(false)}
@@ -3844,25 +3972,86 @@ export default function Menu() {
             </button>
           )}
 
-          <div className="w-14 h-14 mx-auto mb-3 bg-orange-100 text-orange-700 rounded-2xl flex items-center justify-center text-2xl shadow-xs border border-orange-200">
-            ⏰
+          <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center text-2xl shadow-xs border ${
+            isFrozenOrderActive
+              ? 'bg-blue-100 text-blue-700 border-blue-200'
+              : 'bg-orange-100 text-orange-700 border-orange-200'
+          }`}>
+            {isFrozenOrderActive ? '❄️' : '⏰'}
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight mb-1">
-            Agende a Retirada do Pedido
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 uppercase tracking-tight mb-1 text-balance">
+            {isFrozenOrderActive ? 'Agendamento — Congelados (48h)' : 'Agende a Retirada do Pedido'}
           </h2>
-          <p className="text-stone-600 text-xs sm:text-sm mb-4">
-            Escolha o dia da semana (Segunda a Sábado) e o horário de retirada no balcão
+          <p className="text-stone-600 text-xs sm:text-sm mb-3">
+            {isFrozenOrderActive
+              ? `Dias liberados a partir de ${availableWeekDays[0]?.dateFormatted || '+2 dias'} (prazo de produção de 48 horas)`
+              : 'Escolha o dia da semana (Segunda a Sábado) e o horário de retirada no balcão'}
           </p>
+
+          {/* Seletor rápido do tipo de pedido dentro do agendamento */}
+          <div className="flex items-center gap-1.5 p-1 bg-stone-100 rounded-xl border border-stone-200 mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                if (!isFrozenOrderActive) {
+                  updateOrderModalityPreference('frozen');
+                  if (!isDateAllowedForFrozenOrder(selectedScheduleDate, brazilDate)) {
+                    clearScheduleSelection();
+                  }
+                }
+              }}
+              className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                isFrozenOrderActive
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <span>❄️ Congelados (+2 dias)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (hasFrozenInCart) {
+                  if (confirm('Seu carrinho já possui itens congelados. Deseja limpar o carrinho para agendar outros produtos sem espera de 2 dias?')) {
+                    switchFromFrozenToNormalAndReschedule();
+                  }
+                } else {
+                  updateOrderModalityPreference('normal');
+                  clearScheduleSelection();
+                }
+              }}
+              className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                !isFrozenOrderActive
+                  ? 'bg-orange-600 text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <span>🥖 Outros Produtos</span>
+            </button>
+          </div>
+
+          {isFrozenOrderActive && (
+            <div className="mb-4 p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-left text-xs text-blue-950 space-y-1">
+              <p className="font-black text-blue-900 text-xs">
+                Prazo de 48h para Congelados (a partir de {availableWeekDays[0]?.dateFormatted})
+              </p>
+              <p className="text-[11px] text-blue-900/90 leading-relaxed font-medium">
+                Os pedidos de congelados precisam de 48 horas para ficarem prontos, por isso os dias disponíveis começam 2 dias à frente. <strong>Caso seu pedido fique pronto antes, você será avisado pelas notificações.</strong>
+              </p>
+            </div>
+          )}
 
           {/* 1. SELEÇÃO DOS DIAS DA SEMANA (Segunda a Sábado, Domingo não abre) */}
           <div ref={scheduleDaysSectionRef} className="mb-4 text-left">
             <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
-              1. Selecione o Dia da Retirada (Segunda a Sábado):
+              {isFrozenOrderActive
+                ? `1. Selecione o Dia da Retirada (a partir de ${availableWeekDays[0]?.dateFormatted || ''}):`
+                : '1. Selecione o Dia da Retirada (Segunda a Sábado):'}
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
               {availableWeekDays.map(day => {
-                const isSelected = activeDay.dateStr === day.dateStr;
+                const isSelected = activeDay?.dateStr === day.dateStr;
                 return (
                   <button
                     key={day.dateStr}
@@ -3879,14 +4068,14 @@ export default function Menu() {
                     }}
                     className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                       isSelected
-                        ? 'bg-orange-600 text-white border-orange-600 shadow-sm scale-102 font-black'
+                        ? (isFrozenOrderActive ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-102 font-black' : 'bg-orange-600 text-white border-orange-600 shadow-sm scale-102 font-black')
                         : 'bg-stone-50 hover:bg-orange-50 text-stone-700 border-stone-200 font-semibold'
                     }`}
                   >
-                    <span className={`text-[10px] uppercase tracking-wider font-extrabold ${isSelected ? 'text-orange-100' : 'text-stone-500'}`}>
+                    <span className={`text-[10px] uppercase tracking-wider font-extrabold ${isSelected ? 'text-white/90' : 'text-stone-500'}`}>
                       {day.isToday ? 'Hoje' : day.shortDayName}
                     </span>
-                    <span className="text-xs font-mono font-bold leading-tight">
+                    <span className="text-xs font-mono font-bold leading-tight tabular-nums">
                       {day.dateFormatted}
                     </span>
                   </button>
@@ -3904,18 +4093,18 @@ export default function Menu() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <strong className="text-amber-900 font-bold uppercase text-[11px] tracking-wider">Tempo Estimado para Retirada</strong>
-                {hasFrozenInCart ? (
-                  <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-2xs">
-                    ❄️ Pedido Congelado ({frozenPrepMinutes} min)
+                {isFrozenOrderActive ? (
+                  <span className="text-[11px] font-black text-blue-800">
+                    · ❄️ Pedido Congelado (48h / +{frozenPrepMinutes} min no dia)
                   </span>
                 ) : (
-                  <span className="bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-2xs">
-                    🥖 Pedido Padrão ({normalPrepMinutes} min)
+                  <span className="text-[11px] font-black text-amber-900">
+                    · 🥖 Pedido Padrão ({normalPrepMinutes} min)
                   </span>
                 )}
               </div>
               <p className="leading-relaxed text-[11px] text-stone-700">
-                Pedido normal: <strong>{normalPrepMinutes} min</strong> para retirada. Pedidos com congelados: <strong>{frozenPrepMinutes} min</strong> para retirada.
+                Pedido normal: <strong>{normalPrepMinutes} min</strong> para retirada. Pedidos com congelados: prazo de produção de até <strong>48 horas</strong> (agendamento +2 dias).
               </p>
               {effectiveSelectedTime && previewPickup && (
                 <div className="mt-1.5 p-2 bg-amber-100/80 rounded-xl border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1.5">
@@ -3930,7 +4119,7 @@ export default function Menu() {
           <div ref={scheduleSlotsSectionRef} className="space-y-2 text-left mb-5">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
-                2. Horários ({activeDay.dayName}):
+                2. Horários ({activeDay?.dayName}):
               </label>
               <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
                 {Number(storeInfo.scheduleIntervalMinutes) === 60 ? 'Intervalo: 1 em 1 hora' : 'Intervalo: 30 em 30 min'}
@@ -3948,7 +4137,7 @@ export default function Menu() {
                     type="button"
                     disabled={status.isDisabled}
                     onClick={() => {
-                      if (!status.isDisabled) {
+                      if (!status.isDisabled && activeDay) {
                         setSelectedScheduleTime(slot);
                         setSelectedScheduleDate(activeDay.dateStr);
                         setSelectedScheduleDay(activeDay.dayName);
@@ -3965,7 +4154,7 @@ export default function Menu() {
                       status.isDisabled 
                         ? 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed opacity-60' 
                         : isSelected 
-                          ? 'bg-orange-600 text-white border-orange-600 shadow-xs scale-102 cursor-pointer ring-2 ring-orange-300' 
+                          ? (isFrozenOrderActive ? 'bg-blue-600 text-white border-blue-600 shadow-xs scale-102 cursor-pointer ring-2 ring-blue-300' : 'bg-orange-600 text-white border-orange-600 shadow-xs scale-102 cursor-pointer ring-2 ring-orange-300')
                           : 'bg-white text-stone-800 border-stone-200 hover:bg-orange-50 cursor-pointer'
                     }`}
                   >
@@ -3973,7 +4162,7 @@ export default function Menu() {
                       <span>{status.isPast ? '❌' : status.isFull ? '🔒' : '🕐'}</span>
                       <span className={status.isDisabled ? 'line-through opacity-50' : ''}>{slot}</span>
                     </div>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-black ${
+                    <span className={`text-[9px] px-2 py-0.5 rounded-md uppercase font-black ${
                       status.isFull 
                         ? 'bg-red-100 text-red-700' 
                         : status.isPast 
@@ -3997,9 +4186,9 @@ export default function Menu() {
           <button
             ref={scheduleConfirmBtnRef}
             type="button"
-            disabled={!effectiveSelectedTime}
+            disabled={!effectiveSelectedTime || !activeDay}
             onClick={() => {
-              if (!effectiveSelectedTime) {
+              if (!effectiveSelectedTime || !activeDay) {
                 alert('O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis acima.');
                 return;
               }
@@ -4018,17 +4207,26 @@ export default function Menu() {
               setDeliveryType('pickup');
               setHasChosenChannel(true);
               setHasName(true);
+
+              if (isFrozenOrderActive) {
+                const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
+                if (firstFrozenCat) {
+                  setTimeout(() => scrollToCategory(firstFrozenCat.id), 150);
+                }
+              }
             }}
             className={`w-full py-3.5 sm:py-4 text-white rounded-2xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-2 ${
-              !effectiveSelectedTime 
+              !effectiveSelectedTime || !activeDay
                 ? 'bg-stone-300 text-stone-500 cursor-not-allowed shadow-none' 
-                : 'hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700'
+                : isFrozenOrderActive
+                  ? 'hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-blue-600/25 cursor-pointer bg-blue-600 hover:bg-blue-700'
+                  : 'hover:scale-[1.01] active:scale-[0.98] shadow-lg shadow-orange-600/25 cursor-pointer bg-orange-600 hover:bg-orange-700'
             }`}
           >
-            <span>{effectiveSelectedTime ? `CONFIRMAR PARA ${activeDay.shortDayName.toUpperCase()} ÀS ${effectiveSelectedTime}${previewPickup ? ` (RETIRADA ÀS ${previewPickup}H)` : ''} 🥖` : 'SELECIONE UM HORÁRIO ACIMA'}</span>
+            <span>{effectiveSelectedTime && activeDay ? `CONFIRMAR PARA ${activeDay.shortDayName.toUpperCase()} (${activeDay.dateFormatted}) ÀS ${effectiveSelectedTime}${previewPickup ? ` (RETIRADA ÀS ${previewPickup}H)` : ''}` : 'SELECIONE UM HORÁRIO ACIMA'}</span>
           </button>
 
-          {(selectedScheduleTime || isCheckout) && (
+          {canGoBackWithoutChange && (
             <button
               type="button"
               onClick={() => setShowScheduleSelectionStep(false)}
@@ -5187,11 +5385,18 @@ export default function Menu() {
                       }
                     }
 
-                    // Validação obrigatória de agendamento de retirada
-                    if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+                    // Validação obrigatória de agendamento de retirada (incluindo +2 dias para congelados)
+                    const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                      if (frozenNeedsLaterDate) {
+                        updateOrderModalityPreference('frozen');
+                        clearScheduleSelection();
+                      }
                       setScheduleStepMode('pickup');
                       setShowScheduleSelectionStep(true);
-                      alert('⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
+                      alert(frozenNeedsLaterDate
+                        ? '❄️ Pedidos com itens congelados precisam de 48h (disponível a partir de +2 dias). Por favor, escolha uma nova data de retirada.'
+                        : '⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
                       return;
                     }
 
@@ -6814,6 +7019,50 @@ export default function Menu() {
           </div>
         )}
 
+        {/* Banner Modo Congelados Ativo */}
+        {!appendOrderTarget && (orderModalityPreference === 'frozen' || hasFrozenInCart) && (
+          <div className="bg-blue-700 text-white px-3 sm:px-6 py-2 shrink-0 z-30 border-b border-blue-800 shadow-xs">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0">❄️</span>
+                <p className="font-bold truncate">
+                  Pedido de Congelados ativo (prazo de 48h) — somente itens congelados neste pedido.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {availableCategories.some(c => isCategoryFrozenModality(c)) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
+                      if (firstFrozenCat) scrollToCategory(firstFrozenCat.id);
+                    }}
+                    className="px-2.5 py-1 bg-white/15 hover:bg-white/25 text-white rounded-lg font-black text-[11px] transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    Ver Congelados
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (hasFrozenInCart) {
+                      setCartConflictModal({
+                        isOpen: true,
+                        type: 'has_frozen_blocked_normal',
+                      });
+                    } else {
+                      switchFromFrozenToNormalAndReschedule();
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-white text-blue-900 hover:bg-blue-50 rounded-lg font-black text-[11px] transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  Mudar para Outros Produtos
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Categories Bar (Sticky sub-header on Top for All Devices) */}
         <div className="bg-white border-b border-stone-200 shrink-0 z-20 shadow-xs">
           <div className="max-w-4xl lg:max-w-7xl mx-auto px-2.5 sm:px-6">
@@ -6883,18 +7132,18 @@ export default function Menu() {
                     <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
                       <h2 className="text-base sm:text-xl md:text-2xl font-black text-red-600 tracking-wider">{formatCapitalized(category.name)}</h2>
                       {isCategoryFrozenModality(category) && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wide">
-                          ❄️ Modalidade Congelados (Pedido Separado)
+                        <span className="text-xs font-extrabold text-blue-800 tracking-wide">
+                          · ❄️ Modalidade Congelados (48h)
                         </span>
                       )}
                       {!appendOrderTarget && isCategoryFrozenModality(category) && hasNormalInCart && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
-                          ⚠️ Seu carrinho possui itens prontos (finalize antes de pedir congelados)
+                        <span className="text-xs font-extrabold text-amber-800">
+                          · ⚠️ Seu carrinho possui itens prontos (finalize antes de pedir congelados)
                         </span>
                       )}
-                      {!appendOrderTarget && !isCategoryFrozenModality(category) && hasFrozenInCart && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold bg-blue-100 text-blue-900 border border-blue-300">
-                          ⚠️ Seu carrinho possui itens congelados (finalize antes de pedir prontos)
+                      {!appendOrderTarget && !isCategoryFrozenModality(category) && (hasFrozenInCart || orderModalityPreference === 'frozen') && (
+                        <span className="text-xs font-extrabold text-blue-800">
+                          · ⚠️ Nesse pedido, só poderá ter itens congelados
                         </span>
                       )}
                       <div className="flex-1 h-px bg-stone-200"></div>
@@ -6975,7 +7224,29 @@ export default function Menu() {
                             ? 'Selecione CRU CONGELADO ou FRITO CONGELADO! ❄️'
                             : 'Selecione CRU ou FRITO!';
 
+                        const isFrozenBlockedCard = Boolean(
+                          !isFrozenCategoryContext &&
+                          !appendOrderTarget &&
+                          !isAddonProduct(product) &&
+                          canBuy &&
+                          (orderModalityPreference === 'frozen' || hasFrozenInCart)
+                        );
+
+                        const openFrozenOnlyWarning = (qtyVal: number = 1) => {
+                          setCartConflictModal({
+                            isOpen: true,
+                            type: hasFrozenInCart ? 'has_frozen_blocked_normal' : 'frozen_mode_blocked_normal',
+                            product,
+                            qty: qtyVal,
+                            isFrozenContext: false
+                          });
+                        };
+
                         const handleSelectPrepChoice = (choice: PrepChoiceType) => {
+                          if (isFrozenBlockedCard) {
+                            openFrozenOnlyWarning(1);
+                            return;
+                          }
                           setFrozenPrepChoices(prev => ({ ...prev, [prepChoiceKey]: choice }));
                           setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: false }));
                           if (cartItemsForProd.length === 1 && mainCartItem) {
@@ -6991,7 +7262,12 @@ export default function Menu() {
                         return (
                         <div 
                           key={`${category.id}_${product.id}`} 
-                          className="bg-white rounded-2xl sm:rounded-3xl border border-stone-200/90 p-3 sm:p-5 md:p-6 lg:p-5 flex gap-3 sm:gap-6 lg:gap-4 hover:shadow-xl hover:shadow-stone-200/50 transition-all group items-center"
+                          onClick={() => {
+                            if (isFrozenBlockedCard) {
+                              openFrozenOnlyWarning(1);
+                            }
+                          }}
+                          className={`bg-white rounded-2xl sm:rounded-3xl border border-stone-200/90 p-3 sm:p-5 md:p-6 lg:p-5 flex gap-3 sm:gap-6 lg:gap-4 hover:shadow-xl hover:shadow-stone-200/50 transition-all group items-center ${isFrozenBlockedCard ? 'cursor-pointer opacity-90 hover:border-blue-300' : ''}`}
                         >
                           <div className="w-22 h-22 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-32 lg:h-32 xl:w-36 xl:h-36 shrink-0 bg-stone-50 rounded-xl sm:rounded-2xl overflow-hidden relative flex items-center justify-center border border-stone-100">
                             <ProductImage 
@@ -7257,6 +7533,10 @@ export default function Menu() {
                                           onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                               (e.target as HTMLInputElement).blur();
+                                              if (isFrozenBlockedCard) {
+                                                openFrozenOnlyWarning(numericQty || 1);
+                                                return;
+                                              }
                                               if (minRequired > 1) return;
                                               const raw = productQuantities[qtyKey];
                                               const parsed = parseInt(String(raw ?? displayedQty), 10);
@@ -7279,7 +7559,12 @@ export default function Menu() {
 
                                         <button 
                                           type="button"
-                                          onClick={() => {
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isFrozenBlockedCard) {
+                                              openFrozenOnlyWarning(numericQty > 0 ? numericQty : minRequired);
+                                              return;
+                                            }
                                             const step = minRequired > 1 ? minRequired : 1;
                                             setProductQuantities(prev => {
                                               if (prev[qtyKey] === undefined) return prev;
@@ -7699,7 +7984,12 @@ export default function Menu() {
             {/* Primary Finish Button */}
             <button 
               onClick={() => {
-                if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
+                const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+                if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                  if (frozenNeedsLaterDate) {
+                    updateOrderModalityPreference('frozen');
+                    clearScheduleSelection();
+                  }
                   setScheduleStepMode('pickup');
                   setShowScheduleSelectionStep(true);
                   setIsCartOpen(false);
@@ -8333,97 +8623,152 @@ export default function Menu() {
         );
       })()}
 
-      {/* Modal de Conflito de Carrinho (Tentativa de misturar categorias de Prontos e Congelados) */}
-      {cartConflictModal.isOpen && (
+      {/* Modal de Conflito de Carrinho / Restrição Congelados */}
+      {cartConflictModal.isOpen && (() => {
+        const isFrozenBlockedNormal = cartConflictModal.type === 'frozen_mode_blocked_normal' || cartConflictModal.type === 'has_frozen_blocked_normal';
+        const isOnlyModeLock = cartConflictModal.type === 'frozen_mode_blocked_normal';
+
+        return (
         <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
             <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border ${
-              cartConflictModal.type === 'has_frozen_blocked_normal'
+              isFrozenBlockedNormal
                 ? 'bg-blue-100 text-blue-600 border-blue-200'
                 : 'bg-amber-100 text-amber-600 border-amber-200'
             }`}>
-              {cartConflictModal.type === 'has_frozen_blocked_normal' ? '❄️' : '🔥'}
+              {isFrozenBlockedNormal ? '❄️' : '🔥'}
             </div>
             
             <div className="space-y-1.5">
               <h3 className="text-lg font-black text-stone-900 uppercase tracking-tight">
-                {cartConflictModal.type === 'has_frozen_blocked_normal'
-                  ? 'Carrinho com Produtos Congelados'
-                  : 'Carrinho com Produtos Prontos (Normais)'}
+                {isOnlyModeLock
+                  ? 'Pedido Exclusivo de Congelados'
+                  : isFrozenBlockedNormal
+                    ? 'Nesse Pedido, Só Poderá Ter Itens Congelados'
+                    : 'Carrinho com Produtos Prontos (Normais)'}
               </h3>
               <p className="text-xs sm:text-sm text-stone-700 leading-relaxed font-semibold">
-                Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido. Caso queira escolher itens da outra modalidade, você terá que finalizar o pedido atual e fazer um novo pedido com outra modalidade.
+                {isFrozenBlockedNormal
+                  ? 'Você escolheu a modalidade de congelados (prazo de 48h, disponível a partir de +2 dias). Nesse pedido, só poderá ter itens congelados.'
+                  : 'Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido.'}
               </p>
-              <p className="text-xs sm:text-sm text-red-600 font-extrabold pt-1">
-                Obs: Pedidos congelados com entrega em até 48 horas podem ser antecipados e você será avisado pelo aplicativo.
+              <p className="text-xs sm:text-sm text-blue-700 font-extrabold pt-1">
+                Caso o pedido de congelados fique pronto antes das 48 horas, você será avisado pelas notificações.
               </p>
             </div>
 
             <div className={`border rounded-2xl p-3.5 text-xs text-left font-medium ${
-              cartConflictModal.type === 'has_frozen_blocked_normal'
+              isFrozenBlockedNormal
                 ? 'bg-blue-50 border-blue-200 text-blue-900'
                 : 'bg-amber-50 border-amber-200 text-amber-900'
             }`}>
-              💡 <strong>Deseja finalizar o pedido atual ou iniciar um novo pedido?</strong><br/>
-              Você pode ver seu carrinho atual para finalizá-lo, ou esvaziar o carrinho agora para iniciar um novo pedido com a categoria escolhida.
+              {isFrozenBlockedNormal ? (
+                <>
+                  💡 <strong>Deseja mudar para outros produtos?</strong><br/>
+                  Ao escolher <strong>Mudar para Outros Produtos</strong>, {hasFrozenInCart ? 'o carrinho de congelados será limpo e ' : ''}a janela de agendamento será aberta novamente sem a limitação dos 2 dias.
+                </>
+              ) : (
+                <>
+                  💡 <strong>Deseja finalizar o pedido atual ou iniciar um novo pedido?</strong><br/>
+                  Você pode finalizar os itens prontos primeiro ou limpar o carrinho para iniciar um pedido de congelados (+2 dias).
+                </>
+              )}
             </div>
 
             <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const t = cartConflictModal.type;
-                  setCartConflictModal({ isOpen: false, type: t });
-                  setIsCartOpen(true);
-                }}
-                className={`w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md ${
-                  cartConflictModal.type === 'has_frozen_blocked_normal'
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-amber-600 hover:bg-amber-700'
-                }`}
-              >
-                Ver Meu Carrinho e Finalizar 🛒
-              </button>
+              {hasFrozenInCart && isFrozenBlockedNormal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = cartConflictModal.type;
+                    setCartConflictModal({ isOpen: false, type: t });
+                    setIsCartOpen(true);
+                  }}
+                  className="w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md bg-blue-600 hover:bg-blue-700"
+                >
+                  Ver Meu Carrinho de Congelados 🛒
+                </button>
+              )}
+
+              {!isFrozenBlockedNormal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = cartConflictModal.type;
+                    setCartConflictModal({ isOpen: false, type: t });
+                    setIsCartOpen(true);
+                  }}
+                  className="w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md bg-amber-600 hover:bg-amber-700"
+                >
+                  Ver Meu Carrinho e Finalizar 🛒
+                </button>
+              )}
+
+              {isFrozenBlockedNormal ? (
+                <button
+                  type="button"
+                  onClick={switchFromFrozenToNormalAndReschedule}
+                  className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+                >
+                  Mudar para Outros Produtos (Reagendar sem 2 dias)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetProd = cartConflictModal.product;
+                    const targetQty = cartConflictModal.qty || 1;
+                    const targetIsFrozen = Boolean(cartConflictModal.isFrozenContext);
+                    const targetPrepType = cartConflictModal.prepType as PrepChoiceType | undefined;
+                    const t = cartConflictModal.type;
+                    setCart([]);
+                    safeStorage.removeItem('balbec_active_cart');
+                    setProntoFritoQty(0);
+                    setProntoCruQty(0);
+                    setCongeladoCruQty(0);
+                    setCongeladoFritoQty(0);
+                    setFrozenPrepChoices({});
+                    setFrozenPrepErrors({});
+                    updateOrderModalityPreference(targetIsFrozen ? 'frozen' : 'normal');
+                    setCartConflictModal({ isOpen: false, type: t });
+                    if (targetIsFrozen && storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate)) {
+                      clearScheduleSelection();
+                      setScheduleStepMode('pickup');
+                      setShowScheduleSelectionStep(true);
+                    }
+                    if (targetProd) {
+                      setTimeout(() => {
+                        initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true, targetPrepType);
+                      }, 100);
+                    }
+                  }}
+                  className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
+                >
+                  Limpar Carrinho e Pedir Congelados
+                </button>
+              )}
 
               <button
                 type="button"
                 onClick={() => {
-                  const targetProd = cartConflictModal.product;
-                  const targetQty = cartConflictModal.qty || 1;
-                  const targetIsFrozen = Boolean(cartConflictModal.isFrozenContext);
-                  const targetPrepType = cartConflictModal.prepType as PrepChoiceType | undefined;
                   const t = cartConflictModal.type;
-                  setCart([]);
-                  safeStorage.removeItem('balbec_active_cart');
-                  setProntoFritoQty(0);
-                  setProntoCruQty(0);
-                  setCongeladoCruQty(0);
-                  setCongeladoFritoQty(0);
-                  setFrozenPrepChoices({});
-                  setFrozenPrepErrors({});
                   setCartConflictModal({ isOpen: false, type: t });
-                  if (targetProd) {
-                    setTimeout(() => {
-                      initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true, targetPrepType);
-                    }, 100);
+                  if (isFrozenBlockedNormal) {
+                    const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
+                    if (firstFrozenCat) {
+                      scrollToCategory(firstFrozenCat.id);
+                    }
                   }
                 }}
-                className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
+                className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
               >
-                Limpar Carrinho e Fazer Novo Pedido
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCartConflictModal({ isOpen: false, type: cartConflictModal.type })}
-                className="w-full py-2 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
-              >
-                Cancelar
+                {isFrozenBlockedNormal ? 'Continuar nos Congelados' : 'Cancelar'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       {/* Modal de Bloqueio por Incompatibilidade de Modalidade no Modo Acréscimo */}
       {modalidadeConflictModal.isOpen && appendOrderTarget && (
         <div className="fixed inset-0 z-[140] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">

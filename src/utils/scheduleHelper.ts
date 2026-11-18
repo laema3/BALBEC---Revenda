@@ -676,4 +676,101 @@ export function parseScheduleSlots(raw: any): string[] {
   return Array.from(new Set(arr.map(s => String(s).trim()).filter(Boolean))).sort();
 }
 
+export interface AvailableScheduleDay {
+  dateStr: string;
+  dayOfWeek: number;
+  shortDayName: string;
+  dayName: string;
+  dateFormatted: string;
+  isToday: boolean;
+}
+
+export function getBrazilNowDate(): Date {
+  const now = new Date();
+  try {
+    const brazilDateStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+    return new Date(brazilDateStr);
+  } catch {
+    return now;
+  }
+}
+
+export function formatDateKeyYMD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function getMinFrozenScheduleDateKey(referenceDate?: Date): string {
+  const base = referenceDate ? new Date(referenceDate) : getBrazilNowDate();
+  base.setDate(base.getDate() + 2);
+  return formatDateKeyYMD(base);
+}
+
+export function isDateAllowedForFrozenOrder(dateStr?: string | null, referenceDate?: Date): boolean {
+  if (!dateStr || typeof dateStr !== 'string') return false;
+  const trimmed = dateStr.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+  return trimmed >= getMinFrozenScheduleDateKey(referenceDate);
+}
+
+export function getAvailableScheduleDays(
+  weeklyScheduleRaw: any,
+  options?: { isFrozenOrder?: boolean; daysCount?: number; referenceDate?: Date }
+): AvailableScheduleDay[] {
+  const isFrozenOrder = Boolean(options?.isFrozenOrder);
+  const daysCount = options?.daysCount ?? 6;
+  const brazilDate = options?.referenceDate ? new Date(options.referenceDate) : getBrazilNowDate();
+  const todayStr = formatDateKeyYMD(brazilDate);
+  const storeWeeklySchedule = parseWeeklySchedule(weeklyScheduleRaw);
+
+  const dayShortNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const dayFullNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+
+  const dayCursor = new Date(brazilDate);
+  if (isFrozenOrder) {
+    // Pedidos de congelados precisam de 48h (joga no mínimo +2 dias corridos para frente)
+    dayCursor.setDate(dayCursor.getDate() + 2);
+  }
+
+  const availableWeekDays: AvailableScheduleDay[] = [];
+  let safetyCounter = 0;
+
+  while (availableWeekDays.length < daysCount && safetyCounter < 45) {
+    safetyCounter += 1;
+    const dOfWeek = dayCursor.getDay();
+    const dayConfig = storeWeeklySchedule.find(s => Number(s.dayOfWeek) === Number(dOfWeek));
+
+    let isDayOpen = dOfWeek !== 0;
+    if (dayConfig) {
+      if (typeof dayConfig.isOpen === 'boolean') {
+        isDayOpen = dayConfig.isOpen;
+      } else if (typeof (dayConfig as any).isOpen === 'string') {
+        isDayOpen = (dayConfig as any).isOpen === 'true';
+      }
+    }
+
+    if (isDayOpen) {
+      const dateStr = formatDateKeyYMD(dayCursor);
+      const m = String(dayCursor.getMonth() + 1).padStart(2, '0');
+      const d = String(dayCursor.getDate()).padStart(2, '0');
+
+      availableWeekDays.push({
+        dateStr,
+        dayOfWeek: dOfWeek,
+        shortDayName: dayShortNames[dOfWeek],
+        dayName: `${dayFullNames[dOfWeek]}, ${d}/${m}`,
+        dateFormatted: `${d}/${m}`,
+        isToday: dateStr === todayStr,
+      });
+    }
+
+    dayCursor.setDate(dayCursor.getDate() + 1);
+  }
+
+  return availableWeekDays;
+}
+
+
 
