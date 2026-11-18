@@ -535,6 +535,11 @@ export function smartMergeCollectionItems(
             if (existing.autoPrinted90Min || item.autoPrinted90Min) {
               merged.autoPrinted90Min = true;
             }
+            if (existing.paymentConfirmedByOperator === true || item.paymentConfirmedByOperator === true || existing.paymentConfirmedAt || item.paymentConfirmedAt) {
+              merged.paymentConfirmedByOperator = true;
+              merged.paymentConfirmedAt = Math.max(Number(existing.paymentConfirmedAt || 0), Number(item.paymentConfirmedAt || 0)) || undefined;
+              merged.paymentConfirmedBy = existing.paymentConfirmedBy || item.paymentConfirmedBy || 'Operador';
+            }
             if (existing.blueFocusExported || item.blueFocusExported || existing.blueFocusExportedAt || item.blueFocusExportedAt) {
               merged.blueFocusExported = true;
               merged.blueFocusExportedAt = Math.max(Number(existing.blueFocusExportedAt || 0), Number(item.blueFocusExportedAt || 0)) || undefined;
@@ -563,6 +568,11 @@ export function smartMergeCollectionItems(
             }
             if (existing.autoPrinted90Min || item.autoPrinted90Min) {
               merged.autoPrinted90Min = true;
+            }
+            if (existing.paymentConfirmedByOperator === true || item.paymentConfirmedByOperator === true || existing.paymentConfirmedAt || item.paymentConfirmedAt) {
+              merged.paymentConfirmedByOperator = true;
+              merged.paymentConfirmedAt = Math.max(Number(existing.paymentConfirmedAt || 0), Number(item.paymentConfirmedAt || 0)) || undefined;
+              merged.paymentConfirmedBy = existing.paymentConfirmedBy || item.paymentConfirmedBy || 'Operador';
             }
             if (existing.blueFocusExported || item.blueFocusExported || existing.blueFocusExportedAt || item.blueFocusExportedAt) {
               merged.blueFocusExported = true;

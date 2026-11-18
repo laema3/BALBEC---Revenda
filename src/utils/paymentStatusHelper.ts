@@ -131,6 +131,54 @@ export function getOrderPaymentBreakdown(order: Partial<Order> | null | undefine
   };
 }
 
+export function orderContainsFrozenItems(order: Partial<Order> | any | null | undefined): boolean {
+  if (!order) return false;
+  if (order.hasFrozenItems === true || order.isFrozen === true) return true;
+  const items = Array.isArray(order.items) ? order.items : [];
+  return items.some((it: any) => {
+    if (!it) return false;
+    if (Boolean(it.isFrozen)) return true;
+    const prepType = String(it.prepType || '').toLowerCase();
+    const prepLabel = String(it.prepLabel || '').toLowerCase();
+    if (prepType.startsWith('congelad') || prepLabel.includes('congelad')) return true;
+    if (Array.isArray(it.addons) && it.addons.some((a: any) =>
+      Boolean(a?.isFrozen) || a?.productId === 'prod_congelado' || String(a?.name || '').toLowerCase().includes('congelad')
+    )) {
+      return true;
+    }
+    if (Array.isArray(it.options) && it.options.some((o: any) =>
+      Boolean(o?.isFrozen) || String(o?.name || '').toLowerCase().includes('congelad')
+    )) {
+      return true;
+    }
+    return false;
+  });
+}
+
+export function requiresOperatorPaymentConfirmation(order: Partial<Order> | any | null | undefined): boolean {
+  if (!order) return false;
+  if (order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) return false;
+  if (order.status === 'cancelled') return false;
+  if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
+
+  const breakdown = getOrderPaymentBreakdown(order);
+  const rawMethod = String(order.paymentMethod || '').toLowerCase();
+  const isPixOrDebit = breakdown.isPix || rawMethod.includes('pix') || rawMethod.includes('débito') || rawMethod.includes('debito');
+  const isFrozen = orderContainsFrozenItems(order);
+
+  // Pedido criado explicitamente como pendente de confirmação pelo operador
+  if (order.paymentConfirmedByOperator === false) {
+    return true;
+  }
+
+  // Fallback para pedidos já em aberto ('pending') com congelados + pagamento parcial 50% (Pix/Débito)
+  if (order.status === 'pending' && breakdown.kind === 'partial_50' && (isFrozen || isPixOrDebit)) {
+    return true;
+  }
+
+  return false;
+}
+
 export function buildPixReceiptShareText(order: Order, storeInfo?: Partial<StoreInfo>): string {
   const breakdown = getOrderPaymentBreakdown(order);
   const orderNumber = order.id ? String(order.id).slice(-4).padStart(4, '0') : '0001';

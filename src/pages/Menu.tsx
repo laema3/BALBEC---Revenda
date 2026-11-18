@@ -2791,6 +2791,7 @@ export default function Menu() {
         paymentPlan: paymentDetails?.plan,
         paidAmount: paymentDetails?.paidAmount,
         remainingAmount: paymentDetails?.remainingAmount,
+        paymentConfirmedByOperator: !isTotemOrDineIn && paymentDetails?.plan === 'parcial' ? false : undefined,
       });
 
       if (createdOrder) {

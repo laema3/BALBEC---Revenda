@@ -303,6 +303,9 @@ export interface Order {
   paymentPlan?: 'integral' | 'parcial';
   paidAmount?: number;
   remainingAmount?: number;
+  paymentConfirmedByOperator?: boolean | null;
+  paymentConfirmedAt?: number | null;
+  paymentConfirmedBy?: string | null;
   isPrinted?: boolean;
   printedAt?: number | null;
   autoPrinted90Min?: boolean;
@@ -579,6 +582,7 @@ interface StoreState {
 
   placeOrder: (order: Omit<Order, 'id' | 'createdAt' | 'status'> & { status?: Order['status']; deliveryStatus?: Order['deliveryStatus'] }) => Promise<Order>;
   updateOrderStatus: (id: string, status: Order['status']) => Promise<void>;
+  confirmOrderPayment: (id: string, password: string, operatorName?: string) => Promise<{ success: boolean; order?: Order; error?: string }>;
   markOrderPrinted: (id: string) => Promise<void>;
   appendItemsToOrder: (orderId: string, newItems: OrderItem[]) => Promise<{ success: boolean; order?: Order; error?: string }>;
   deleteOrder: (id: string) => Promise<void>;
@@ -855,6 +859,9 @@ interface OrderMutationLock {
   deliveryStatus?: Order['deliveryStatus'];
   isPrinted?: boolean;
   printedAt?: number;
+  paymentConfirmedByOperator?: boolean;
+  paymentConfirmedAt?: number;
+  paymentConfirmedBy?: string;
   deleted?: boolean;
   updatedAt: number;
   expiresAt: number;
@@ -868,11 +875,30 @@ const normalizeServerOrder = (o: any): Order => {
   const bfExportedAtVal = Number(o.blueFocusExportedAt || o.bluefocus_exported_at || 0) || undefined;
   const bfExportedVal = Boolean(o.blueFocusExported || o.bluefocus_exported || bfExportedAtVal);
   const bfExportErrorVal = o.blueFocusExportError ?? o.bluefocus_export_error ?? null;
+  const paymentConfirmedAtVal = Number(o.paymentConfirmedAt || o.payment_confirmed_at || 0) || undefined;
+  const rawPayConf = o.paymentConfirmedByOperator ?? o.payment_confirmed_by_operator;
+  const paymentConfirmedVal =
+    rawPayConf === true || Boolean(paymentConfirmedAtVal)
+      ? true
+      : rawPayConf === false
+      ? false
+      : null;
+  const paymentConfirmedByVal = o.paymentConfirmedBy ?? o.payment_confirmed_by ?? null;
+  const paymentPlanVal = o.paymentPlan ?? o.payment_plan ?? undefined;
+  const paidAmountVal = o.paidAmount ?? o.paid_amount;
+  const remainingAmountVal = o.remainingAmount ?? o.remaining_amount;
+
   return {
     ...o,
     id: String(o.id),
     status: o.status || ((o.type === 'delivery' || o.type === 'online' || o.deliveryType === 'delivery' || o.deliveryType === 'pickup') ? 'pending' : 'completed'),
     items: safeParseJsonArray(o.items),
+    ...(paymentPlanVal ? { paymentPlan: paymentPlanVal } : {}),
+    ...(paidAmountVal !== undefined && paidAmountVal !== null ? { paidAmount: Number(paidAmountVal) } : {}),
+    ...(remainingAmountVal !== undefined && remainingAmountVal !== null ? { remainingAmount: Number(remainingAmountVal) } : {}),
+    ...(paymentConfirmedVal !== null ? { paymentConfirmedByOperator: paymentConfirmedVal } : {}),
+    ...(paymentConfirmedAtVal ? { paymentConfirmedAt: paymentConfirmedAtVal } : {}),
+    ...(paymentConfirmedByVal ? { paymentConfirmedBy: String(paymentConfirmedByVal) } : {}),
     isPrinted: isPrintedVal,
     ...(printedAtVal ? { printedAt: printedAtVal } : {}),
     blueFocusExported: bfExportedVal,
@@ -923,15 +949,25 @@ const reconcileServerOrders = (
       : undefined;
 
     let normalized = normalizeServerOrder(raw);
-    if (lock && (lock.status || lock.isPrinted) && updatedAt <= lock.updatedAt) {
+    if (lock && (lock.status || lock.isPrinted || lock.paymentConfirmedByOperator) && updatedAt <= lock.updatedAt) {
       normalized = {
         ...normalized,
         ...(lock.status ? { status: lock.status } : {}),
         ...(lock.deliveryStatus ? { deliveryStatus: lock.deliveryStatus } : {}),
         ...(lock.isPrinted ? { isPrinted: true, printedAt: lock.printedAt || normalized.printedAt || lock.updatedAt } : {}),
+        ...(lock.paymentConfirmedByOperator ? {
+          paymentConfirmedByOperator: true,
+          paymentConfirmedAt: lock.paymentConfirmedAt || normalized.paymentConfirmedAt || lock.updatedAt,
+          paymentConfirmedBy: lock.paymentConfirmedBy || normalized.paymentConfirmedBy || 'Operador'
+        } : {}),
         updatedAt: lock.updatedAt
       };
-    } else if (lock && (!lock.status || normalized.status === lock.status) && (!lock.isPrinted || normalized.isPrinted)) {
+    } else if (
+      lock &&
+      (!lock.status || normalized.status === lock.status) &&
+      (!lock.isPrinted || normalized.isPrinted) &&
+      (!lock.paymentConfirmedByOperator || normalized.paymentConfirmedByOperator === true)
+    ) {
       recentOrderMutationLocks.delete(oid);
     }
 
@@ -940,6 +976,14 @@ const reconcileServerOrders = (
         ...normalized,
         isPrinted: true,
         printedAt: existingLocal.printedAt || lock.printedAt || Date.now(),
+      };
+    }
+    if (existingLocal && (existingLocal.paymentConfirmedByOperator === true || existingLocal.paymentConfirmedAt) && !normalized.paymentConfirmedByOperator) {
+      normalized = {
+        ...normalized,
+        paymentConfirmedByOperator: true,
+        paymentConfirmedAt: existingLocal.paymentConfirmedAt || normalized.paymentConfirmedAt || Date.now(),
+        paymentConfirmedBy: existingLocal.paymentConfirmedBy || normalized.paymentConfirmedBy || 'Operador'
       };
     }
     if (existingLocal && existingLocal.blueFocusExported && !normalized.blueFocusExported) {
@@ -2029,7 +2073,8 @@ export const useStore = create<StoreState>((set, get) => ({
         })
       });
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || `HTTP ${res.status}`);
       }
     } catch (error) {
       recentOrderMutationLocks.delete(targetId);
@@ -2038,6 +2083,51 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ orders: prevOrders });
       console.error('Error updating order status:', error);
       throw error;
+    }
+  },
+
+  confirmOrderPayment: async (id, password, operatorName) => {
+    const targetId = String(id || '').trim();
+    if (!targetId) {
+      return { success: false, error: 'Pedido inválido.' };
+    }
+    try {
+      const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}/confirm-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, operatorName })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !data?.order) {
+        return { success: false, error: data?.error || 'Não foi possível confirmar o pagamento.' };
+      }
+
+      const nowTs = Date.now();
+      const normalized = normalizeServerOrder(data.order);
+      const existingLock = recentOrderMutationLocks.get(targetId);
+      ordersMutationEpoch++;
+      recentOrderMutationLocks.set(targetId, {
+        ...(existingLock || {}),
+        paymentConfirmedByOperator: true,
+        paymentConfirmedAt: Number(normalized.paymentConfirmedAt) || nowTs,
+        paymentConfirmedBy: normalized.paymentConfirmedBy || operatorName || 'Operador',
+        updatedAt: nowTs,
+        expiresAt: nowTs + 12000
+      });
+
+      set(state => {
+        const next: Order[] = state.orders.map(o =>
+          String(o.id).trim() === targetId || String(o.id).trim() === String(normalized.id).trim()
+            ? normalized
+            : o
+        );
+        saveOrdersToStorage(next);
+        return { orders: next };
+      });
+
+      return { success: true, order: normalized };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Erro de conexão ao confirmar pagamento.' };
     }
   },
 

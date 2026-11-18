@@ -759,8 +759,73 @@ function safeParseJsonArray(val: any): any[] {
   return [];
 }
 
+function orderHasFrozenItemsServer(order: any): boolean {
+  if (!order) return false;
+  if (order.hasFrozenItems === true || order.isFrozen === true) return true;
+  const items = safeParseJsonArray(order.items);
+  return items.some((it: any) => {
+    if (!it) return false;
+    if (Boolean(it.isFrozen)) return true;
+    const prepType = String(it.prepType || '').toLowerCase();
+    const prepLabel = String(it.prepLabel || '').toLowerCase();
+    if (prepType.startsWith('congelad') || prepLabel.includes('congelad')) return true;
+    if (Array.isArray(it.addons) && it.addons.some((a: any) =>
+      Boolean(a?.isFrozen) || a?.productId === 'prod_congelado' || String(a?.name || '').toLowerCase().includes('congelad')
+    )) {
+      return true;
+    }
+    if (Array.isArray(it.options) && it.options.some((o: any) =>
+      Boolean(o?.isFrozen) || String(o?.name || '').toLowerCase().includes('congelad')
+    )) {
+      return true;
+    }
+    return false;
+  });
+}
+
+function isOrderPartial50PaymentServer(order: any): boolean {
+  if (!order) return false;
+  const rawMethod = String(order.paymentMethod || '').toLowerCase();
+  return (
+    order.paymentPlan === 'parcial' ||
+    rawMethod.includes('50%') ||
+    rawMethod.includes('entrada:') ||
+    rawMethod.includes('saldo na retirada') ||
+    (Number(order.remainingAmount) > 0 && Number(order.paidAmount) > 0)
+  );
+}
+
+function requiresOrderPaymentConfirmationServer(order: any): boolean {
+  if (!order) return false;
+  if (order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) return false;
+  if (order.status === 'cancelled') return false;
+  if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
+
+  if (order.paymentConfirmedByOperator === false) {
+    return true;
+  }
+
+  const rawMethod = String(order.paymentMethod || '').toLowerCase();
+  const isPixOrDebit = rawMethod.includes('pix') || rawMethod.includes('débito') || rawMethod.includes('debito');
+  const isPartial50 = isOrderPartial50PaymentServer(order);
+  const hasFrozen = orderHasFrozenItemsServer(order);
+
+  if (order.status === 'pending' && isPartial50 && (hasFrozen || isPixOrDebit)) {
+    return true;
+  }
+  return false;
+}
+
 export function formatOrderForDb(order: any) {
   const createdAt = Number(order.createdAt) || Date.now();
+  const paymentConfirmedAtVal = order.paymentConfirmedAt ? Number(order.paymentConfirmedAt) : null;
+  const paymentConfirmedBool =
+    order.paymentConfirmedByOperator === true || Boolean(paymentConfirmedAtVal)
+      ? true
+      : order.paymentConfirmedByOperator === false
+      ? false
+      : null;
+
   return {
     id: String(order.id),
     items: safeParseJsonArray(order.items),
@@ -792,6 +857,12 @@ export function formatOrderForDb(order: any) {
     scheduledPickupTime: order.scheduledPickupTime || null,
     isPrinted: Boolean(order.isPrinted || order.printedAt || order.autoPrinted90Min),
     printedAt: order.printedAt ? Number(order.printedAt) : null,
+    paymentPlan: order.paymentPlan ? String(order.paymentPlan) : null,
+    paidAmount: order.paidAmount !== undefined && order.paidAmount !== null ? Number(order.paidAmount) : null,
+    remainingAmount: order.remainingAmount !== undefined && order.remainingAmount !== null ? Number(order.remainingAmount) : null,
+    paymentConfirmedByOperator: paymentConfirmedBool,
+    paymentConfirmedAt: paymentConfirmedAtVal,
+    paymentConfirmedBy: order.paymentConfirmedBy ? String(order.paymentConfirmedBy) : null,
     blueFocusExported: Boolean(order.blueFocusExported),
     blueFocusExportedAt: order.blueFocusExportedAt ? Number(order.blueFocusExportedAt) : null,
     blueFocusExportError: order.blueFocusExportError ? String(order.blueFocusExportError) : null,
@@ -2786,7 +2857,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     const createdAtTs = Number(data.createdAt) || nowTs;
     const normalizedItems = safeParseJsonArray(data.items);
 
-    const newOrder = {
+    const rawOrderDraft = {
       ...data,
       id: finalId,
       items: normalizedItems,
@@ -2795,6 +2866,21 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       status: initialStatus,
       deliveryStatus: initialDeliveryStatus,
       customerName: data.customerName || (isKiosk ? 'Cliente Totem' : 'Cliente')
+    };
+
+    const rawMethodLower = String(rawOrderDraft.paymentMethod || '').toLowerCase();
+    const isPixOrDebitOrder = rawMethodLower.includes('pix') || rawMethodLower.includes('débito') || rawMethodLower.includes('debito');
+    const needsOperatorConfirmationAtCreation =
+      !isTotemOrDineIn &&
+      initialStatus === 'pending' &&
+      rawOrderDraft.paymentConfirmedByOperator !== true &&
+      !rawOrderDraft.paymentConfirmedAt &&
+      (rawOrderDraft.paymentConfirmedByOperator === false ||
+        (isOrderPartial50PaymentServer(rawOrderDraft) && (orderHasFrozenItemsServer(rawOrderDraft) || isPixOrDebitOrder)));
+
+    const newOrder = {
+      ...rawOrderDraft,
+      ...(needsOperatorConfirmationAtCreation ? { paymentConfirmedByOperator: false } : {})
     };
 
     memOrders = [newOrder, ...memOrders.filter(o => o.id !== newOrder.id)];
@@ -2817,7 +2903,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }
     }
 
-    const shouldAutoPrintImmediately = (newOrder.status === 'completed' || isTotemOrDineIn) && !isDeliveryOrder;
+    const shouldAutoPrintImmediately = (newOrder.status === 'completed' || isTotemOrDineIn) && !isDeliveryOrder && !needsOperatorConfirmationAtCreation;
 
     if (shouldAutoPrintImmediately) {
       queueOrderForAgent(newOrder, memStoreInfo);
@@ -2897,6 +2983,17 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       scheduledPickupTime: newOrder.scheduledPickupTime || null,
       isPrinted: Boolean(newOrder.isPrinted),
       printedAt: newOrder.printedAt ? Number(newOrder.printedAt) : null,
+      paymentPlan: newOrder.paymentPlan ? String(newOrder.paymentPlan) : null,
+      paidAmount: newOrder.paidAmount !== undefined && newOrder.paidAmount !== null ? Number(newOrder.paidAmount) : null,
+      remainingAmount: newOrder.remainingAmount !== undefined && newOrder.remainingAmount !== null ? Number(newOrder.remainingAmount) : null,
+      paymentConfirmedByOperator:
+        newOrder.paymentConfirmedByOperator === true
+          ? true
+          : newOrder.paymentConfirmedByOperator === false
+          ? false
+          : null,
+      paymentConfirmedAt: newOrder.paymentConfirmedAt ? Number(newOrder.paymentConfirmedAt) : null,
+      paymentConfirmedBy: newOrder.paymentConfirmedBy ? String(newOrder.paymentConfirmedBy) : null,
       blueFocusExported: Boolean(newOrder.blueFocusExported),
       blueFocusExportedAt: newOrder.blueFocusExportedAt ? Number(newOrder.blueFocusExportedAt) : null,
       blueFocusExportError: newOrder.blueFocusExportError ? String(newOrder.blueFocusExportError) : null
@@ -2915,7 +3012,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
         if (result && result.length > 0) {
           console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
-          return result[0];
+          return { ...newOrder, ...result[0], items: safeParseJsonArray(result[0].items || normalizedItems) };
         } else {
           console.warn(`[DB Order] AVISO: O banco retornou vazio ao salvar #${orderForDb.id}.`);
           return newOrder;
@@ -3058,6 +3155,24 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
     const resolvedId = matchedOrder ? String(matchedOrder.id).trim() : targetId;
 
+    // Bloqueia envio para produção (preparando, pronto, concluído) se pedido de congelados 50% ainda não foi confirmado pelo operador
+    const isAdvancingToProduction = Boolean(
+      data.status &&
+      data.status !== 'pending' &&
+      data.status !== 'cancelled'
+    );
+    if (
+      isAdvancingToProduction &&
+      matchedOrder &&
+      requiresOrderPaymentConfirmationServer(matchedOrder) &&
+      data.paymentConfirmedByOperator !== true
+    ) {
+      return res.status(400).json({
+        error: 'Pagamento de 50% (congelados) pendente de confirmação pelo operador! Clique em CONFIRMAR PAGAMENTO e informe a senha antes de passar o pedido para produção.',
+        code: 'PAYMENT_CONFIRMATION_REQUIRED'
+      });
+    }
+
     memOrders = memOrders.map(o =>
       String(o.id).trim() === resolvedId ? { ...o, ...data, updatedAt: updatedTimestamp } : o
     );
@@ -3146,6 +3261,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           'paymentMethod', 'customerName', 'customerPhone', 'customerEmail', 'customerCpf',
           'deliveryType', 'deliveryAddress', 'deliveryCep', 'deliveryNeighborhood', 'deliveryFee',
           'tableNumber', 'tableId', 'isPrinted', 'printedAt',
+          'paymentPlan', 'paidAmount', 'remainingAmount',
+          'paymentConfirmedByOperator', 'paymentConfirmedAt', 'paymentConfirmedBy',
           'blueFocusExported', 'blueFocusExportedAt', 'blueFocusExportError'
         ];
         const updatePayload: any = { updatedAt: updatedTimestamp };
@@ -3153,12 +3270,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           if (data[k] !== undefined) {
             if (k === 'items') {
               updatePayload.items = safeParseJsonArray(data.items);
-            } else if (k === 'total' || k === 'deliveryFee') {
-              updatePayload[k] = Number(data[k]) || 0;
-            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt' || k === 'printedAt' || k === 'blueFocusExportedAt') {
+            } else if (k === 'total' || k === 'deliveryFee' || k === 'paidAmount' || k === 'remainingAmount') {
+              updatePayload[k] = data[k] !== null ? (Number(data[k]) || 0) : null;
+            } else if (k === 'deliveryAcceptedAt' || k === 'deliveryCompletedAt' || k === 'printedAt' || k === 'blueFocusExportedAt' || k === 'paymentConfirmedAt') {
               updatePayload[k] = data[k] ? Number(data[k]) : null;
-            } else if (k === 'isPrinted' || k === 'blueFocusExported') {
-              updatePayload[k] = Boolean(data[k]);
+            } else if (k === 'isPrinted' || k === 'blueFocusExported' || k === 'paymentConfirmedByOperator') {
+              updatePayload[k] = data[k] === null ? null : Boolean(data[k]);
             } else {
               updatePayload[k] = data[k];
             }
@@ -3188,6 +3305,89 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       void triggerServerAutoExportBlueFocus(orderData, 'on_complete');
     }
     res.json(dbUpdatedOrder || orderData);
+  });
+
+  app.post('/api/db/orders/:id/confirm-payment', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const rawPassword = String(req.body?.password || '').trim();
+      if (rawPassword !== 'balbecrecebe') {
+        return res.status(403).json({
+          success: false,
+          error: 'Senha incorreta! Digite a senha de confirmação para validar o recebimento do pagamento.'
+        });
+      }
+
+      const targetId = String(id || '').trim();
+      let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
+      if (!matchedOrder && targetId.length >= 4) {
+        matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+      }
+
+      if (!matchedOrder && isDatabaseConfigured()) {
+        try {
+          const dbRows = await db.select().from(orders).where(eq(orders.id, targetId));
+          if (dbRows && dbRows.length > 0) {
+            matchedOrder = { ...dbRows[0], items: safeParseJsonArray(dbRows[0].items) };
+          }
+        } catch {}
+      }
+
+      if (!matchedOrder) {
+        return res.status(404).json({ success: false, error: 'Pedido não encontrado.' });
+      }
+
+      const resolvedId = String(matchedOrder.id).trim();
+      const confirmedAt = Number(matchedOrder.paymentConfirmedAt) || Date.now();
+      const operatorName = String(req.body?.operatorName || matchedOrder.paymentConfirmedBy || '').trim() || 'Operador';
+      const nowTs = Date.now();
+
+      const updatedOrder = {
+        ...matchedOrder,
+        paymentConfirmedByOperator: true,
+        paymentConfirmedAt: confirmedAt,
+        paymentConfirmedBy: operatorName,
+        updatedAt: nowTs
+      };
+
+      const existsInMem = memOrders.some(o => String(o.id).trim() === resolvedId);
+      memOrders = existsInMem
+        ? memOrders.map(o => (String(o.id).trim() === resolvedId ? updatedOrder : o))
+        : [updatedOrder, ...memOrders];
+      persistOrdersToDisk(memOrders);
+
+      if (isDatabaseConfigured()) {
+        try {
+          await withDbRetry(() =>
+            db.update(orders)
+              .set({
+                paymentConfirmedByOperator: true,
+                paymentConfirmedAt: confirmedAt,
+                paymentConfirmedBy: operatorName,
+                updatedAt: nowTs
+              })
+              .where(eq(orders.id, resolvedId))
+          );
+        } catch (dbErr: any) {
+          console.warn(`[DB Confirm Payment] Aviso ao persistir confirmação do pedido #${resolvedId}:`, dbErr?.message);
+        }
+      }
+
+      broadcastSSE({
+        type: 'sync',
+        target: 'orders',
+        action: 'payment_confirmed',
+        orderId: resolvedId,
+        paymentConfirmedByOperator: true,
+        paymentConfirmedAt: confirmedAt,
+        paymentConfirmedBy: operatorName,
+        time: nowTs
+      });
+
+      return res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Erro ao confirmar pagamento do pedido.' });
+    }
   });
 
   app.post('/api/db/orders/:id/mark-printed', async (req: Request, res: Response) => {
@@ -5998,9 +6198,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           let newDeliveryStatus = order.deliveryStatus;
           let needsPrint = false;
 
+          // Não dispara impressão automática de produção enquanto pagamento 50% de congelados não for confirmado pelo operador
+          const blockedPendingPaymentConfirm = requiresOrderPaymentConfirmationServer(order);
+
           // 2. Auto-Print when advance minutes (default 90 min) remaining until scheduled time
           const advanceMinutes = Number(memStoreInfo.schedulePrepTimeFrozenMinutes) || 90;
-          if (order.scheduledDate && order.scheduledTime && !(order as any).autoPrinted90Min) {
+          if (!blockedPendingPaymentConfirm && order.scheduledDate && order.scheduledTime && !(order as any).autoPrinted90Min) {
             try {
               const [year, month, day] = String(order.scheduledDate).slice(0, 10).split('-').map(Number);
               const [hour, minute] = String(order.scheduledTime).split(':').map(Number);

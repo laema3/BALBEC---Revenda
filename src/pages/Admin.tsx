@@ -3,7 +3,7 @@ import { db, auth } from '../firebase';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, Category, Product, Order, User, AiTrainingExample, DEFAULT_AI_TRAINING_EXAMPLES } from '../store/useStore';
 import { printReceipt, resolveItemCode, resolveAddonCode } from '../utils/printer';
-import { getOrderPaymentBreakdown } from '../utils/paymentStatusHelper';
+import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation, formatBRL } from '../utils/paymentStatusHelper';
 import { formatCurrency, formatDateBR, formatAllDatesBR } from '../lib/utils';
 import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode, isCategoryFrozenModality } from '../constants';
 import { getCollectionPath, getDocPath } from '../lib/tenants';
@@ -81,6 +81,7 @@ import {
   MapPin,
   KeyRound,
   ShieldCheck,
+  Lock,
   LocateFixed,
   Upload
 } from 'lucide-react';
@@ -112,7 +113,7 @@ export default function Admin() {
     addCategory, updateCategory, deleteCategory,
     addProduct, updateProduct, deleteProduct,
     addUser, updateUser, deleteUser,
-    updateOrderStatus, markOrderPrinted, deleteOrder, clearAllOrders, updateStoreInfo, exportOrderToBlueFocus,
+    updateOrderStatus, confirmOrderPayment, markOrderPrinted, deleteOrder, clearAllOrders, updateStoreInfo, exportOrderToBlueFocus,
     fetchData, fetchCustomers
   } = useStore();
 
@@ -220,6 +221,13 @@ export default function Admin() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<Order | null>(null);
+  const [paymentConfirmModal, setPaymentConfirmModal] = useState<{
+    order: Order;
+    password: string;
+    showPassword: boolean;
+    error: string | null;
+    isSubmitting: boolean;
+  } | null>(null);
   const [modalType, setModalType] = useState<'category' | 'product' | 'user' | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -2438,10 +2446,15 @@ export default function Admin() {
     }
     prevPendingIds.current = currentPendingIds;
 
-    // Auto-impressão no Caixa: imprime pedidos assim que chegam (Totem, Consumo Loja/Mesa, Balcão/Retirada, e concluídos).
+    // Auto-impressão no Caixa: imprime pedidos assim que chegam (exceto congelados 50% aguardando confirmação de pagamento).
     const isCaixaAutoPrintEnabled = storeInfo?.autoPrintOrdersOnCaixa !== false;
     if (isCaixaAutoPrintEnabled && brandNewOrders.length > 0) {
       brandNewOrders.forEach(async (newOrder) => {
+        if (requiresOperatorPaymentConfirmation(newOrder)) {
+          // Pedido 50% de congelados fica aguardando confirmação com senha antes de ir para produção/impressão
+          allKnownOrderIds.current.delete(newOrder.id);
+          return;
+        }
         if (!autoPrintedOrderIds.current.has(newOrder.id)) {
           // Dispara a impressão automática no Caixa imediatamente para os novos pedidos
           autoPrintedOrderIds.current.add(newOrder.id);
@@ -3059,14 +3072,70 @@ export default function Admin() {
     }
   };
 
+  const openPaymentConfirmModal = (order: Order, prefillError: string | null = null) => {
+    stopAlarm();
+    setPaymentConfirmModal({
+      order,
+      password: '',
+      showPassword: false,
+      error: prefillError,
+      isSubmitting: false
+    });
+  };
+
+  const handleSubmitPaymentConfirmation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!paymentConfirmModal || paymentConfirmModal.isSubmitting) return;
+
+    const pwd = paymentConfirmModal.password.trim();
+    if (!pwd) {
+      setPaymentConfirmModal(prev => prev ? { ...prev, error: 'Digite a senha de confirmação para liberar o pagamento.' } : null);
+      return;
+    }
+
+    setPaymentConfirmModal(prev => prev ? { ...prev, isSubmitting: true, error: null } : null);
+    const operatorLabel = currentUser?.name || currentUser?.email || 'Operador';
+    const result = await confirmOrderPayment(paymentConfirmModal.order.id, pwd, operatorLabel);
+
+    if (result.success) {
+      playStatusChangeAudio();
+      const confirmedOrderNum = String(paymentConfirmModal.order.id).slice(-4).padStart(4, '0');
+      setPaymentConfirmModal(null);
+      showInfoModal(
+        'Pagamento 50% Confirmado!',
+        `O recebimento do pagamento do Pedido #${confirmedOrderNum} foi validado com sucesso.\n\nO pedido agora está liberado para ser enviado para produção!`
+      );
+    } else {
+      setPaymentConfirmModal(prev => prev ? {
+        ...prev,
+        isSubmitting: false,
+        error: result.error || 'Senha incorreta! Verifique a senha e tente novamente.'
+      } : null);
+    }
+  };
+
   const handleUpdateOrderStatus = async (id: string, status: Order['status']) => {
+    const targetOrder = orders.find(o => o.id === id) || rawOrders.find(o => o.id === id);
+    if (
+      targetOrder &&
+      status !== 'pending' &&
+      status !== 'cancelled' &&
+      requiresOperatorPaymentConfirmation(targetOrder)
+    ) {
+      openPaymentConfirmModal(
+        targetOrder,
+        'Pagamento 50% de congelados pendente! Confirme o recebimento com a senha antes de passar o pedido para produção.'
+      );
+      return;
+    }
+
     try {
       stopAlarm();
       playStatusChangeAudio();
       await updateOrderStatus(id, status);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating order status:', error);
-      showInfoModal('Erro ao Atualizar Status', 'Não foi possível salvar o novo status do pedido no servidor. Tente novamente.');
+      showInfoModal('Erro ao Atualizar Status', error?.message || 'Não foi possível salvar o novo status do pedido no servidor. Tente novamente.');
     }
   };
 
@@ -4131,16 +4200,30 @@ export default function Admin() {
                       <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-auto">
                         {(() => {
                           const pb = getOrderPaymentBreakdown(ord);
+                          const needsPayConfirm = requiresOperatorPaymentConfirmation(ord);
                           return (
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                              pb.kind === 'partial_50'
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : pb.kind === 'paid_full'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                : 'bg-orange-100 text-orange-900 border-orange-300'
-                            }`}>
-                              {pb.operatorBadge}
-                            </span>
+                            <>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                                pb.kind === 'partial_50'
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                  : pb.kind === 'paid_full'
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  : 'bg-orange-100 text-orange-900 border-orange-300'
+                              }`}>
+                                {pb.operatorBadge}
+                              </span>
+                              {needsPayConfirm && (
+                                <button
+                                  type="button"
+                                  onClick={() => openPaymentConfirmModal(ord)}
+                                  className="px-2.5 py-1 rounded-md text-[10px] font-black bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                  title="Confirmar pagamento 50% recebido com senha antes de produzir"
+                                >
+                                  <Lock className="w-3 h-3" />
+                                  CONFIRMAR PAGAMENTO
+                                </button>
+                              )}
+                            </>
                           );
                         })()}
                         <span className="text-stone-500 text-[11px] capitalize bg-stone-100 px-2 py-0.5 rounded max-w-[200px] truncate" title={ord.paymentMethod || 'Não informado'}>
@@ -5025,20 +5108,58 @@ export default function Admin() {
                     </div>
                     {(() => {
                       const pb = getOrderPaymentBreakdown(order);
+                      const needsPayConfirm = requiresOperatorPaymentConfirmation(order);
                       return (
-                        <div className={`mb-3 px-3 py-2.5 rounded-xl border-2 text-xs shadow-2xs space-y-0.5 ${
-                          pb.kind === 'partial_50'
-                            ? 'bg-amber-50 border-amber-400 text-amber-950'
-                            : pb.kind === 'paid_full'
-                            ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
-                            : 'bg-orange-50 border-orange-300 text-orange-950'
-                        }`}>
-                          <div className="font-black uppercase tracking-tight flex items-center justify-between gap-2">
-                            <span>{pb.operatorTitle}</span>
+                        <div className="space-y-2.5 mb-3">
+                          <div className={`px-3 py-2.5 rounded-xl border-2 text-xs shadow-2xs space-y-1 ${
+                            pb.kind === 'partial_50'
+                              ? 'bg-amber-50 border-amber-400 text-amber-950'
+                              : pb.kind === 'paid_full'
+                              ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                              : 'bg-orange-50 border-orange-300 text-orange-950'
+                          }`}>
+                            <div className="font-black uppercase tracking-tight flex items-center justify-between gap-2 flex-wrap">
+                              <span>{pb.operatorTitle}</span>
+                              {order.paymentConfirmedByOperator === true && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black shadow-2xs">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  50% CONFIRMADO
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] font-semibold leading-snug opacity-95">
+                              {pb.operatorMessage}
+                            </p>
+                            {order.paymentConfirmedByOperator === true && (
+                              <p className="text-[10px] font-bold text-emerald-800 pt-0.5">
+                                ✓ Recebimento validado{order.paymentConfirmedAt ? ` em ${new Date(order.paymentConfirmedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}{order.paymentConfirmedBy ? ` (${order.paymentConfirmedBy})` : ''} • Liberado para produção.
+                              </p>
+                            )}
                           </div>
-                          <p className="text-[11px] font-semibold leading-snug opacity-95">
-                            {pb.operatorMessage}
-                          </p>
+
+                          {needsPayConfirm && (
+                            <div className="bg-rose-50 border-2 border-rose-400 rounded-xl p-3 space-y-2 shadow-xs">
+                              <div className="flex items-start gap-2 text-rose-950">
+                                <Lock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                <div className="text-xs leading-snug">
+                                  <p className="font-black uppercase tracking-wide text-rose-800">
+                                    AGUARDANDO CONFIRMAÇÃO DO PAGAMENTO (50%)
+                                  </p>
+                                  <p className="text-[11px] font-semibold text-rose-900 mt-0.5">
+                                    Verifique se o valor de entrada ({formatBRL(pb.paidAmount)}) entrou no Pix/Débito antes de liberar este pedido para produção.
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => openPaymentConfirmModal(order)}
+                                className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                              >
+                                <ShieldCheck className="w-4 h-4" />
+                                CONFIRMAR PAGAMENTO
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
@@ -5120,6 +5241,10 @@ export default function Admin() {
                     </div>
                   </div>
                   <div className="p-4 bg-stone-50 border-t flex flex-col gap-2.5">
+                    {(() => {
+                      const needsPayConfirm = requiresOperatorPaymentConfirmation(order);
+                      return (
+                        <>
                     {/* Seletor Rápido de Todas as Etapas Solicitadas */}
                     <div className="bg-white p-2.5 rounded-xl border border-stone-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                       <label className="text-[11px] font-black uppercase text-stone-600 tracking-wider flex items-center gap-1.5 shrink-0">
@@ -5129,11 +5254,18 @@ export default function Admin() {
                         value={(order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'ready' : order.status}
                         onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
                         className="w-full sm:w-auto px-2.5 py-1.5 rounded-lg text-xs font-black bg-stone-50 border border-stone-300 text-stone-900 shadow-xs focus:bg-white focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                        title={needsPayConfirm ? 'Confirme o pagamento de 50% antes de liberar para produção' : 'Alterar etapa do pedido'}
                       >
                         <option value="pending">🟡 PENDENTE</option>
-                        <option value="preparing">🟠 PREPARANDO</option>
-                        <option value="ready">🟢 PEDIDO PRONTO</option>
-                        <option value="completed">✅ ENTREGUE</option>
+                        <option value="preparing" disabled={needsPayConfirm}>
+                          {needsPayConfirm ? '🔒 PREPARANDO (Confirme o pagamento)' : '🟠 PREPARANDO'}
+                        </option>
+                        <option value="ready" disabled={needsPayConfirm}>
+                          {needsPayConfirm ? '🔒 PEDIDO PRONTO (Confirme o pagamento)' : '🟢 PEDIDO PRONTO'}
+                        </option>
+                        <option value="completed" disabled={needsPayConfirm}>
+                          {needsPayConfirm ? '🔒 ENTREGUE (Confirme o pagamento)' : '✅ ENTREGUE'}
+                        </option>
                         <option value="cancelled">🔴 CANCELADO</option>
                       </select>
                     </div>
@@ -5198,12 +5330,23 @@ export default function Admin() {
                         </button>
                       )}
                       {order.status === 'pending' && (
-                        <button type="button" 
-                          onClick={() => handleUpdateOrderStatus(order.id, 'preparing')}
-                          className="flex-1 bg-orange-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-orange-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                        >
-                          <ChefHat className="w-4 h-4" /> Preparando
-                        </button>
+                        needsPayConfirm ? (
+                          <button
+                            type="button"
+                            onClick={() => openPaymentConfirmModal(order)}
+                            className="flex-1 bg-rose-100 text-rose-900 border border-rose-300 py-2 px-2.5 rounded-lg font-black text-xs hover:bg-rose-200 flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                            title="Clique para confirmar o recebimento do pagamento (50%) com senha e liberar a produção"
+                          >
+                            <Lock className="w-3.5 h-3.5 text-rose-700" /> Produção Bloqueada
+                          </button>
+                        ) : (
+                          <button type="button" 
+                            onClick={() => handleUpdateOrderStatus(order.id, 'preparing')}
+                            className="flex-1 bg-orange-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-orange-700 flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                          >
+                            <ChefHat className="w-4 h-4" /> Preparando
+                          </button>
+                        )
                       )}
                       {order.status === 'preparing' && (
                         <div className="flex-1 flex gap-1.5">
@@ -5240,6 +5383,9 @@ export default function Admin() {
                         </button>
                       )}
                     </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ); })
@@ -5335,24 +5481,40 @@ export default function Admin() {
                       })()}
                     </td>
                     <td className="p-4">
-                      <select
-                        value={(order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'ready' : order.status}
-                        onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-black border cursor-pointer shadow-xs focus:ring-2 focus:ring-orange-500 ${
-                          order.status === 'completed' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                          (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'bg-blue-50 text-blue-800 border-blue-300' :
-                          order.status === 'preparing' ? 'bg-orange-50 text-orange-800 border-orange-300' :
-                          order.status === 'pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                          'bg-red-50 text-red-800 border-red-300'
-                        }`}
-                        title="Alterar etapa do pedido"
-                      >
-                        <option value="pending">🟡 Pendente</option>
-                        <option value="preparing">🟠 Preparando</option>
-                        <option value="ready">🟢 Pedido Pronto</option>
-                        <option value="completed">✅ Entregue</option>
-                        <option value="cancelled">🔴 Cancelado</option>
-                      </select>
+                      {(() => {
+                        const needsPayConfirm = requiresOperatorPaymentConfirmation(order);
+                        return (
+                          <div className="space-y-1">
+                            <select
+                              value={(order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'ready' : order.status}
+                              onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-black border cursor-pointer shadow-xs focus:ring-2 focus:ring-orange-500 ${
+                                order.status === 'completed' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                                (order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') ? 'bg-blue-50 text-blue-800 border-blue-300' :
+                                order.status === 'preparing' ? 'bg-orange-50 text-orange-800 border-orange-300' :
+                                order.status === 'pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                                'bg-red-50 text-red-800 border-red-300'
+                              }`}
+                              title="Alterar etapa do pedido"
+                            >
+                              <option value="pending">🟡 Pendente</option>
+                              <option value="preparing" disabled={needsPayConfirm}>{needsPayConfirm ? '🔒 Preparando' : '🟠 Preparando'}</option>
+                              <option value="ready" disabled={needsPayConfirm}>{needsPayConfirm ? '🔒 Pedido Pronto' : '🟢 Pedido Pronto'}</option>
+                              <option value="completed" disabled={needsPayConfirm}>{needsPayConfirm ? '🔒 Entregue' : '✅ Entregue'}</option>
+                              <option value="cancelled">🔴 Cancelado</option>
+                            </select>
+                            {needsPayConfirm && (
+                              <button
+                                type="button"
+                                onClick={() => openPaymentConfirmModal(order)}
+                                className="px-2 py-1 rounded text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 cursor-pointer"
+                              >
+                                <ShieldCheck className="w-3 h-3" /> CONFIRMAR PAGAMENTO
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-4 flex flex-wrap gap-2 items-center">
                       <button type="button" 
@@ -9761,6 +9923,119 @@ export default function Admin() {
       )}
 
       {/* Modals */}
+      {paymentConfirmModal && (() => {
+        const pb = getOrderPaymentBreakdown(paymentConfirmModal.order);
+        const ordNum = String(paymentConfirmModal.order.id).slice(-4).padStart(4, '0');
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[70] p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-stone-200">
+              <div className="bg-emerald-700 text-white px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-6 h-6 text-emerald-200" />
+                  <div>
+                    <h3 className="text-base font-black tracking-wide uppercase">Confirmar Pagamento</h3>
+                    <p className="text-xs text-emerald-100 font-medium">Pedido #{ordNum} • {paymentConfirmModal.order.customerName}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPaymentConfirmModal(null)}
+                  disabled={paymentConfirmModal.isSubmitting}
+                  className="p-1.5 rounded-full hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitPaymentConfirmation} className="p-5 space-y-4">
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 text-xs space-y-1.5">
+                  <div className="font-black text-amber-950 uppercase tracking-tight">
+                    Entrada de 50% (Salgados Congelados)
+                  </div>
+                  <div className="flex justify-between text-stone-700 font-medium">
+                    <span>Valor Entrada (50%):</span>
+                    <strong className="text-emerald-800 font-black">{formatBRL(pb.paidAmount)}</strong>
+                  </div>
+                  <div className="flex justify-between text-stone-700 font-medium">
+                    <span>Restante na Retirada:</span>
+                    <strong className="text-amber-900 font-black">{formatBRL(pb.remainingAmount)}</strong>
+                  </div>
+                  <div className="flex justify-between text-stone-700 font-medium pt-1 border-t border-amber-200">
+                    <span>Forma informada:</span>
+                    <strong className="text-stone-900">{pb.methodLabel}</strong>
+                  </div>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Confirme abaixo que o pagamento de <strong>{formatBRL(pb.paidAmount)}</strong> foi realmente recebido na conta ou maquininha. Após confirmar, o pedido será liberado para entrar em produção.
+                </p>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                    Senha de Confirmação do Operador
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={paymentConfirmModal.showPassword ? 'text' : 'password'}
+                      autoFocus
+                      value={paymentConfirmModal.password}
+                      onChange={(e) => setPaymentConfirmModal(prev => prev ? { ...prev, password: e.target.value, error: null } : null)}
+                      placeholder="Digite a senha para liberar"
+                      disabled={paymentConfirmModal.isSubmitting}
+                      className="w-full pl-9 pr-10 py-2.5 border-2 border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPaymentConfirmModal(prev => prev ? { ...prev, showPassword: !prev.showPassword } : null)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-stone-800 cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {paymentConfirmModal.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {paymentConfirmModal.error && (
+                  <div className="bg-red-50 border border-red-300 text-red-800 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>{paymentConfirmModal.error}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentConfirmModal(null)}
+                    disabled={paymentConfirmModal.isSubmitting}
+                    className="px-4 py-2.5 text-stone-600 hover:bg-stone-100 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={paymentConfirmModal.isSubmitting}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {paymentConfirmModal.isSubmitting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        Confirmar Recebimento
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
       {confirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className={`bg-white rounded-2xl shadow-xl w-full ${confirmModal.debugXml ? 'max-w-lg' : 'max-w-sm'} overflow-hidden p-6`}>

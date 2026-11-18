@@ -583,6 +583,12 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_pickup_time TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_printed BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at BIGINT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_plan TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_amount DOUBLE PRECISION;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS remaining_amount DOUBLE PRECISION;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_confirmed_by_operator BOOLEAN;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_confirmed_at BIGINT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_confirmed_by TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_exported BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_exported_at BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_export_error TEXT;
