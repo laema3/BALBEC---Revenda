@@ -772,5 +772,96 @@ export function getAvailableScheduleDays(
   return availableWeekDays;
 }
 
+export function parseTimeToMinutes(timeStr?: string | null): number | null {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hh = parseInt(match[1], 10);
+  const mm = parseInt(match[2], 10);
+  if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+
+export function getScheduleSlotsForDay(options: {
+  rawSlots: any;
+  weeklyScheduleRaw: any;
+  dayOfWeek: number;
+  scheduleStartTime?: string;
+  scheduleEndTime?: string;
+}): { slots: string[]; daySchedule?: DaySchedule } {
+  const baseSlots = parseScheduleSlots(options.rawSlots);
+  const weeklySchedule = parseWeeklySchedule(options.weeklyScheduleRaw);
+  const daySchedule = weeklySchedule.find(d => Number(d.dayOfWeek) === Number(options.dayOfWeek));
+
+  if (daySchedule && !daySchedule.isOpen) {
+    return { slots: [], daySchedule };
+  }
+
+  const globalStartMin = parseTimeToMinutes(options.scheduleStartTime);
+  const globalEndMin = parseTimeToMinutes(options.scheduleEndTime);
+  const dayOpenMin = daySchedule ? parseTimeToMinutes(daySchedule.openTime) : null;
+  const dayCloseMin = daySchedule ? parseTimeToMinutes(daySchedule.closeTime) : null;
+
+  if (dayOpenMin !== null && dayCloseMin !== null && dayCloseMin <= dayOpenMin) {
+    return { slots: [], daySchedule };
+  }
+
+  const breakStartMin =
+    daySchedule?.hasBreak && daySchedule.breakStart ? parseTimeToMinutes(daySchedule.breakStart) : null;
+  const breakEndMin =
+    daySchedule?.hasBreak && daySchedule.breakEnd ? parseTimeToMinutes(daySchedule.breakEnd) : null;
+  const hasValidBreak = breakStartMin !== null && breakEndMin !== null && breakEndMin > breakStartMin;
+
+  const filtered = baseSlots.filter(slot => {
+    const slotMin = parseTimeToMinutes(slot);
+    if (slotMin === null) return false;
+
+    if (globalStartMin !== null && slotMin < globalStartMin) return false;
+    if (globalEndMin !== null && (globalStartMin === null || globalEndMin >= globalStartMin) && slotMin > globalEndMin) {
+      return false;
+    }
+
+    if (dayOpenMin !== null && slotMin < dayOpenMin) return false;
+    // Horário no exato instante de fechamento (ex.: fechar às 13:00) não recebe agendamento cujo preparo terminaria após fechar
+    if (dayCloseMin !== null && slotMin >= dayCloseMin) return false;
+
+    if (hasValidBreak && breakStartMin !== null && breakEndMin !== null) {
+      if (slotMin >= breakStartMin && slotMin < breakEndMin) return false;
+    }
+
+    return true;
+  });
+
+  return { slots: filtered, daySchedule };
+}
+
+export function isSlotAllowedForDate(
+  storeInfo: {
+    deliveryScheduleSlots?: any;
+    weeklySchedule?: any;
+    scheduleStartTime?: string;
+    scheduleEndTime?: string;
+  } | null | undefined,
+  dateStr?: string | null,
+  timeStr?: string | null
+): boolean {
+  if (!storeInfo || !dateStr || !timeStr) return false;
+  const match = String(dateStr).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const parsedDate = new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+  if (isNaN(parsedDate.getTime())) return false;
+
+  const { slots } = getScheduleSlotsForDay({
+    rawSlots: storeInfo.deliveryScheduleSlots,
+    weeklyScheduleRaw: storeInfo.weeklySchedule,
+    dayOfWeek: parsedDate.getDay(),
+    scheduleStartTime: storeInfo.scheduleStartTime,
+    scheduleEndTime: storeInfo.scheduleEndTime,
+  });
+
+  return slots.includes(String(timeStr).trim());
+}
+
+
 
 

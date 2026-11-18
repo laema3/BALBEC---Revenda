@@ -14,7 +14,7 @@ import { getOrderPaymentBreakdown, sharePixReceipt, buildPixReceiptShareText } f
 import { sendNtfyNotification } from '../utils/ntfy';
 import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
-import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime, parseSlotCapacities, parseScheduleSlots, getBrazilNowDate, getMinFrozenScheduleDateKey, isDateAllowedForFrozenOrder, getAvailableScheduleDays } from '../utils/scheduleHelper';
+import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime, parseSlotCapacities, getScheduleSlotsForDay, isSlotAllowedForDate, getBrazilNowDate, getMinFrozenScheduleDateKey, isDateAllowedForFrozenOrder, getAvailableScheduleDays } from '../utils/scheduleHelper';
 import { CustomerOrderTrackerModal } from '../components/CustomerOrderTrackerModal';
 import { BestSellersCarousel, BestSellerEntry } from '../components/BestSellersCarousel';
 
@@ -228,6 +228,26 @@ export default function Menu() {
     safeStorage.removeItem('balbec_selected_schedule_date');
     safeStorage.removeItem('balbec_selected_schedule_day');
   }, []);
+
+  // Invalida automaticamente horários salvos que ficaram fora do expediente do dia selecionado (ex.: alteração no painel)
+  useEffect(() => {
+    if (!isInitialized || !storeInfo.deliveryScheduleEnabled) return;
+    if (selectedScheduleDate && selectedScheduleTime) {
+      if (!isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime)) {
+        setSelectedScheduleTime('');
+        safeStorage.removeItem('balbec_selected_schedule_time');
+      }
+    }
+  }, [
+    isInitialized,
+    storeInfo.deliveryScheduleEnabled,
+    storeInfo.deliveryScheduleSlots,
+    storeInfo.weeklySchedule,
+    storeInfo.scheduleStartTime,
+    storeInfo.scheduleEndTime,
+    selectedScheduleDate,
+    selectedScheduleTime,
+  ]);
 
   const checkoutScheduleRef = useRef<HTMLDivElement>(null);
   const checkoutCustomerRef = useRef<HTMLHeadingElement>(null);
@@ -3414,18 +3434,24 @@ export default function Menu() {
       return;
     }
 
-    // Validação obrigatória de agendamento de retirada (e regra de +2 dias para congelados)
+    // Validação obrigatória de agendamento de retirada (regra de +2 dias para congelados e expediente do dia)
     const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+    const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
       if (frozenNeedsLaterDate) {
         updateOrderModalityPreference('frozen');
         clearScheduleSelection();
+      } else if (slotInvalidForDay) {
+        setSelectedScheduleTime('');
+        safeStorage.removeItem('balbec_selected_schedule_time');
       }
       setScheduleStepMode('pickup');
       setShowScheduleSelectionStep(true);
       alert(frozenNeedsLaterDate
         ? '❄️ Pedidos com itens congelados precisam de 48h (disponível a partir de +2 dias). Por favor, selecione uma nova data e horário de retirada.'
-        : '⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
+        : slotInvalidForDay
+          ? '⏰ O horário selecionado anteriormente não está mais disponível para este dia. Por favor, escolha um novo horário.'
+          : '⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
       return;
     }
 
@@ -4271,9 +4297,8 @@ export default function Menu() {
     );
   }
 
-  // Etapa de Agendamento de Horários (Segunda a Sábado, Capacidade de Salgados e Preparo Normal vs Congelado)
+  // Etapa de Agendamento de Horários (respeitando dias abertos/fechados e expediente de abertura/fechamento de cada dia)
   if (showScheduleSelectionStep) {
-    const slots = parseScheduleSlots(storeInfo.deliveryScheduleSlots);
     const slotCapacitiesMap = parseSlotCapacities(storeInfo.scheduleSlotCapacities);
 
     // Carregar os dias de funcionamento configurados no Painel (Horários de Atendimento por Dia)
@@ -4295,6 +4320,20 @@ export default function Menu() {
     // Dia ativo selecionado (garantindo que nunca fique em data anterior ao mínimo quando for congelado)
     const activeDay = availableWeekDays.find(d => d.dateStr === selectedScheduleDate) || availableWeekDays[0];
     const isTodaySelected = activeDay?.isToday || false;
+
+    // Filtrar os horários configurados respeitando o horário de abertura, fechamento e intervalo do dia selecionado
+    const { slots, daySchedule: activeDayConfig } = getScheduleSlotsForDay({
+      rawSlots: storeInfo.deliveryScheduleSlots,
+      weeklyScheduleRaw: storeWeeklySchedule,
+      dayOfWeek: activeDay ? activeDay.dayOfWeek : brazilDate.getDay(),
+      scheduleStartTime: storeInfo.scheduleStartTime,
+      scheduleEndTime: storeInfo.scheduleEndTime,
+    });
+
+    const closedDaysLabel = storeWeeklySchedule
+      .filter(d => !d.isOpen)
+      .map(d => d.dayName)
+      .join(', ');
 
     // Tempos de retirada configuráveis no Painel (padrão: 40 min normal, 90 min congelado)
     const normalPrepMinutes = Number(storeInfo.schedulePrepTimeNormalMinutes) || 40;
@@ -4328,14 +4367,13 @@ export default function Menu() {
       };
     };
 
-    // Auto-avanço para o próximo horário disponível se o horário atual estiver desabilitado ou expirado
-    const currentSlotStatus = selectedScheduleTime ? getSlotStatus(selectedScheduleTime) : null;
-    let effectiveSelectedTime = selectedScheduleTime;
+    // Auto-avanço para o próximo horário disponível se o horário atual estiver fora do expediente do dia, desabilitado ou expirado
+    const isSelectedValidForDay = Boolean(selectedScheduleTime && slots.includes(selectedScheduleTime));
+    const currentSlotStatus = isSelectedValidForDay ? getSlotStatus(selectedScheduleTime) : null;
+    let effectiveSelectedTime = isSelectedValidForDay ? selectedScheduleTime : '';
     if (!effectiveSelectedTime || currentSlotStatus?.isDisabled) {
       const firstAvailableSlot = slots.find(s => !getSlotStatus(s).isDisabled);
-      if (firstAvailableSlot && firstAvailableSlot !== selectedScheduleTime) {
-        effectiveSelectedTime = firstAvailableSlot;
-      }
+      effectiveSelectedTime = firstAvailableSlot || '';
     }
 
     const previewPickup = effectiveSelectedTime 
@@ -4343,7 +4381,7 @@ export default function Menu() {
       : '';
 
     const canGoBackWithoutChange = Boolean(
-      (selectedScheduleTime || isCheckout) &&
+      ((selectedScheduleTime && isSelectedValidForDay) || isCheckout) &&
       (!isFrozenOrderActive || isDateAllowedForFrozenOrder(selectedScheduleDate, brazilDate))
     );
 
@@ -4436,12 +4474,12 @@ export default function Menu() {
             </div>
           )}
 
-          {/* 1. SELEÇÃO DOS DIAS DA SEMANA (Segunda a Sábado, Domingo não abre) */}
+          {/* 1. SELEÇÃO DOS DIAS DA SEMANA */}
           <div ref={scheduleDaysSectionRef} className="mb-4 text-left">
             <label className="block text-xs font-black text-stone-700 uppercase tracking-wider mb-2">
               {isFrozenOrderActive
                 ? `1. Selecione o Dia da Retirada (a partir de ${availableWeekDays[0]?.dateFormatted || ''}):`
-                : '1. Selecione o Dia da Retirada (Segunda a Sábado):'}
+                : '1. Selecione o Dia da Retirada:'}
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
               {availableWeekDays.map(day => {
@@ -4455,6 +4493,20 @@ export default function Menu() {
                       setSelectedScheduleDay(day.dayName);
                       safeStorage.setItem('balbec_selected_schedule_date', day.dateStr);
                       safeStorage.setItem('balbec_selected_schedule_day', day.dayName);
+
+                      // Se o horário selecionado anteriormente não pertencer ao expediente deste dia, limpa para auto-selecionar um válido
+                      const { slots: daySlots } = getScheduleSlotsForDay({
+                        rawSlots: storeInfo.deliveryScheduleSlots,
+                        weeklyScheduleRaw: storeWeeklySchedule,
+                        dayOfWeek: day.dayOfWeek,
+                        scheduleStartTime: storeInfo.scheduleStartTime,
+                        scheduleEndTime: storeInfo.scheduleEndTime,
+                      });
+                      if (selectedScheduleTime && !daySlots.includes(selectedScheduleTime)) {
+                        setSelectedScheduleTime('');
+                        safeStorage.removeItem('balbec_selected_schedule_time');
+                      }
+
                       // Rolagem automática suave para os horários disponíveis
                       setTimeout(() => {
                         scheduleSlotsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4476,9 +4528,11 @@ export default function Menu() {
                 );
               })}
             </div>
-            <div className="mt-1 text-right">
-              <span className="text-[10px] text-stone-500 italic">* Domingo estabelecimento fechado</span>
-            </div>
+            {closedDaysLabel && (
+              <div className="mt-1 text-right">
+                <span className="text-[10px] text-stone-500 italic">* Fechado: {closedDaysLabel}</span>
+              </div>
+            )}
           </div>
 
           {/* 2. AVISO SOBRE O TEMPO DE PREPARO (Normal 40m vs Congelados 90m) */}
@@ -4515,11 +4569,26 @@ export default function Menu() {
               <label className="block text-xs font-black text-stone-700 uppercase tracking-wider">
                 2. Horários ({activeDay?.dayName}):
               </label>
-              <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
-                {Number(storeInfo.scheduleIntervalMinutes) === 60 ? 'Intervalo: 1 em 1 hora' : 'Intervalo: 30 em 30 min'}
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {activeDayConfig && activeDayConfig.isOpen && (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                    Expediente: {activeDayConfig.openTime} às {activeDayConfig.closeTime}
+                    {activeDayConfig.hasBreak && activeDayConfig.breakStart && activeDayConfig.breakEnd
+                      ? ` (Pausa ${activeDayConfig.breakStart}–${activeDayConfig.breakEnd})`
+                      : ''}
+                  </span>
+                )}
+                <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                  {Number(storeInfo.scheduleIntervalMinutes) === 60 ? 'Intervalo: 1 em 1 hora' : 'Intervalo: 30 em 30 min'}
+                </span>
+              </div>
             </div>
 
+            {slots.length === 0 ? (
+              <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50 text-center text-xs font-semibold text-stone-600">
+                Nenhum horário disponível neste dia dentro do expediente configurado. Por favor, selecione outro dia acima.
+              </div>
+            ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1.5 border border-stone-100 rounded-2xl bg-stone-50/50">
               {slots.map(slot => {
                 const status = getSlotStatus(slot);
@@ -4575,6 +4644,7 @@ export default function Menu() {
                 );
               })}
             </div>
+            )}
           </div>
 
           <button
@@ -5788,18 +5858,24 @@ export default function Menu() {
                       }
                     }
 
-                    // Validação obrigatória de agendamento de retirada (incluindo +2 dias para congelados)
+                    // Validação obrigatória de agendamento de retirada (regra de +2 dias para congelados e expediente do dia)
                     const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                    const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
                       if (frozenNeedsLaterDate) {
                         updateOrderModalityPreference('frozen');
                         clearScheduleSelection();
+                      } else if (slotInvalidForDay) {
+                        setSelectedScheduleTime('');
+                        safeStorage.removeItem('balbec_selected_schedule_time');
                       }
                       setScheduleStepMode('pickup');
                       setShowScheduleSelectionStep(true);
                       alert(frozenNeedsLaterDate
                         ? '❄️ Pedidos com itens congelados precisam de 48h (disponível a partir de +2 dias). Por favor, escolha uma nova data de retirada.'
-                        : '⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
+                        : slotInvalidForDay
+                          ? '⏰ O horário selecionado anteriormente não está mais disponível para este dia. Por favor, escolha um novo horário.'
+                          : '⏰ O agendamento do horário de retirada é obrigatório. Por favor, escolha um dos horários disponíveis para continuar.');
                       return;
                     }
 
@@ -7534,10 +7610,14 @@ export default function Menu() {
                     onSelectProduct={handleSelectBestSeller}
                     onFinishFrozenNow={() => {
                       const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                      if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                      const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+                      if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
                         if (frozenNeedsLaterDate) {
                           updateOrderModalityPreference('frozen');
                           clearScheduleSelection();
+                        } else if (slotInvalidForDay) {
+                          setSelectedScheduleTime('');
+                          safeStorage.removeItem('balbec_selected_schedule_time');
                         }
                         setScheduleStepMode('pickup');
                         setShowScheduleSelectionStep(true);
@@ -8412,10 +8492,14 @@ export default function Menu() {
                   onSelectProduct={handleSelectBestSeller}
                   onFinishFrozenNow={() => {
                     const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                    const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
                       if (frozenNeedsLaterDate) {
                         updateOrderModalityPreference('frozen');
                         clearScheduleSelection();
+                      } else if (slotInvalidForDay) {
+                        setSelectedScheduleTime('');
+                        safeStorage.removeItem('balbec_selected_schedule_time');
                       }
                       setScheduleStepMode('pickup');
                       setShowScheduleSelectionStep(true);
@@ -8442,10 +8526,14 @@ export default function Menu() {
             <button 
               onClick={() => {
                 const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+                if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
                   if (frozenNeedsLaterDate) {
                     updateOrderModalityPreference('frozen');
                     clearScheduleSelection();
+                  } else if (slotInvalidForDay) {
+                    setSelectedScheduleTime('');
+                    safeStorage.removeItem('balbec_selected_schedule_time');
                   }
                   setScheduleStepMode('pickup');
                   setShowScheduleSelectionStep(true);
@@ -9281,10 +9369,14 @@ export default function Menu() {
                         setImpulseFrozenModal({ isOpen: false, entry: null });
                         setIsCartOpen(false);
                         const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                        if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                        const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+                        if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
                           if (frozenNeedsLaterDate) {
                             updateOrderModalityPreference('frozen');
                             clearScheduleSelection();
+                          } else if (slotInvalidForDay) {
+                            setSelectedScheduleTime('');
+                            safeStorage.removeItem('balbec_selected_schedule_time');
                           }
                           setScheduleStepMode('pickup');
                           setShowScheduleSelectionStep(true);
