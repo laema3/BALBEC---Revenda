@@ -1,10 +1,12 @@
 // Service Worker for BALBEC PWA
-const CACHE_NAME = 'balbec-pwa-v3';
+const CACHE_NAME = 'balbec-pwa-v4';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
   '/manifest-tv.json',
   '/manifest-totem.json',
+  '/apple-touch-icon.png',
+  '/pwa-maskable-512x512.png',
   '/balbec-logo.png',
   '/logo.png',
   '/icon-192.png',

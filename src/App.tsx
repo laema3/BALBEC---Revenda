@@ -59,20 +59,22 @@ function StoreMeta() {
     }
 
     const logo = storeInfo?.logoUrl || '/logo.svg';
-    const updateLink = (rel: string) => {
+    const isSvgLogo = logo.toLowerCase().includes('.svg') || logo.toLowerCase().startsWith('data:image/svg');
+    const applePngLogo = isSvgLogo ? '/apple-touch-icon.png' : logo;
+    const updateLink = (rel: string, hrefValue: string) => {
       let link = document.querySelector(`link[rel='${rel}']`) as HTMLLinkElement;
       if (!link) {
         link = document.createElement('link');
         link.rel = rel;
         document.head.appendChild(link);
       }
-      link.href = logo;
+      link.href = hrefValue;
     };
 
-    updateLink('icon');
-    updateLink('shortcut icon');
-    updateLink('apple-touch-icon');
-    updateLink('apple-touch-icon-precomposed');
+    updateLink('icon', logo);
+    updateLink('shortcut icon', logo);
+    updateLink('apple-touch-icon', applePngLogo);
+    updateLink('apple-touch-icon-precomposed', applePngLogo);
   }, [storeInfo?.name, storeInfo?.logoUrl]);
   
   return null;

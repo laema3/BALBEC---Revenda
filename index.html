@@ -30,8 +30,8 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/balbec-logo.png?v=3" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=3" />
     <link rel="shortcut icon" href="/balbec-logo.png?v=3" />
-    <link rel="apple-touch-icon" href="/balbec-logo.png?v=3" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/balbec-logo.png?v=3" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png?v=3" />
     <link id="manifest-link" rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -107,25 +107,29 @@
       })();
 
       window.__deferredPrompt = null;
+      window.__pwaInstalled = false;
       window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         window.__deferredPrompt = e;
         window.dispatchEvent(new CustomEvent('pwa-deferred-prompt-ready', { detail: e }));
       });
       window.addEventListener('appinstalled', function() {
+        window.__pwaInstalled = true;
+        window.__deferredPrompt = null;
         try {
           localStorage.setItem('pwa_app_installed', 'true');
           localStorage.setItem('pwa_installed_permanent', 'true');
+          document.cookie = 'balbec_pwa_installed=true; max-age=315360000; path=/; SameSite=Lax';
         } catch(e) {}
+        window.dispatchEvent(new CustomEvent('pwa-app-installed'));
       });
 
       // Gerenciamento de ServiceWorker:
-      // Em desenvolvimento (localhost ou preview iframe), desregistra qualquer ServiceWorker
-      // ativo e esvazia caches do navegador para evitar telas pretas ou assets desatualizados.
+      // Em desenvolvimento local (localhost ou preview iframe), desregistra qualquer ServiceWorker
+      // ativo e esvazia caches do navegador para evitar assets desatualizados.
       var isDev = window.location.hostname === 'localhost' || 
                   window.location.hostname === '127.0.0.1' || 
                   window.location.hostname.indexOf('ais-dev') !== -1 ||
-                  window.location.hostname.indexOf('run.app') !== -1 ||
                   (window.self !== window.top);
 
       if ('serviceWorker' in navigator) {
