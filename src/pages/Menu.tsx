@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations, formatDateBR, formatAllDatesBR } from '../lib/utils';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff, Share2, MessageCircle } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, Pencil, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff, Share2, MessageCircle } from 'lucide-react';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
@@ -876,7 +876,22 @@ export default function Menu() {
   const [changePassSuccess, setChangePassSuccess] = useState('');
 
   // Estados para Gestão de Dados do Cliente
-  const [customerAddresses, setCustomerAddresses] = useState<CustomerAddress[]>([]);
+  const [customerAddresses, setCustomerAddresses] = useState<CustomerAddress[]>(() => {
+    try {
+      const savedCustRaw = safeStorage.getItem('balbec_logged_customer');
+      const savedCust = savedCustRaw ? JSON.parse(savedCustRaw) : null;
+      if (savedCust?.id) {
+        const cached = safeStorage.getItem(`balbec_customer_addresses_${savedCust.id}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [addressSaveMsg, setAddressSaveMsg] = useState<string | null>(null);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
 
@@ -1073,30 +1088,59 @@ export default function Menu() {
     isDefault: false
   });
 
+  const fetchCustomerAddressesFromServer = useCallback(async (cust: any) => {
+    if (!cust?.id) return;
+    const cacheKey = `balbec_customer_addresses_${cust.id}`;
+    try {
+      const params = new URLSearchParams();
+      if (cust.cpf) params.set('cpf', String(cust.cpf));
+      if (cust.phone) params.set('phone', String(cust.phone));
+      const addrRes = await fetch(`/api/db/customers/${encodeURIComponent(cust.id)}/addresses?${params.toString()}`, {
+        cache: 'no-store'
+      });
+      if (addrRes.ok) {
+        const addrs = await addrRes.json();
+        if (Array.isArray(addrs)) {
+          setCustomerAddresses(addrs);
+          safeStorage.setItem(cacheKey, JSON.stringify(addrs));
+          if (addrs.length > 0) {
+            const def = addrs.find((a: any) => a.isDefault) || addrs[0];
+            setDeliveryStreet(def.street);
+            setDeliveryNumber(def.number);
+            setDeliveryComplement(def.complement || '');
+            setDeliveryNeighborhood(def.neighborhood);
+            setDeliveryCep(def.cep);
+            setDeliveryReference(def.reference || '');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao buscar endereços do cliente:', err);
+    }
+  }, []);
+
   // Efeito para carregar dados do cliente logado e sincronizar META / Status
   useEffect(() => {
     if (activeCustomer?.id) {
+      // Restaura cache local imediato deste cliente antes da resposta de rede
+      try {
+        const cached = safeStorage.getItem(`balbec_customer_addresses_${activeCustomer.id}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCustomerAddresses(parsed);
+          }
+        }
+      } catch {}
+
       const fetchCustomerData = async () => {
         setIsLoadingCustomerData(true);
         try {
-          const [addrRes, ordRes, profRes] = await Promise.all([
-            fetch(`/api/db/customers/${activeCustomer.id}/addresses`),
-            fetch(`/api/db/customers/${activeCustomer.id}/orders`),
-            fetch(`/api/db/customer-profile/${activeCustomer.id}`)
+          const [, ordRes, profRes] = await Promise.all([
+            fetchCustomerAddressesFromServer(activeCustomer),
+            fetch(`/api/db/customers/${encodeURIComponent(activeCustomer.id)}/orders`, { cache: 'no-store' }),
+            fetch(`/api/db/customer-profile/${encodeURIComponent(activeCustomer.id)}`, { cache: 'no-store' })
           ]);
-          if (addrRes.ok) {
-            const addrs = await addrRes.json();
-            setCustomerAddresses(addrs);
-            if (addrs.length > 0) {
-              const def = addrs.find((a: any) => a.isDefault) || addrs[0];
-              setDeliveryStreet(def.street);
-              setDeliveryNumber(def.number);
-              setDeliveryComplement(def.complement || '');
-              setDeliveryNeighborhood(def.neighborhood);
-              setDeliveryCep(def.cep);
-              setDeliveryReference(def.reference || '');
-            }
-          }
           if (ordRes.ok) setCustomerOrders(await ordRes.json());
           if (profRes.ok) {
             const profData = await profRes.json();
@@ -1111,6 +1155,7 @@ export default function Menu() {
                 currentMonthSpent: profData.currentMonthSpent ?? profData.customer.currentMonthSpent ?? activeCustomer.currentMonthSpent
               };
               if (
+                updatedCust.id !== activeCustomer.id ||
                 updatedCust.monthlyGoal !== activeCustomer.monthlyGoal ||
                 updatedCust.currentMonthSpent !== activeCustomer.currentMonthSpent ||
                 updatedCust.status !== activeCustomer.status ||
@@ -1132,7 +1177,14 @@ export default function Menu() {
       setCustomerAddresses([]);
       setCustomerOrders([]);
     }
-  }, [activeCustomer?.id]);
+  }, [activeCustomer?.id, fetchCustomerAddressesFromServer]);
+
+  // Recarrega endereços atualizados do servidor ao abrir o modal de Perfil
+  useEffect(() => {
+    if (isProfileModalOpen && activeCustomer?.id) {
+      fetchCustomerAddressesFromServer(activeCustomer);
+    }
+  }, [isProfileModalOpen, activeCustomer?.id, fetchCustomerAddressesFromServer]);
 
   // Estado de Meta Mensal Customizada
   const [customMonthlyGoal, setCustomMonthlyGoal] = useState<number>(() => {
@@ -1305,17 +1357,78 @@ export default function Menu() {
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeCustomer?.id) return;
+    if (!activeCustomer?.id || isSavingAddress) return;
 
+    setIsSavingAddress(true);
+    setAddressSaveMsg(null);
     try {
-      const res = await fetch(`/api/db/customers/${activeCustomer.id}/addresses`, {
+      const payload = {
+        ...addressFormData,
+        id: isEditingAddress?.id || undefined,
+        customerSnapshot: {
+          name: activeCustomer.name,
+          phone: activeCustomer.phone,
+          cpf: activeCustomer.cpf,
+          email: activeCustomer.email,
+          source: activeCustomer.source,
+          status: activeCustomer.status,
+        },
+      };
+
+      const res = await fetch(`/api/db/customers/${encodeURIComponent(activeCustomer.id)}/addresses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addressFormData)
+        body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        const data = await res.json();
-        setCustomerAddresses(prev => [data.address, ...prev.filter(a => !data.address.isDefault || !a.isDefault)]);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success && data?.address) {
+        const saved = data.address as CustomerAddress;
+        const effectiveCustId = data.resolvedCustomerId || activeCustomer.id;
+
+        setCustomerAddresses(prev => {
+          const exists = prev.some(a => a.id === saved.id);
+          const updated = exists
+            ? prev.map(a => (a.id === saved.id ? saved : (saved.isDefault ? { ...a, isDefault: false } : a)))
+            : [saved, ...prev.map(a => (saved.isDefault ? { ...a, isDefault: false } : a))];
+          safeStorage.setItem(`balbec_customer_addresses_${effectiveCustId}`, JSON.stringify(updated));
+          if (effectiveCustId !== activeCustomer.id) {
+            safeStorage.setItem(`balbec_customer_addresses_${activeCustomer.id}`, JSON.stringify(updated));
+          }
+          return updated;
+        });
+
+        if (saved.isDefault || customerAddresses.length === 0) {
+          setDeliveryStreet(saved.street);
+          setDeliveryNumber(saved.number);
+          setDeliveryComplement(saved.complement || '');
+          setDeliveryNeighborhood(saved.neighborhood);
+          setDeliveryCep(saved.cep);
+          setDeliveryReference(saved.reference || '');
+          safeStorage.setItem('balbec_customer_street', saved.street);
+          safeStorage.setItem('balbec_customer_number', saved.number);
+          safeStorage.setItem('balbec_customer_complement', saved.complement || '');
+          safeStorage.setItem('balbec_customer_neighborhood', saved.neighborhood);
+          safeStorage.setItem('balbec_customer_cep', saved.cep);
+          safeStorage.setItem('balbec_customer_reference', saved.reference || '');
+
+          const updatedActiveCustomer = {
+            ...activeCustomer,
+            id: effectiveCustId,
+            street: saved.street,
+            number: saved.number,
+            complement: saved.complement || '',
+            neighborhood: saved.neighborhood,
+            cep: saved.cep,
+            address: `${saved.street}, ${saved.number}${saved.complement ? ` (${saved.complement})` : ''} - ${saved.neighborhood} - CEP: ${saved.cep}`,
+          };
+          setActiveCustomer(updatedActiveCustomer);
+          safeStorage.setItem('balbec_logged_customer', JSON.stringify(updatedActiveCustomer));
+        } else if (effectiveCustId !== activeCustomer.id) {
+          const updatedActiveCustomer = { ...activeCustomer, id: effectiveCustId };
+          setActiveCustomer(updatedActiveCustomer);
+          safeStorage.setItem('balbec_logged_customer', JSON.stringify(updatedActiveCustomer));
+        }
+
         setIsEditingAddress(null);
         setAddressFormData({
           alias: 'Casa',
@@ -1327,16 +1440,30 @@ export default function Menu() {
           reference: '',
           isDefault: false
         });
+        setAddressSaveMsg('Endereço salvo com sucesso!');
+        setTimeout(() => setAddressSaveMsg(null), 3500);
+      } else {
+        alert(data?.error || 'Não foi possível salvar o endereço. Verifique os campos e tente novamente.');
       }
-    } catch (err) {}
+    } catch (err) {
+      alert('Erro de conexão ao salvar o endereço. Tente novamente.');
+    } finally {
+      setIsSavingAddress(false);
+    }
   };
 
   const handleDeleteAddress = async (id: string) => {
     if (!confirm('Deseja excluir este endereço?')) return;
     try {
-      const res = await fetch(`/api/db/customers/addresses/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/db/customers/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (res.ok) {
-        setCustomerAddresses(prev => prev.filter(a => a.id !== id));
+        setCustomerAddresses(prev => {
+          const next = prev.filter(a => a.id !== id);
+          if (activeCustomer?.id) {
+            safeStorage.setItem(`balbec_customer_addresses_${activeCustomer.id}`, JSON.stringify(next));
+          }
+          return next;
+        });
       }
     } catch (err) {}
   };
@@ -5610,40 +5737,75 @@ export default function Menu() {
 
             {profileView === 'addresses' && (
               <div className="space-y-4">
+                {addressSaveMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{addressSaveMsg}</span>
+                  </div>
+                )}
+
                 {isEditingAddress ? (
                   <form onSubmit={handleSaveAddress} className="space-y-3 bg-stone-50 p-4 rounded-2xl border border-stone-200 animate-fadeIn">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-xs font-black text-stone-900 uppercase">Novo Endereço</h3>
+                      <h3 className="text-xs font-black text-stone-900 uppercase">
+                        {isEditingAddress?.id ? 'Editar Endereço' : 'Novo Endereço'}
+                      </h3>
                       <button type="button" onClick={() => setIsEditingAddress(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className="text-[10px] font-black text-stone-500 uppercase">Identificação (ex: Casa, Trabalho)</label>
-                        <input type="text" value={addressFormData.alias} onChange={e => setAddressFormData(prev => ({...prev, alias: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.alias} onChange={e => setAddressFormData(prev => ({...prev, alias: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" required />
                       </div>
                       <div className="col-span-2">
                         <label className="text-[10px] font-black text-stone-500 uppercase">CEP</label>
-                        <input type="text" value={addressFormData.cep} onChange={e => setAddressFormData(prev => ({...prev, cep: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.cep} onChange={e => setAddressFormData(prev => ({...prev, cep: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" required />
                       </div>
                       <div className="col-span-2">
                         <label className="text-[10px] font-black text-stone-500 uppercase">Rua</label>
-                        <input type="text" value={addressFormData.street} onChange={e => setAddressFormData(prev => ({...prev, street: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.street} onChange={e => setAddressFormData(prev => ({...prev, street: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" required />
                       </div>
                       <div>
                         <label className="text-[10px] font-black text-stone-500 uppercase">Número</label>
-                        <input type="text" value={addressFormData.number} onChange={e => setAddressFormData(prev => ({...prev, number: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.number} onChange={e => setAddressFormData(prev => ({...prev, number: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" required />
                       </div>
                       <div>
                         <label className="text-[10px] font-black text-stone-500 uppercase">Bairro</label>
-                        <input type="text" value={addressFormData.neighborhood} onChange={e => setAddressFormData(prev => ({...prev, neighborhood: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.neighborhood} onChange={e => setAddressFormData(prev => ({...prev, neighborhood: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" required />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-stone-500 uppercase">Complemento (Opcional)</label>
+                        <input type="text" value={addressFormData.complement} onChange={e => setAddressFormData(prev => ({...prev, complement: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" placeholder="Apto, Sala..." />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-stone-500 uppercase">Referência (Opcional)</label>
+                        <input type="text" value={addressFormData.reference} onChange={e => setAddressFormData(prev => ({...prev, reference: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold bg-white" placeholder="Próx. a..." />
+                      </div>
+                      <div className="col-span-2 pt-1">
+                        <label className="flex items-center gap-2 text-xs font-bold text-stone-700 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(addressFormData.isDefault)}
+                            onChange={e => setAddressFormData(prev => ({...prev, isDefault: e.target.checked}))}
+                            className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                          />
+                          <span>Definir como endereço principal</span>
+                        </label>
                       </div>
                     </div>
-                    <button type="submit" className="w-full py-3 bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20">Salvar Endereço</button>
+                    <button
+                      type="submit"
+                      disabled={isSavingAddress}
+                      className="w-full py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 cursor-pointer"
+                    >
+                      {isSavingAddress ? 'Salvando...' : 'Salvar Endereço'}
+                    </button>
                   </form>
                 ) : (
                   <>
                     <button 
                       onClick={() => {
+                        setAddressSaveMsg(null);
                         setIsEditingAddress({} as any);
                         setAddressFormData({
                           alias: 'Casa',
@@ -5656,7 +5818,7 @@ export default function Menu() {
                           isDefault: customerAddresses.length === 0
                         });
                       }}
-                      className="w-full py-3 border-2 border-dashed border-stone-200 text-stone-500 hover:text-orange-600 hover:border-orange-200 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all"
+                      className="w-full py-3 border-2 border-dashed border-stone-200 text-stone-500 hover:text-orange-600 hover:border-orange-200 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
                       Adicionar Novo Endereço
@@ -5678,7 +5840,33 @@ export default function Menu() {
                               {addr.isDefault && <span className="bg-orange-100 text-orange-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">Principal</span>}
                             </div>
                             <div className="flex items-center gap-1">
-                              <button onClick={() => handleDeleteAddress(addr.id)} className="p-1.5 text-stone-300 hover:text-red-500 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAddressSaveMsg(null);
+                                  setIsEditingAddress(addr);
+                                  setAddressFormData({
+                                    alias: addr.alias || 'Casa',
+                                    street: addr.street || '',
+                                    number: addr.number || '',
+                                    complement: addr.complement || '',
+                                    neighborhood: addr.neighborhood || '',
+                                    cep: addr.cep || '',
+                                    reference: addr.reference || '',
+                                    isDefault: Boolean(addr.isDefault)
+                                  });
+                                }}
+                                title="Editar endereço"
+                                className="p-1.5 text-stone-400 hover:text-orange-600 transition-colors cursor-pointer"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAddress(addr.id)}
+                                title="Excluir endereço"
+                                className="p-1.5 text-stone-300 hover:text-red-500 transition-colors cursor-pointer"
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -5686,6 +5874,7 @@ export default function Menu() {
                           <p className="text-[11px] text-stone-600 font-medium leading-relaxed">
                             {addr.street}, {addr.number} {addr.complement && `(${addr.complement})`}<br />
                             {addr.neighborhood} - {addr.cep}
+                            {addr.reference ? <><br />Ref: {addr.reference}</> : null}
                           </p>
                           <button 
                             onClick={() => {
@@ -5695,10 +5884,16 @@ export default function Menu() {
                               setDeliveryNeighborhood(addr.neighborhood);
                               setDeliveryCep(addr.cep);
                               setDeliveryReference(addr.reference || '');
+                              safeStorage.setItem('balbec_customer_street', addr.street);
+                              safeStorage.setItem('balbec_customer_number', addr.number);
+                              safeStorage.setItem('balbec_customer_complement', addr.complement || '');
+                              safeStorage.setItem('balbec_customer_neighborhood', addr.neighborhood);
+                              safeStorage.setItem('balbec_customer_cep', addr.cep);
+                              safeStorage.setItem('balbec_customer_reference', addr.reference || '');
                               alert(`Endereço "${addr.alias}" selecionado para o pedido atual!`);
                               setIsProfileModalOpen(false);
                             }}
-                            className="mt-3 w-full py-2 bg-white border border-stone-200 text-stone-600 hover:text-orange-600 hover:border-orange-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                            className="mt-3 w-full py-2 bg-white border border-stone-200 text-stone-600 hover:text-orange-600 hover:border-orange-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
                           >
                             Usar para este pedido
                           </button>

@@ -232,6 +232,7 @@ const USERS_FILE = path.join(STORAGE_DIR, '.users_data.json');
 const ORDERS_FILE = path.join(STORAGE_DIR, '.orders_data.json');
 const ORDERS_BACKUP_FILE = path.join(STORAGE_DIR, '.orders_backup_data.json');
 const CUSTOMERS_FILE = path.join(STORAGE_DIR, '.customers_data.json');
+const CUSTOMER_ADDRESSES_FILE = path.join(STORAGE_DIR, '.customer_addresses_data.json');
 const TABLES_FILE = path.join(STORAGE_DIR, '.tables_data.json');
 const APP_INSTALLS_FILE = path.join(STORAGE_DIR, '.app_installs_data.json');
 const TOTEM_BACKUPS_FILE = path.join(STORAGE_DIR, '.totem_backups_data.json');
@@ -284,6 +285,7 @@ let memProducts: any[] = [...DEFAULT_PRODUCTS];
 let memOrders: any[] = [];
 let memStoreInfo: any = { ...DEFAULT_STORE_INFO };
 let memCustomers: any[] = [];
+let memCustomerAddresses: any[] = [];
 let memUsers: any[] = [...DEFAULT_USERS];
 let memTvMedia: any[] = [];
 let memAppInstalls: any[] = [];
@@ -442,6 +444,7 @@ function persistAllStateToMasterFile() {
     users: memUsers,
     tables: memTables,
     customers: memCustomers,
+    customerAddresses: memCustomerAddresses,
     orders: memOrders,
     totemBackups: memTotemBackups,
     drivers: memDrivers,
@@ -557,6 +560,12 @@ try {
       ...c,
       status: (c.status === 'rejected') ? 'rejected' : 'approved'
     }));
+  const diskCustomerAddresses = loadJsonFile(CUSTOMER_ADDRESSES_FILE, [], false);
+  const addrMapInit = new Map<string, any>();
+  for (const a of [...(Array.isArray(masterState?.customerAddresses) ? masterState.customerAddresses : []), ...(Array.isArray(diskCustomerAddresses) ? diskCustomerAddresses : [])]) {
+    if (a && a.id) addrMapInit.set(String(a.id), a);
+  }
+  memCustomerAddresses = Array.from(addrMapInit.values());
   memUsers = loadJsonFile(USERS_FILE, masterState?.users || DEFAULT_USERS, false);
   const adminMasterIdx = memUsers.findIndex((u: any) => (u.email || '').trim().toLowerCase() === 'admin@balbec.com.br');
   if (adminMasterIdx >= 0) {
@@ -895,6 +904,12 @@ function persistCustomersToDisk(data: any[], syncCloud = true) {
   syncPublicBackupAssets('customers', data);
   syncSeedFiles('customers', data);
   if (syncCloud) saveCollectionToCloudDebounced('customers', data, 300);
+}
+
+function persistCustomerAddressesToDisk(data: any[], syncCloud = true) {
+  writeJsonFile(CUSTOMER_ADDRESSES_FILE, data);
+  persistAllStateToMasterFile();
+  if (syncCloud) saveCollectionToCloudDebounced('customerAddresses', data, 250);
 }
 
 function persistTablesToDisk(data: any[], syncCloud = true) {
@@ -1390,6 +1405,7 @@ export async function syncWithCloudFirestore(): Promise<void> {
       cloudCatsRes,
       cloudProdsRes,
       cloudCustsRes,
+      cloudCustAddrsRes,
       cloudOrdersRes,
       cloudTablesRes,
       cloudTvRes,
@@ -1399,6 +1415,7 @@ export async function syncWithCloudFirestore(): Promise<void> {
       loadCollectionFromCloud('categories'),
       loadCollectionFromCloud('products'),
       loadCollectionFromCloud('customers'),
+      loadCollectionFromCloud('customerAddresses'),
       loadCollectionFromCloud('orders'),
       loadCollectionFromCloud('tables'),
       loadCollectionFromCloud('tvMedia'),
@@ -1464,6 +1481,18 @@ export async function syncWithCloudFirestore(): Promise<void> {
       }
     } else if (cloudCustsRes && !cloudCustsRes.existsInCloud && memCustomers.length > 0) {
       await saveCollectionToCloud('customers', memCustomers);
+    }
+
+    // 4.1. Customer Addresses
+    if (cloudCustAddrsRes && Array.isArray(cloudCustAddrsRes.items) && cloudCustAddrsRes.items.length > 0) {
+      const addrMap = new Map<string, any>();
+      for (const a of [...memCustomerAddresses, ...cloudCustAddrsRes.items]) {
+        if (a && a.id) addrMap.set(String(a.id), a);
+      }
+      memCustomerAddresses = Array.from(addrMap.values());
+      persistCustomerAddressesToDisk(memCustomerAddresses, false);
+    } else if (cloudCustAddrsRes && !cloudCustAddrsRes.existsInCloud && memCustomerAddresses.length > 0) {
+      await saveCollectionToCloud('customerAddresses', memCustomerAddresses);
     }
 
     // 5. Orders
@@ -1750,6 +1779,39 @@ export async function hydrateFromPostgres(): Promise<void> {
         }
       } catch (custErr: any) {
         console.warn('[DB Hydrate] Aviso ao carregar customers do PostgreSQL:', custErr?.message || custErr);
+      }
+
+      // 3.1.5. Hidratar Endereços de Clientes (PostgreSQL + Disco/Nuvem)
+      try {
+        const dbAddrList = await withDbRetry(() => db.select().from(customerAddresses));
+        const addrMap = new Map<string, any>();
+        for (const a of [...memCustomerAddresses, ...(dbAddrList || [])]) {
+          if (a && a.id) addrMap.set(String(a.id), a);
+        }
+        memCustomerAddresses = Array.from(addrMap.values());
+        persistCustomerAddressesToDisk(memCustomerAddresses, false);
+        if (memCustomerAddresses.length > (dbAddrList?.length || 0)) {
+          for (const addr of memCustomerAddresses) {
+            try {
+              await withDbRetry(() => db.insert(customerAddresses).values({
+                id: String(addr.id),
+                customerId: String(addr.customerId),
+                alias: String(addr.alias || 'Endereço'),
+                street: String(addr.street || ''),
+                number: String(addr.number || ''),
+                complement: String(addr.complement || ''),
+                neighborhood: String(addr.neighborhood || ''),
+                cep: String(addr.cep || ''),
+                reference: String(addr.reference || ''),
+                isDefault: Boolean(addr.isDefault),
+                createdAt: Number(addr.createdAt || Date.now()),
+              }).onConflictDoNothing());
+            } catch {}
+          }
+        }
+        console.log(`[DB Hydrate] ${memCustomerAddresses.length} endereços de clientes sincronizados.`);
+      } catch (addrErr: any) {
+        console.warn('[DB Hydrate] Aviso ao carregar customer_addresses do PostgreSQL:', addrErr?.message || addrErr);
       }
 
       // 3.2. Hidratar Pedidos (Smart Merge entre PostgreSQL, Cloud Firestore e Memória/Disco)
@@ -4831,65 +4893,250 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   });
 
+  // Helper para resolver o cliente canônico e garantir sua existência no PostgreSQL (evita falha de FK em customer_addresses)
+  const resolveCustomerForAddresses = async (
+    rawCustomerId: string,
+    extra?: { cpf?: string; phone?: string; customerSnapshot?: any }
+  ): Promise<{ canonicalId: string; matchingIds: string[]; customer: any | null }> => {
+    const cleanId = String(rawCustomerId || '').trim();
+    const snap = extra?.customerSnapshot || {};
+    const cleanCpf = String(extra?.cpf || snap.cpf || '').replace(/\D/g, '');
+    const cleanPhone = cleanPhoneDigits(extra?.phone || snap.phone || '');
+
+    let found = memCustomers.find(c =>
+      (cleanId && c.id === cleanId) ||
+      (cleanId && c.externalId && String(c.externalId) === cleanId) ||
+      (cleanId && c.id === `bf_cust_${cleanId}`)
+    ) || null;
+
+    if (!found && cleanCpf.length >= 11) {
+      found = memCustomers.find(c => String(c.cpf || '').replace(/\D/g, '') === cleanCpf) || null;
+    }
+    if (!found && cleanPhone.length >= 8) {
+      found = memCustomers.find(c => cleanPhoneDigits(c.phone) === cleanPhone) || null;
+    }
+
+    if (!found && isDatabaseConfigured() && cleanId) {
+      try {
+        const dbRows = await db.select().from(customers).where(eq(customers.id, cleanId)).limit(1);
+        if (dbRows && dbRows.length > 0) {
+          found = dbRows[0];
+        }
+      } catch {}
+    }
+
+    if (!found && (snap?.name || cleanCpf.length >= 5 || cleanPhone.length >= 8) && cleanId) {
+      const recreated = formatCustomerForDb({
+        id: cleanId,
+        name: snap.name || 'Cliente',
+        phone: snap.phone || '',
+        email: snap.email || '',
+        cpf: snap.cpf || '',
+        password: snap.password || (cleanCpf.length >= 5 ? cleanCpf.slice(0, 5) : '12345'),
+        source: snap.source || 'cadastro_cliente',
+        status: snap.status === 'rejected' ? 'rejected' : 'approved',
+        createdAt: snap.createdAt || Date.now(),
+      });
+      memCustomers = [recreated, ...memCustomers.filter(c => c.id !== recreated.id)];
+      persistCustomersToDisk(memCustomers);
+      found = recreated;
+    }
+
+    const canonicalId = String(found?.id || cleanId);
+    const matchingIds = Array.from(new Set([cleanId, canonicalId].filter(Boolean)));
+
+    if (found && isDatabaseConfigured()) {
+      try {
+        const formatted = formatCustomerForDb(found);
+        await withDbRetry(() =>
+          db.insert(customers).values(formatted).onConflictDoNothing()
+        );
+      } catch (e: any) {
+        console.warn('[DB] Aviso ao garantir cliente pai para endereço:', e?.message || e);
+      }
+    }
+
+    return { canonicalId, matchingIds, customer: found };
+  };
+
   // Endereços do Cliente
   app.get('/api/db/customers/:id/addresses', async (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     try {
       const { id } = req.params;
+      const qCpf = typeof req.query?.cpf === 'string' ? req.query.cpf : '';
+      const qPhone = typeof req.query?.phone === 'string' ? req.query.phone : '';
+      const { matchingIds } = await resolveCustomerForAddresses(id, { cpf: qCpf, phone: qPhone });
+
+      const mergedMap = new Map<string, any>();
+
+      for (const a of memCustomerAddresses) {
+        if (a && a.id && matchingIds.includes(String(a.customerId))) {
+          mergedMap.set(String(a.id), a);
+        }
+      }
+
       if (isDatabaseConfigured()) {
         try {
-          const addr = await db.select().from(customerAddresses).where(eq(customerAddresses.customerId, id));
-          return res.json(addr || []);
+          for (const targetId of matchingIds) {
+            const dbAddrs = await withDbRetry(() =>
+              db.select().from(customerAddresses).where(eq(customerAddresses.customerId, targetId))
+            );
+            for (const a of (dbAddrs || [])) {
+              if (a && a.id) mergedMap.set(String(a.id), a);
+            }
+          }
         } catch (dbErr) {
           console.warn('[DB] Fallback addresses query:', dbErr);
         }
       }
-      res.json([]);
+
+      const list = Array.from(mergedMap.values()).sort((a, b) => {
+        if (Boolean(a.isDefault) !== Boolean(b.isDefault)) return a.isDefault ? -1 : 1;
+        return Number(b.createdAt || 0) - Number(a.createdAt || 0);
+      });
+
+      res.json(list);
     } catch (err: any) {
       res.json([]);
     }
   });
 
-  app.post('/api/db/customers/:id/addresses', async (req: Request, res: Response) => {
+  const upsertCustomerAddressHandler = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const data = req.body;
-      const newAddr = {
-        id: `addr-${Date.now()}`,
-        customerId: id,
-        alias: data.alias || 'Endereço',
-        street: data.street,
-        number: data.number,
-        complement: data.complement || '',
-        neighborhood: data.neighborhood,
-        cep: data.cep,
-        reference: data.reference || '',
-        isDefault: data.isDefault || false,
-        createdAt: Date.now()
+      const addressIdParam = req.params.addressId;
+      const data = req.body || {};
+
+      const street = String(data.street || '').trim();
+      const number = String(data.number || '').trim();
+      const neighborhood = String(data.neighborhood || '').trim();
+      const cep = String(data.cep || '').trim();
+
+      if (!street || !number || !neighborhood || !cep) {
+        return res.status(400).json({ error: 'Preencha Rua, Número, Bairro e CEP.' });
+      }
+
+      const { canonicalId, matchingIds, customer } = await resolveCustomerForAddresses(id, {
+        cpf: data.customerSnapshot?.cpf || data.cpf,
+        phone: data.customerSnapshot?.phone || data.phone,
+        customerSnapshot: data.customerSnapshot,
+      });
+
+      const targetId = String(addressIdParam || data.id || `addr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`);
+      const existingMem = memCustomerAddresses.find(a => String(a.id) === targetId);
+      const existingForCustomer = memCustomerAddresses.filter(a => matchingIds.includes(String(a.customerId)));
+      const shouldBeDefault = Boolean(data.isDefault) || (existingForCustomer.length === 0 && !existingMem);
+
+      const savedAddr = {
+        id: targetId,
+        customerId: canonicalId,
+        alias: String(data.alias || 'Casa').trim() || 'Casa',
+        street,
+        number,
+        complement: String(data.complement || '').trim(),
+        neighborhood,
+        cep,
+        reference: String(data.reference || '').trim(),
+        isDefault: shouldBeDefault,
+        createdAt: Number(existingMem?.createdAt || data.createdAt || Date.now()),
       };
+
+      if (shouldBeDefault) {
+        memCustomerAddresses = memCustomerAddresses.map(a =>
+          matchingIds.includes(String(a.customerId)) ? { ...a, isDefault: false } : a
+        );
+      }
+
+      const idx = memCustomerAddresses.findIndex(a => String(a.id) === targetId);
+      if (idx >= 0) {
+        memCustomerAddresses[idx] = savedAddr;
+      } else {
+        memCustomerAddresses = [savedAddr, ...memCustomerAddresses];
+      }
+      persistCustomerAddressesToDisk(memCustomerAddresses);
 
       if (isDatabaseConfigured()) {
         try {
-          if (newAddr.isDefault) {
-            await db.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.customerId, id));
+          if (shouldBeDefault) {
+            for (const mId of matchingIds) {
+              await withDbRetry(() =>
+                db.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.customerId, mId))
+              );
+            }
           }
-          await db.insert(customerAddresses).values(newAddr);
-        } catch (dbErr) {
-          console.warn('[DB] Fallback insert address:', dbErr);
+          await withDbRetry(() =>
+            db.insert(customerAddresses).values(savedAddr).onConflictDoUpdate({
+              target: customerAddresses.id,
+              set: {
+                customerId: savedAddr.customerId,
+                alias: savedAddr.alias,
+                street: savedAddr.street,
+                number: savedAddr.number,
+                complement: savedAddr.complement,
+                neighborhood: savedAddr.neighborhood,
+                cep: savedAddr.cep,
+                reference: savedAddr.reference,
+                isDefault: savedAddr.isDefault,
+              }
+            })
+          );
+        } catch (dbErr: any) {
+          console.error('[DB] Erro ao persistir endereço do cliente no PostgreSQL:', dbErr?.message || dbErr);
         }
       }
 
-      res.json({ success: true, address: newAddr });
+      // Atualiza também o endereço resumido do cliente quando for principal ou o primeiro
+      if (customer && (shouldBeDefault || !customer.street)) {
+        const formattedFullAddress = `${savedAddr.street}, ${savedAddr.number}${savedAddr.complement ? ` (${savedAddr.complement})` : ''} - ${savedAddr.neighborhood}${savedAddr.cep ? ` - CEP: ${savedAddr.cep}` : ''}`;
+        const custIdx = memCustomers.findIndex(c => c.id === canonicalId);
+        if (custIdx >= 0) {
+          memCustomers[custIdx] = {
+            ...memCustomers[custIdx],
+            street: savedAddr.street,
+            number: savedAddr.number,
+            complement: savedAddr.complement,
+            neighborhood: savedAddr.neighborhood,
+            cep: savedAddr.cep,
+            address: formattedFullAddress,
+            defaultAddressId: savedAddr.id,
+          };
+          persistCustomersToDisk(memCustomers);
+        }
+        if (isDatabaseConfigured()) {
+          try {
+            await withDbRetry(() =>
+              db.update(customers).set({
+                street: savedAddr.street,
+                number: savedAddr.number,
+                complement: savedAddr.complement,
+                neighborhood: savedAddr.neighborhood,
+                cep: savedAddr.cep,
+                address: formattedFullAddress,
+                defaultAddressId: savedAddr.id,
+              }).where(eq(customers.id, canonicalId))
+            );
+          } catch {}
+        }
+      }
+
+      return res.json({ success: true, address: savedAddr, resolvedCustomerId: canonicalId });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err?.message || 'Erro ao salvar endereço' });
     }
-  });
+  };
+
+  app.post('/api/db/customers/:id/addresses', upsertCustomerAddressHandler);
+  app.put('/api/db/customers/:id/addresses/:addressId', upsertCustomerAddressHandler);
 
   app.delete('/api/db/customers/addresses/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      memCustomerAddresses = memCustomerAddresses.filter(a => String(a.id) !== String(id));
+      persistCustomerAddressesToDisk(memCustomerAddresses);
       if (isDatabaseConfigured()) {
         try {
-          await db.delete(customerAddresses).where(eq(customerAddresses.id, id));
+          await withDbRetry(() => db.delete(customerAddresses).where(eq(customerAddresses.id, id)));
         } catch (dbErr) {
           console.warn('[DB] Fallback delete address:', dbErr);
         }
@@ -5128,6 +5375,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       memCategories = [];
       memProducts = [];
       memCustomers = [];
+      memCustomerAddresses = [];
       memOrders = [];
       memTotemBackups = [];
       memTvMedia = [];
@@ -5143,6 +5391,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       writeJsonFile(CATEGORIES_FILE, []);
       writeJsonFile(PRODUCTS_FILE, []);
       writeJsonFile(CUSTOMERS_FILE, []);
+      writeJsonFile(CUSTOMER_ADDRESSES_FILE, []);
       writeJsonFile(ORDERS_FILE, []);
       writeJsonFile(ORDERS_BACKUP_FILE, []);
       writeJsonFile(TOTEM_BACKUPS_FILE, []);
