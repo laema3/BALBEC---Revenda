@@ -198,11 +198,33 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
     const showCustomerStatusAlert = (order: any, status: string, customMessage?: string, alertType?: string) => {
       const details = getStatusDetails(order.id, order.customerName, status);
-      const notifId = `notif_${order.id}_${status}_${Date.now()}`;
-      const finalTitle = alertType === 'reminder_90min' ? '⏰ Atenção: Faltam 90 Minutos!' : details.title;
-      const finalMsg = customMessage || details.msg;
-      const finalBadge = alertType === 'reminder_90min' ? 'Aviso 90 Minutos' : details.badge;
-      const finalType = alertType === 'reminder_90min' ? 'warning' : details.type;
+      const shortId = String(order.id).slice(-4).padStart(4, '0');
+      const clientName = order.customerName || 'Cliente';
+      const isPaymentConfirmedAlert = alertType === 'payment_confirmed';
+      const notifId = isPaymentConfirmedAlert
+        ? `notif_payconf_${order.id}_${Date.now()}`
+        : `notif_${order.id}_${status}_${Date.now()}`;
+      const finalTitle =
+        alertType === 'reminder_90min'
+          ? '⏰ Atenção: Faltam 90 Minutos!'
+          : isPaymentConfirmedAlert
+          ? `✅ Pagamento Confirmado #${shortId}`
+          : details.title;
+      const finalMsg = isPaymentConfirmedAlert
+        ? (customMessage || `Olá ${clientName}, o pagamento de 50% do seu pedido #${shortId} foi confirmado e ele já foi liberado para nossa equipe iniciar a produção!`)
+        : (customMessage || details.msg);
+      const finalBadge =
+        alertType === 'reminder_90min'
+          ? 'Aviso 90 Minutos'
+          : isPaymentConfirmedAlert
+          ? '💳 50% Confirmado'
+          : details.badge;
+      const finalType =
+        alertType === 'reminder_90min'
+          ? 'warning'
+          : isPaymentConfirmedAlert
+          ? 'success'
+          : details.type;
 
       useStore.getState().setCurrentNotification({
         id: notifId,
@@ -213,9 +235,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         badge: finalBadge
       });
 
-      const lastNotifiedKey = `balbec_last_notified_status_${order.id}`;
-      safeStorage.setItem(lastNotifiedKey, status);
-      try { localStorage.setItem(lastNotifiedKey, status); } catch {}
+      if (isPaymentConfirmedAlert) {
+        const lastPayKey = `balbec_last_notified_payment_${order.id}`;
+        safeStorage.setItem(lastPayKey, 'confirmed');
+        try { localStorage.setItem(lastPayKey, 'confirmed'); } catch {}
+      } else {
+        const lastNotifiedKey = `balbec_last_notified_status_${order.id}`;
+        safeStorage.setItem(lastNotifiedKey, status);
+        try { localStorage.setItem(lastNotifiedKey, status); } catch {}
+      }
 
       // Vibração no smartphone
       try {
@@ -232,7 +260,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       } catch {}
 
       // Notificação nativa no smartphone mesmo com a tela bloqueada / app em segundo plano
-      triggerSystemNotification(finalTitle, finalMsg, `order-${order.id}`);
+      triggerSystemNotification(finalTitle, finalMsg, isPaymentConfirmedAlert ? `order-pay-${order.id}` : `order-${order.id}`);
     };
 
     // Verificação de atualizações pendentes:
@@ -259,6 +287,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         const currentStatus = customerOrder.status || 'pending';
         const lastNotifiedKey = `balbec_last_notified_status_${customerOrder.id}`;
         const lastNotified = safeStorage.getItem(lastNotifiedKey) || (typeof localStorage !== 'undefined' ? localStorage.getItem(lastNotifiedKey) : null);
+
+        if (customerOrder.paymentConfirmedByOperator === true) {
+          const lastPayKey = `balbec_last_notified_payment_${customerOrder.id}`;
+          const lastPayNotified = safeStorage.getItem(lastPayKey) || (typeof localStorage !== 'undefined' ? localStorage.getItem(lastPayKey) : null);
+          if (!lastPayNotified && currentStatus === 'pending') {
+            showCustomerStatusAlert(customerOrder, currentStatus, undefined, 'payment_confirmed');
+          }
+        }
 
         if (!lastNotified) {
           if (currentStatus === 'pending') {
@@ -313,7 +349,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   const isOwner = updatedOrder ? isCustomerOrderOwner(updatedOrder, data.orderId, data.customerPhone, data.customerName) : false;
 
                   if (isOwner && updatedOrder) {
-                    if (data.alertType === 'reminder_90min') {
+                    if (data.alertType === 'payment_confirmed' || data.action === 'payment_confirmed') {
+                      showCustomerStatusAlert(
+                        updatedOrder,
+                        updatedOrder.status || 'pending',
+                        data.message,
+                        'payment_confirmed'
+                      );
+                    } else if (data.alertType === 'reminder_90min') {
                       showCustomerStatusAlert(
                         updatedOrder, 
                         updatedOrder.status || 'preparing', 

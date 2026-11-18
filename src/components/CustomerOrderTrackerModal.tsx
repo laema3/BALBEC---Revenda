@@ -26,6 +26,7 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
   const [isSharingPix, setIsSharingPix] = useState(false);
 
   const prevStatusRef = useRef<string | null>(null);
+  const prevPaymentConfirmedRef = useRef<boolean | null>(null);
 
   // Sound synthesizer for customer alerts
   const playCustomerChime = (type: 'stage_change' | 'out_for_delivery' | 'delivered') => {
@@ -131,8 +132,13 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
         } else {
           playCustomerChime('stage_change');
         }
+      } else if (prevPaymentConfirmedRef.current === false && currentOrd.paymentConfirmedByOperator === true) {
+        setStatusNotification('✅ Pagamento de 50% confirmado! Seu pedido foi liberado para produção.');
+        setTimeout(() => setStatusNotification(null), 5000);
+        playCustomerChime('stage_change');
       }
       prevStatusRef.current = currentOrd.status;
+      prevPaymentConfirmedRef.current = Boolean(currentOrd.paymentConfirmedByOperator);
     } catch (err: any) {
       if (isInitial) setError('Erro ao conectar ao rastreamento em tempo real.');
     } finally {

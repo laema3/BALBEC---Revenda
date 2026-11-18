@@ -3373,11 +3373,74 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         }
       }
 
+      const shortOrderId = String(resolvedId).slice(-4).padStart(4, '0');
+      const customerFirstName = String(updatedOrder.customerName || 'Cliente').trim() || 'Cliente';
+      const cleanCustomerPhone = String(updatedOrder.customerPhone || '').replace(/\D/g, '');
+      const totalVal = Number(updatedOrder.total) || 0;
+      const paidVal = Number(updatedOrder.paidAmount) > 0
+        ? Number(updatedOrder.paidAmount)
+        : Number((totalVal * 0.5).toFixed(2));
+      const formattedPaid = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paidVal);
+      const customerConfirmMsg = `Olá ${customerFirstName}! Recebemos a confirmação do seu pagamento de 50% (${formattedPaid}) referente ao Pedido #${shortOrderId} na BALBEC. Seu pedido já foi liberado para nossa equipe iniciar a produção!`;
+
+      // Disparo automático via NTFY se ativado (mesmo padrão da mudança de status)
+      if (memStoreInfo.ntfyEnabled !== false) {
+        try {
+          const topic = String(memStoreInfo.ntfyTopic || 'balbecrevenda_pedidos').trim();
+          fetch(`https://ntfy.sh/${topic}`, {
+            method: 'POST',
+            headers: {
+              'Title': `✅ Pagamento Confirmado: Pedido #${shortOrderId}`,
+              'Priority': 'urgent',
+              'Tags': 'white_check_mark,money_with_wings,bell',
+              'Click': cleanCustomerPhone
+                ? `https://wa.me/55${cleanCustomerPhone}?text=${encodeURIComponent(customerConfirmMsg)}`
+                : undefined
+            },
+            body: `Pedido #${shortOrderId} (${customerFirstName})\nNovo Status: ✅ Pagamento 50% Confirmado (${formattedPaid})\nConfirmado por: ${operatorName}\nPedido liberado para produção!\nTelefone: ${updatedOrder.customerPhone || 'Não informado'}`
+          }).catch(() => {});
+        } catch (ntfyErr) {}
+      }
+
+      // Disparo automático via Webhook se configurado (mesmo padrão da mudança de status)
+      if (memStoreInfo.autoSmsWebhookUrl && String(memStoreInfo.autoSmsWebhookUrl).trim() !== '') {
+        try {
+          const webhookUrl = String(memStoreInfo.autoSmsWebhookUrl).trim();
+          const apiKey = String(memStoreInfo.autoSmsApiKey || '').trim();
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+            },
+            body: JSON.stringify({
+              event: 'order_payment_confirmed',
+              orderId: resolvedId,
+              status: updatedOrder.status || 'pending',
+              paymentConfirmedByOperator: true,
+              paymentConfirmedAt: confirmedAt,
+              paymentConfirmedBy: operatorName,
+              customerName: customerFirstName,
+              customerPhone: updatedOrder.customerPhone || '',
+              phone: updatedOrder.customerPhone || '',
+              number: cleanCustomerPhone,
+              message: customerConfirmMsg
+            })
+          }).catch(() => {});
+        } catch (whErr) {}
+      }
+
       broadcastSSE({
         type: 'sync',
         target: 'orders',
         action: 'payment_confirmed',
+        alertType: 'payment_confirmed',
         orderId: resolvedId,
+        status: updatedOrder.status || 'pending',
+        deliveryStatus: updatedOrder.deliveryStatus || 'pending',
+        customerName: customerFirstName,
+        customerPhone: updatedOrder.customerPhone || '',
+        message: customerConfirmMsg,
         paymentConfirmedByOperator: true,
         paymentConfirmedAt: confirmedAt,
         paymentConfirmedBy: operatorName,
