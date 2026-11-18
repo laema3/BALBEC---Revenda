@@ -91,6 +91,14 @@ import { parseWeeklySchedule, DaySchedule, formatWeeklyScheduleSummary, getStore
 import { AiAssistantModal } from '../components/AiAssistantModal';
 import { AdminSettingsCollapsible } from '../components/AdminSettingsCollapsible';
 import { CaixaPrinterStationCard } from '../components/CaixaPrinterStationCard';
+import {
+  resolveFullBlueFocusConfig,
+  parseServerBlueFocusConfig,
+  serializeBlueFocusConfigForDb,
+  mirrorBlueFocusConfigToLocalStorage,
+  hasLegacyLocalStorageBlueFocusConfig,
+  BlueFocusIntegrationConfig,
+} from '../utils/blueFocusConfig';
 
 export interface SyncLog {
   id: string;
@@ -108,7 +116,7 @@ export interface SyncLog {
 
 export default function Admin() {
   const { 
-    categories, products, orders: rawOrders, tables, users, customers, storeInfo, ordersError, isOnline,
+    categories, products, orders: rawOrders, tables, users, customers, storeInfo, ordersError, isOnline, isInitialized,
     appInstallsCount, appInstallsList, fetchAppInstalls,
     addCategory, updateCategory, deleteCategory,
     addProduct, updateProduct, deleteProduct,
@@ -1139,80 +1147,56 @@ export default function Admin() {
   const [isTestingBlueFocus, setIsTestingBlueFocus] = useState(false);
   const [exportingOrderId, setExportingOrderId] = useState<string | null>(null);
   
-  // BlueFocus Config State (mescla configurações persistidas no servidor com preferências locais do navegador)
-  const [blueFocusConfig, setBlueFocusConfig] = useState(() => {
-    let serverCfg: any = {};
-    try {
-      if (storeInfo?.blueFocusExportConfig) {
-        serverCfg = typeof storeInfo.blueFocusExportConfig === 'string'
-          ? JSON.parse(storeInfo.blueFocusExportConfig)
-          : storeInfo.blueFocusExportConfig;
-      }
-    } catch {}
-    return {
-      empresaId: serverCfg?.empresaId || localStorage.getItem('bluefocus_empresa_id') || 'BALBEC',
-      usuarioId: serverCfg?.usuarioId || localStorage.getItem('bluefocus_usuario_id') || 'CONSULTA',
-      pdvCodigo: serverCfg?.pdvCodigo || localStorage.getItem('bluefocus_pdv_codigo') || '1000',
-      pessoaId: localStorage.getItem('bluefocus_pessoa_id') || '0',
-      syncUrl: localStorage.getItem('bluefocus_sync_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat',
-      orderUrl: serverCfg?.orderUrl || localStorage.getItem('bluefocus_order_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
-      tipoAtualizacao: localStorage.getItem('bluefocus_tipo_atualizacao') || 'A',
-      tipo: localStorage.getItem('bluefocus_tipo') || '4',
-      dataInicial: localStorage.getItem('bluefocus_data_inicial') || '30/12/1899',
-      startCargaNumero: localStorage.getItem('bluefocus_start_carga_numero') || '0',
-      startCargaSequencia: localStorage.getItem('bluefocus_start_carga_sequencia') || '0',
-      authToken: serverCfg?.authToken ?? localStorage.getItem('bluefocus_auth_token') ?? '',
-      startProdutoId: localStorage.getItem('bluefocus_start_produto_id') || '0',
-      batchSize: localStorage.getItem('bluefocus_batch_size') || '4',
-      preserveManualPrices: localStorage.getItem('bluefocus_preserve_manual_prices') !== 'false',
-      autoExportMode: serverCfg?.autoExportMode || localStorage.getItem('bluefocus_auto_export_mode') || 'manual',
-      defaultClienteId: serverCfg?.defaultClienteId || localStorage.getItem('bluefocus_default_cliente_id') || '100',
-      formaDinheiroId: serverCfg?.formaDinheiroId || localStorage.getItem('bluefocus_forma_dinheiro_id') || '1',
-      formaPixId: serverCfg?.formaPixId || localStorage.getItem('bluefocus_forma_pix_id') || '1',
-      formaDebitoId: serverCfg?.formaDebitoId || localStorage.getItem('bluefocus_forma_debito_id') || '1',
-      formaCreditoId: serverCfg?.formaCreditoId || localStorage.getItem('bluefocus_forma_credito_id') || '1',
-    };
+  // BlueFocus Config State (fonte autoritativa no PostgreSQL com cache local)
+  const [blueFocusConfig, setBlueFocusConfig] = useState<BlueFocusIntegrationConfig>(() => {
+    return resolveFullBlueFocusConfig(storeInfo);
   });
-
-  useEffect(() => {
-    if (!storeInfo?.blueFocusExportConfig) return;
-    try {
-      const parsed = typeof storeInfo.blueFocusExportConfig === 'string'
-        ? JSON.parse(storeInfo.blueFocusExportConfig)
-        : storeInfo.blueFocusExportConfig;
-      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-        setBlueFocusConfig((prev: any) => ({
-          ...prev,
-          ...(parsed.empresaId ? { empresaId: parsed.empresaId } : {}),
-          ...(parsed.usuarioId ? { usuarioId: parsed.usuarioId } : {}),
-          ...(parsed.pdvCodigo ? { pdvCodigo: parsed.pdvCodigo } : {}),
-          ...(parsed.orderUrl ? { orderUrl: parsed.orderUrl } : {}),
-          ...(parsed.authToken !== undefined ? { authToken: parsed.authToken } : {}),
-          ...(parsed.autoExportMode ? { autoExportMode: parsed.autoExportMode } : {}),
-          ...(parsed.defaultClienteId ? { defaultClienteId: parsed.defaultClienteId } : {}),
-          ...(parsed.formaDinheiroId ? { formaDinheiroId: parsed.formaDinheiroId } : {}),
-          ...(parsed.formaPixId ? { formaPixId: parsed.formaPixId } : {}),
-          ...(parsed.formaDebitoId ? { formaDebitoId: parsed.formaDebitoId } : {}),
-          ...(parsed.formaCreditoId ? { formaCreditoId: parsed.formaCreditoId } : {}),
-        }));
-      }
-    } catch {}
-  }, [storeInfo?.blueFocusExportConfig]);
-
-  // Garantir que a chave no localStorage tenha BALBEC como padrão se vazia
-  useEffect(() => {
-    if (!localStorage.getItem('bluefocus_empresa_id')) {
-      localStorage.setItem('bluefocus_empresa_id', 'BALBEC');
-    }
-  }, []);
 
   // Auto Sync State (Sincronização Automática a cada 2h: Seg a Sex das 08h às 18h | Sábados das 08h às 12h | Domingos pausado)
   const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('bluefocus_auto_sync') === 'true';
+    return resolveFullBlueFocusConfig(storeInfo).autoSyncEnabled;
   });
   const [lastAutoSyncTime, setLastAutoSyncTime] = useState<string | null>(() => {
     return localStorage.getItem('bluefocus_last_auto_sync_time');
   });
+
+  const migratedLegacyBfRef = useRef(false);
+
+  useEffect(() => {
+    const serverCfg = parseServerBlueFocusConfig(storeInfo);
+    const hasServerData = Object.keys(serverCfg).filter(k => k !== '_fullSyncedAt').length > 0;
+
+    if (hasServerData) {
+      const merged = resolveFullBlueFocusConfig(storeInfo);
+      setBlueFocusConfig(merged);
+      if (serverCfg.autoSyncEnabled !== undefined) {
+        setIsAutoSyncEnabled(Boolean(serverCfg.autoSyncEnabled));
+      }
+      mirrorBlueFocusConfigToLocalStorage(merged);
+    }
+
+    // Migração automática única: se o servidor ainda não tem os campos completos (syncUrl/_fullSyncedAt)
+    // mas este computador principal possui a configuração antiga no localStorage, sobe tudo para o banco de dados.
+    if (
+      isInitialized &&
+      !migratedLegacyBfRef.current &&
+      !serverCfg._fullSyncedAt &&
+      !serverCfg.syncUrl &&
+      hasLegacyLocalStorageBlueFocusConfig()
+    ) {
+      migratedLegacyBfRef.current = true;
+      const fullConfigToMigrate = resolveFullBlueFocusConfig(storeInfo);
+      mirrorBlueFocusConfigToLocalStorage(fullConfigToMigrate);
+      setBlueFocusConfig(fullConfigToMigrate);
+      setIsAutoSyncEnabled(Boolean(fullConfigToMigrate.autoSyncEnabled));
+      updateStoreInfo({
+        blueFocusExportConfig: serializeBlueFocusConfigForDb(
+          fullConfigToMigrate,
+          fullConfigToMigrate.autoSyncEnabled
+        ),
+      }).catch(() => {});
+    }
+  }, [storeInfo?.blueFocusExportConfig, isInitialized]);
 
   const isSyncingRef = useRef(isSyncing);
   useEffect(() => {
@@ -1789,35 +1773,33 @@ export default function Admin() {
         user: currentUser?.name || 'Sistema'
       });
 
+      const nextSyncedCfg: BlueFocusIntegrationConfig = {
+        ...activeConfig,
+        startCargaNumero: String(currentCargaNumero),
+        startCargaSequencia: String(currentCargaSequencia),
+        startProdutoId: String(currentProdutoId),
+        autoSyncEnabled: isAutoSyncEnabled,
+      };
+      mirrorBlueFocusConfigToLocalStorage(nextSyncedCfg);
+
       if (isAutoSync) {
-        // Na sincronização automática, atualizamos o config e o storage silenciosamente para o próximo ciclo
-        setBlueFocusConfig(prev => ({
-          ...prev,
-          startCargaNumero: String(currentCargaNumero),
-          startCargaSequencia: String(currentCargaSequencia),
-          startProdutoId: String(currentProdutoId)
-        }));
-        localStorage.setItem('bluefocus_start_carga_numero', String(currentCargaNumero));
-        localStorage.setItem('bluefocus_start_carga_sequencia', String(currentCargaSequencia));
-        localStorage.setItem('bluefocus_start_produto_id', String(currentProdutoId));
+        // Na sincronização automática, atualizamos o config, localStorage e banco de dados para o próximo ciclo
+        setBlueFocusConfig(nextSyncedCfg);
+        updateStoreInfo({
+          blueFocusExportConfig: serializeBlueFocusConfigForDb(nextSyncedCfg, isAutoSyncEnabled),
+        }).catch(() => {});
         console.log(`[Auto-Sync] Sincronização concluída com sucesso! Marcador: ${currentCargaNumero}/${currentCargaSequencia}`);
       } else {
+        setBlueFocusConfig(nextSyncedCfg);
+        updateStoreInfo({
+          blueFocusExportConfig: serializeBlueFocusConfigForDb(nextSyncedCfg, isAutoSyncEnabled),
+        }).catch(() => {});
         setConfirmModal({
           isOpen: true,
           title: 'Sincronização Concluída',
           message: `Sincronização finalizada com sucesso!\n\n🔹 Estatísticas:\nRegistros brutos lidos: ${totalIterations}\nProdutos válidos: ${blueFocusProducts.length}\nItens ignorados: ${totalIgnored}\n\n📋 Detalhamento dos Ignorados:\n${breakdownLines || 'Nenhum item ignorado.'}\n\n🏠 Mudanças no Banco:\nCategorias novas: ${categoriesCreated}\nProdutos novos: ${productsCreated}\nProdutos atualizados: ${productsUpdated}\n\nO ponto de início foi atualizado para: ${currentCargaNumero}/${currentCargaSequencia}`,
           onConfirm: () => {
             setConfirmModal(null);
-            // Auto-update config in UI and localStorage so next sync starts from here
-            setBlueFocusConfig(prev => ({
-              ...prev,
-              startCargaNumero: String(currentCargaNumero),
-              startCargaSequencia: String(currentCargaSequencia),
-              startProdutoId: String(currentProdutoId)
-            }));
-            localStorage.setItem('bluefocus_start_carga_numero', String(currentCargaNumero));
-            localStorage.setItem('bluefocus_start_carga_sequencia', String(currentCargaSequencia));
-            localStorage.setItem('bluefocus_start_produto_id', String(currentProdutoId));
           },
           debugXml: lastDebugXml
         });
@@ -2940,19 +2922,7 @@ export default function Admin() {
       tvShowClock: storeInfo.tvShowClock ?? true,
       tvShowCaptions: storeInfo.tvShowCaptions ?? false,
       showSystemIntroButton: showSystemIntroButtonState,
-      blueFocusExportConfig: JSON.stringify({
-        empresaId: blueFocusConfig.empresaId || 'BALBEC',
-        usuarioId: blueFocusConfig.usuarioId || 'CONSULTA',
-        pdvCodigo: blueFocusConfig.pdvCodigo || '1000',
-        orderUrl: blueFocusConfig.orderUrl || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
-        authToken: blueFocusConfig.authToken || '',
-        autoExportMode: blueFocusConfig.autoExportMode || 'manual',
-        defaultClienteId: blueFocusConfig.defaultClienteId || '100',
-        formaDinheiroId: blueFocusConfig.formaDinheiroId || '1',
-        formaPixId: blueFocusConfig.formaPixId || '1',
-        formaDebitoId: blueFocusConfig.formaDebitoId || '1',
-        formaCreditoId: blueFocusConfig.formaCreditoId || '1',
-      }),
+      blueFocusExportConfig: serializeBlueFocusConfigForDb(blueFocusConfig, isAutoSyncEnabled),
     };
     try {
       await updateStoreInfo(data);
@@ -5920,6 +5890,9 @@ export default function Admin() {
                         if (!localStorage.getItem('bluefocus_last_auto_sync_timestamp')) {
                           localStorage.setItem('bluefocus_last_auto_sync_timestamp', String(Date.now()));
                         }
+                        updateStoreInfo({
+                          blueFocusExportConfig: serializeBlueFocusConfigForDb(blueFocusConfig, true),
+                        }).catch(() => {});
                       }}
                       className={`px-2.5 py-1 rounded text-xs font-black transition-all cursor-pointer ${
                         isAutoSyncEnabled 
@@ -5934,6 +5907,9 @@ export default function Admin() {
                       onClick={() => {
                         setIsAutoSyncEnabled(false);
                         localStorage.setItem('bluefocus_auto_sync', 'false');
+                        updateStoreInfo({
+                          blueFocusExportConfig: serializeBlueFocusConfigForDb(blueFocusConfig, false),
+                        }).catch(() => {});
                       }}
                       className={`px-2.5 py-1 rounded text-xs font-black transition-all cursor-pointer ${
                         !isAutoSyncEnabled 
@@ -5976,11 +5952,10 @@ export default function Admin() {
                           startProdutoId: '0'
                         };
                         setBlueFocusConfig(freshConfig);
-                        localStorage.setItem('bluefocus_tipo', '4');
-                        localStorage.setItem('bluefocus_tipo_atualizacao', 'C');
-                        localStorage.setItem('bluefocus_start_carga_numero', '0');
-                        localStorage.setItem('bluefocus_start_carga_sequencia', '0');
-                        localStorage.setItem('bluefocus_start_produto_id', '0');
+                        mirrorBlueFocusConfigToLocalStorage({ ...freshConfig, autoSyncEnabled: isAutoSyncEnabled });
+                        updateStoreInfo({
+                          blueFocusExportConfig: serializeBlueFocusConfigForDb(freshConfig, isAutoSyncEnabled),
+                        }).catch(() => {});
                         handleSyncBlueFocus(freshConfig);
                       }
                     });
@@ -7185,20 +7160,25 @@ export default function Admin() {
       blueFocusConfig={blueFocusConfig}
       setBlueFocusConfig={setBlueFocusConfig}
       onSaveBlueFocusStoreConfig={async (cfg) => {
-        await updateStoreInfo({
-          blueFocusExportConfig: JSON.stringify({
-            empresaId: cfg.empresaId,
-            usuarioId: cfg.usuarioId,
-            pdvCodigo: cfg.pdvCodigo,
-            orderUrl: cfg.orderUrl,
-            authToken: cfg.authToken,
-            autoExportMode: cfg.autoExportMode || 'manual',
-            defaultClienteId: cfg.defaultClienteId || '100',
-            formaDinheiroId: cfg.formaDinheiroId || '1',
-            formaPixId: cfg.formaPixId || '1',
-            formaDebitoId: cfg.formaDebitoId || '1',
-            formaCreditoId: cfg.formaCreditoId || '1',
+        const res = await fetch('/api/db/store-info', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blueFocusExportConfig: serializeBlueFocusConfigForDb(
+              cfg,
+              cfg.autoSyncEnabled !== undefined ? Boolean(cfg.autoSyncEnabled) : isAutoSyncEnabled
+            ),
           }),
+        });
+        if (!res.ok) {
+          throw new Error(`Servidor retornou status ${res.status}`);
+        }
+        const updated = await res.json().catch(() => null);
+        await updateStoreInfo({
+          blueFocusExportConfig: updated?.blueFocusExportConfig || serializeBlueFocusConfigForDb(
+            cfg,
+            cfg.autoSyncEnabled !== undefined ? Boolean(cfg.autoSyncEnabled) : isAutoSyncEnabled
+          ),
         });
       }}
       handleSyncBlueFocus={handleSyncBlueFocus}
@@ -8383,6 +8363,9 @@ export default function Admin() {
                           if (!localStorage.getItem('bluefocus_last_auto_sync_timestamp')) {
                             localStorage.setItem('bluefocus_last_auto_sync_timestamp', String(Date.now()));
                           }
+                          updateStoreInfo({
+                            blueFocusExportConfig: serializeBlueFocusConfigForDb(blueFocusConfig, true),
+                          }).catch(() => {});
                         }}
                         className={`px-2.5 py-1 rounded text-xs font-black transition-all cursor-pointer ${
                           isAutoSyncEnabled 
@@ -8397,6 +8380,9 @@ export default function Admin() {
                         onClick={() => {
                           setIsAutoSyncEnabled(false);
                           localStorage.setItem('bluefocus_auto_sync', 'false');
+                          updateStoreInfo({
+                            blueFocusExportConfig: serializeBlueFocusConfigForDb(blueFocusConfig, false),
+                          }).catch(() => {});
                         }}
                         className={`px-2.5 py-1 rounded text-xs font-black transition-all cursor-pointer ${
                           !isAutoSyncEnabled 
@@ -8425,10 +8411,10 @@ export default function Admin() {
                             startProdutoId: '0' 
                           };
                           setBlueFocusConfig(resetConfig);
-                          localStorage.setItem('bluefocus_tipo', '4');
-                          localStorage.setItem('bluefocus_start_carga_numero', '0');
-                          localStorage.setItem('bluefocus_start_carga_sequencia', '0');
-                          localStorage.setItem('bluefocus_start_produto_id', '0');
+                          mirrorBlueFocusConfigToLocalStorage({ ...resetConfig, autoSyncEnabled: isAutoSyncEnabled });
+                          updateStoreInfo({
+                            blueFocusExportConfig: serializeBlueFocusConfigForDb(resetConfig, isAutoSyncEnabled),
+                          }).catch(() => {});
                           handleSyncBlueFocus(resetConfig);
                         }
                       });
@@ -8473,12 +8459,16 @@ export default function Admin() {
                   <label className="block text-sm font-medium text-stone-700 mb-1">Empresa ID (Exato como no sistema)</label>
                   <input 
                     type="text" 
-                    value="BALBEC" 
-                    readOnly
-                    className="w-full p-3 border rounded-xl bg-stone-50 text-stone-900 font-semibold outline-none cursor-not-allowed select-none" 
-                    title="Fixo como BALBEC para garantir o sincronismo correto"
+                    value={blueFocusConfig.empresaId || 'BALBEC'} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBlueFocusConfig(prev => ({ ...prev, empresaId: val }));
+                      localStorage.setItem('bluefocus_empresa_id', val);
+                    }}
+                    className="w-full p-3 border rounded-xl bg-white text-stone-900 font-semibold focus:ring-2 focus:ring-orange-500 outline-none" 
+                    placeholder="BALBEC"
                   />
-                  <p className="text-[10px] text-stone-400 mt-1">Identificador fixo do sistema BlueFocus (BALBEC).</p>
+                  <p className="text-[10px] text-stone-400 mt-1">Identificador da empresa no BlueFocus (padrão: BALBEC).</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1">Usuário ID</label>
@@ -8648,10 +8638,10 @@ export default function Admin() {
                           startProdutoId: '0'
                         };
                         setBlueFocusConfig(resetConfig);
-                        localStorage.setItem('bluefocus_tipo', '4');
-                        localStorage.setItem('bluefocus_start_carga_numero', '0');
-                        localStorage.setItem('bluefocus_start_carga_sequencia', '0');
-                        localStorage.setItem('bluefocus_start_produto_id', '0');
+                        mirrorBlueFocusConfigToLocalStorage({ ...resetConfig, autoSyncEnabled: isAutoSyncEnabled });
+                        updateStoreInfo({
+                          blueFocusExportConfig: serializeBlueFocusConfigForDb(resetConfig, isAutoSyncEnabled),
+                        }).catch(() => {});
                         handleSyncBlueFocus(resetConfig);
                       }
                     });

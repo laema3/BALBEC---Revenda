@@ -181,14 +181,24 @@ function formatBlueFocusError(error: any): { message: string; details: any } {
         excludeKeywords = []
       } = req.body;
 
+      let dbBfCfg: Record<string, any> = {};
+      try {
+        const memStore = getMemStoreInfo();
+        if (memStore?.blueFocusExportConfig) {
+          dbBfCfg = typeof memStore.blueFocusExportConfig === 'string'
+            ? JSON.parse(memStore.blueFocusExportConfig)
+            : memStore.blueFocusExportConfig;
+        }
+      } catch {}
+
       const authKey = process.env.BLUE_FOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_TOKEN;
-      const empresaId = reqEmpresaId || process.env.BLUEFOCUS_EMPRESA_ID || process.env.BLUEFOCUS_EMPRESA || 'BALBEC';
-      const usuarioId = reqUsuarioId || process.env.BLUEFOCUS_USUARIO_ID || process.env.BLUEFOCUS_USUARIO || 'CONSULTA';
-      const pdvCodigo = reqPdvCodigo || process.env.BLUEFOCUS_PDV_CODIGO || '1000';
-      const syncUrl = reqSyncUrl || process.env.BLUEFOCUS_SYNC_URL || "http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat";
-      const tipoAtualizacao = reqTipoAtualizacao || 'A';
-      const tipo = reqTipo || '4';
-      const dataInicial = reqDataInicial || '30/12/1899';
+      const empresaId = reqEmpresaId || dbBfCfg?.empresaId || process.env.BLUEFOCUS_EMPRESA_ID || process.env.BLUEFOCUS_EMPRESA || 'BALBEC';
+      const usuarioId = reqUsuarioId || dbBfCfg?.usuarioId || process.env.BLUEFOCUS_USUARIO_ID || process.env.BLUEFOCUS_USUARIO || 'CONSULTA';
+      const pdvCodigo = reqPdvCodigo || dbBfCfg?.pdvCodigo || process.env.BLUEFOCUS_PDV_CODIGO || '1000';
+      const syncUrl = reqSyncUrl || dbBfCfg?.syncUrl || process.env.BLUEFOCUS_SYNC_URL || "http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat";
+      const tipoAtualizacao = reqTipoAtualizacao || dbBfCfg?.tipoAtualizacao || 'A';
+      const tipo = reqTipo || dbBfCfg?.tipo || '4';
+      const dataInicial = reqDataInicial || dbBfCfg?.dataInicial || '30/12/1899';
 
       console.log(`Batch Sync: Empresa: [${empresaId}], Carga: ${startCargaNumero}/${startCargaSequencia}, Batch: ${batchSize}`);
 
@@ -204,6 +214,8 @@ function formatBlueFocusError(error: any): { message: string; details: any } {
       
       if (isValidToken(authToken)) {
         headers["autentica"] = authToken.trim();
+      } else if (isValidToken(dbBfCfg?.authToken)) {
+        headers["autentica"] = String(dbBfCfg.authToken).trim();
       } else if (isValidToken(authKey)) {
         headers["autentica"] = authKey.trim();
       }
@@ -577,13 +589,23 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
         batchSize = 20
       } = req.body;
 
+      let dbBfCfg: Record<string, any> = {};
+      try {
+        const memStore = getMemStoreInfo();
+        if (memStore?.blueFocusExportConfig) {
+          dbBfCfg = typeof memStore.blueFocusExportConfig === 'string'
+            ? JSON.parse(memStore.blueFocusExportConfig)
+            : memStore.blueFocusExportConfig;
+        }
+      } catch {}
+
       const authKey = process.env.BLUE_FOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_KEY || process.env.BLUEFOCUS_AUTH_TOKEN;
-      const empresaId = reqEmpresaId || process.env.BLUEFOCUS_EMPRESA_ID || process.env.BLUEFOCUS_EMPRESA || 'BALBEC';
-      const usuarioId = reqUsuarioId || process.env.BLUEFOCUS_USUARIO_ID || process.env.BLUEFOCUS_USUARIO || 'CONSULTA';
-      const pdvCodigo = reqPdvCodigo || process.env.BLUEFOCUS_PDV_CODIGO || '1000';
-      const syncUrl = reqSyncUrl || process.env.BLUEFOCUS_SYNC_URL || "http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat";
-      const tipoAtualizacao = reqTipoAtualizacao || 'A';
-      const dataInicial = reqDataInicial || '30/12/1899';
+      const empresaId = reqEmpresaId || dbBfCfg?.empresaId || process.env.BLUEFOCUS_EMPRESA_ID || process.env.BLUEFOCUS_EMPRESA || 'BALBEC';
+      const usuarioId = reqUsuarioId || dbBfCfg?.usuarioId || process.env.BLUEFOCUS_USUARIO_ID || process.env.BLUEFOCUS_USUARIO || 'CONSULTA';
+      const pdvCodigo = reqPdvCodigo || dbBfCfg?.pdvCodigo || process.env.BLUEFOCUS_PDV_CODIGO || '1000';
+      const syncUrl = reqSyncUrl || dbBfCfg?.syncUrl || process.env.BLUEFOCUS_SYNC_URL || "http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat";
+      const tipoAtualizacao = reqTipoAtualizacao || dbBfCfg?.tipoAtualizacao || 'A';
+      const dataInicial = reqDataInicial || dbBfCfg?.dataInicial || '30/12/1899';
 
       const isValidToken = (t?: string) => {
         if (!t) return false;
@@ -596,6 +618,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
       };
       if (isValidToken(authToken)) {
         headers["autentica"] = authToken.trim();
+      } else if (isValidToken(dbBfCfg?.authToken)) {
+        headers["autentica"] = String(dbBfCfg.authToken).trim();
       } else if (isValidToken(authKey)) {
         headers["autentica"] = authKey.trim();
       }

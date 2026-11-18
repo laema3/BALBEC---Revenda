@@ -58,6 +58,10 @@ import {
   downloadWindowsNetworkPrinterScript,
   setNetworkPrinterConfig
 } from '../utils/printer';
+import {
+  mirrorBlueFocusConfigToLocalStorage,
+  normalizeFullBlueFocusConfig,
+} from '../utils/blueFocusConfig';
 
 interface AdminSettingsCollapsibleProps {
   storeInfo: StoreInfo;
@@ -386,62 +390,26 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
 
 
   const handleSaveBlueFocusConfig = async () => {
-    const cfg = {
-      empresaId: blueFocusConfig.empresaId || 'BALBEC',
-      usuarioId: blueFocusConfig.usuarioId || 'CONSULTA',
-      pdvCodigo: blueFocusConfig.pdvCodigo || '1000',
-      pessoaId: blueFocusConfig.pessoaId || '0',
-      syncUrl: blueFocusConfig.syncUrl || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxexportacadsat',
-      orderUrl: blueFocusConfig.orderUrl || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
-      tipoAtualizacao: blueFocusConfig.tipoAtualizacao || 'A',
-      tipo: blueFocusConfig.tipo || '4',
-      dataInicial: blueFocusConfig.dataInicial || '30/12/1899',
-      startCargaNumero: String(blueFocusConfig.startCargaNumero || '0'),
-      startCargaSequencia: String(blueFocusConfig.startCargaSequencia || '0'),
-      startProdutoId: String(blueFocusConfig.startProdutoId || '0'),
-      authToken: blueFocusConfig.authToken || '',
-      batchSize: String(blueFocusConfig.batchSize || '4'),
-      preserveManualPrices: blueFocusConfig.preserveManualPrices !== false,
-      autoExportMode: (blueFocusConfig.autoExportMode === 'on_create' || blueFocusConfig.autoExportMode === 'on_complete') ? blueFocusConfig.autoExportMode : 'manual',
-      defaultClienteId: String(blueFocusConfig.defaultClienteId || '100'),
-      formaDinheiroId: String(blueFocusConfig.formaDinheiroId || '1'),
-      formaPixId: String(blueFocusConfig.formaPixId || '1'),
-      formaDebitoId: String(blueFocusConfig.formaDebitoId || '1'),
-      formaCreditoId: String(blueFocusConfig.formaCreditoId || '1'),
-    };
+    const cfg = normalizeFullBlueFocusConfig({
+      ...blueFocusConfig,
+      autoSyncEnabled: isAutoSyncEnabled,
+    });
 
-    localStorage.setItem('bluefocus_empresa_id', cfg.empresaId);
-    localStorage.setItem('bluefocus_usuario_id', cfg.usuarioId);
-    localStorage.setItem('bluefocus_pdv_codigo', cfg.pdvCodigo);
-    localStorage.setItem('bluefocus_pessoa_id', cfg.pessoaId);
-    localStorage.setItem('bluefocus_sync_url', cfg.syncUrl);
-    localStorage.setItem('bluefocus_order_url', cfg.orderUrl);
-    localStorage.setItem('bluefocus_tipo_atualizacao', cfg.tipoAtualizacao);
-    localStorage.setItem('bluefocus_tipo', cfg.tipo);
-    localStorage.setItem('bluefocus_data_inicial', cfg.dataInicial);
-    localStorage.setItem('bluefocus_start_carga_numero', cfg.startCargaNumero);
-    localStorage.setItem('bluefocus_start_carga_sequencia', cfg.startCargaSequencia);
-    localStorage.setItem('bluefocus_start_produto_id', cfg.startProdutoId);
-    localStorage.setItem('bluefocus_auth_token', cfg.authToken);
-    localStorage.setItem('bluefocus_batch_size', cfg.batchSize);
-    localStorage.setItem('bluefocus_preserve_manual_prices', String(cfg.preserveManualPrices));
-    localStorage.setItem('bluefocus_auto_export_mode', cfg.autoExportMode);
-    localStorage.setItem('bluefocus_default_cliente_id', cfg.defaultClienteId);
-    localStorage.setItem('bluefocus_forma_dinheiro_id', cfg.formaDinheiroId);
-    localStorage.setItem('bluefocus_forma_pix_id', cfg.formaPixId);
-    localStorage.setItem('bluefocus_forma_debito_id', cfg.formaDebitoId);
-    localStorage.setItem('bluefocus_forma_credito_id', cfg.formaCreditoId);
-
+    mirrorBlueFocusConfigToLocalStorage(cfg);
     setBlueFocusConfig((prev: any) => ({ ...prev, ...cfg }));
+
     if (onSaveBlueFocusStoreConfig) {
       try {
         await onSaveBlueFocusStoreConfig(cfg);
+        setBlueFocusSaveFeedback('Configurações BlueFocus salvas no banco de dados! Já disponíveis em qualquer computador.');
       } catch (err) {
-        console.warn('Aviso ao sincronizar config BlueFocus no servidor:', err);
+        console.warn('Erro ao salvar config BlueFocus no servidor:', err);
+        setBlueFocusSaveFeedback('Salvo localmente, mas houve falha ao gravar no banco de dados. Tente novamente.');
       }
+    } else {
+      setBlueFocusSaveFeedback('Configurações da integração BlueFocus salvas!');
     }
-    setBlueFocusSaveFeedback('Configurações da integração BlueFocus salvas no navegador e no servidor!');
-    setTimeout(() => setBlueFocusSaveFeedback(null), 4000);
+    setTimeout(() => setBlueFocusSaveFeedback(null), 5000);
   };
 
   const activePrinter = getActiveOrderPrinter(storeInfo);
@@ -3197,6 +3165,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                         if (!localStorage.getItem('bluefocus_last_auto_sync_timestamp')) {
                           localStorage.setItem('bluefocus_last_auto_sync_timestamp', String(Date.now()));
                         }
+                        onSaveBlueFocusStoreConfig?.({ ...blueFocusConfig, autoSyncEnabled: true });
                       }}
                       className={`px-2 py-0.5 rounded text-xs font-black transition-all cursor-pointer ${
                         isAutoSyncEnabled ? 'bg-green-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
@@ -3209,6 +3178,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                       onClick={() => {
                         setIsAutoSyncEnabled(false);
                         localStorage.setItem('bluefocus_auto_sync', 'false');
+                        onSaveBlueFocusStoreConfig?.({ ...blueFocusConfig, autoSyncEnabled: false });
                       }}
                       className={`px-2 py-0.5 rounded text-xs font-black transition-all cursor-pointer ${
                         !isAutoSyncEnabled ? 'bg-stone-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
@@ -3235,6 +3205,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                         localStorage.setItem('bluefocus_start_carga_numero', '0');
                         localStorage.setItem('bluefocus_start_carga_sequencia', '0');
                         localStorage.setItem('bluefocus_start_produto_id', '0');
+                        onSaveBlueFocusStoreConfig?.({ ...resetConfig, autoSyncEnabled: isAutoSyncEnabled });
                         handleSyncBlueFocus(resetConfig);
                       }
                     }}
@@ -3740,7 +3711,7 @@ export function AdminSettingsCollapsible(props: AdminSettingsCollapsibleProps) {
                   </div>
 
                   <p className="text-[11px] text-stone-500">
-                    💡 Todas as alterações são salvas localmente e utilizadas automaticamente pelo sistema.
+                    💡 Ao salvar, todas as credenciais, URLs e marcadores são gravados no banco de dados para funcionar em qualquer computador.
                   </p>
                 </div>
               </div>

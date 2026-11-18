@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { cleanProductDescription, getEnrichedProductDescription } from '../constants';
 import { safeStorage } from '../utils/storage';
+import {
+  mirrorBlueFocusConfigToLocalStorage,
+  parseServerBlueFocusConfig,
+  resolveFullBlueFocusConfig,
+} from '../utils/blueFocusConfig';
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -1299,6 +1304,10 @@ export const useStore = create<StoreState>((set, get) => ({
                   merged.tvSelectedCategories = customTvCats;
                 }
 
+                if (Object.keys(parseServerBlueFocusConfig(storeInfo)).length > 0) {
+                  mirrorBlueFocusConfigToLocalStorage(resolveFullBlueFocusConfig(merged));
+                }
+
                 saveStoreInfoToStorage(merged);
 
                 return { storeInfo: merged };
@@ -2296,6 +2305,10 @@ export const useStore = create<StoreState>((set, get) => ({
             merged.tvSelectedCategories = customTvCats;
           }
 
+          if (Object.keys(parseServerBlueFocusConfig(merged)).length > 0) {
+            mirrorBlueFocusConfigToLocalStorage(resolveFullBlueFocusConfig(merged));
+          }
+
           saveStoreInfoToStorage(merged);
           return { storeInfo: merged };
         });
@@ -2306,6 +2319,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   
   exportOrderToBlueFocus: async (order, config) => {
+    const bfCfg = resolveFullBlueFocusConfig(get().storeInfo);
     const response = await fetch('/api/bluefocus/export-order', {
       method: 'POST',
       headers: {
@@ -2315,11 +2329,16 @@ export const useStore = create<StoreState>((set, get) => ({
         order,
         orderId: order.id,
         forceReexport: Boolean(config?.forceReexport),
-        empresaId: localStorage.getItem('bluefocus_empresa_id') || 'BALBEC',
-        usuarioId: localStorage.getItem('bluefocus_usuario_id') || 'CONSULTA',
-        pdvCodigo: localStorage.getItem('bluefocus_pdv_codigo') || '1000',
-        orderUrl: localStorage.getItem('bluefocus_order_url') || 'http://balbec.ddns.net:8082/valim/servlet/aintegracaofcxregistravenda',
-        authToken: localStorage.getItem('bluefocus_auth_token') || '',
+        empresaId: bfCfg.empresaId,
+        usuarioId: bfCfg.usuarioId,
+        pdvCodigo: bfCfg.pdvCodigo,
+        orderUrl: bfCfg.orderUrl,
+        authToken: bfCfg.authToken,
+        defaultClienteId: bfCfg.defaultClienteId,
+        formaDinheiroId: bfCfg.formaDinheiroId,
+        formaPixId: bfCfg.formaPixId,
+        formaDebitoId: bfCfg.formaDebitoId,
+        formaCreditoId: bfCfg.formaCreditoId,
         ...config
       })
     });

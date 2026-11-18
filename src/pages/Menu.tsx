@@ -5462,7 +5462,7 @@ export default function Menu() {
 
   // Se a loja estiver configurada em Modo de Manutenção
   // Modal de Perfil do Cliente (Endereços e Pedidos)
-  const ProfileModal = () => {
+  const renderProfileModal = () => {
     if (!isProfileModalOpen || !activeCustomer) return null;
 
     return (
@@ -5619,23 +5619,23 @@ export default function Menu() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className="text-[10px] font-black text-stone-500 uppercase">Identificação (ex: Casa, Trabalho)</label>
-                        <input type="text" value={addressFormData.alias} onChange={e => setAddressFormData({...addressFormData, alias: e.target.value})} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.alias} onChange={e => setAddressFormData(prev => ({...prev, alias: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
                       </div>
                       <div className="col-span-2">
                         <label className="text-[10px] font-black text-stone-500 uppercase">CEP</label>
-                        <input type="text" value={addressFormData.cep} onChange={e => setAddressFormData({...addressFormData, cep: e.target.value})} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.cep} onChange={e => setAddressFormData(prev => ({...prev, cep: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
                       </div>
                       <div className="col-span-2">
                         <label className="text-[10px] font-black text-stone-500 uppercase">Rua</label>
-                        <input type="text" value={addressFormData.street} onChange={e => setAddressFormData({...addressFormData, street: e.target.value})} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.street} onChange={e => setAddressFormData(prev => ({...prev, street: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
                       </div>
                       <div>
                         <label className="text-[10px] font-black text-stone-500 uppercase">Número</label>
-                        <input type="text" value={addressFormData.number} onChange={e => setAddressFormData({...addressFormData, number: e.target.value})} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.number} onChange={e => setAddressFormData(prev => ({...prev, number: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
                       </div>
                       <div>
                         <label className="text-[10px] font-black text-stone-500 uppercase">Bairro</label>
-                        <input type="text" value={addressFormData.neighborhood} onChange={e => setAddressFormData({...addressFormData, neighborhood: e.target.value})} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
+                        <input type="text" value={addressFormData.neighborhood} onChange={e => setAddressFormData(prev => ({...prev, neighborhood: e.target.value}))} className="w-full p-2.5 border border-stone-200 rounded-xl text-sm font-bold" required />
                       </div>
                     </div>
                     <button type="submit" className="w-full py-3 bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20">Salvar Endereço</button>
@@ -9411,7 +9411,7 @@ export default function Menu() {
       )}
 
       {/* Perfil e Pedidos Anteriores */}
-      <ProfileModal />
+      {renderProfileModal()}
 
       {/* Troca Obrigatória de Senha (Primeiro Acesso) */}
       {mustChangePasswordModal && activeCustomer && (
