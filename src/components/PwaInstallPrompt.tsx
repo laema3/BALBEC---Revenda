@@ -3,11 +3,10 @@ import { Download, X, Share2, PlusSquare, Sparkles, Check, Smartphone, Monitor, 
 import { useStore } from '../store/useStore';
 import { useLocation } from 'react-router-dom';
 
-const DECLINED_DAY_STORAGE_KEY = 'pwa_install_declined_day';
+const DECLINED_DAY_STORAGE_KEY = 'balbec_pwa_declined_day';
 const DECLINED_DAY_COOKIE_KEY = 'balbec_pwa_declined_day';
-const INSTALLED_STORAGE_KEY = 'pwa_app_installed';
-const INSTALLED_PERMANENT_KEY = 'pwa_installed_permanent';
-const INSTALLED_COOKIE_KEY = 'balbec_pwa_installed';
+const INSTALLED_V2_STORAGE_KEY = 'balbec_pwa_installed_v2';
+const INSTALLED_V2_COOKIE_KEY = 'balbec_pwa_installed_v2';
 
 function getLocalCalendarDayKey(date: Date = new Date()): string {
   const year = date.getFullYear();
@@ -39,14 +38,26 @@ function setCookieValue(name: string, value: string, maxAgeSeconds: number): voi
   } catch {}
 }
 
+function clearLegacyPoisonedDismissalFlags(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    // Limpa a antiga chave de "Não perguntar mais" para não impedir o novo fluxo de download
+    if (localStorage.getItem('pwa_prompt_dismissed_forever') === 'true') {
+      localStorage.removeItem('pwa_prompt_dismissed_forever');
+      localStorage.removeItem('pwa_app_installed');
+      localStorage.removeItem('pwa_installed_permanent');
+    }
+  } catch {}
+}
+
 function hasPermanentInstallFlag(): boolean {
   if (typeof window === 'undefined') return false;
+  clearLegacyPoisonedDismissalFlags();
   try {
     if ((window as any).__pwaInstalled === true) return true;
-    if (localStorage.getItem(INSTALLED_STORAGE_KEY) === 'true') return true;
-    if (localStorage.getItem(INSTALLED_PERMANENT_KEY) === 'true') return true;
+    if (localStorage.getItem(INSTALLED_V2_STORAGE_KEY) === 'true') return true;
   } catch {}
-  if (getCookieValue(INSTALLED_COOKIE_KEY) === 'true') return true;
+  if (getCookieValue(INSTALLED_V2_COOKIE_KEY) === 'true') return true;
   return false;
 }
 
@@ -54,12 +65,14 @@ function persistPermanentInstallFlag(): void {
   if (typeof window === 'undefined') return;
   try {
     (window as any).__pwaInstalled = true;
-    localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
-    localStorage.setItem(INSTALLED_PERMANENT_KEY, 'true');
+    localStorage.setItem(INSTALLED_V2_STORAGE_KEY, 'true');
+    localStorage.setItem('pwa_app_installed', 'true');
+    localStorage.setItem('pwa_installed_permanent', 'true');
     localStorage.removeItem(DECLINED_DAY_STORAGE_KEY);
+    localStorage.removeItem('pwa_install_declined_day');
   } catch {}
   // Persistir por ~10 anos para nunca mais exibir após o download
-  setCookieValue(INSTALLED_COOKIE_KEY, 'true', 60 * 60 * 24 * 365 * 10);
+  setCookieValue(INSTALLED_V2_COOKIE_KEY, 'true', 60 * 60 * 24 * 365 * 10);
 }
 
 function wasDeclinedToday(): boolean {
@@ -97,6 +110,11 @@ export function PwaInstallPrompt() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const recordedInstallRef = useRef(false);
+  const recordAppInstallRef = useRef(recordAppInstall);
+
+  useEffect(() => {
+    recordAppInstallRef.current = recordAppInstall;
+  }, [recordAppInstall]);
 
   // Não exibir no modo TV Display nem no painel administrativo
   const isTvRoute = location.pathname.startsWith('/tv');
@@ -111,18 +129,17 @@ export function PwaInstallPrompt() {
   const safeRecordAppInstall = useCallback(async () => {
     if (recordedInstallRef.current) return;
     recordedInstallRef.current = true;
-    await recordAppInstall().catch(() => {});
-  }, [recordAppInstall]);
+    await recordAppInstallRef.current().catch(() => {});
+  }, []);
 
   // Verificar de forma abrangente se o app já está rodando em modo standalone / instalado
   const checkStandalone = useCallback(() => {
     if (typeof window === 'undefined') return false;
 
-    // 1. Modos de exibição standalone padrão do W3C
+    // 1. Modos de exibição standalone padrão do W3C (somente app instalado na tela inicial)
     const isStandaloneDisplay = 
       window.matchMedia('(display-mode: standalone)').matches ||
-      window.matchMedia('(display-mode: fullscreen)').matches ||
-      window.matchMedia('(display-mode: minimal-ui)').matches;
+      window.matchMedia('(display-mode: fullscreen)').matches;
 
     // 2. iOS Safari standalone
     const isIosStandalone = (window.navigator as any).standalone === true;
@@ -138,7 +155,7 @@ export function PwaInstallPrompt() {
                         search.includes('source=app') ||
                         search.includes('mode=pwa');
 
-    // 5. Flag permanente salva no localStorage / cookie / window
+    // 5. Flag permanente salva no localStorage / cookie / window após download real
     const isSavedInstalled = hasPermanentInstallFlag();
 
     if (isStandaloneDisplay || isIosStandalone || isAndroidApp || isPwaSource || isSavedInstalled) {
@@ -228,7 +245,7 @@ export function PwaInstallPrompt() {
       if (!alreadyInstalled && !wasDeclinedToday() && !isSuppressedRoute) {
         setIsOpen(true);
       }
-    }, 1000);
+    }, 400);
 
     // Caso a aba fique aberta de um dia para o outro, reavaliar ao voltar para o site
     const handleVisibilityChange = () => {
@@ -347,22 +364,21 @@ export function PwaInstallPrompt() {
             setIsOpen(true);
             setShowGuide(false);
           }}
-          className="fixed bottom-24 right-4 z-40 bg-stone-900/95 hover:bg-stone-900 text-white text-xs font-bold py-2.5 px-4 rounded-full shadow-xl border border-orange-500/40 flex items-center gap-2 backdrop-blur-md transition-all hover:scale-105 active:scale-95 print:hidden cursor-pointer"
+          className="fixed bottom-24 right-4 z-[60] bg-stone-900/95 hover:bg-stone-900 text-white text-xs font-bold py-2.5 px-4 rounded-full shadow-2xl border border-orange-500/50 flex items-center gap-2 backdrop-blur-md transition-all hover:scale-105 active:scale-95 print:hidden cursor-pointer"
           title="Baixar aplicativo no celular"
         >
           <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center shrink-0">
             <Download className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="hidden sm:inline">Baixar App</span>
-          <span className="sm:hidden">App</span>
+          <span>Baixar App</span>
         </button>
       )}
 
       {/* Modal Principal de Sugestão de Download do Aplicativo */}
       {isOpen && (
-        <div className="fixed inset-0 z-[9990] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn print:hidden">
+        <div className="fixed inset-0 z-[9990] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs print:hidden">
           <div 
-            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden transform transition-all duration-300 animate-slideUp max-h-[92vh] flex flex-col"
+            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden transform transition-all duration-300 max-h-[92vh] flex flex-col"
             role="dialog"
             aria-modal="true"
             aria-label="Baixar aplicativo BALBEC"
