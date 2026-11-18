@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useStore, OrderItem, Order, CustomerAddress } from '../store/useStore';
+import { useStore, OrderItem, Order, CustomerAddress, Product, Category } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations, formatDateBR, formatAllDatesBR } from '../lib/utils';
 import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, Pencil, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff, Share2, MessageCircle } from 'lucide-react';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
@@ -16,6 +16,7 @@ import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
 import { getStoreCurrentStatus, parseWeeklySchedule, formatWeeklyScheduleSummary, calculatePickupTime, parseSlotCapacities, parseScheduleSlots, getBrazilNowDate, getMinFrozenScheduleDateKey, isDateAllowedForFrozenOrder, getAvailableScheduleDays } from '../utils/scheduleHelper';
 import { CustomerOrderTrackerModal } from '../components/CustomerOrderTrackerModal';
+import { BestSellersCarousel, BestSellerEntry } from '../components/BestSellersCarousel';
 
 // Detecção de bandeiras de cartões de crédito e débito
 function detectCardBrand(num: string): string {
@@ -183,6 +184,32 @@ export default function Menu() {
     return saved === 'frozen' || saved === 'normal' ? saved : null;
   });
   const [showOrderTypeChoiceModal, setShowOrderTypeChoiceModal] = useState<boolean>(false);
+  const [queuedImpulseProducts, setQueuedImpulseProducts] = useState<Product[]>(() => {
+    try {
+      const saved = safeStorage.getSession('balbec_queued_impulse_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const updateQueuedImpulseProducts = useCallback((updater: Product[] | ((prev: Product[]) => Product[])) => {
+    setQueuedImpulseProducts(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (next.length > 0) {
+        safeStorage.setSession('balbec_queued_impulse_products', JSON.stringify(next));
+      } else {
+        safeStorage.removeSession('balbec_queued_impulse_products');
+      }
+      return next;
+    });
+  }, []);
+  const [impulseFrozenModal, setImpulseFrozenModal] = useState<{
+    isOpen: boolean;
+    entry: BestSellerEntry | null;
+  }>({ isOpen: false, entry: null });
+  const [pendingImpulseProducts, setPendingImpulseProducts] = useState<Product[]>([]);
 
   const updateOrderModalityPreference = useCallback((pref: 'frozen' | 'normal' | null) => {
     setOrderModalityPreference(pref);
@@ -452,7 +479,10 @@ export default function Menu() {
     setShowScheduleSelectionStep(false);
     updateOrderModalityPreference(null);
     clearScheduleSelection();
-  }, [clearScheduleSelection, updateOrderModalityPreference]);
+    updateQueuedImpulseProducts([]);
+    setImpulseFrozenModal({ isOpen: false, entry: null });
+    setPendingImpulseProducts([]);
+  }, [clearScheduleSelection, updateOrderModalityPreference, updateQueuedImpulseProducts]);
 
   // Função central para resetar o totem/aplicativo para o próximo pedido
   const handleResetForNewCustomer = useCallback(() => {
@@ -496,11 +526,32 @@ export default function Menu() {
     setIsCartOpen(false);
     updateOrderModalityPreference(null);
     clearScheduleSelection();
-  }, [isTotemPath, activeCustomer, clearScheduleSelection, updateOrderModalityPreference]);
+    updateQueuedImpulseProducts([]);
+    setImpulseFrozenModal({ isOpen: false, entry: null });
+    setPendingImpulseProducts([]);
+  }, [isTotemPath, activeCustomer, clearScheduleSelection, updateOrderModalityPreference, updateQueuedImpulseProducts]);
 
   // Timer na tela de conclusão / impressão do pedido (5s no totem, 45s no celular para dar tempo do cliente ir ao balcão)
   useEffect(() => {
     if (!isSuccess) return;
+
+    const lastOrderHasFrozen = Boolean(
+      lastPlacedOrder &&
+      Array.isArray(lastPlacedOrder.items) &&
+      lastPlacedOrder.items.some((it: any) =>
+        Boolean(it?.isFrozen) ||
+        (it?.prepType && String(it.prepType).startsWith('congelado')) ||
+        (it?.prepLabel && String(it.prepLabel).toLowerCase().includes('congelad')) ||
+        (Array.isArray(it?.addons) && it.addons.some((a: any) => a?.isFrozen || a?.productId === 'prod_congelado'))
+      )
+    );
+
+    // Se acabou de finalizar pedido de congelados ou reservou itens sugeridos no web/mobile,
+    // mantém a tela aberta para permitir iniciar o 2º pedido pelos mais vendidos sem interromper.
+    if (!(salesChannel === 'kiosk' || isTotemPath) && (queuedImpulseProducts.length > 0 || lastOrderHasFrozen)) {
+      setSuccessCountdown(0);
+      return;
+    }
 
     const initialTime = (salesChannel === 'kiosk' || isTotemPath) ? 5 : 45;
     setSuccessCountdown(initialTime);
@@ -516,7 +567,7 @@ export default function Menu() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isSuccess, salesChannel, isTotemPath, handleResetForNewCustomer]);
+  }, [isSuccess, salesChannel, isTotemPath, handleResetForNewCustomer, lastPlacedOrder, queuedImpulseProducts.length]);
 
 
   const formatPhone = (value: string) => {
@@ -2694,6 +2745,266 @@ export default function Menu() {
     initiateAddToCartWithQty(product, minRequired, isFrozenCat);
   };
 
+  // Carrossel de Mais Vendidos calculado sobre o histórico real de pedidos + catálogo ativo
+  const bestSellerEntries = useMemo<BestSellerEntry[]>(() => {
+    if (!Array.isArray(products) || products.length === 0) return [];
+
+    const catMap = new Map<string, Category>();
+    if (Array.isArray(categories)) {
+      for (const c of categories) {
+        if (c && c.id) catMap.set(c.id, c);
+      }
+    }
+
+    const soldByProductId: Record<string, number> = {};
+    for (const o of (orders || [])) {
+      if (!o || o.status === 'cancelled' || (o as any).status === 'canceled') continue;
+      let orderItems: any[] = [];
+      if (Array.isArray(o.items)) {
+        orderItems = o.items;
+      } else if (typeof (o as any).items === 'string' && (o as any).items.trim() !== '') {
+        try {
+          const parsed = JSON.parse((o as any).items);
+          if (Array.isArray(parsed)) orderItems = parsed;
+        } catch {
+          orderItems = [];
+        }
+      }
+      for (const it of orderItems) {
+        if (!it || !it.productId) continue;
+        const q = Math.max(1, Number(it.quantity) || 1);
+        soldByProductId[it.productId] = (soldByProductId[it.productId] || 0) + q;
+      }
+    }
+
+    const checkCatChannel = (c?: Category) => {
+      if (!c || c.isVisible === false) return false;
+      if (isExcludedCategory(c.name) || isAddonCategory(c.name)) return false;
+      return salesChannel === 'delivery'
+        ? c.availableForDelivery !== false
+        : salesChannel === 'kiosk'
+          ? c.availableForKiosk !== false
+          : c.availableInStore !== false;
+    };
+
+    const entries: BestSellerEntry[] = [];
+    for (const p of products) {
+      if (!p || !p.isActive || p.isFlavor || (p as any).isVisible === false) continue;
+      if (isAddonItem(p, categories) || shouldExcludeProduct(p, categories)) continue;
+      if ((p as any).trackStock && ((p as any).stockQuantity ?? 0) <= 0) continue;
+
+      const matchesChannel = salesChannel === 'delivery'
+        ? p.availableForDelivery !== false
+        : salesChannel === 'kiosk'
+          ? p.availableForKiosk !== false
+          : p.availableInStore !== false;
+      if (!matchesChannel) continue;
+
+      const prodCat = (p.categoryId && p.categoryId !== 'none') ? catMap.get(p.categoryId) : undefined;
+      const frozenCat = (p.frozenCategoryId && p.frozenCategoryId !== 'none') ? catMap.get(p.frozenCategoryId) : undefined;
+
+      const validProdCat = checkCatChannel(prodCat) ? prodCat : undefined;
+      const validFrozenCat = checkCatChannel(frozenCat) ? frozenCat : undefined;
+      const resolvedCat = validProdCat || validFrozenCat;
+      if (!resolvedCat) continue;
+
+      const isFrozenCategory = isCategoryFrozenModality(resolvedCat);
+      entries.push({
+        product: p,
+        category: resolvedCat,
+        soldCount: soldByProductId[p.id] || 0,
+        isFrozenCategory,
+      });
+    }
+
+    entries.sort((a, b) => {
+      if (b.soldCount !== a.soldCount) return b.soldCount - a.soldCount;
+      const ordA = a.product.order ?? 0;
+      const ordB = b.product.order ?? 0;
+      if (ordA !== ordB) return ordA - ordB;
+      return (a.product.name || '').localeCompare(b.product.name || '', 'pt-BR', { sensitivity: 'base' });
+    });
+
+    return entries.slice(0, 10);
+  }, [products, categories, orders, salesChannel]);
+
+  const cartProductIds = useMemo(() => {
+    return new Set(cart.map(i => i.productId));
+  }, [cart]);
+
+  const queuedProductIds = useMemo(() => {
+    return new Set(queuedImpulseProducts.map(p => p.id));
+  }, [queuedImpulseProducts]);
+
+  const handleAddCarouselProductNormally = (product: Product, cat?: Category, forceNormal: boolean = false) => {
+    const targetCat = cat || categories.find(c => c.id === product.categoryId);
+    const isFrozenContext = forceNormal ? false : Boolean(targetCat && isCategoryFrozenModality(targetCat));
+    const normCatName = normalizeText(targetCat?.name || '');
+    const isBakedCategory = normCatName.includes('assad');
+    const isFriedNormalCategory = !isFrozenContext && !isBakedCategory && (
+      normCatName.includes('frit') ||
+      (normCatName.includes('grande') && normCatName.includes('norma')) ||
+      normCatName.includes('salgad')
+    );
+    const isPrepEnabled = isBakedCategory
+      ? (isFrozenContext ? storeInfo.salgadoPrepAssadoCongeladoEnabled !== false : storeInfo.salgadoPrepAssadoEnabled !== false)
+      : (isFrozenContext ? storeInfo.salgadoPrepFritoCongeladoEnabled !== false : (isFriedNormalCategory ? storeInfo.salgadoPrepFritoEnabled !== false : false));
+    const needsPrep = isPrepEnabled && (isFrozenContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(product) && canBuy;
+    const minReq = isFrozenContext ? Math.max(1, Number(product.minFrozenQuantity) || 1) : 1;
+
+    if (needsPrep) {
+      openFrozenModal(product, minReq, isFrozenContext ? 'congelado' : 'pronto');
+      return;
+    }
+
+    initiateAddToCartWithQty(product, minReq, isFrozenContext, forceNormal);
+  };
+
+  const processImpulseProducts = (prods: Product[], forceNormal: boolean = true) => {
+    if (!prods || prods.length === 0) return;
+    let openedModal = false;
+    let addedSimpleCount = 0;
+
+    for (const prod of prods) {
+      const targetCat = categories.find(c => c.id === prod.categoryId);
+      const isFrozenContext = forceNormal ? false : Boolean(targetCat && isCategoryFrozenModality(targetCat));
+      const normCatName = normalizeText(targetCat?.name || '');
+      const isBakedCategory = normCatName.includes('assad');
+      const isFriedNormalCategory = !isFrozenContext && !isBakedCategory && (
+        normCatName.includes('frit') ||
+        (normCatName.includes('grande') && normCatName.includes('norma')) ||
+        normCatName.includes('salgad')
+      );
+      const isPrepEnabled = isBakedCategory
+        ? (isFrozenContext ? storeInfo.salgadoPrepAssadoCongeladoEnabled !== false : storeInfo.salgadoPrepAssadoEnabled !== false)
+        : (isFrozenContext ? storeInfo.salgadoPrepFritoCongeladoEnabled !== false : (isFriedNormalCategory ? storeInfo.salgadoPrepFritoEnabled !== false : false));
+      const needsPrep = isPrepEnabled && (isFrozenContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(prod) && canBuy;
+
+      if (needsPrep) {
+        if (!openedModal) {
+          openedModal = true;
+          openFrozenModal(prod, isFrozenContext ? Math.max(1, Number(prod.minFrozenQuantity) || 1) : 1, isFrozenContext ? 'congelado' : 'pronto');
+        }
+        continue;
+      }
+
+      const catName = normalizeText(targetCat?.name || '');
+      const prodName = normalizeText(prod.name || '');
+      const isExplicitlyNonLanche =
+        prodName.includes('caldo') || prodName.includes('sopa') || prodName.includes('suco') ||
+        prodName.includes('cafe') || prodName.includes('refrigerante') || prodName.includes('cerveja') ||
+        prodName.includes('agua') || prodName.includes('bolo') || prodName.includes('pudim') ||
+        prodName.includes('sorvete') || prodName.includes('vitamina') || prodName.includes('salgado') ||
+        prodName.includes('coxinha') || prodName.includes('esfirra') || prodName.includes('torta') ||
+        prodName.includes('pizza') || prodName.includes('pastel') || prodName.includes('pao de queijo') ||
+        catName.includes('caldo') || catName.includes('sopa') || catName.includes('bebida') ||
+        catName.includes('salgado') || catName.includes('doce') || catName.includes('confeitaria') ||
+        catName.includes('mercearia') || catName.includes('cigarro');
+      const isChapaCategory =
+        prod.categoryId === 'tesmosw' || prod.categoryId === '56fnn1f' ||
+        catName.includes('especiais na chapa') || catName.includes('tradicionais na chapa') ||
+        catName.includes('lanches na chapa') || catName.includes('na chapa');
+      const isChapaProduct =
+        (catName.includes('lanche') || catName.includes('chapa')) && (
+          prodName.includes('na chapa') || prodName.includes('pao na chapa') ||
+          prodName.includes('misto quente') || prodName.includes('tostex') ||
+          prodName.includes('bauru') || prodName.includes('hamburguer') || prodName.includes('sanduiche')
+        );
+      const hasCustomOptions = Boolean(
+        (!isExplicitlyNonLanche && (isChapaCategory || isChapaProduct)) ||
+        (prod.flavorIds && prod.flavorIds.length > 0) ||
+        catName.includes('suco') ||
+        catName.includes('polpa')
+      );
+
+      if (hasCustomOptions) {
+        if (openedModal) continue;
+        openedModal = true;
+      } else {
+        addedSimpleCount += 1;
+      }
+
+      initiateAddToCartWithQty(
+        prod,
+        isFrozenContext ? Math.max(1, Number(prod.minFrozenQuantity) || 1) : 1,
+        isFrozenContext,
+        forceNormal
+      );
+    }
+
+    if (addedSimpleCount > 0 && !openedModal) {
+      setIsCartOpen(true);
+    }
+  };
+
+  const handleSelectBestSeller = (entry: BestSellerEntry) => {
+    const isFrozenActive = !appendOrderTarget && (orderModalityPreference === 'frozen' || hasFrozenInCart);
+    if (isFrozenActive && !entry.isFrozenCategory) {
+      setImpulseFrozenModal({ isOpen: true, entry });
+      return;
+    }
+    handleAddCarouselProductNormally(entry.product, entry.category);
+  };
+
+  const switchFromFrozenToNormalAndAddImpulse = (product: Product) => {
+    setCart([]);
+    safeStorage.removeItem('balbec_active_cart');
+    setFrozenPrepChoices({});
+    setFrozenPrepErrors({});
+    setFrozenPaymentPlan(null);
+    updateOrderModalityPreference('normal');
+    clearScheduleSelection();
+    setImpulseFrozenModal({ isOpen: false, entry: null });
+    setIsCartOpen(false);
+    setIsCheckout(false);
+
+    if (storeInfo.deliveryScheduleEnabled) {
+      setPendingImpulseProducts([product]);
+      setScheduleStepMode('pickup');
+      setShowScheduleSelectionStep(true);
+    } else {
+      handleAddCarouselProductNormally(product, undefined, true);
+    }
+  };
+
+  const startNewOrderWithImpulseProducts = (prods: Product[]) => {
+    const uniqueProds: Product[] = [];
+    const seen = new Set<string>();
+    for (const p of prods) {
+      if (p && p.id && !seen.has(p.id)) {
+        seen.add(p.id);
+        uniqueProds.push(p);
+      }
+    }
+
+    updateQueuedImpulseProducts([]);
+    setImpulseFrozenModal({ isOpen: false, entry: null });
+    setIsSuccess(false);
+    setIsCheckout(false);
+    setOnlinePaymentData(null);
+    setLastPlacedOrder(null);
+    setFrozenPaymentPlan(null);
+    setPaymentMode(null);
+    setPaymentMethod('');
+    setCart([]);
+    safeStorage.removeItem('balbec_active_cart');
+    setIsCartOpen(false);
+    updateOrderModalityPreference('normal');
+    clearScheduleSelection();
+    setHasName(true);
+    setHasChosenChannel(true);
+
+    if (storeInfo.deliveryScheduleEnabled) {
+      setPendingImpulseProducts(uniqueProds);
+      setScheduleStepMode('pickup');
+      setShowScheduleSelectionStep(true);
+    } else {
+      setTimeout(() => {
+        processImpulseProducts(uniqueProds, true);
+      }, 60);
+    }
+  };
+
   const updateQuantity = (productId: string, addons: any[] | undefined, flavor: any | undefined, delta: number, prepType?: string) => {
     setCart(prev => prev.map(item => {
       if (item.productId === productId && (item.prepType || '') === (prepType || '') && JSON.stringify(item.addons) === JSON.stringify(addons) && JSON.stringify(item.flavor) === JSON.stringify(flavor)) {
@@ -3702,6 +4013,86 @@ export default function Menu() {
           )}
 
 
+          {/* Itens Sugeridos Reservados e Carrossel de Mais Vendidos para 2º Pedido */}
+          {!isKioskMode && (queuedImpulseProducts.length > 0 || orderHasFrozen) && (
+            <div className="px-5 py-4 bg-orange-50/60 border-t border-orange-200/80 space-y-4 text-left">
+              {queuedImpulseProducts.length > 0 && (
+                <div className="bg-white rounded-2xl p-4 border border-orange-200 shadow-xs space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-black text-stone-900">
+                        Itens Reservados para o Seu Próximo Pedido
+                      </h4>
+                      <p className="text-xs text-stone-600 mt-0.5">
+                        Você separou estes itens enquanto comprava congelados. Toque abaixo para iniciar o 2º pedido agora.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {queuedImpulseProducts.map(qp => (
+                      <div
+                        key={`queued_${qp.id}`}
+                        className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-stone-50 border border-stone-200"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-white border border-stone-200 shrink-0">
+                            <ProductImage src={qp.imageUrl} alt={qp.name} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-stone-900 truncate">
+                              {formatCapitalized(qp.name)}
+                            </p>
+                            <p className="text-xs font-bold text-orange-700 tabular-nums">
+                              {formatCurrency(qp.price)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => updateQueuedImpulseProducts(prev => prev.filter(item => item.id !== qp.id))}
+                          aria-label={`Remover ${qp.name} da reserva`}
+                          className="p-1.5 text-stone-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => startNewOrderWithImpulseProducts(queuedImpulseProducts)}
+                    className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 active:scale-[0.98] text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Fazer 2º Pedido com Itens Reservados ({queuedImpulseProducts.length})</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {bestSellerEntries.some(e => !e.isFrozenCategory) && (
+                <BestSellersCarousel
+                  items={bestSellerEntries.filter(e => !e.isFrozenCategory)}
+                  isFrozenOrderActive={false}
+                  canBuy={true}
+                  cartProductIds={cartProductIds}
+                  queuedProductIds={queuedProductIds}
+                  variant="success"
+                  themeColor={storeInfo.themeColor || '#ea580c'}
+                  onSelectProduct={(entry) => {
+                    const combined = [
+                      entry.product,
+                      ...queuedImpulseProducts.filter(q => q.id !== entry.product.id),
+                    ];
+                    startNewOrderWithImpulseProducts(combined);
+                  }}
+                />
+              )}
+            </div>
+          )}
+
           {/* Botões de Ação: Compartilhar Comprovante Pix + Totem/Smartphone */}
           <div className="p-5 space-y-3 bg-white">
             {lastPlacedOrder && successPaymentBreakdown.isPix && (
@@ -3964,7 +4355,10 @@ export default function Menu() {
           {canGoBackWithoutChange && (
             <button
               type="button"
-              onClick={() => setShowScheduleSelectionStep(false)}
+              onClick={() => {
+                setPendingImpulseProducts([]);
+                setShowScheduleSelectionStep(false);
+              }}
               className="absolute top-4 right-4 p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full transition-colors cursor-pointer"
               title="Voltar"
             >
@@ -4208,7 +4602,13 @@ export default function Menu() {
               setHasChosenChannel(true);
               setHasName(true);
 
-              if (isFrozenOrderActive) {
+              if (pendingImpulseProducts.length > 0) {
+                const toProcess = [...pendingImpulseProducts];
+                setPendingImpulseProducts([]);
+                setTimeout(() => {
+                  processImpulseProducts(toProcess, !isFrozenOrderActive);
+                }, 80);
+              } else if (isFrozenOrderActive) {
                 const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
                 if (firstFrozenCat) {
                   setTimeout(() => scrollToCategory(firstFrozenCat.id), 150);
@@ -4229,7 +4629,10 @@ export default function Menu() {
           {canGoBackWithoutChange && (
             <button
               type="button"
-              onClick={() => setShowScheduleSelectionStep(false)}
+              onClick={() => {
+                setPendingImpulseProducts([]);
+                setShowScheduleSelectionStep(false);
+              }}
               className="mt-3 w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
             >
               Voltar sem alterar
@@ -7118,7 +7521,33 @@ export default function Menu() {
                 </button>
               </div>
             ) : (
-              displayedCategories.map(category => {
+              <>
+                {!appendOrderTarget && searchTerm.trim() === '' && bestSellerEntries.length > 0 && (
+                  <BestSellersCarousel
+                    items={bestSellerEntries}
+                    isFrozenOrderActive={orderModalityPreference === 'frozen' || hasFrozenInCart}
+                    canBuy={canBuy}
+                    cartProductIds={cartProductIds}
+                    queuedProductIds={queuedProductIds}
+                    variant="feed"
+                    themeColor={storeInfo.themeColor || '#ea580c'}
+                    onSelectProduct={handleSelectBestSeller}
+                    onFinishFrozenNow={() => {
+                      const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+                      if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                        if (frozenNeedsLaterDate) {
+                          updateOrderModalityPreference('frozen');
+                          clearScheduleSelection();
+                        }
+                        setScheduleStepMode('pickup');
+                        setShowScheduleSelectionStep(true);
+                        return;
+                      }
+                      setIsCheckout(true);
+                    }}
+                  />
+                )}
+                {displayedCategories.map(category => {
                 const categoryProducts = productsByCategory[category.id] || [];
                 if (categoryProducts.length === 0) return null;
 
@@ -7616,7 +8045,8 @@ export default function Menu() {
                     </div>
                   </div>
                 );
-              })
+              })}
+              </>
             )}
 
             {/* Redesigned Footer */}
@@ -7970,6 +8400,33 @@ export default function Menu() {
                   </div>
                 );
               })}
+              {!appendOrderTarget && bestSellerEntries.length > 0 && (
+                <BestSellersCarousel
+                  items={bestSellerEntries}
+                  isFrozenOrderActive={orderModalityPreference === 'frozen' || hasFrozenInCart}
+                  canBuy={canBuy}
+                  cartProductIds={cartProductIds}
+                  queuedProductIds={queuedProductIds}
+                  variant="compact"
+                  themeColor={storeInfo.themeColor || '#ea580c'}
+                  onSelectProduct={handleSelectBestSeller}
+                  onFinishFrozenNow={() => {
+                    const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                      if (frozenNeedsLaterDate) {
+                        updateOrderModalityPreference('frozen');
+                        clearScheduleSelection();
+                      }
+                      setScheduleStepMode('pickup');
+                      setShowScheduleSelectionStep(true);
+                      setIsCartOpen(false);
+                      return;
+                    }
+                    setIsCartOpen(false);
+                    setIsCheckout(true);
+                  }}
+                />
+              )}
             </>
           )}
         </div>
@@ -8767,6 +9224,117 @@ export default function Menu() {
             </div>
           </div>
         </div>
+        );
+      })()}
+
+      {/* Modal de Sugestão para Compra Separada quando o Cliente está em Pedido de Congelados */}
+      {impulseFrozenModal.isOpen && impulseFrozenModal.entry && (() => {
+        const suggestedProduct = impulseFrozenModal.entry.product;
+        const alreadyQueued = queuedProductIds.has(suggestedProduct.id);
+
+        return (
+          <div className="fixed inset-0 z-[135] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-stone-50 border border-stone-200 text-left">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-stone-200 shrink-0">
+                  <ProductImage
+                    src={suggestedProduct.imageUrl}
+                    alt={suggestedProduct.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-orange-700">
+                    Sugestão dos Mais Vendidos
+                  </p>
+                  <h3 className="text-base font-black text-stone-900 leading-snug line-clamp-2">
+                    {formatCapitalized(suggestedProduct.name)}
+                  </h3>
+                  <p className="text-sm font-black text-orange-700 tabular-nums mt-0.5">
+                    {formatCurrency(suggestedProduct.price)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="text-lg font-black text-stone-900 tracking-tight">
+                  {hasFrozenInCart
+                    ? 'Finalize os Congelados e Faça Outro Pedido'
+                    : 'Pedido Atual Configurado para Congelados'}
+                </h4>
+                <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">
+                  {hasFrozenInCart
+                    ? 'Pedidos de congelados têm prazo de até 48h (+2 dias) e são fechados em separado. Sugerimos finalizar seu pedido de congelados primeiro e fazer um novo pedido com este item.'
+                    : 'Você iniciou este pedido na modalidade de congelados (48h). Se preferir pedir este item agora, você pode mudar para Outros Produtos e reagendar sem espera de 2 dias.'}
+                </p>
+              </div>
+
+              <div className="space-y-2.5 pt-1">
+                {hasFrozenInCart ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateQueuedImpulseProducts(prev =>
+                          prev.some(p => p.id === suggestedProduct.id) ? prev : [...prev, suggestedProduct]
+                        );
+                        setImpulseFrozenModal({ isOpen: false, entry: null });
+                        setIsCartOpen(false);
+                        const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+                        if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate)) {
+                          if (frozenNeedsLaterDate) {
+                            updateOrderModalityPreference('frozen');
+                            clearScheduleSelection();
+                          }
+                          setScheduleStepMode('pickup');
+                          setShowScheduleSelectionStep(true);
+                        } else {
+                          setIsCheckout(true);
+                        }
+                      }}
+                      className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Reservar Item e Finalizar Congelados</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!alreadyQueued) {
+                          updateQueuedImpulseProducts(prev => [...prev, suggestedProduct]);
+                        }
+                        setImpulseFrozenModal({ isOpen: false, entry: null });
+                        setCartToastMessage(`"${formatCapitalized(suggestedProduct.name)}" reservado para o seu 2º pedido!`);
+                      }}
+                      className="w-full py-3 px-4 bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 rounded-xl font-black text-xs transition-all cursor-pointer"
+                    >
+                      {alreadyQueued
+                        ? 'Já está Reservado — Continuar nos Congelados'
+                        : 'Reservar para o Próximo Pedido e Continuar'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => switchFromFrozenToNormalAndAddImpulse(suggestedProduct)}
+                    className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer shadow-md"
+                  >
+                    Mudar para Outros Produtos e Adicionar Agora
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setImpulseFrozenModal({ isOpen: false, entry: null })}
+                  className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Continuar nos Congelados
+                </button>
+              </div>
+            </div>
+          </div>
         );
       })()}
       {/* Modal de Bloqueio por Incompatibilidade de Modalidade no Modo Acréscimo */}
