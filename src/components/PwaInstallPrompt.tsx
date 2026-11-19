@@ -356,24 +356,6 @@ export function PwaInstallPrompt() {
 
   return (
     <>
-      {/* Botão Flutuante Discreto para baixar quando quiser ainda no mesmo dia */}
-      {!isOpen && !showGuide && (
-        <button
-          type="button"
-          onClick={() => {
-            setIsOpen(true);
-            setShowGuide(false);
-          }}
-          className="fixed bottom-24 right-4 z-[60] bg-stone-900/95 hover:bg-stone-900 text-white text-xs font-bold py-2.5 px-4 rounded-full shadow-2xl border border-orange-500/50 flex items-center gap-2 backdrop-blur-md transition-all hover:scale-105 active:scale-95 print:hidden cursor-pointer"
-          title="Baixar aplicativo no celular"
-        >
-          <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center shrink-0">
-            <Download className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span>Baixar App</span>
-        </button>
-      )}
-
       {/* Modal Principal de Sugestão de Download do Aplicativo */}
       {isOpen && (
         <div className="fixed inset-0 z-[9990] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs print:hidden">
