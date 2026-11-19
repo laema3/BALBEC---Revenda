@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Flame, Snowflake, ShoppingBag, ArrowRight, Check } from 'lucide-react';
 import { Product, Category } from '../store/useStore';
 import { ProductImage } from './ProductImage';
@@ -36,6 +36,7 @@ export function BestSellersCarousel({
   themeColor = '#ea580c',
 }: BestSellersCarouselProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   if (!items || items.length === 0) return null;
 
@@ -51,9 +52,27 @@ export function BestSellersCarousel({
     });
   };
 
+  useEffect(() => {
+    if (!items || items.length === 0 || isPaused) return;
+    const interval = setInterval(() => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      const step = isCompact ? 220 : 320;
+      const maxScrollLeft = el.scrollWidth - el.clientWidth;
+      if (el.scrollLeft >= maxScrollLeft - 10) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: step, behavior: 'smooth' });
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [items, isCompact, isPaused]);
+
   return (
     <section
       aria-label="Produtos Mais Vendidos"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
       className={
         variant === 'feed'
           ? 'mb-8 sm:mb-10 max-w-4xl lg:max-w-7xl mx-auto'
