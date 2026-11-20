@@ -7804,78 +7804,128 @@ export default function Menu() {
                                 </p>
                               )}
 
-                              {/* Opções de preparo (Congelados: CRU/FRITO CONGELADO | Assados: PRÉ-ASSADO/ASSADO PRONTO): abaixo do código e acima do valor */}
+                              {/* Opções de preparo com quantidades independentes (ex: 10 cru e 10 frito simultaneamente) */}
                               {needsPrepChoice && (
-                                <div
-                                  className={`mb-2 p-2 rounded-xl border transition-all ${
-                                    frozenPrepErrors[prepChoiceKey]
-                                      ? 'bg-red-50 border-red-400 ring-2 ring-red-400/50'
-                                      : isFrozenCategoryContext
-                                        ? 'bg-blue-50/70 border-blue-200'
-                                        : 'bg-amber-50/70 border-amber-200'
-                                  }`}
-                                >
-                                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
-                                    <span className={`text-[10px] sm:text-xs font-black uppercase tracking-wide ${
-                                      frozenPrepErrors[prepChoiceKey]
-                                        ? 'text-red-700'
-                                        : isFrozenCategoryContext
-                                          ? 'text-blue-950'
-                                          : 'text-amber-950'
-                                    }`}>
-                                      Como você deseja:
-                                    </span>
-                                    {frozenPrepErrors[prepChoiceKey] && (
-                                      <span className="text-[10px] font-black text-red-600">
-                                        ⚠️ Selecione uma opção
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                                    <label
-                                      onClick={(e) => e.stopPropagation()}
-                                      className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[10px] sm:text-xs font-black uppercase cursor-pointer select-none transition-all ${
-                                        selectedPrepChoice === prepOption1.key
-                                          ? (isFrozenCategoryContext
-                                              ? 'bg-blue-100 text-blue-950 border-blue-500 ring-1 ring-blue-500 shadow-2xs'
-                                              : 'bg-amber-100 text-amber-950 border-amber-500 ring-1 ring-amber-500 shadow-2xs')
-                                          : (isFrozenCategoryContext
-                                              ? 'bg-white text-stone-800 border-stone-300 hover:border-blue-400'
-                                              : 'bg-white text-stone-800 border-stone-300 hover:border-amber-400')
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedPrepChoice === prepOption1.key}
-                                        onChange={() => handleSelectPrepChoice(prepOption1.key)}
-                                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded cursor-pointer ${isFrozenCategoryContext ? 'accent-blue-600' : 'accent-amber-600'}`}
-                                      />
-                                      <span>{prepOption1.label}</span>
-                                    </label>
+                                <div className="space-y-2 mb-2">
+                                  {[prepOption1, prepOption2].map(opt => {
+                                    const optCartItem = cartItemsForProd.find(ci => (ci.prepType || '') === opt.key);
+                                    const optQty = optCartItem ? optCartItem.quantity : 0;
+                                    const optQtyKey = `${qtyKey}_${opt.key}`;
+                                    const localInputVal = productQuantities[optQtyKey] !== undefined ? productQuantities[optQtyKey] : (optQty > 0 ? optQty : 1);
+                                    const numericOptQty = Math.max(1, parseInt(String(localInputVal), 10) || 1);
 
-                                    <span className="text-[10px] font-extrabold text-stone-400 uppercase">ou</span>
+                                    return (
+                                      <div 
+                                        key={opt.key}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={`p-2 rounded-xl border flex items-center justify-between gap-2 ${
+                                          optQty > 0
+                                            ? (isFrozenCategoryContext ? 'bg-blue-50/80 border-blue-300 shadow-2xs' : 'bg-amber-50/80 border-amber-300 shadow-2xs')
+                                            : 'bg-stone-50 border-stone-200 hover:border-stone-300'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className="text-xs shrink-0">
+                                            {isFrozenCategoryContext ? '❄️' : '🔥'}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <span className="text-xs font-black uppercase tracking-tight text-stone-900 block truncate">
+                                              {opt.label}
+                                            </span>
+                                            {optQty > 0 && (
+                                              <span className="text-[10px] font-bold text-emerald-700 block leading-none mt-0.5">
+                                                No carrinho: {optQty} un.
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
 
-                                    <label
-                                      onClick={(e) => e.stopPropagation()}
-                                      className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[10px] sm:text-xs font-black uppercase cursor-pointer select-none transition-all ${
-                                        selectedPrepChoice === prepOption2.key
-                                          ? (isFrozenCategoryContext
-                                              ? 'bg-blue-100 text-blue-950 border-blue-500 ring-1 ring-blue-500 shadow-2xs'
-                                              : 'bg-amber-100 text-amber-950 border-amber-500 ring-1 ring-amber-500 shadow-2xs')
-                                          : (isFrozenCategoryContext
-                                              ? 'bg-white text-stone-800 border-stone-300 hover:border-blue-400'
-                                              : 'bg-white text-stone-800 border-stone-300 hover:border-amber-400')
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedPrepChoice === prepOption2.key}
-                                        onChange={() => handleSelectPrepChoice(prepOption2.key)}
-                                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded cursor-pointer ${isFrozenCategoryContext ? 'accent-blue-600' : 'accent-amber-600'}`}
-                                      />
-                                      <span>{prepOption2.label}</span>
-                                    </label>
-                                  </div>
+                                        <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-stone-200 shrink-0">
+                                          {optQty > 0 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActiveCartList(prev => prev.filter(ci => !isSameCartItem(ci, optCartItem)));
+                                                setProductQuantities(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[optQtyKey];
+                                                  return next;
+                                                });
+                                              }}
+                                              className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                                              title="Remover esta modalidade"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (optQty > 0 && optCartItem) {
+                                                const newQ = optCartItem.quantity - 1;
+                                                if (newQ <= 0) {
+                                                  setActiveCartList(prev => prev.filter(ci => !isSameCartItem(ci, optCartItem)));
+                                                } else {
+                                                  setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: newQ } : ci));
+                                                }
+                                              } else {
+                                                const cur = numericOptQty;
+                                                if (cur > 1) {
+                                                  setProductQuantities(prev => ({ ...prev, [optQtyKey]: cur - 1 }));
+                                                }
+                                              }
+                                            }}
+                                            className="p-1 hover:bg-stone-100 rounded-lg text-stone-600 transition-colors cursor-pointer"
+                                            title="Diminuir"
+                                          >
+                                            <Minus className="w-3.5 h-3.5" />
+                                          </button>
+
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={optQty > 0 ? optQty : localInputVal}
+                                            onChange={(e) => {
+                                              const raw = e.target.value.replace(/\D/g, '');
+                                              setProductQuantities(prev => ({ ...prev, [optQtyKey]: raw }));
+                                              if (raw !== '' && optQty > 0 && optCartItem) {
+                                                const val = Math.max(1, parseInt(raw, 10) || 1);
+                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: val } : ci));
+                                              }
+                                            }}
+                                            className="font-black text-xs w-10 text-center py-0.5 rounded bg-stone-50 text-stone-900 border border-stone-300 font-mono"
+                                          />
+
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (isFrozenBlockedCard) {
+                                                openFrozenOnlyWarning(1);
+                                                return;
+                                              }
+                                              if (optQty > 0 && optCartItem) {
+                                                const newQ = optCartItem.quantity + 1;
+                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: newQ } : ci));
+                                              } else {
+                                                initiateAddToCartWithQty(product, numericOptQty, isFrozenCategoryContext, false, opt.key);
+                                                setProductQuantities(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[optQtyKey];
+                                                  return next;
+                                                });
+                                              }
+                                            }}
+                                            className="p-1 hover:bg-orange-50 rounded-lg text-orange-600 transition-colors cursor-pointer"
+                                            title="Adicionar / Aumentar"
+                                          >
+                                            <Plus className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
