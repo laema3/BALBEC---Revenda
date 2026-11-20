@@ -161,15 +161,7 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
         {/* Visualização de Uma Via Exata e Limpa */}
         <div className="p-4 overflow-y-auto bg-stone-100 flex justify-center">
           <div className="bg-white p-4 shadow-sm border border-stone-200 w-full max-w-[280px] font-mono text-xs text-stone-900 leading-relaxed rounded-sm">
-            {/* 1. PRIMEIRA INFORMAÇÃO NO TOPO DO CUPOM: MODALIDADE */}
-            <div className="bg-black text-white p-2 text-center rounded font-black text-sm tracking-widest uppercase mb-2">
-              *** {modalityText} ***
-            </div>
 
-            {/* TÍTULO BALBEC EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO) */}
-            <div className="bg-black text-white p-2 text-center rounded font-black text-sm tracking-wider uppercase mb-2">
-              {storeName}
-            </div>
             
             {/* PEDIDO E CLIENTE EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO) */}
             <div className="bg-black text-white p-2.5 my-2 text-center rounded space-y-1">
