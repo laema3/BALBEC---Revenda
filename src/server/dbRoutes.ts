@@ -3404,6 +3404,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         });
       }
 
+      const rawOperatorName = String(req.body?.operatorName || '').trim();
+      if (rawOperatorName.length < 2) {
+        return res.status(400).json({
+          success: false,
+          error: 'Informe o nome de quem está fazendo a confirmação do pagamento (mínimo 2 caracteres).'
+        });
+      }
+
       const targetId = String(id || '').trim();
       let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
       if (!matchedOrder && targetId.length >= 4) {
@@ -3425,7 +3433,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
       const resolvedId = String(matchedOrder.id).trim();
       const confirmedAt = Number(matchedOrder.paymentConfirmedAt) || Date.now();
-      const operatorName = String(req.body?.operatorName || matchedOrder.paymentConfirmedBy || '').trim() || 'Operador';
+      const operatorName = rawOperatorName;
       const nowTs = Date.now();
 
       const updatedOrder = {
@@ -3699,7 +3707,28 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   });
 
+  const MASTER_SECURITY_PASSWORD = 'MASTERBALBEC';
+
+  app.post('/api/db/master/verify', (req: Request, res: Response) => {
+    const rawMasterPwd = String(req.body?.masterPassword || '').trim();
+    if (rawMasterPwd !== MASTER_SECURITY_PASSWORD) {
+      return res.status(403).json({
+        success: false,
+        error: 'Senha Master incorreta! Verifique e tente novamente.'
+      });
+    }
+    return res.json({ success: true });
+  });
+
   app.delete('/api/db/orders', async (req: Request, res: Response) => {
+    const rawMasterPwd = String(req.headers['x-master-password'] || req.body?.masterPassword || '').trim();
+    if (rawMasterPwd !== MASTER_SECURITY_PASSWORD) {
+      return res.status(403).json({
+        success: false,
+        error: 'Senha Master incorreta! É necessária a confirmação com a senha Master para zerar os pedidos.'
+      });
+    }
+
     recordAllOrdersCleared();
     memOrders = [];
     latestTvCall = null;
@@ -3719,6 +3748,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/orders/:id', async (req: Request, res: Response) => {
     try {
+      const rawMasterPwd = String(req.headers['x-master-password'] || req.body?.masterPassword || '').trim();
+      if (rawMasterPwd !== MASTER_SECURITY_PASSWORD) {
+        return res.status(403).json({
+          success: false,
+          error: 'Senha Master incorreta! É necessária a confirmação com a senha Master para excluir este pedido.'
+        });
+      }
+
       const { id } = req.params;
       const targetId = String(id).trim();
       console.log(`[API] DELETE order requested: "${targetId}"`);

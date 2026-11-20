@@ -231,11 +231,27 @@ export default function Admin() {
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<Order | null>(null);
   const [paymentConfirmModal, setPaymentConfirmModal] = useState<{
     order: Order;
+    confirmerName: string;
     password: string;
     showPassword: boolean;
     error: string | null;
     isSubmitting: boolean;
   } | null>(null);
+  const [masterAuthModal, setMasterAuthModal] = useState<{
+    action: 'delete_order' | 'clear_all_orders' | 'view_payment_audit' | 'view_single_order_confirmer';
+    title: string;
+    description: string;
+    orderId?: string;
+    password: string;
+    showPassword: boolean;
+    error: string | null;
+    isSubmitting: boolean;
+  } | null>(null);
+  const [paymentAuditModal, setPaymentAuditModal] = useState<{
+    isOpen: boolean;
+    focusOrderId: string | null;
+    search: string;
+  }>({ isOpen: false, focusOrderId: null, search: '' });
   const [modalType, setModalType] = useState<'category' | 'product' | 'user' | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -3046,6 +3062,7 @@ export default function Admin() {
     stopAlarm();
     setPaymentConfirmModal({
       order,
+      confirmerName: '',
       password: '',
       showPassword: false,
       error: prefillError,
@@ -3053,9 +3070,93 @@ export default function Admin() {
     });
   };
 
+  const openPaymentAuditWithMaster = (focusOrderId: string | null = null) => {
+    stopAlarm();
+    const shortOrd = focusOrderId ? `#${String(focusOrderId).slice(-4).padStart(4, '0')}` : null;
+    setMasterAuthModal({
+      action: focusOrderId ? 'view_single_order_confirmer' : 'view_payment_audit',
+      title: shortOrd
+        ? `Consultar Responsável • Pedido ${shortOrd}`
+        : 'Auditoria de Pagamentos Online (Master)',
+      description: shortOrd
+        ? `Informe a senha Master para consultar quem confirmou/liberou o pagamento online do Pedido ${shortOrd}.`
+        : 'Informe a senha Master para acessar o histórico completo de quem confirmou e liberou pagamentos online.',
+      orderId: focusOrderId || undefined,
+      password: '',
+      showPassword: false,
+      error: null,
+      isSubmitting: false
+    });
+  };
+
+  const handleSubmitMasterAuth = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!masterAuthModal || masterAuthModal.isSubmitting) return;
+
+    const pwd = masterAuthModal.password.trim();
+    if (!pwd) {
+      setMasterAuthModal(prev => prev ? { ...prev, error: 'Digite a senha Master para continuar.' } : null);
+      return;
+    }
+
+    setMasterAuthModal(prev => prev ? { ...prev, isSubmitting: true, error: null } : null);
+
+    try {
+      if (masterAuthModal.action === 'delete_order' && masterAuthModal.orderId) {
+        const deletedNum = String(masterAuthModal.orderId).slice(-4).padStart(4, '0');
+        await deleteOrder(masterAuthModal.orderId, pwd);
+        setMasterAuthModal(null);
+        showInfoModal('Pedido Excluído', `O Pedido #${deletedNum} foi excluído permanentemente com autorização Master.`);
+        return;
+      }
+
+      if (masterAuthModal.action === 'clear_all_orders') {
+        await clearAllOrders(pwd);
+        setMasterAuthModal(null);
+        showInfoModal('Sucesso', 'Todos os pedidos foram zerados com sucesso com autorização Master!');
+        return;
+      }
+
+      const verifyRes = await fetch('/api/db/master/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ masterPassword: pwd })
+      });
+      const verifyData = await verifyRes.json().catch(() => null);
+      if (!verifyRes.ok || !verifyData?.success) {
+        setMasterAuthModal(prev => prev ? {
+          ...prev,
+          isSubmitting: false,
+          error: verifyData?.error || 'Senha Master incorreta! Verifique e tente novamente.'
+        } : null);
+        return;
+      }
+
+      const focusId = masterAuthModal.orderId || null;
+      setMasterAuthModal(null);
+      setPaymentAuditModal({
+        isOpen: true,
+        focusOrderId: focusId,
+        search: ''
+      });
+    } catch (err: any) {
+      setMasterAuthModal(prev => prev ? {
+        ...prev,
+        isSubmitting: false,
+        error: err?.message || 'Senha Master incorreta ou erro ao executar ação.'
+      } : null);
+    }
+  };
+
   const handleSubmitPaymentConfirmation = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!paymentConfirmModal || paymentConfirmModal.isSubmitting) return;
+
+    const confirmer = paymentConfirmModal.confirmerName.trim();
+    if (confirmer.length < 2) {
+      setPaymentConfirmModal(prev => prev ? { ...prev, error: 'Informe o nome completo de quem está fazendo a confirmação do pagamento.' } : null);
+      return;
+    }
 
     const pwd = paymentConfirmModal.password.trim();
     if (!pwd) {
@@ -3064,8 +3165,7 @@ export default function Admin() {
     }
 
     setPaymentConfirmModal(prev => prev ? { ...prev, isSubmitting: true, error: null } : null);
-    const operatorLabel = currentUser?.name || currentUser?.email || 'Operador';
-    const result = await confirmOrderPayment(paymentConfirmModal.order.id, pwd, operatorLabel);
+    const result = await confirmOrderPayment(paymentConfirmModal.order.id, pwd, confirmer);
 
     if (result.success) {
       playStatusChangeAudio();
@@ -3076,8 +3176,8 @@ export default function Admin() {
       showInfoModal(
         isPartial50Confirmed ? 'Pagamento 50% Confirmado!' : 'Pagamento Integral Confirmado!',
         isPartial50Confirmed
-          ? `O recebimento da entrada de 50% (${formatBRL(pbConfirmed.paidAmount)}) do Pedido #${confirmedOrderNum} foi validado com sucesso.\n\nO pedido agora está liberado para ser enviado para produção!`
-          : `O recebimento do pagamento integral (${formatBRL(pbConfirmed.totalAmount)}) do Pedido #${confirmedOrderNum} foi validado com sucesso.\n\nO pedido agora está liberado para ser enviado para produção!`
+          ? `O recebimento da entrada de 50% (${formatBRL(pbConfirmed.paidAmount)}) do Pedido #${confirmedOrderNum} foi validado com sucesso.\n\nResponsável registrado: ${confirmer}\nO pedido agora está liberado para ser enviado para produção!`
+          : `O recebimento do pagamento integral (${formatBRL(pbConfirmed.totalAmount)}) do Pedido #${confirmedOrderNum} foi validado com sucesso.\n\nResponsável registrado: ${confirmer}\nO pedido agora está liberado para ser enviado para produção!`
       );
     } else {
       setPaymentConfirmModal(prev => prev ? {
@@ -3157,24 +3257,18 @@ export default function Admin() {
     if (!id) return;
     stopAlarm();
     const strId = String(id).trim();
-    console.log(`[Admin] Requesting deletion of order: "${strId}"`);
-    
-    setConfirmModal({
-      isOpen: true,
-      title: 'Excluir Pedido',
-      message: `Tem certeza que deseja excluir o pedido #${strId.slice(-4)} permanentemente? Esta ação não pode ser desfeita.`,
-      confirmText: 'Sim, Excluir Agora',
-      cancelText: 'Cancelar',
-      onConfirm: async () => {
-        setConfirmModal(null);
-        try {
-          await deleteOrder(strId);
-          console.log(`[Admin] Deletion command sent for: ${strId}`);
-        } catch (error) {
-          console.error('Error deleting order:', error);
-          showInfoModal('Erro', 'Erro ao excluir pedido. Tente novamente.');
-        }
-      }
+    const shortId = strId.slice(-4).padStart(4, '0');
+    console.log(`[Admin] Requesting master-authorized deletion of order: "${strId}"`);
+
+    setMasterAuthModal({
+      action: 'delete_order',
+      title: `Excluir Pedido #${shortId} (Master)`,
+      description: `Tem certeza que deseja excluir o Pedido #${shortId} permanentemente? Esta ação não pode ser desfeita e exige a confirmação com a senha Master.`,
+      orderId: strId,
+      password: '',
+      showPassword: false,
+      error: null,
+      isSubmitting: false
     });
   };
 
@@ -4919,33 +5013,39 @@ export default function Admin() {
           </div>
         )}
         <div>
-          <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-stone-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 bg-white p-4 rounded-2xl shadow-sm border border-stone-100">
             <div>
               <h2 className="text-xl font-bold text-stone-800">Gerenciamento de Pedidos</h2>
               <p className="text-xs text-stone-500 mt-0.5">Visualize e controle os pedidos recebidos de todos os canais.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setConfirmModal({
-                  isOpen: true,
-                  title: 'Zerar Todos os Pedidos',
-                  message: 'Deseja realmente ZERAR todos os pedidos do sistema? O sistema ficará com zero pedidos para você começar amanhã.',
-                  confirmText: 'Sim, Zerar Todos',
-                  onConfirm: async () => {
-                    try {
-                      await clearAllOrders();
-                      showInfoModal('Sucesso', 'Todos os pedidos foram zerados com sucesso!');
-                    } catch {
-                      showInfoModal('Erro', 'Falha ao zerar os pedidos. Tente novamente.');
-                    }
-                  }
-                });
-              }}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" /> Zerar Todos os Pedidos
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openPaymentAuditWithMaster(null)}
+                className="bg-stone-900 hover:bg-stone-800 text-amber-300 border border-amber-400/40 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                title="Consultar quem confirmou/liberou pagamentos online (exige senha Master)"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Auditoria de Liberações (Master)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMasterAuthModal({
+                    action: 'clear_all_orders',
+                    title: 'Zerar Todos os Pedidos (Master)',
+                    description: 'Esta ação apagará TODOS os pedidos do sistema permanentemente para começar um novo dia. Informe a senha Master para autorizar.',
+                    password: '',
+                    showPassword: false,
+                    error: null,
+                    isSubmitting: false
+                  });
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" /> Zerar Todos os Pedidos
+              </button>
+            </div>
           </div>
           {/* ABAS SEPARADAS POR DIA COM CORES ESPECÍFICAS */}
           <div className="mb-6 bg-stone-50/80 p-3.5 rounded-2xl border border-stone-200/90 shadow-xs">
@@ -5113,9 +5213,20 @@ export default function Admin() {
                               {pb.operatorMessage}
                             </p>
                             {order.paymentConfirmedByOperator === true && (
-                              <p className="text-[10px] font-bold text-emerald-800 pt-0.5">
-                                ✓ Recebimento validado{order.paymentConfirmedAt ? ` em ${new Date(order.paymentConfirmedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}{order.paymentConfirmedBy ? ` (${order.paymentConfirmedBy})` : ''} • Liberado para produção.
-                              </p>
+                              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                                <p className="text-[10px] font-bold text-emerald-800">
+                                  ✓ Recebimento validado{order.paymentConfirmedAt ? ` em ${new Date(order.paymentConfirmedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''} • Liberado para produção.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => openPaymentAuditWithMaster(order.id)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-900 hover:bg-stone-800 text-amber-300 text-[10px] font-black uppercase tracking-wide transition-colors cursor-pointer shadow-2xs"
+                                  title="Exige senha Master para consultar quem confirmou este pagamento"
+                                >
+                                  <Lock className="w-2.5 h-2.5" />
+                                  Ver Responsável (Master)
+                                </button>
+                              </div>
                             )}
                           </div>
 
@@ -5465,14 +5576,29 @@ export default function Admin() {
                       {(() => {
                         const pb = getOrderPaymentBreakdown(order);
                         return (
-                          <div className={`mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-black border ${
-                            pb.kind === 'partial_50'
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : pb.kind === 'paid_full'
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : 'bg-orange-100 text-orange-900 border-orange-300'
-                          }`}>
-                            {pb.operatorBadge}
+                          <div className="space-y-1 mt-1">
+                            <div className={`inline-block px-2 py-0.5 rounded text-[10px] font-black border ${
+                              pb.kind === 'partial_50'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : pb.kind === 'paid_full'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : 'bg-orange-100 text-orange-900 border-orange-300'
+                            }`}>
+                              {pb.operatorBadge}
+                            </div>
+                            {(order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) && (
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={() => openPaymentAuditWithMaster(order.id)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-stone-900 hover:bg-stone-800 text-amber-300 text-[9px] font-black uppercase tracking-wide cursor-pointer"
+                                  title="Consultar quem liberou o pagamento (exige senha Master)"
+                                >
+                                  <Lock className="w-2.5 h-2.5" />
+                                  Ver Responsável (Master)
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
@@ -9998,13 +10124,30 @@ export default function Admin() {
 
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5">
-                    Senha de Confirmação do Operador
+                    Nome de Quem Está Confirmando *
+                  </label>
+                  <div className="relative">
+                    <UserCheck className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={paymentConfirmModal.confirmerName}
+                      onChange={(e) => setPaymentConfirmModal(prev => prev ? { ...prev, confirmerName: e.target.value, error: null } : null)}
+                      placeholder="Digite seu nome completo"
+                      disabled={paymentConfirmModal.isSubmitting}
+                      className="w-full pl-9 pr-4 py-2.5 border-2 border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                    Senha de Confirmação do Operador *
                   </label>
                   <div className="relative">
                     <KeyRound className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type={paymentConfirmModal.showPassword ? 'text' : 'password'}
-                      autoFocus
                       value={paymentConfirmModal.password}
                       onChange={(e) => setPaymentConfirmModal(prev => prev ? { ...prev, password: e.target.value, error: null } : null)}
                       placeholder="Digite a senha para liberar"
@@ -10057,6 +10200,311 @@ export default function Admin() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal de Senha Master (Exclusão de Pedidos e Auditoria de Liberações) */}
+      {masterAuthModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[75] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-stone-200">
+            <div className={`px-5 py-4 flex items-center justify-between text-white ${
+              masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders'
+                ? 'bg-red-700'
+                : 'bg-stone-900'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <Lock className={`w-5 h-5 ${
+                  masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders'
+                    ? 'text-red-200'
+                    : 'text-amber-400'
+                }`} />
+                <div>
+                  <h3 className="text-sm sm:text-base font-black tracking-wide uppercase">
+                    {masterAuthModal.title}
+                  </h3>
+                  <p className="text-[11px] opacity-85 font-medium">
+                    Acesso restrito ao Usuário Master
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMasterAuthModal(null)}
+                disabled={masterAuthModal.isSubmitting}
+                className="p-1.5 rounded-full hover:bg-white/15 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitMasterAuth} className="p-5 space-y-4">
+              <p className="text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
+                {masterAuthModal.description}
+              </p>
+
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                  Senha Master *
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={masterAuthModal.showPassword ? 'text' : 'password'}
+                    autoFocus
+                    value={masterAuthModal.password}
+                    onChange={(e) => setMasterAuthModal(prev => prev ? { ...prev, password: e.target.value, error: null } : null)}
+                    placeholder="Digite a senha Master"
+                    disabled={masterAuthModal.isSubmitting}
+                    className="w-full pl-9 pr-10 py-2.5 border-2 border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:border-stone-900 focus:ring-2 focus:ring-stone-500/20 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMasterAuthModal(prev => prev ? { ...prev, showPassword: !prev.showPassword } : null)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-stone-800 cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {masterAuthModal.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {masterAuthModal.error && (
+                <div className="bg-red-50 border border-red-300 text-red-800 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{masterAuthModal.error}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setMasterAuthModal(null)}
+                  disabled={masterAuthModal.isSubmitting}
+                  className="px-4 py-2.5 text-stone-600 hover:bg-stone-100 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={masterAuthModal.isSubmitting}
+                  className={`px-5 py-2.5 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
+                    masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-stone-900 hover:bg-stone-800 text-amber-300'
+                  }`}
+                >
+                  {masterAuthModal.isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Validando...
+                    </>
+                  ) : masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders' ? (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Autorizar Exclusão
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      Desbloquear Consulta
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Master de Auditoria: Quem Confirmou / Liberou Pagamentos Online */}
+      {paymentAuditModal.isOpen && (() => {
+        const allOrdersMap = new Map<string, Order>();
+        [...orders, ...rawOrders].forEach((o) => {
+          if (o && o.id) allOrdersMap.set(String(o.id).trim(), o);
+        });
+        const allConfirmedOrders = Array.from(allOrdersMap.values())
+          .filter((o) => o.paymentConfirmedByOperator === true || Boolean(o.paymentConfirmedAt))
+          .sort((a, b) => (Number(b.paymentConfirmedAt) || Number(b.updatedAt) || Number(b.createdAt) || 0) - (Number(a.paymentConfirmedAt) || Number(a.updatedAt) || Number(a.createdAt) || 0));
+
+        const focusedOrder = paymentAuditModal.focusOrderId
+          ? allOrdersMap.get(String(paymentAuditModal.focusOrderId).trim()) || null
+          : null;
+
+        const q = paymentAuditModal.search.trim().toLowerCase();
+        const filteredAuditOrders = allConfirmedOrders.filter((o) => {
+          if (!q) return true;
+          const shortId = String(o.id).slice(-4).padStart(4, '0').toLowerCase();
+          return (
+            shortId.includes(q) ||
+            String(o.id).toLowerCase().includes(q) ||
+            String(o.customerName || '').toLowerCase().includes(q) ||
+            String(o.paymentConfirmedBy || '').toLowerCase().includes(q) ||
+            String(o.paymentMethod || '').toLowerCase().includes(q)
+          );
+        });
+
+        const renderAuditCard = (ord: Order, highlight = false) => {
+          const pb = getOrderPaymentBreakdown(ord);
+          const isPartial50 = pb.kind === 'partial_50';
+          const confirmedAmount = isPartial50 ? pb.paidAmount : pb.totalAmount;
+          const shortId = String(ord.id).slice(-4).padStart(4, '0');
+          const confirmedDateStr = ord.paymentConfirmedAt
+            ? new Date(ord.paymentConfirmedAt).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })
+            : 'Data não registrada';
+          const orderDateStr = ord.createdAt
+            ? new Date(ord.createdAt).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '--';
+
+          return (
+            <div
+              key={`${highlight ? 'focus-' : ''}${ord.id}`}
+              className={`rounded-2xl border-2 p-4 space-y-2.5 ${
+                highlight
+                  ? 'bg-amber-50/70 border-amber-400 shadow-md'
+                  : 'bg-white border-stone-200 shadow-xs'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-black text-base text-stone-900">
+                      Pedido #{shortId}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                      isPartial50
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      {isPartial50 ? '50% Congelados' : 'Integral 100% Online'}
+                    </span>
+                    {highlight && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-stone-900 text-amber-300">
+                        Pedido Selecionado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-bold text-stone-700 mt-0.5">
+                    Cliente: <span className="text-stone-900">{ord.customerName || 'Cliente'}</span> • Feito em {orderDateStr}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-bold text-stone-500">Valor Confirmado</div>
+                  <div className="text-base font-black text-emerald-700">{formatBRL(confirmedAmount)}</div>
+                  <div className="text-[10px] font-semibold text-stone-500">{pb.methodLabel}</div>
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-300 rounded-xl px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <div className="text-xs">
+                    <span className="text-emerald-900 font-semibold">Liberado / Confirmado por: </span>
+                    <strong className="text-emerald-950 font-black uppercase">
+                      {ord.paymentConfirmedBy || 'Não informado (registro antigo)'}
+                    </strong>
+                  </div>
+                </div>
+                <div className="text-[11px] font-bold text-emerald-800 flex items-center gap-1 shrink-0">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{confirmedDateStr}</span>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[75] p-3 sm:p-5">
+            <div className="bg-stone-50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-stone-200">
+              <div className="bg-stone-900 text-white px-5 py-4 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-wide">
+                      Auditoria de Liberações (Master)
+                    </h3>
+                    <p className="text-xs text-stone-300 font-medium">
+                      Registro de responsáveis pelas confirmações de pagamento online ({allConfirmedOrders.length} {allConfirmedOrders.length === 1 ? 'pedido' : 'pedidos'})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPaymentAuditModal({ isOpen: false, focusOrderId: null, search: '' })}
+                  className="p-1.5 rounded-full hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 bg-white border-b border-stone-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={paymentAuditModal.search}
+                    onChange={(e) => setPaymentAuditModal(prev => ({ ...prev, search: e.target.value }))}
+                    placeholder="Filtrar por nº do pedido, cliente ou nome de quem confirmou..."
+                    className="w-full pl-9 pr-4 py-2 border border-stone-300 rounded-xl text-xs font-semibold text-stone-900 focus:border-stone-900 outline-none"
+                  />
+                </div>
+                {focusedOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentAuditModal(prev => ({ ...prev, focusOrderId: null }))}
+                    className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold cursor-pointer shrink-0"
+                  >
+                    Mostrar Todos ({allConfirmedOrders.length})
+                  </button>
+                )}
+              </div>
+
+              <div className="p-4 overflow-y-auto space-y-3 flex-1">
+                {focusedOrder && renderAuditCard(focusedOrder, true)}
+
+                {filteredAuditOrders.length === 0 ? (
+                  <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center text-stone-500">
+                    <History className="w-10 h-10 mx-auto mb-2 text-stone-300" />
+                    <p className="text-sm font-bold text-stone-700">
+                      Nenhuma liberação de pagamento online encontrada.
+                    </p>
+                    <p className="text-xs text-stone-500 mt-1">
+                      Assim que um pagamento online for confirmado com nome e senha, o registro aparecerá aqui.
+                    </p>
+                  </div>
+                ) : (
+                  filteredAuditOrders
+                    .filter((o) => !focusedOrder || String(o.id) !== String(focusedOrder.id))
+                    .map((ord) => renderAuditCard(ord, false))
+                )}
+              </div>
+
+              <div className="px-5 py-3 bg-white border-t border-stone-200 flex justify-end shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPaymentAuditModal({ isOpen: false, focusOrderId: null, search: '' })}
+                  className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer"
+                >
+                  Fechar Auditoria
+                </button>
+              </div>
             </div>
           </div>
         );

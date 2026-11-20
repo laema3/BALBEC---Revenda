@@ -590,8 +590,8 @@ interface StoreState {
   confirmOrderPayment: (id: string, password: string, operatorName?: string) => Promise<{ success: boolean; order?: Order; error?: string }>;
   markOrderPrinted: (id: string) => Promise<void>;
   appendItemsToOrder: (orderId: string, newItems: OrderItem[]) => Promise<{ success: boolean; order?: Order; error?: string }>;
-  deleteOrder: (id: string) => Promise<void>;
-  clearAllOrders: () => Promise<void>;
+  deleteOrder: (id: string, masterPassword: string) => Promise<void>;
+  clearAllOrders: (masterPassword: string) => Promise<void>;
   
   updateStoreInfo: (info: Partial<StoreInfo>) => Promise<void>;
   exportOrderToBlueFocus: (order: Order, config?: any) => Promise<{ success: boolean; saleNumber?: string; order?: Order }>;
@@ -2214,10 +2214,22 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
   
-  deleteOrder: async (id) => {
+  deleteOrder: async (id, masterPassword) => {
     if (!id) return;
     const targetId = String(id).trim();
-    const prevOrders = get().orders;
+    const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-master-password': String(masterPassword || '').trim()
+      },
+      body: JSON.stringify({ masterPassword: String(masterPassword || '').trim() })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(data?.error || 'Senha Master incorreta ou falha ao excluir pedido.');
+    }
+
     const nowTs = Date.now();
     ordersMutationEpoch++;
     recentOrderMutationLocks.set(targetId, {
@@ -2226,34 +2238,30 @@ export const useStore = create<StoreState>((set, get) => ({
       expiresAt: nowTs + 25000
     });
     markLocalItemDeleted('orders', targetId);
-    console.log(`[Store] Deleting order: ${targetId}`);
-    
-    // 1. Optimistic removal
+    console.log(`[Store] Order deleted: ${targetId}`);
+
     set(state => {
       const currentOrders = state.orders || [];
       const updated = currentOrders.filter(o => String(o.id).trim() !== targetId);
       saveOrdersToStorage(updated);
       return { orders: updated };
     });
-
-    try {
-      const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
-      if (!res.ok) {
-        throw new Error(`Backend returned ${res.status}`);
-      }
-    } catch (error) {
-      recentOrderMutationLocks.delete(targetId);
-      unmarkLocalItemDeleted('orders', targetId);
-      ordersMutationEpoch++;
-      saveOrdersToStorage(prevOrders);
-      set({ orders: prevOrders });
-      console.error('Error deleting order:', error);
-      throw error;
-    }
   },
 
-  clearAllOrders: async () => {
-    const prevOrders = get().orders;
+  clearAllOrders: async (masterPassword) => {
+    const res = await fetch('/api/db/orders', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-master-password': String(masterPassword || '').trim()
+      },
+      body: JSON.stringify({ masterPassword: String(masterPassword || '').trim() })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(data?.error || 'Senha Master incorreta ou falha ao zerar pedidos.');
+    }
+
     const clearedTs = Date.now();
     ordersMutationEpoch++;
     recentOrdersClearedUntil = clearedTs;
@@ -2262,17 +2270,6 @@ export const useStore = create<StoreState>((set, get) => ({
     saveLocalDeletedRegistry(reg);
     saveOrdersToStorage([]);
     set({ orders: [] });
-    try {
-      const res = await fetch('/api/db/orders', { method: 'DELETE' });
-      if (!res.ok) {
-        throw new Error(`Backend returned ${res.status}`);
-      }
-    } catch (error) {
-      saveOrdersToStorage(prevOrders);
-      set({ orders: prevOrders });
-      console.error('Error clearing all orders:', error);
-      throw error;
-    }
   },
   
   updateStoreInfo: async (info) => {
