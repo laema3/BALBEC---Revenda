@@ -274,13 +274,8 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
 
             <div className="border-t-2 border-black my-2"></div>
             <div className="text-center font-bold text-[10px]">*** OBRIGADO PELA PREFERÊNCIA ***</div>
-            
-            <div className="mt-3 pt-2 border-t border-dashed border-black text-left">
-              <div className="font-bold text-[11px] tracking-wide uppercase">OUTROS PRODUTOS</div>
-              <div className="h-[5cm] min-h-[5cm]"></div>
-            </div>
 
-            <div className="text-center font-bold text-xs mt-1 text-stone-500">
+            <div className="text-center font-bold text-xs mt-2 text-stone-500">
               ✂ - - - - - - - - - - - - ✂
             </div>
           </div>

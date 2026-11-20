@@ -202,17 +202,6 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
     lines.push(Buffer.from('\x1B\x40', 'ascii'));
     // Alinhamento centralizado
     lines.push(Buffer.from('\x1B\x61\x01', 'ascii'));
-    
-    // 1. PRIMEIRA INFORMAÇÃO NO TOPO DO CUPOM: MODALIDADE (DELIVERY, RETIRADA, CONSUMO NA LOJA, TOTEM)
-    lines.push(Buffer.from('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11', 'ascii'));
-    lines.push(Buffer.from(`  *** ${modalityText} ***  \n`, 'latin1'));
-    lines.push(Buffer.from('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00', 'ascii'));
-    lines.push(Buffer.from('\n', 'ascii'));
-
-    // TÍTULO DA LOJA EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO)
-    lines.push(Buffer.from('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x01', 'ascii'));
-    lines.push(Buffer.from(`  ${storeName}  \n`, 'latin1'));
-    lines.push(Buffer.from('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00', 'ascii'));
 
     // Tag da Via
     if (isSingleCopy) {
@@ -334,10 +323,8 @@ export function buildOrderEscPosBuffer(order: any, storeInfo: any): Buffer {
       lines.push(Buffer.from('*** CONTROLE INTERNO / BALCAO ***\n', 'latin1'));
     }
 
-    // Bloco "OUTROS PRODUTOS" com avanço compacto (~2.5 cm) para anotações manuais
-    lines.push(Buffer.from('--------------------------------\n', 'ascii'));
-    lines.push(Buffer.from('\x1B\x45\x01OUTROS PRODUTOS:\x1B\x45\x00\n', 'latin1'));
-    lines.push(Buffer.from('\n\n\n\n\n\n', 'ascii'));
+    // Avanço mínimo antes do corte para não cortar o texto final
+    lines.push(Buffer.from('\n\n\n', 'ascii'));
 
     // Corte parcial/picote universal (GS V 66 0 e GS V 1)
     lines.push(Buffer.from('\x1D\x56\x42\x00\x1D\x56\x01', 'ascii'));

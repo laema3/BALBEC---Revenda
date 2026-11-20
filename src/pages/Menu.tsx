@@ -3902,10 +3902,6 @@ export default function Menu() {
             return (
               <div className="p-4 sm:p-5 bg-stone-100 max-h-[34vh] overflow-y-auto border-b border-stone-200">
                 <div className="bg-white p-4 rounded-xl shadow-xs border border-stone-300/70 font-mono text-xs text-stone-900 leading-relaxed max-w-sm mx-auto">
-                  {/* TÍTULO BALBEC EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO) */}
-                  <div className="bg-black text-white p-2 text-center rounded-md font-black text-sm tracking-wider uppercase mb-2">
-                    {storeInfo.name || 'BALBEC - REVENDA'}
-                  </div>
                   <div className="text-center text-[10px] text-stone-500 mb-2">*** {lastPlacedOrder.tableNumber ? `CONSUMO NO LOCAL - MESA ${lastPlacedOrder.tableNumber}` : isKioskMode ? 'AUTOATENDIMENTO' : 'PEDIDO ONLINE'} ***</div>
 
                   {/* PEDIDO E CLIENTE EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO) */}
@@ -4004,11 +4000,6 @@ export default function Menu() {
 
                 <div className="text-center text-[9px] text-stone-400 mt-2">
                   {lastPlacedOrder.createdAt ? new Date(lastPlacedOrder.createdAt).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-dashed border-stone-400 text-left">
-                  <div className="font-black text-[10px] uppercase tracking-wide text-stone-800">OUTROS PRODUTOS</div>
-                  <div className="h-[5cm] min-h-[5cm]"></div>
                 </div>
               </div>
             </div>

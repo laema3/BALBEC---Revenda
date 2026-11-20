@@ -898,16 +898,6 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
           ${isClient ? '*** OBRIGADO PELA PREFERÊNCIA ***' : '*** CONTROLE INTERNO / BALCÃO ***'}
         </div>
 
-        <div class="other-products-box" style="margin-top: 6px; border-top: 1px dashed #000; padding-top: 4px; page-break-inside: avoid !important;">
-          <div class="other-products-title" style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">OBSERVAÇÕES:</div>
-          <div class="other-products-space" style="height: ${bottomSpaceCm}cm !important; min-height: ${bottomSpaceCm}cm !important; display: flex !important; flex-direction: column !important; justify-content: space-around !important; box-sizing: border-box !important; padding: 2px 0 !important; margin-top: 2px !important;">
-            <div style="border-bottom: 1px dashed #888; width: 100%; height: 1.2cm;"></div>
-            <div style="border-bottom: 1px dashed #888; width: 100%; height: 1.2cm;"></div>
-            <div style="border-bottom: 1px dashed #888; width: 100%; height: 1.2cm;"></div>
-            <div style="border-bottom: 1px dashed #888; width: 100%; height: 1.2cm;"></div>
-          </div>
-        </div>
-        
         <div class="cut-line">
           ✂ - - - - - - - - - - - - ✂
         </div>
@@ -1118,13 +1108,9 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
       lines.push('*** CONTROLE INTERNO / BALCAO ***\n');
     }
 
-    lines.push('--------------------------------\n');
-    lines.push('\x1B\x61\x00'); // Left alignment
-    lines.push('\x1B\x45\x01OBSERVACOES:\x1B\x45\x00\n');
-
-    // Ajusta o avanço físico de papel no firmware da impressora antes do corte de acordo com a configuração do canal
-    lines.push('\n'.repeat(Math.max(2, feedLinesCount)));
-    lines.push(`\x1B\x64${String.fromCharCode(Math.min(feedLinesCount, 12))}`);
+    // Avanço mínimo antes do corte para economizar papel sem cortar a última linha
+    lines.push('\n\n\n');
+    lines.push('\x1B\x64\x02');
     
     // Comando de corte universal (GS V 66 0 e GS V 1 para Elgin, Epson, Bematech, Daruma, etc.)
     if (cutMode === 'full') {
