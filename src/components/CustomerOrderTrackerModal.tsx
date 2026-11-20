@@ -5,7 +5,7 @@ import {
   PackageCheck, AlertCircle, ShieldCheck, Plus, Share2
 } from 'lucide-react';
 import { Order } from '../store/useStore';
-import { getOrderPaymentBreakdown, formatBRL, sharePixReceipt } from '../utils/paymentStatusHelper';
+import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation, formatBRL, sharePixReceipt } from '../utils/paymentStatusHelper';
 
 interface CustomerOrderTrackerModalProps {
   orderId: string;
@@ -226,10 +226,14 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
   const activeStep = getStepIndex();
   const orderNumber = String(order.id).slice(-4).padStart(4, '0');
 
+  const awaitingFinancialConfirm = requiresOperatorPaymentConfirmation(order);
+
   const steps = [
     {
-      title: 'Pendente',
-      desc: 'Pedido recebido e confirmado na fila',
+      title: awaitingFinancialConfirm ? 'Aguardando Financeiro' : 'Pendente',
+      desc: awaitingFinancialConfirm
+        ? 'Pedido recebido! Aguardando confirmação do pagamento pelo financeiro para entrar na fila de preparação.'
+        : 'Pedido recebido e confirmado na fila',
       icon: Clock,
       color: 'bg-amber-500',
       activeColor: 'text-amber-600 bg-amber-50 border-amber-300'

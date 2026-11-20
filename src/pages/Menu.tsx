@@ -10,7 +10,7 @@ import { MaintenancePage } from '../components/MaintenancePage';
 import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct, isCategoryFrozenModality } from '../constants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCode, resolveAddonCode } from '../utils/printer';
-import { getOrderPaymentBreakdown, sharePixReceipt, buildPixReceiptShareText } from '../utils/paymentStatusHelper';
+import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation, sharePixReceipt, buildPixReceiptShareText } from '../utils/paymentStatusHelper';
 import { sendNtfyNotification } from '../utils/ntfy';
 import { safeStorage } from '../utils/storage';
 import { AiAssistantFloatingButton } from '../components/AiAssistantFloatingButton';
@@ -3633,6 +3633,7 @@ export default function Menu() {
     const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
     const clientNameDisplay = (lastPlacedOrder?.customerName || customerName || safeStorage.getItem('balbec_customer_name') || 'CLIENTE').trim().toUpperCase();
     const successPaymentBreakdown = getOrderPaymentBreakdown(lastPlacedOrder);
+    const awaitingFinancialConfirm = lastPlacedOrder ? requiresOperatorPaymentConfirmation(lastPlacedOrder) : false;
 
     const orderHasFrozen = lastPlacedOrder?.items?.some((it: any) => 
       Boolean(it.isFrozen) || 
@@ -3678,7 +3679,11 @@ export default function Menu() {
                 </div>
               )}
               <p className="text-lg sm:text-2xl font-black text-white leading-tight">
-                {lastPlacedOrder?.scheduledTime 
+                {awaitingFinancialConfirm
+                  ? (lastPlacedOrder?.scheduledTime
+                      ? 'Recebemos seu pedido agendado! Ele está aguardando a confirmação do pagamento pela nossa equipe do financeiro para entrar na fila de preparação.'
+                      : 'Recebemos seu pedido! Ele está aguardando a confirmação do pagamento pela nossa equipe do financeiro para entrar na fila de preparação.')
+                  : lastPlacedOrder?.scheduledTime 
                   ? `Seu pedido foi agendado com sucesso. Aguarde ser chamado pelo seu nome no balcão.` 
                   : `Aguarde ser chamado pelo seu nome pelo atendente. Seu pedido está em preparação.`}
               </p>
@@ -3707,7 +3712,9 @@ export default function Menu() {
             <div className="inline-flex items-center gap-2 bg-black/30 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/20 shadow-lg animate-pulse">
               <Printer className="w-4 h-4 text-white" />
               <span className="text-xs sm:text-sm font-black uppercase tracking-wide">
-                Pedido #{orderNumber} já impresso no balcão da loja!
+                {awaitingFinancialConfirm
+                  ? `Pedido #${orderNumber} recebido • Aguardando confirmação do financeiro`
+                  : `Pedido #${orderNumber} já impresso no balcão da loja!`}
               </span>
             </div>
           </div>
@@ -6658,6 +6665,8 @@ export default function Menu() {
                                   ? 'Pronto para Retirada no Balcão'
                                   : order.status === 'preparing'
                                   ? 'Em Preparo na Cozinha'
+                                  : requiresOperatorPaymentConfirmation(order)
+                                  ? 'Aguardando Confirmação do Financeiro'
                                   : 'Pedido Recebido na Fila'}
                               </span>
                               <span className="text-[10px] text-stone-500 font-medium">
@@ -10528,6 +10537,7 @@ export default function Menu() {
                         {order.status === 'ready' || order.status === 'ready_for_pickup' || order.status === 'ready_for_delivery' ? '🛍️ Pronto para Retirada no Balcão' :
                          order.status === 'preparing' ? '👨‍🍳 Em Preparo na Cozinha' :
                          order.status === 'completed' || order.deliveryStatus === 'delivered' ? '✅ Concluído / Retirado' :
+                         requiresOperatorPaymentConfirmation(order) ? '💳 Recebido • Aguardando Financeiro' :
                          '⏳ Pedido Recebido na Fila'}
                       </span>
                     </p>

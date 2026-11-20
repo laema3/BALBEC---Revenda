@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore';
 import { BakeryLoader } from './BakeryLoader';
 import { safeStorage } from '../utils/storage';
 import { formatAllDatesBR } from '../lib/utils';
-import { getOrderPaymentBreakdown } from '../utils/paymentStatusHelper';
+import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation } from '../utils/paymentStatusHelper';
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const { fetchData, fetchOrdersOnly, setIsOnline, isOnline } = useStore();
@@ -52,17 +52,25 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     };
 
-    const getStatusDetails = (orderId: string | number, customerName: string, status: string) => {
-      const shortId = String(orderId).slice(-4);
+    const getStatusDetails = (orderId: string | number, customerName: string, status: string, order?: any) => {
+      const shortId = String(orderId).slice(-4).padStart(4, '0');
       const clientName = customerName || 'Cliente';
+      const awaitingFinancialConfirm = status === 'pending' && order && requiresOperatorPaymentConfirmation(order);
       
       const statusDetails: Record<string, { title: string; msg: string; type: 'success' | 'warning' | 'info'; badge: string }> = {
-        'pending': {
-          title: `Pedido #${shortId}`,
-          msg: `Olá ${clientName}, seu pedido foi recebido e está na fila de atendimento!`,
-          type: 'info',
-          badge: 'Recebido'
-        },
+        'pending': awaitingFinancialConfirm
+          ? {
+              title: `💳 Pedido Recebido #${shortId}`,
+              msg: `Olá ${clientName}, recebemos o seu pedido #${shortId}! Ele está aguardando a confirmação do pagamento pela nossa equipe do financeiro para entrar na fila de preparação.`,
+              type: 'info',
+              badge: 'Aguardando Financeiro'
+            }
+          : {
+              title: `Pedido #${shortId}`,
+              msg: `Olá ${clientName}, seu pedido foi recebido e está na fila de atendimento!`,
+              type: 'info',
+              badge: 'Recebido'
+            },
         'preparing': {
           title: `👨‍🍳 Pedido em Preparo #${shortId}`,
           msg: `Olá ${clientName}, seu pedido já está sendo preparado com todo carinho na nossa cozinha!`,
@@ -198,7 +206,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     };
 
     const showCustomerStatusAlert = (order: any, status: string, customMessage?: string, alertType?: string) => {
-      const details = getStatusDetails(order.id, order.customerName, status);
+      const details = getStatusDetails(order.id, order.customerName, status, order);
       const shortId = String(order.id).slice(-4).padStart(4, '0');
       const clientName = order.customerName || 'Cliente';
       const isPaymentConfirmedAlert = alertType === 'payment_confirmed';
@@ -347,7 +355,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                     id: data.orderId,
                     customerName: data.customerName || 'Cliente',
                     customerPhone: data.customerPhone || '',
-                    status: data.status || 'pending'
+                    status: data.status || 'pending',
+                    type: data.orderType || 'online',
+                    paymentMethod: data.paymentMethod || '',
+                    paymentPlan: data.paymentPlan,
+                    paymentStatus: data.paymentStatus,
+                    paymentConfirmedByOperator: data.paymentConfirmedByOperator
                   } : null);
 
                   const isOwner = updatedOrder ? isCustomerOrderOwner(updatedOrder, data.orderId, data.customerPhone, data.customerName) : false;

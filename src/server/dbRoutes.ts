@@ -3066,6 +3066,22 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       blueFocusExportError: newOrder.blueFocusExportError ? String(newOrder.blueFocusExportError) : null
     };
 
+    const createdSsePayload = {
+      type: 'sync',
+      target: 'orders',
+      action: 'created',
+      orderId: newOrder.id,
+      status: newOrder.status,
+      orderType: newOrder.type,
+      customerName: newOrder.customerName || 'Cliente',
+      customerPhone: newOrder.customerPhone || '',
+      paymentMethod: newOrder.paymentMethod || '',
+      paymentPlan: newOrder.paymentPlan,
+      paymentStatus: newOrder.paymentStatus,
+      paymentConfirmedByOperator: newOrder.paymentConfirmedByOperator,
+      time: Date.now()
+    };
+
     if (isDatabaseConfigured()) {
       try {
         console.log(`[DB Order] Tentando salvar pedido #${orderForDb.id} no PostgreSQL...`);
@@ -3075,7 +3091,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
             set: orderForDb
           }).returning();
         });
-        broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
+        broadcastSSE(createdSsePayload);
         void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
         if (result && result.length > 0) {
           console.log(`[DB Order] SUCESSO: Pedido #${orderForDb.id} persistido definitivamente no PostgreSQL.`);
@@ -3086,12 +3102,12 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         }
       } catch (error: any) {
         console.error(`[CRITICAL] FALHA DEFINITIVA ao salvar pedido #${orderForDb.id} no PostgreSQL:`, error?.message || error);
-        broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
+        broadcastSSE(createdSsePayload);
         void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
         return newOrder;
       }
     }
-    broadcastSSE({ type: 'sync', target: 'orders', action: 'created', orderId: newOrder.id, status: newOrder.status, time: Date.now() });
+    broadcastSSE(createdSsePayload);
     void triggerServerAutoExportBlueFocus(newOrder, 'on_create');
     return newOrder;
   }
