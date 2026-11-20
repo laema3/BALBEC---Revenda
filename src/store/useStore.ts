@@ -352,7 +352,7 @@ export interface StoreInfo {
   ntfyTopic?: string;
   ntfyEnabled?: boolean;
   tvTickerText?: string;
-  tvMode?: 'fullscreen_media' | 'split_menu' | 'split_orders';
+  tvMode?: 'fullscreen_media' | 'split_menu' | 'split_orders' | 'fullscreen_orders';
   tvSelectedCategories?: string[] | string;
   tvSoundEnabled?: boolean;
   tvShowClock?: boolean;

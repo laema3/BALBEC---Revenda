@@ -50,7 +50,7 @@ export default function TvManagerTab() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Settings Form State
-  const [tvMode, setTvMode] = useState<'fullscreen_media' | 'split_menu' | 'split_orders'>(
+  const [tvMode, setTvMode] = useState<'fullscreen_media' | 'split_menu' | 'split_orders' | 'fullscreen_orders'>(
     storeInfo.tvMode || 'split_menu'
   );
   const [tvTickerText, setTvTickerText] = useState(
@@ -154,7 +154,7 @@ export default function TvManagerTab() {
     }
   };
 
-  const handleModeChange = async (newMode: 'fullscreen_media' | 'split_menu' | 'split_orders') => {
+  const handleModeChange = async (newMode: 'fullscreen_media' | 'split_menu' | 'split_orders' | 'fullscreen_orders') => {
     setTvMode(newMode);
     try {
       await updateStoreInfo({ tvMode: newMode });
@@ -894,6 +894,30 @@ export default function TvManagerTab() {
                         )}
                       </div>
                       <span className="text-xs text-stone-500 mt-0.5 block">Vídeo ao lado com painel de pedidos: PEDIDO PRONTO, PREPARANDO e ENTREGUE (com 3 chamados de voz a cada 30s).</span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    tvMode === 'fullscreen_orders' 
+                      ? 'border-orange-500 bg-orange-50/70 ring-2 ring-orange-500/20 shadow-sm' 
+                      : 'border-stone-200 hover:bg-stone-50'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="tvMode"
+                      value="fullscreen_orders"
+                      checked={tvMode === 'fullscreen_orders'}
+                      onChange={() => handleModeChange('fullscreen_orders')}
+                      className="mt-1 text-orange-600 focus:ring-orange-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-stone-900 block">Tela Cheia para Senhas (Prontos, Preparando e Entregues)</span>
+                        {tvMode === 'fullscreen_orders' && (
+                          <span className="text-[10px] bg-orange-600 text-white font-bold px-2 py-0.5 rounded-full">Ativo</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-stone-500 mt-0.5 block">Painel de pedidos ocupando 100% da tela para máxima visibilidade das senhas em andamento.</span>
                     </div>
                   </label>
                 </div>

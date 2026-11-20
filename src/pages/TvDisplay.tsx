@@ -1343,9 +1343,10 @@ export default function TvDisplay() {
       {/* Dynamic Background subtle glow - Content stops right above the bottom ticker */}
       <div className="absolute inset-x-0 top-0 bottom-14 bg-stone-950 flex">
         {/* Main Content Area */}
-        <div className={`relative h-full transition-all duration-700 flex flex-col ${
-          mode === 'fullscreen_media' ? 'w-full' : 'w-[38%]'
-        }`}>
+        {mode !== 'fullscreen_orders' && (
+          <div className={`relative h-full transition-all duration-700 flex flex-col ${
+            mode === 'fullscreen_media' ? 'w-full' : 'w-[38%]'
+          }`}>
           
           {/* Media Viewport */}
           <div 
@@ -1740,7 +1741,7 @@ export default function TvDisplay() {
               </div>
             </div>
           )}
-        </div>
+
 
         {/* Side Panel: Split Menu Mode (10-Second Category Sequence Rotation) */}
         {mode === 'split_menu' && (
@@ -1883,49 +1884,181 @@ export default function TvDisplay() {
           </div>
         )}
 
-        {/* Side Panel: Split Orders Call Mode (PEDIDO PRONTO, PREPARANDO, ENTREGUE) */}
-        {mode === 'split_orders' && (
-          <div className="w-[62%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-4 lg:p-6 overflow-hidden">
-            <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-stone-800 shrink-0">
+        {/* Side Panel or Fullscreen Orders Panel: Call Mode (PEDIDO PRONTO, PREPARANDO, ENTREGUE) */}
+        {(mode === 'split_orders' || mode === 'fullscreen_orders') && (
+          <div className={`${mode === 'fullscreen_orders' ? 'w-full' : 'w-[62%]' } h-full bg-stone-900 ${mode === 'split_orders' ? 'border-l border-stone-800' : ''} flex flex-col p-6 lg:p-8 overflow-hidden`}>
+            <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-stone-800 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                  <BellRing className="w-5 h-5 animate-bounce" />
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-lg">
+                  <BellRing className="w-6 h-6 animate-bounce" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base lg:text-lg font-black text-white uppercase tracking-wider truncate">Painel de Pedidos</h3>
-                  <p className="text-[11px] text-stone-400 font-medium truncate">Chamada automática 3x a cada 30s</p>
+                  <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-wider truncate">Painel de Senhas e Pedidos</h3>
+                  <p className="text-xs text-stone-400 font-bold truncate">Chamada automática 3x a cada 30s para pedidos prontos</p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  unlockTvAudio();
-                  setIsVoiceMuted(prev => !prev);
-                }}
-                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1.5 border transition-colors shrink-0 cursor-pointer ${
-                  isVoiceMuted
-                    ? 'bg-red-950/70 border-red-500/40 text-red-300'
-                    : 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/70'
-                }`}
-                title={isVoiceMuted ? 'Ativar voz de chamada' : 'Silenciar voz de chamada'}
-              >
-                {isVoiceMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                <span>{isVoiceMuted ? 'Voz Muda' : 'Voz Ativa'}</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    unlockTvAudio();
+                    setIsVoiceMuted(prev => !prev);
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 border transition-colors shrink-0 cursor-pointer ${
+                    isVoiceMuted
+                      ? 'bg-red-950/70 border-red-500/40 text-red-300'
+                      : 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/70'
+                  }`}
+                  title={isVoiceMuted ? 'Ativar voz de chamada' : 'Silenciar voz de chamada'}
+                >
+                  {isVoiceMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  <span>{isVoiceMuted ? 'Voz Muda' : 'Voz Ativa'}</span>
+                </button>
+              </div>
             </div>
 
             {audioNeedsUnlock && !isVoiceMuted && (
               <button
                 type="button"
                 onClick={unlockTvAudio}
-                className="mb-3 px-3 py-2 rounded-xl bg-amber-500 text-stone-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg animate-pulse shrink-0 cursor-pointer"
+                className="mb-4 px-4 py-3 rounded-2xl bg-amber-500 text-stone-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl animate-pulse shrink-0 cursor-pointer"
               >
-                <Volume2 className="w-4 h-4" />
+                <Volume2 className="w-5 h-5" />
                 <span>Clique aqui para liberar o áudio e voz na TV</span>
               </button>
             )}
 
+            {mode === 'fullscreen_orders' ? (
+              <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
+                {/* 1. PEDIDO PRONTO */}
+                <div className="h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border-2 border-emerald-500/60 p-5 shadow-2xl">
+                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-emerald-500/30 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 rounded-full bg-emerald-400 animate-ping" />
+                      <h4 className="text-base lg:text-lg font-black uppercase tracking-wider text-emerald-400">
+                        PEDIDO PRONTO
+                      </h4>
+                    </div>
+                    <span className="text-sm font-black px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      {readyOrders.length} {readyOrders.length === 1 ? 'pronto' : 'prontos'}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {readyOrders.length > 0 ? (
+                        readyOrders.map(o => {
+                          const callState = orderCallProgress[String(o.id)];
+                          const displayName = cleanCustomerNameForTvVoice(o.customerName);
+                          return (
+                            <div
+                              key={o.id}
+                              className={`bg-emerald-950/90 border-2 border-emerald-500/90 p-4 rounded-2xl text-center shadow-xl ${
+                                callState ? 'ring-4 ring-amber-400/90 border-amber-400 animate-pulse' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="text-xs text-emerald-300 font-black uppercase">Senha</span>
+                                {callState && (
+                                  <span className="text-xs font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full">
+                                    🔊 {callState.attempt}/{callState.total}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-4xl lg:text-5xl font-black text-white tracking-widest font-mono block leading-none my-1.5">
+                                #{String(o.id).slice(-4).padStart(4, '0')}
+                              </span>
+                              <p className="text-sm text-emerald-100 truncate font-black uppercase mt-2">
+                                {displayName}
+                              </p>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold">
+                          Nenhum pedido pronto no momento
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. PREPARANDO */}
+                <div className="h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-amber-500/40 p-5 shadow-2xl">
+                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-amber-500/30 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <ChefHat className="w-5 h-5 text-amber-400" />
+                      <h4 className="text-base lg:text-lg font-black uppercase tracking-wider text-amber-400">
+                        PREPARANDO
+                      </h4>
+                    </div>
+                    <span className="text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      {preparingOrders.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {preparingOrders.length > 0 ? (
+                        preparingOrders.map(o => (
+                          <div key={o.id} className="bg-stone-800/90 border border-amber-500/30 p-3.5 rounded-2xl text-center shadow-md">
+                            <span className="text-xs text-amber-300/80 block font-bold uppercase">Senha</span>
+                            <span className="text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-tight block my-1">
+                              #{String(o.id).slice(-4).padStart(4, '0')}
+                            </span>
+                            <p className="text-xs lg:text-sm text-stone-200 truncate font-bold uppercase mt-1">
+                              {o.customerName || 'Cliente'}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold">
+                          Nenhum pedido em preparo
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. ENTREGUE */}
+                <div className="h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-sky-500/40 p-5 shadow-2xl">
+                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-sky-500/30 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <PackageCheck className="w-5 h-5 text-sky-400" />
+                      <h4 className="text-base lg:text-lg font-black uppercase tracking-wider text-sky-400">
+                        ENTREGUE
+                      </h4>
+                    </div>
+                    <span className="text-sm font-black px-3.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      {deliveredOrders.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {deliveredOrders.length > 0 ? (
+                        deliveredOrders.map(o => (
+                          <div key={o.id} className="bg-stone-900/90 border border-sky-500/30 p-3.5 rounded-2xl text-center opacity-90 shadow-md">
+                            <div className="flex items-center justify-center gap-1.5 text-xs text-sky-400 font-bold uppercase">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Entregue</span>
+                            </div>
+                            <span className="text-2xl lg:text-3xl font-black text-sky-200 font-mono leading-tight block my-1">
+                              #{String(o.id).slice(-4).padStart(4, '0')}
+                            </span>
+                            <p className="text-xs lg:text-sm text-stone-400 truncate font-bold uppercase mt-1">
+                              {o.customerName || 'Cliente'}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold">
+                          Nenhum pedido entregue recentemente
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
               {/* 1. PEDIDO PRONTO (acumula todos os pedidos prontos para retirada) */}
               <div className="flex-[1.6] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border-2 border-emerald-500/50 p-3 shadow-lg">
@@ -2052,7 +2185,6 @@ export default function TvDisplay() {
                     )}
                   </div>
                 </div>
-              </div>
             </div>
           </div>
         )}
