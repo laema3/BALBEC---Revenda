@@ -2465,9 +2465,13 @@ export default function Menu() {
         return next;
       });
 
-      const orderDisplayNum = `#${String(appendOrderTarget.id).slice(-4).padStart(4, '0')}`;
-      setCartToastMessage(`"${product.name}" acrescentado ao Pedido ${orderDisplayNum}! ➕🛒`);
-      setTimeout(() => setCartToastMessage(null), 3000);
+      // Desabilitado temporariamente a pedido do cliente (fácil reativar alterando para true)
+      const showProductAddedToast = false;
+      if (showProductAddedToast) {
+        const orderDisplayNum = `#${String(appendOrderTarget.id).slice(-4).padStart(4, '0')}`;
+        setCartToastMessage(`"${product.name}" acrescentado ao Pedido ${orderDisplayNum}! ➕🛒`);
+        setTimeout(() => setCartToastMessage(null), 3000);
+      }
       setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
       return;
     }
@@ -2560,8 +2564,12 @@ export default function Menu() {
       delete next[`${product.id}_congelado`];
       return next;
     });
-    setCartToastMessage(`"${product.name}" adicionado com sucesso! 🛒✨`);
-    setTimeout(() => setCartToastMessage(null), 3000);
+    // Toast "adicionado com sucesso" desabilitado temporariamente (basta alterar para true para reativar)
+    const showProductAddedToast = false;
+    if (showProductAddedToast) {
+      setCartToastMessage(`"${product.name}" adicionado com sucesso! 🛒✨`);
+      setTimeout(() => setCartToastMessage(null), 3000);
+    }
     setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
   };
 

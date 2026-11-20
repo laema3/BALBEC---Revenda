@@ -496,12 +496,13 @@ export default function TvDisplay() {
     type?: string;
     tableOrDesk?: string;
     forceRestart?: boolean;
+    isManual?: boolean;
   }) => {
-    const { orderId, orderNumber, customerName, type, tableOrDesk, forceRestart } = params;
+    const { orderId, orderNumber, customerName, type, tableOrDesk, forceRestart, isManual } = params;
     if (!orderId) return;
 
     const existing = activeSequencesRef.current.get(orderId);
-    if (existing && !existing.cancelled && !forceRestart && (Date.now() - existing.startedAt < 4500)) {
+    if (existing && !existing.cancelled && !forceRestart && (Date.now() - existing.startedAt < 10000)) {
       return; // Deduplicate rapid double events (e.g., SSE tv_call + orders update together)
     }
 
@@ -528,9 +529,9 @@ export default function TvDisplay() {
       const currentSeq = activeSequencesRef.current.get(orderId);
       if (!currentSeq || currentSeq.cycleId !== cycleId || currentSeq.cancelled) return;
 
-      // Verify order is still in PEDIDO PRONTO (if found in store)
+      // For follow-up attempts (2 and 3), verify the order hasn't already been delivered/cancelled
       const latestOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
-      if (latestOrder && !isOrderReadyStatus(latestOrder.status)) {
+      if (attemptNumber > 1 && !isManual && latestOrder && !isOrderReadyStatus(latestOrder.status)) {
         cancelOrderCallSequence(orderId);
         return;
       }
@@ -663,7 +664,8 @@ export default function TvDisplay() {
           customerName: call.customerName,
           type: call.type,
           tableOrDesk: call.tableOrDesk,
-          forceRestart: call.isManual === true
+          forceRestart: call.isManual === true,
+          isManual: call.isManual === true
         });
       }
     }
@@ -692,16 +694,20 @@ export default function TvDisplay() {
   // Sync initial data and connect to SSE for real-time changes
   useEffect(() => {
     const { fetchOrdersOnly } = useStore.getState();
-    fetchData();
+    fetchData().finally(() => {
+      if (!hasInitializedOrdersRef.current) {
+        const initialOrders = useStore.getState().orders || [];
+        initialOrders.forEach(o => {
+          prevOrderStatusesRef.current.set(String(o.id), o.status);
+        });
+        hasInitializedOrdersRef.current = true;
+      }
+    });
 
     // Fallback periódico leve (SSE já entrega mudanças instantaneamente em ~150ms)
     const fastInterval = setInterval(() => {
-      if (mode === 'split_orders') {
-        fetchOrdersOnly();
-      } else {
-        fetchData();
-      }
-    }, 15000);
+      fetchOrdersOnly();
+    }, 10000);
 
     // Sincronização completa de segurança de longo prazo (mídias/cardápio)
     const interval = setInterval(() => {
@@ -724,7 +730,7 @@ export default function TvDisplay() {
 
           if (debounceTimer) clearTimeout(debounceTimer);
           const isOrdersOnlyTarget = data.target === 'orders' || data.target === 'tv_call';
-          const delay = (isOrdersOnlyTarget || data.target === 'tv') ? 150 : 2000;
+          const delay = isOrdersOnlyTarget ? 50 : data.target === 'tv' ? 150 : 2000;
           debounceTimer = setTimeout(() => {
             if (isDisposed) return;
             if (isOrdersOnlyTarget) {
@@ -1178,11 +1184,15 @@ export default function TvDisplay() {
   }, [activeSlideIndex, allMenuSlides.length > 0]);
 
   // Categorized orders for the 3-status TV panel (PEDIDO PRONTO, PREPARANDO, ENTREGUE)
+  // Todos os pedidos prontos ficam acumulados no painel (mais recentes primeiro) até serem marcados como entregues
   const readyOrders = useMemo(() => {
     return (orders || [])
       .filter(o => isOrderReadyStatus(o.status))
-      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
-      .slice(0, 8);
+      .sort((a, b) => {
+        const tsA = Number((a as any).updatedAt || a.createdAt || 0);
+        const tsB = Number((b as any).updatedAt || b.createdAt || 0);
+        return tsB - tsA;
+      });
   }, [orders]);
 
   const preparingOrders = useMemo(() => {
@@ -1674,6 +1684,62 @@ export default function TvDisplay() {
               </button>
             </div>
           </div>
+
+          {/* Barra Acumulada de PEDIDOS PRONTOS (sempre visível nos modos Mídia Tela Cheia e Cardápio Dividido) */}
+          {mode !== 'split_orders' && readyOrders.length > 0 && (
+            <div className="shrink-0 bg-gradient-to-r from-emerald-950 via-stone-950 to-emerald-950 border-t-2 border-emerald-400/70 px-4 py-3 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.7)]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/50 px-3 py-2 rounded-xl shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <BellRing className="w-4 h-4 text-emerald-300 animate-bounce" />
+                  <div className="leading-tight">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-300 block">
+                      Pedidos Prontos
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-100/80 block">
+                      {readyOrders.length} {readyOrders.length === 1 ? 'disponível' : 'disponíveis'} p/ retirada
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1 flex items-center gap-2.5 overflow-x-auto pb-0.5 no-scrollbar">
+                  {readyOrders.map((o) => {
+                    const callState = orderCallProgress[String(o.id)];
+                    const shortNum = String(o.id).slice(-4).padStart(4, '0');
+                    const displayName = cleanCustomerNameForTvVoice(o.customerName);
+                    return (
+                      <div
+                        key={o.id}
+                        className={`shrink-0 bg-emerald-900/80 border-2 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 shadow-lg ${
+                          callState
+                            ? 'border-amber-400 ring-2 ring-amber-400/60 animate-pulse'
+                            : 'border-emerald-400/70'
+                        }`}
+                      >
+                        <span className="text-xl lg:text-2xl font-black font-mono text-white tracking-wider leading-none">
+                          #{shortNum}
+                        </span>
+                        <div className="max-w-[160px] text-left leading-tight">
+                          <p className="text-xs font-black text-emerald-100 uppercase truncate">
+                            {displayName}
+                          </p>
+                          {callState ? (
+                            <span className="text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.2 rounded-full inline-block mt-0.5">
+                              🔊 Chamado {callState.attempt}/{callState.total}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-emerald-300 uppercase">
+                              Pronto p/ Retirar
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Side Panel: Split Menu Mode (10-Second Category Sequence Rotation) */}
@@ -1861,8 +1927,8 @@ export default function TvDisplay() {
             )}
 
             <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
-              {/* 1. PEDIDO PRONTO */}
-              <div className="flex-[1.3] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-emerald-500/30 p-3">
+              {/* 1. PEDIDO PRONTO (acumula todos os pedidos prontos para retirada) */}
+              <div className="flex-[1.6] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border-2 border-emerald-500/50 p-3 shadow-lg">
                 <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
@@ -1870,8 +1936,8 @@ export default function TvDisplay() {
                       PEDIDO PRONTO
                     </h4>
                   </div>
-                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {readyOrders.length}
+                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    {readyOrders.length} {readyOrders.length === 1 ? 'pronto' : 'prontos'}
                   </span>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
@@ -1879,11 +1945,12 @@ export default function TvDisplay() {
                     {readyOrders.length > 0 ? (
                       readyOrders.map(o => {
                         const callState = orderCallProgress[String(o.id)];
+                        const displayName = cleanCustomerNameForTvVoice(o.customerName);
                         return (
                           <div
                             key={o.id}
-                            className={`bg-emerald-950/70 border-2 border-emerald-500/80 p-2.5 rounded-xl text-center shadow-lg ${
-                              callState ? 'ring-2 ring-amber-400/80 animate-pulse' : ''
+                            className={`bg-emerald-950/80 border-2 border-emerald-500/80 p-2.5 rounded-xl text-center shadow-lg ${
+                              callState ? 'ring-2 ring-amber-400/90 border-amber-400 animate-pulse' : ''
                             }`}
                           >
                             <div className="flex items-center justify-between gap-1 mb-0.5">
@@ -1894,11 +1961,11 @@ export default function TvDisplay() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-2xl font-black text-white tracking-widest font-mono block leading-none">
+                            <span className="text-2xl lg:text-3xl font-black text-white tracking-widest font-mono block leading-none">
                               #{String(o.id).slice(-4).padStart(4, '0')}
                             </span>
-                            <p className="text-[11px] text-emerald-100 truncate font-bold mt-1">
-                              {o.customerName || 'Cliente'}
+                            <p className="text-[11px] text-emerald-100 truncate font-bold mt-1 uppercase">
+                              {displayName}
                             </p>
                           </div>
                         );
@@ -2034,7 +2101,7 @@ export default function TvDisplay() {
                 Cliente
               </span>
               <h3 className="text-4xl md:text-5xl font-black text-white uppercase tracking-wide">
-                {activeCall.customerName}
+                {cleanCustomerNameForTvVoice(activeCall.customerName)}
               </h3>
               {activeCall.tableOrDesk && (
                 <p className="text-lg text-amber-300 font-bold mt-2">
