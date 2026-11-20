@@ -7748,6 +7748,10 @@ export default function Menu() {
                             ? 'Selecione CRU CONGELADO ou FRITO CONGELADO! ❄️'
                             : 'Selecione CRU ou FRITO!';
 
+                        const minRequired = (isFrozenCategoryContext && Number(product.minFrozenQuantity) > 1)
+                          ? Number(product.minFrozenQuantity)
+                          : 1;
+
                         const isFrozenBlockedCard = Boolean(
                           !isFrozenCategoryContext &&
                           !appendOrderTarget &&
@@ -7764,23 +7768,6 @@ export default function Menu() {
                             qty: qtyVal,
                             isFrozenContext: false
                           });
-                        };
-
-                        const handleSelectPrepChoice = (choice: PrepChoiceType) => {
-                          if (isFrozenBlockedCard) {
-                            openFrozenOnlyWarning(1);
-                            return;
-                          }
-                          setFrozenPrepChoices(prev => ({ ...prev, [prepChoiceKey]: choice }));
-                          setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: false }));
-                          if (cartItemsForProd.length === 1 && mainCartItem) {
-                            const newLabel = getPrepChoiceLabel(choice);
-                            setActiveCartList(prev => prev.map(ci => (
-                              isSameCartItem(ci, mainCartItem)
-                                ? { ...ci, prepType: choice, prepLabel: newLabel }
-                                : ci
-                            )));
-                          }
                         };
 
                         return (
@@ -7826,8 +7813,11 @@ export default function Menu() {
                                     const optCartItem = cartItemsForProd.find(ci => (ci.prepType || '') === opt.key);
                                     const optQty = optCartItem ? optCartItem.quantity : 0;
                                     const optQtyKey = `${qtyKey}_${opt.key}`;
-                                    const localInputVal = productQuantities[optQtyKey] !== undefined ? productQuantities[optQtyKey] : (optQty > 0 ? optQty : 1);
-                                    const numericOptQty = Math.max(1, parseInt(String(localInputVal), 10) || 1);
+                                    const step = minRequired > 1 ? minRequired : 1;
+                                    const localInputVal = productQuantities[optQtyKey] !== undefined
+                                      ? productQuantities[optQtyKey]
+                                      : (optQty > 0 ? optQty : minRequired);
+                                    const numericOptQty = Math.max(minRequired, parseInt(String(localInputVal), 10) || minRequired);
 
                                     return (
                                       <div 
@@ -7878,16 +7868,22 @@ export default function Menu() {
                                             type="button"
                                             onClick={() => {
                                               if (optQty > 0 && optCartItem) {
-                                                const newQ = optCartItem.quantity - 1;
-                                                if (newQ <= 0) {
+                                                const newQ = optCartItem.quantity - step;
+                                                if (newQ < minRequired) {
                                                   setActiveCartList(prev => prev.filter(ci => !isSameCartItem(ci, optCartItem)));
                                                 } else {
                                                   setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: newQ } : ci));
                                                 }
+                                                setProductQuantities(prev => {
+                                                  if (prev[optQtyKey] === undefined) return prev;
+                                                  const next = { ...prev };
+                                                  delete next[optQtyKey];
+                                                  return next;
+                                                });
                                               } else {
                                                 const cur = numericOptQty;
-                                                if (cur > 1) {
-                                                  setProductQuantities(prev => ({ ...prev, [optQtyKey]: cur - 1 }));
+                                                if (cur > minRequired) {
+                                                  setProductQuantities(prev => ({ ...prev, [optQtyKey]: Math.max(minRequired, cur - step) }));
                                                 }
                                               }
                                             }}
@@ -7901,27 +7897,29 @@ export default function Menu() {
                                             type="text"
                                             inputMode="numeric"
                                             pattern="[0-9]*"
+                                            readOnly={minRequired > 1}
                                             value={optQty > 0 ? optQty : localInputVal}
                                             onChange={(e) => {
+                                              if (minRequired > 1) return;
                                               const raw = e.target.value.replace(/\D/g, '');
                                               setProductQuantities(prev => ({ ...prev, [optQtyKey]: raw }));
                                               if (raw !== '' && optQty > 0 && optCartItem) {
-                                                const val = Math.max(1, parseInt(raw, 10) || 1);
+                                                const val = Math.max(minRequired, parseInt(raw, 10) || minRequired);
                                                 setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: val } : ci));
                                               }
                                             }}
-                                            className="font-black text-xs w-10 text-center py-0.5 rounded bg-stone-50 text-stone-900 border border-stone-300 font-mono"
+                                            className={`font-black text-xs w-10 text-center py-0.5 rounded bg-stone-50 text-stone-900 border border-stone-300 font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
                                           />
 
                                           <button
                                             type="button"
                                             onClick={() => {
                                               if (isFrozenBlockedCard) {
-                                                openFrozenOnlyWarning(1);
+                                                openFrozenOnlyWarning(numericOptQty);
                                                 return;
                                               }
                                               if (optQty > 0 && optCartItem) {
-                                                const newQ = optCartItem.quantity + 1;
+                                                const newQ = optCartItem.quantity + step;
                                                 setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: newQ } : ci));
                                               } else {
                                                 initiateAddToCartWithQty(product, numericOptQty, isFrozenCategoryContext, false, opt.key);
@@ -7957,12 +7955,14 @@ export default function Menu() {
                                 <span className="text-[11px] sm:text-sm font-bold text-stone-500 bg-stone-100 border border-stone-200/80 px-2 py-1 sm:px-3 sm:py-2 rounded-xl select-none flex items-center gap-1">
                                   👁️ Apenas visualização
                                 </span>
+                              ) : needsPrepChoice ? (
+                                isFrozenCategoryContext && minRequired > 1 ? (
+                                  <span className="text-[10px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg">
+                                    Mínimo: {minRequired} un
+                                  </span>
+                                ) : null
                               ) : (
                                 (() => {
-                                  const minRequired = (isFrozenCategoryContext && Number(product.minFrozenQuantity) > 1) 
-                                    ? Number(product.minFrozenQuantity) 
-                                    : 1;
-
                                   const displayedQty = productQuantities[qtyKey] !== undefined
                                     ? productQuantities[qtyKey]
                                     : (totalCartQty > 0 ? totalCartQty : minRequired);
@@ -7980,16 +7980,24 @@ export default function Menu() {
                                         </span>
                                       )}
 
-                                      {totalCartQty > 0 && isFrozenCategoryContext && (
-                                        <span className="text-[10px] sm:text-[11px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                                          <span>❄️ {mainCartItem?.prepLabel || 'CONGELADO'} ({totalCartQty})</span>
-                                        </span>
-                                      )}
-
-                                      {totalCartQty > 0 && !isFrozenCategoryContext && (
-                                        <span className="text-[10px] sm:text-[11px] font-black text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                                          <span>🔥 {mainCartItem?.prepLabel || 'PRONTO'} ({totalCartQty})</span>
-                                        </span>
+                                      {cartItemsForProd.length > 0 && (
+                                        <div className="flex flex-wrap justify-end gap-1">
+                                          {cartItemsForProd.map((ci, idx) => {
+                                            const itemBadgeLabel = ci.flavor?.name || ci.prepLabel || (isFrozenCategoryContext ? 'CONGELADO' : 'PRONTO');
+                                            return (
+                                              <span
+                                                key={`${ci.productId}_${ci.prepType || ''}_${ci.flavor?.name || ''}_${idx}`}
+                                                className={`text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs border ${
+                                                  isFrozenCategoryContext
+                                                    ? 'text-blue-700 bg-blue-50 border-blue-200'
+                                                    : 'text-amber-800 bg-amber-50 border-amber-200'
+                                                }`}
+                                              >
+                                                <span>{isFrozenCategoryContext ? '❄️' : '🔥'} {itemBadgeLabel} ({ci.quantity})</span>
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
                                       )}
 
                                       <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-100 rounded-xl p-1">
@@ -8004,18 +8012,6 @@ export default function Menu() {
                                               delete next[qtyKey];
                                               return next;
                                             });
-                                            if (needsPrepChoice) {
-                                              setFrozenPrepChoices(prev => {
-                                                const next = { ...prev };
-                                                delete next[prepChoiceKey];
-                                                return next;
-                                              });
-                                              setFrozenPrepErrors(prev => {
-                                                const next = { ...prev };
-                                                delete next[prepChoiceKey];
-                                                return next;
-                                              });
-                                            }
                                           }}
                                           className="p-1 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700 transition-colors cursor-pointer"
                                           title={totalCartQty > 0 ? "Excluir item do pedido" : "Zerar quantidade"}
@@ -8116,13 +8112,7 @@ export default function Menu() {
                                               const parsed = parseInt(String(raw ?? displayedQty), 10);
                                               const qty = isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
                                               if (totalCartQty === 0) {
-                                                if (needsPrepChoice && !selectedPrepChoice) {
-                                                  setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: true }));
-                                                  setCartToastMessage(missingPrepToast);
-                                                  setTimeout(() => setCartToastMessage(null), 3000);
-                                                  return;
-                                                }
-                                                initiateAddToCartWithQty(product, qty, isFrozenCategoryContext, false, selectedPrepChoice || undefined);
+                                                initiateAddToCartWithQty(product, qty, isFrozenCategoryContext, false, undefined);
                                               }
                                             }
                                           }}
@@ -8146,34 +8136,15 @@ export default function Menu() {
                                               delete next[qtyKey];
                                               return next;
                                             });
-                                            if (totalCartQty > 0) {
-                                              const matchingPrepItem = (needsPrepChoice && selectedPrepChoice)
-                                                ? cartItemsForProd.find(ci => (ci.prepType || '') === selectedPrepChoice)
-                                                : mainCartItem;
-                                              if (matchingPrepItem) {
-                                                const newQ = matchingPrepItem.quantity + step;
-                                                setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, matchingPrepItem) ? { ...ci, quantity: newQ } : ci));
-                                              } else {
-                                                if (needsPrepChoice && !selectedPrepChoice) {
-                                                  setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: true }));
-                                                  setCartToastMessage(missingPrepToast);
-                                                  setTimeout(() => setCartToastMessage(null), 3000);
-                                                  return;
-                                                }
-                                                initiateAddToCartWithQty(product, step, isFrozenCategoryContext, false, selectedPrepChoice || undefined);
-                                              }
+                                            if (totalCartQty > 0 && mainCartItem) {
+                                              const newQ = mainCartItem.quantity + step;
+                                              setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, mainCartItem) ? { ...ci, quantity: newQ } : ci));
                                             } else {
-                                              if (needsPrepChoice && !selectedPrepChoice) {
-                                                setFrozenPrepErrors(prev => ({ ...prev, [prepChoiceKey]: true }));
-                                                setCartToastMessage(missingPrepToast);
-                                                setTimeout(() => setCartToastMessage(null), 3000);
-                                                return;
-                                              }
-                                              initiateAddToCartWithQty(product, numericQty > 0 ? numericQty : minRequired, isFrozenCategoryContext, false, selectedPrepChoice || undefined);
+                                              initiateAddToCartWithQty(product, numericQty > 0 ? numericQty : minRequired, isFrozenCategoryContext, false, undefined);
                                             }
                                           }}
                                           className="p-1 hover:bg-white rounded-lg text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
-                                          title={totalCartQty > 0 ? "Aumentar / Alterar preparo" : "Adicionar ao pedido"}
+                                          title={totalCartQty > 0 ? "Aumentar quantidade" : "Adicionar ao pedido"}
                                         >
                                           <Plus className="w-4 h-4" />
                                         </button>
