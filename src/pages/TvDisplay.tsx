@@ -1338,7 +1338,43 @@ export default function TvDisplay() {
     const isFull = mode === 'fullscreen_orders';
     return (
       <div className={isFull ? "flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden" : "flex-1 min-h-0 flex flex-col gap-3 overflow-hidden"}>
-        {/* 1. PEDIDO PRONTO */}
+        {/* 1. PREPARANDO */}
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-amber-500/40 p-5 shadow-2xl" : "flex-1 min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-amber-500/25 p-3"}>
+          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-amber-500/30 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <ChefHat className={isFull ? "w-5 h-5 text-amber-400" : "w-3.5 h-3.5 text-amber-400"} />
+              <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-amber-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-amber-400"}>
+                PREPARANDO
+              </h4>
+            </div>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30"}>
+              {preparingOrders.length}
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+              {preparingOrders.length > 0 ? (
+                preparingOrders.map(o => (
+                  <div key={o.id} className={isFull ? "bg-stone-800/90 border border-amber-500/30 p-3.5 rounded-2xl text-center shadow-md" : "bg-stone-800/90 border border-amber-500/30 p-2 rounded-xl text-center"}>
+                    <span className="text-xs text-amber-300/80 block font-bold uppercase">Senha</span>
+                    <span className={isFull ? "text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-tight block my-1" : "text-lg font-black text-amber-300 font-mono leading-tight block"}>
+                      #{String(o.id).slice(-4).padStart(4, '0')}
+                    </span>
+                    <p className={isFull ? "text-xs lg:text-sm text-stone-200 truncate font-bold uppercase mt-1" : "text-[11px] text-stone-200 truncate font-medium mt-0.5"}>
+                      {o.customerName || 'Cliente'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                  Nenhum pedido em preparo
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. PEDIDO PRONTO */}
         <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border-2 border-emerald-500/60 p-5 shadow-2xl" : "flex-[1.6] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border-2 border-emerald-500/50 p-3 shadow-lg"}>
           <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-emerald-500/30 shrink-0">
             <div className="flex items-center gap-2.5">
@@ -1382,42 +1418,6 @@ export default function TvDisplay() {
               ) : (
                 <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
                   Nenhum pedido pronto no momento
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 2. PREPARANDO */}
-        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-amber-500/40 p-5 shadow-2xl" : "flex-1 min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-amber-500/25 p-3"}>
-          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-amber-500/30 shrink-0">
-            <div className="flex items-center gap-2.5">
-              <ChefHat className={isFull ? "w-5 h-5 text-amber-400" : "w-3.5 h-3.5 text-amber-400"} />
-              <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-amber-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-amber-400"}>
-                PREPARANDO
-              </h4>
-            </div>
-            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30"}>
-              {preparingOrders.length}
-            </span>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
-              {preparingOrders.length > 0 ? (
-                preparingOrders.map(o => (
-                  <div key={o.id} className={isFull ? "bg-stone-800/90 border border-amber-500/30 p-3.5 rounded-2xl text-center shadow-md" : "bg-stone-800/90 border border-amber-500/30 p-2 rounded-xl text-center"}>
-                    <span className="text-xs text-amber-300/80 block font-bold uppercase">Senha</span>
-                    <span className={isFull ? "text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-tight block my-1" : "text-lg font-black text-amber-300 font-mono leading-tight block"}>
-                      #{String(o.id).slice(-4).padStart(4, '0')}
-                    </span>
-                    <p className={isFull ? "text-xs lg:text-sm text-stone-200 truncate font-bold uppercase mt-1" : "text-[11px] text-stone-200 truncate font-medium mt-0.5"}>
-                      {o.customerName || 'Cliente'}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
-                  Nenhum pedido em preparo
                 </div>
               )}
             </div>
