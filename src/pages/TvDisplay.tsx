@@ -1344,7 +1344,7 @@ export default function TvDisplay() {
       <div className="absolute inset-x-0 top-0 bottom-14 bg-stone-950 flex">
         {/* Main Content Area */}
         <div className={`relative h-full transition-all duration-700 flex flex-col ${
-          mode === 'fullscreen_media' ? 'w-full' : 'w-[62%]'
+          mode === 'fullscreen_media' ? 'w-full' : 'w-[38%]'
         }`}>
           
           {/* Media Viewport */}
@@ -1744,7 +1744,7 @@ export default function TvDisplay() {
 
         {/* Side Panel: Split Menu Mode (10-Second Category Sequence Rotation) */}
         {mode === 'split_menu' && (
-          <div className="w-[38%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-6 lg:p-8 overflow-hidden">
+          <div className="w-[62%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-6 lg:p-8 overflow-hidden">
             {/* Header: Category Badge, Name, Page and 10s Timer */}
             <div className="mb-4 pb-3 border-b-2 border-stone-800 shrink-0">
               <div className="flex items-center justify-between gap-2 mb-2.5">
@@ -1885,7 +1885,7 @@ export default function TvDisplay() {
 
         {/* Side Panel: Split Orders Call Mode (PEDIDO PRONTO, PREPARANDO, ENTREGUE) */}
         {mode === 'split_orders' && (
-          <div className="w-[38%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-4 lg:p-6 overflow-hidden">
+          <div className="w-[62%] h-full bg-stone-900 border-l border-stone-800 flex flex-col p-4 lg:p-6 overflow-hidden">
             <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-stone-800 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
