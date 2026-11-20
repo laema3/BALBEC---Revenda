@@ -796,14 +796,10 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
       const isClient = viaType === 'cliente';
       return `
       <div class="receipt-box ${!isClient ? 'receipt-box-attendant' : ''}">
-        <!-- 1. PRIMEIRA INFORMAÇÃO NO TOPO DO CUPOM: MODALIDADE -->
-        <div class="box-modality">*** ${modalityText} ***</div>
-
         ${activeOrderPrinterName ? `
         <div style="text-align: center; font-size: 11px; font-weight: 900; background: #000; color: #fff; padding: 4px 6px; border-radius: 4px; margin-bottom: 6px; letter-spacing: 0.5px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
           🖨️ DESTINO: ${activeOrderPrinterName.toUpperCase()}
         </div>` : ''}
-        <div class="title">${storeName}</div>
         
         <div class="via-tag ${isClient ? 'via-tag-client' : 'via-tag-attendant'}">
           ${isSingleCopy ? '*** VIA ÚNICA ***' : (isClient ? '*** 1ª VIA - CLIENTE ***' : '*** 2ª VIA - BALCÃO (ATENDENTE) ***')}
@@ -1009,17 +1005,6 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
 
     // Center alignment
     lines.push('\x1B\x61\x01'); 
-
-    // 1. PRIMEIRA INFORMAÇÃO NO TOPO DO CUPOM: MODALIDADE (RETIRADA, CONSUMO NA LOJA, TOTEM)
-    lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x11');
-    lines.push(`  *** ${modalityText} ***  \n`);
-    lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00');
-    lines.push('\n');
-
-    // TÍTULO DA LOJA EM DESTAQUE (FUNDO PRETO / TEXTO BRANCO)
-    lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x01');
-    lines.push(`  ${storeName}  \n`);
-    lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00'); // Reset size and inverse
 
     // Via Header
     if (single) {
