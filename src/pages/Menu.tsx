@@ -3324,7 +3324,14 @@ export default function Menu() {
         paymentPlan: paymentDetails?.plan,
         paidAmount: paymentDetails?.paidAmount,
         remainingAmount: paymentDetails?.remainingAmount,
-        paymentConfirmedByOperator: !isTotemOrDineIn && paymentDetails?.plan === 'parcial' ? false : undefined,
+        paymentConfirmedByOperator:
+          !isTotemOrDineIn &&
+          (paymentDetails?.plan === 'parcial' ||
+            confirmedPaymentStatus === 'approved' ||
+            confirmedPaymentMethod.toLowerCase().includes('online') ||
+            confirmedPaymentMethod.toLowerCase().includes('pix mp'))
+            ? false
+            : undefined,
       });
 
       if (createdOrder) {

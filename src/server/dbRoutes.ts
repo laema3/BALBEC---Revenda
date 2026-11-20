@@ -804,6 +804,18 @@ function isOrderPartial50PaymentServer(order: any): boolean {
   );
 }
 
+function isOrderOnlinePaymentServer(order: any): boolean {
+  if (!order) return false;
+  if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
+  const rawMethod = String(order.paymentMethod || '').toLowerCase();
+  return (
+    isOrderPartial50PaymentServer(order) ||
+    rawMethod.includes('online') ||
+    rawMethod.includes('pix mp') ||
+    order.paymentStatus === 'approved'
+  );
+}
+
 function requiresOrderPaymentConfirmationServer(order: any): boolean {
   if (!order) return false;
   if (order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) return false;
@@ -814,12 +826,7 @@ function requiresOrderPaymentConfirmationServer(order: any): boolean {
     return true;
   }
 
-  const rawMethod = String(order.paymentMethod || '').toLowerCase();
-  const isPixOrDebit = rawMethod.includes('pix') || rawMethod.includes('débito') || rawMethod.includes('debito');
-  const isPartial50 = isOrderPartial50PaymentServer(order);
-  const hasFrozen = orderHasFrozenItemsServer(order);
-
-  if (order.status === 'pending' && isPartial50 && (hasFrozen || isPixOrDebit)) {
+  if (order.status === 'pending' && isOrderOnlinePaymentServer(order)) {
     return true;
   }
   return false;
@@ -2930,15 +2937,13 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       customerName: data.customerName || (isKiosk ? 'Cliente Totem' : 'Cliente')
     };
 
-    const rawMethodLower = String(rawOrderDraft.paymentMethod || '').toLowerCase();
-    const isPixOrDebitOrder = rawMethodLower.includes('pix') || rawMethodLower.includes('débito') || rawMethodLower.includes('debito');
     const needsOperatorConfirmationAtCreation =
       !isTotemOrDineIn &&
       initialStatus === 'pending' &&
       rawOrderDraft.paymentConfirmedByOperator !== true &&
       !rawOrderDraft.paymentConfirmedAt &&
       (rawOrderDraft.paymentConfirmedByOperator === false ||
-        (isOrderPartial50PaymentServer(rawOrderDraft) && (orderHasFrozenItemsServer(rawOrderDraft) || isPixOrDebitOrder)));
+        isOrderOnlinePaymentServer(rawOrderDraft));
 
     const newOrder = {
       ...rawOrderDraft,
@@ -3229,8 +3234,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       requiresOrderPaymentConfirmationServer(matchedOrder) &&
       data.paymentConfirmedByOperator !== true
     ) {
+      const isPartial50Matched = isOrderPartial50PaymentServer(matchedOrder);
       return res.status(400).json({
-        error: 'Pagamento de 50% (congelados) pendente de confirmação pelo operador! Clique em CONFIRMAR PAGAMENTO e informe a senha antes de passar o pedido para produção.',
+        error: isPartial50Matched
+          ? 'Pagamento de 50% (congelados) pendente de confirmação pelo operador! Clique em CONFIRMAR PAGAMENTO e informe a senha antes de passar o pedido para produção.'
+          : 'Pagamento online integral pendente de confirmação pelo operador! Clique em CONFIRMAR PAGAMENTO e informe a senha antes de passar o pedido para produção.',
         code: 'PAYMENT_CONFIRMATION_REQUIRED'
       });
     }
@@ -3439,11 +3447,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       const customerFirstName = String(updatedOrder.customerName || 'Cliente').trim() || 'Cliente';
       const cleanCustomerPhone = String(updatedOrder.customerPhone || '').replace(/\D/g, '');
       const totalVal = Number(updatedOrder.total) || 0;
+      const isPartial50Order = isOrderPartial50PaymentServer(updatedOrder);
       const paidVal = Number(updatedOrder.paidAmount) > 0
         ? Number(updatedOrder.paidAmount)
-        : Number((totalVal * 0.5).toFixed(2));
+        : (isPartial50Order ? Number((totalVal * 0.5).toFixed(2)) : totalVal);
       const formattedPaid = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paidVal);
-      const customerConfirmMsg = `Olá ${customerFirstName}! Recebemos a confirmação do seu pagamento de 50% (${formattedPaid}) referente ao Pedido #${shortOrderId} na BALBEC. Seu pedido já foi liberado para nossa equipe iniciar a produção!`;
+      const customerConfirmMsg = isPartial50Order
+        ? `Olá ${customerFirstName}! Recebemos a confirmação do seu pagamento de 50% (${formattedPaid}) referente ao Pedido #${shortOrderId} na BALBEC. Seu pedido já foi liberado para nossa equipe iniciar a produção!`
+        : `Olá ${customerFirstName}! Recebemos a confirmação do seu pagamento integral (${formattedPaid}) referente ao Pedido #${shortOrderId} na BALBEC. Seu pedido já foi liberado para nossa equipe iniciar a produção!`;
 
       // Disparo automático via NTFY se ativado (mesmo padrão da mudança de status)
       if (memStoreInfo.ntfyEnabled !== false) {
@@ -3459,7 +3470,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                 ? `https://wa.me/55${cleanCustomerPhone}?text=${encodeURIComponent(customerConfirmMsg)}`
                 : undefined
             },
-            body: `Pedido #${shortOrderId} (${customerFirstName})\nNovo Status: ✅ Pagamento 50% Confirmado (${formattedPaid})\nConfirmado por: ${operatorName}\nPedido liberado para produção!\nTelefone: ${updatedOrder.customerPhone || 'Não informado'}`
+            body: `Pedido #${shortOrderId} (${customerFirstName})\nNovo Status: ✅ ${isPartial50Order ? 'Pagamento 50% Confirmado' : 'Pagamento Integral Confirmado'} (${formattedPaid})\nConfirmado por: ${operatorName}\nPedido liberado para produção!\nTelefone: ${updatedOrder.customerPhone || 'Não informado'}`
           }).catch(() => {});
         } catch (ntfyErr) {}
       }

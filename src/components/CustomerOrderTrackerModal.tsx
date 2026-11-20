@@ -133,7 +133,12 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
           playCustomerChime('stage_change');
         }
       } else if (prevPaymentConfirmedRef.current === false && currentOrd.paymentConfirmedByOperator === true) {
-        setStatusNotification('✅ Pagamento de 50% confirmado! Seu pedido foi liberado para produção.');
+        const isPartial50Ord = getOrderPaymentBreakdown(currentOrd).kind === 'partial_50';
+        setStatusNotification(
+          isPartial50Ord
+            ? '✅ Pagamento de 50% confirmado! Seu pedido foi liberado para produção.'
+            : '✅ Pagamento integral confirmado! Seu pedido foi liberado para produção.'
+        );
         setTimeout(() => setStatusNotification(null), 5000);
         playCustomerChime('stage_change');
       }

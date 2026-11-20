@@ -162,8 +162,7 @@ export function requiresOperatorPaymentConfirmation(order: Partial<Order> | any 
   if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
 
   const breakdown = getOrderPaymentBreakdown(order);
-  const rawMethod = String(order.paymentMethod || '').toLowerCase();
-  const isOnlinePayment = breakdown.isOnline || breakdown.isPix || rawMethod.includes('pix') || rawMethod.includes('cartão') || rawMethod.includes('cartao') || rawMethod.includes('crédito') || rawMethod.includes('credito') || rawMethod.includes('débito') || rawMethod.includes('debito') || breakdown.kind === 'paid_full' || breakdown.kind === 'partial_50';
+  const isOnlinePayment = breakdown.isOnline || breakdown.kind === 'paid_full' || breakdown.kind === 'partial_50';
 
   // Pedido criado explicitamente como pendente de confirmação pelo operador
   if (order.paymentConfirmedByOperator === false) {

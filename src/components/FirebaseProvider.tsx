@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { BakeryLoader } from './BakeryLoader';
 import { safeStorage } from '../utils/storage';
 import { formatAllDatesBR } from '../lib/utils';
+import { getOrderPaymentBreakdown } from '../utils/paymentStatusHelper';
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const { fetchData, fetchOrdersOnly, setIsOnline, isOnline } = useStore();
@@ -201,6 +202,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const shortId = String(order.id).slice(-4).padStart(4, '0');
       const clientName = order.customerName || 'Cliente';
       const isPaymentConfirmedAlert = alertType === 'payment_confirmed';
+      const isPartial50Order = getOrderPaymentBreakdown(order).kind === 'partial_50';
       const notifId = isPaymentConfirmedAlert
         ? `notif_payconf_${order.id}_${Date.now()}`
         : `notif_${order.id}_${status}_${Date.now()}`;
@@ -211,13 +213,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           ? `✅ Pagamento Confirmado #${shortId}`
           : details.title;
       const finalMsg = isPaymentConfirmedAlert
-        ? (customMessage || `Olá ${clientName}, o pagamento de 50% do seu pedido #${shortId} foi confirmado e ele já foi liberado para nossa equipe iniciar a produção!`)
+        ? (customMessage || (isPartial50Order
+            ? `Olá ${clientName}, o pagamento de 50% do seu pedido #${shortId} foi confirmado e ele já foi liberado para nossa equipe iniciar a produção!`
+            : `Olá ${clientName}, o pagamento integral do seu pedido #${shortId} foi confirmado e ele já foi liberado para nossa equipe iniciar a produção!`))
         : (customMessage || details.msg);
       const finalBadge =
         alertType === 'reminder_90min'
           ? 'Aviso 90 Minutos'
           : isPaymentConfirmedAlert
-          ? '💳 50% Confirmado'
+          ? (isPartial50Order ? '💳 50% Confirmado' : '💳 Pagamento Confirmado')
           : details.badge;
       const finalType =
         alertType === 'reminder_90min'
