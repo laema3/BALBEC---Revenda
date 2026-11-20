@@ -221,13 +221,26 @@ function processSpeechQueue() {
   }
 }
 
+// Remove LTDA (and trailing ME/EPP variations) from spoken customer name on TV audio
+function cleanCustomerNameForTvVoice(rawName?: string): string {
+  const original = String(rawName || '').trim();
+  if (!original) return 'cliente';
+  const cleaned = original
+    .replace(/\bLTDA\.?(?:\s*[-/–—]?\s*(?:ME|EPP|MEI))?\b/gi, '')
+    .replace(/[-/–—,\s]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned || 'cliente';
+}
+
 // Queue Portuguese announcement
 function speakOrderCall(orderNumber: string, customerName: string) {
   try {
     if (!('speechSynthesis' in window)) return;
     const cleanNum = String(orderNumber || '').replace('#', '').trim();
     const spokenNum = cleanNum.replace(/^0+(?=\d)/, '') || cleanNum;
-    const text = `Pedido pronto! Atenção: senha número ${spokenNum}, ${customerName || 'cliente'}, favor retirar o pedido no balcão!`;
+    const spokenName = cleanCustomerNameForTvVoice(customerName);
+    const text = `Pedido pronto! Atenção: senha número ${spokenNum}, ${spokenName}, favor retirar o pedido no balcão!`;
     speechQueue.push(text);
     processSpeechQueue();
   } catch (e) {
