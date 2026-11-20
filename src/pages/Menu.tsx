@@ -2585,7 +2585,7 @@ export default function Menu() {
       safeStorage.setSession('selected_sales_channel', salesChannel || 'delivery');
     }
 
-    if (!canBuy || isAddonProduct(product)) {
+    if (!canBuy || isAddonProduct(product) || Number(product.price) <= 0) {
       return;
     }
 
@@ -7700,7 +7700,9 @@ export default function Menu() {
                           : (isFrozenCategoryContext
                               ? storeInfo.salgadoPrepFritoCongeladoEnabled !== false
                               : (isFriedNormalCategory ? storeInfo.salgadoPrepFritoEnabled !== false : false));
-                        const needsPrepChoice = isPrepOptionEnabledForCard && (isFrozenCategoryContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(product) && canBuy;
+                        const isZeroPrice = Number(displayUnitPrice) <= 0;
+
+                        const needsPrepChoice = isPrepOptionEnabledForCard && (isFrozenCategoryContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(product) && canBuy && !isZeroPrice;
                         const prepChoiceKey = `${category.id}_${product.id}`;
 
                         const prepOption1: { key: PrepChoiceType; label: string } = isBakedCategory
@@ -7759,11 +7761,14 @@ export default function Menu() {
                           !appendOrderTarget &&
                           !isAddonProduct(product) &&
                           canBuy &&
+                          !isZeroPrice &&
                           (
                             (isFrozenModalityActive && !isFrozenCategoryContext) ||
                             (isNormalModalityActive && isFrozenCategoryContext)
                           )
                         );
+
+                        const isDisabledCard = isModalityBlockedCard || isZeroPrice;
 
                         const isFrozenBlockedCard = false;
                         const openFrozenOnlyWarning = (qtyVal?: number) => {};
@@ -7772,7 +7777,7 @@ export default function Menu() {
                         <div 
                           key={`${category.id}_${product.id}`} 
                           className={`bg-white rounded-2xl sm:rounded-3xl border border-stone-200/90 p-3 sm:p-5 md:p-6 lg:p-5 flex gap-3 sm:gap-6 lg:gap-4 transition-all group items-center ${
-                            isModalityBlockedCard ? 'bg-stone-100/90 grayscale opacity-60 border-stone-300 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-stone-200/50'
+                            isDisabledCard ? 'bg-stone-100/90 grayscale opacity-60 border-stone-300 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-stone-200/50'
                           }`}
                         >
                           <div className="w-22 h-22 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-32 lg:h-32 xl:w-36 xl:h-36 shrink-0 bg-stone-50 rounded-xl sm:rounded-2xl overflow-hidden relative flex items-center justify-center border border-stone-100">
@@ -7945,6 +7950,10 @@ export default function Menu() {
                               {isAddonProduct(product) ? (
                                 <span className="text-[11px] sm:text-sm font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 sm:px-3 sm:py-2 rounded-xl select-none">
                                   Apenas nos lanches
+                                </span>
+                              ) : isZeroPrice ? (
+                                <span className="text-[11px] sm:text-xs font-black text-stone-600 bg-stone-200 border border-stone-300 px-3 py-1.5 rounded-xl select-none">
+                                  👁️ Indisponível (R$ 0,00)
                                 </span>
                               ) : isModalityBlockedCard ? (
                                 <span className="text-[11px] sm:text-xs font-black text-stone-600 bg-stone-200 border border-stone-300 px-3 py-1.5 rounded-xl select-none">
