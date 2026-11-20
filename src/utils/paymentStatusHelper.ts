@@ -163,16 +163,15 @@ export function requiresOperatorPaymentConfirmation(order: Partial<Order> | any 
 
   const breakdown = getOrderPaymentBreakdown(order);
   const rawMethod = String(order.paymentMethod || '').toLowerCase();
-  const isPixOrDebit = breakdown.isPix || rawMethod.includes('pix') || rawMethod.includes('débito') || rawMethod.includes('debito');
-  const isFrozen = orderContainsFrozenItems(order);
+  const isOnlinePayment = breakdown.isOnline || breakdown.isPix || rawMethod.includes('pix') || rawMethod.includes('cartão') || rawMethod.includes('cartao') || rawMethod.includes('crédito') || rawMethod.includes('credito') || rawMethod.includes('débito') || rawMethod.includes('debito') || breakdown.kind === 'paid_full' || breakdown.kind === 'partial_50';
 
   // Pedido criado explicitamente como pendente de confirmação pelo operador
   if (order.paymentConfirmedByOperator === false) {
     return true;
   }
 
-  // Fallback para pedidos já em aberto ('pending') com congelados + pagamento parcial 50% (Pix/Débito)
-  if (order.status === 'pending' && breakdown.kind === 'partial_50' && (isFrozen || isPixOrDebit)) {
+  // Pedidos pendentes com pagamento online (Pix ou Cartão) exigem confirmação por senha pelo operador antes do preparo
+  if (order.status === 'pending' && isOnlinePayment) {
     return true;
   }
 
