@@ -266,7 +266,7 @@ export interface TvCallItem {
 }
 
 export default function TvDisplay() {
-  const { tvMediaList, storeInfo, categories, products, orders, fetchData } = useStore();
+  const { tvMediaList, storeInfo, categories, products, orders, fetchData, updateStoreInfo } = useStore();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1334,6 +1334,138 @@ export default function TvDisplay() {
     };
   }, [itemFitMode, shouldFill, effectiveZoom, viewportDimensions]);
 
+  const renderOrdersPanel = () => {
+    const isFull = mode === 'fullscreen_orders';
+    return (
+      <div className={isFull ? "flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden" : "flex-1 min-h-0 flex flex-col gap-3 overflow-hidden"}>
+        {/* 1. PEDIDO PRONTO */}
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border-2 border-emerald-500/60 p-5 shadow-2xl" : "flex-[1.6] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border-2 border-emerald-500/50 p-3 shadow-lg"}>
+          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-emerald-500/30 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <span className={isFull ? "w-4 h-4 rounded-full bg-emerald-400 animate-ping" : "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"} />
+              <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-emerald-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-emerald-400"}>
+                PEDIDO PRONTO
+              </h4>
+            </div>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"}>
+              {readyOrders.length} {readyOrders.length === 1 ? 'pronto' : 'prontos'}
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+              {readyOrders.length > 0 ? (
+                readyOrders.map(o => {
+                  const callState = orderCallProgress[String(o.id)];
+                  const displayName = cleanCustomerNameForTvVoice(o.customerName);
+                  return (
+                    <div
+                      key={o.id}
+                      className={isFull ? `bg-emerald-950/90 border-2 border-emerald-500/90 p-4 rounded-2xl text-center shadow-xl ${callState ? 'ring-4 ring-amber-400/90 border-amber-400 animate-pulse' : ''}` : `bg-emerald-950/80 border-2 border-emerald-500/80 p-2.5 rounded-xl text-center shadow-lg ${callState ? 'ring-2 ring-amber-400/90 border-amber-400 animate-pulse' : ''}`}
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className={isFull ? "text-xs text-emerald-300 font-black uppercase" : "text-[10px] text-emerald-300 font-bold uppercase"}>Senha</span>
+                        {callState && (
+                          <span className={isFull ? "text-xs font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full" : "text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.5 rounded-full"}>
+                            🔊 {callState.attempt}/{callState.total}
+                          </span>
+                        )}
+                      </div>
+                      <span className={isFull ? "text-4xl lg:text-5xl font-black text-white tracking-widest font-mono block leading-none my-1.5" : "text-2xl lg:text-3xl font-black text-white tracking-widest font-mono block leading-none"}>
+                        #{String(o.id).slice(-4).padStart(4, '0')}
+                      </span>
+                      <p className={isFull ? "text-sm text-emerald-100 truncate font-black uppercase mt-2" : "text-[11px] text-emerald-100 truncate font-bold mt-1 uppercase"}>
+                        {displayName}
+                      </p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                  Nenhum pedido pronto no momento
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. PREPARANDO */}
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-amber-500/40 p-5 shadow-2xl" : "flex-1 min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-amber-500/25 p-3"}>
+          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-amber-500/30 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <ChefHat className={isFull ? "w-5 h-5 text-amber-400" : "w-3.5 h-3.5 text-amber-400"} />
+              <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-amber-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-amber-400"}>
+                PREPARANDO
+              </h4>
+            </div>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30"}>
+              {preparingOrders.length}
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+              {preparingOrders.length > 0 ? (
+                preparingOrders.map(o => (
+                  <div key={o.id} className={isFull ? "bg-stone-800/90 border border-amber-500/30 p-3.5 rounded-2xl text-center shadow-md" : "bg-stone-800/90 border border-amber-500/30 p-2 rounded-xl text-center"}>
+                    <span className="text-xs text-amber-300/80 block font-bold uppercase">Senha</span>
+                    <span className={isFull ? "text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-tight block my-1" : "text-lg font-black text-amber-300 font-mono leading-tight block"}>
+                      #{String(o.id).slice(-4).padStart(4, '0')}
+                    </span>
+                    <p className={isFull ? "text-xs lg:text-sm text-stone-200 truncate font-bold uppercase mt-1" : "text-[11px] text-stone-200 truncate font-medium mt-0.5"}>
+                      {o.customerName || 'Cliente'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                  Nenhum pedido em preparo
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 3. ENTREGUE */}
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-sky-500/40 p-5 shadow-2xl" : "flex-[0.9] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-sky-500/25 p-3"}>
+          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-sky-500/30 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <PackageCheck className={isFull ? "w-5 h-5 text-sky-400" : "w-3.5 h-3.5 text-sky-400"} />
+              <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-sky-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-sky-400"}>
+                ENTREGUE
+              </h4>
+            </div>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30" : "text-[11px] font-black px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30"}>
+              {deliveredOrders.length}
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+              {deliveredOrders.length > 0 ? (
+                deliveredOrders.map(o => (
+                  <div key={o.id} className={isFull ? "bg-stone-900/90 border border-sky-500/30 p-3.5 rounded-2xl text-center opacity-90 shadow-md" : "bg-stone-900/90 border border-sky-500/25 p-2 rounded-xl text-center opacity-90"}>
+                    <div className={isFull ? "flex items-center justify-center gap-1.5 text-xs text-sky-400 font-bold uppercase" : "flex items-center justify-center gap-1 text-[10px] text-sky-400 font-bold uppercase"}>
+                      <CheckCircle2 className={isFull ? "w-4 h-4" : "w-3 h-3"} />
+                      <span>Entregue</span>
+                    </div>
+                    <span className={isFull ? "text-2xl lg:text-3xl font-black text-sky-200 font-mono leading-tight block my-1" : "text-base font-black text-sky-200 font-mono leading-tight block"}>
+                      #{String(o.id).slice(-4).padStart(4, '0')}
+                    </span>
+                    <p className={isFull ? "text-xs lg:text-sm text-stone-400 truncate font-bold uppercase mt-1" : "text-[10px] text-stone-400 truncate font-medium mt-0.5"}>
+                      {o.customerName || 'Cliente'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                  Nenhum pedido entregue recentemente
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -1341,7 +1473,7 @@ export default function TvDisplay() {
       onDoubleClick={toggleFullscreen}
     >
       {/* Dynamic Background subtle glow - Content stops right above the bottom ticker */}
-      <div className="absolute inset-x-0 top-0 bottom-14 bg-stone-950 flex">
+      <div className={`absolute inset-x-0 top-0 ${mode === 'fullscreen_orders' ? 'bottom-0' : 'bottom-14'} bg-stone-950 flex`}>
         {/* Main Content Area */}
         {mode !== 'fullscreen_orders' && (
           <div className={`relative h-full transition-all duration-700 flex flex-col ${
@@ -1677,6 +1809,27 @@ export default function TvDisplay() {
 
               <button
                 type="button"
+                onClick={async () => {
+                  const nextMode = mode === 'fullscreen_orders' ? 'split_orders' : 'fullscreen_orders';
+                  try {
+                    await updateStoreInfo({ tvMode: nextMode });
+                  } catch (e) {}
+                }}
+                className={`p-3 rounded-xl backdrop-blur-md border shadow-xl transition-all cursor-pointer flex items-center gap-2 ${
+                  mode === 'fullscreen_orders'
+                    ? 'bg-emerald-500 text-stone-950 border-emerald-400 ring-2 ring-emerald-400/40 shadow-emerald-500/20'
+                    : 'bg-stone-900/90 text-stone-300 hover:bg-amber-500 hover:text-stone-950 border-white/10'
+                }`}
+                title={mode === 'fullscreen_orders' ? "Modo Tela Cheia de Pedidos Ativo. Clique para voltar à mídia." : "Mudar para Tela Cheia apenas com Painel de Pedidos"}
+              >
+                <BellRing className="w-5 h-5 animate-bounce" />
+                <span className="text-xs font-bold hidden sm:inline">
+                  {mode === 'fullscreen_orders' ? 'Só Pedidos (Tela Cheia)' : 'Painel de Pedidos'}
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={toggleFullscreen}
                 className="p-3 bg-stone-900/90 text-white hover:bg-amber-500 hover:text-stone-950 rounded-xl backdrop-blur-md border border-white/10 shadow-xl transition-all cursor-pointer"
                 title="Tela Cheia (F)"
@@ -1741,6 +1894,8 @@ export default function TvDisplay() {
               </div>
             </div>
           )}
+          </div>
+        )}
 
 
         {/* Side Panel: Split Menu Mode (10-Second Category Sequence Rotation) */}
@@ -1929,266 +2084,9 @@ export default function TvDisplay() {
               </button>
             )}
 
-            {mode === 'fullscreen_orders' ? (
-              <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-                {/* 1. PEDIDO PRONTO */}
-                <div className="h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border-2 border-emerald-500/60 p-5 shadow-2xl">
-                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-emerald-500/30 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 rounded-full bg-emerald-400 animate-ping" />
-                      <h4 className="text-base lg:text-lg font-black uppercase tracking-wider text-emerald-400">
-                        PEDIDO PRONTO
-                      </h4>
-                    </div>
-                    <span className="text-sm font-black px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      {readyOrders.length} {readyOrders.length === 1 ? 'pronto' : 'prontos'}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {readyOrders.length > 0 ? (
-                        readyOrders.map(o => {
-                          const callState = orderCallProgress[String(o.id)];
-                          const displayName = cleanCustomerNameForTvVoice(o.customerName);
-                          return (
-                            <div
-                              key={o.id}
-                              className={`bg-emerald-950/90 border-2 border-emerald-500/90 p-4 rounded-2xl text-center shadow-xl ${
-                                callState ? 'ring-4 ring-amber-400/90 border-amber-400 animate-pulse' : ''
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1 mb-1">
-                                <span className="text-xs text-emerald-300 font-black uppercase">Senha</span>
-                                {callState && (
-                                  <span className="text-xs font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full">
-                                    🔊 {callState.attempt}/{callState.total}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-4xl lg:text-5xl font-black text-white tracking-widest font-mono block leading-none my-1.5">
-                                #{String(o.id).slice(-4).padStart(4, '0')}
-                              </span>
-                              <p className="text-sm text-emerald-100 truncate font-black uppercase mt-2">
-                                {displayName}
-                              </p>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold">
-                          Nenhum pedido pronto no momento
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. PREPARANDO */}
-                <div className="h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-amber-500/40 p-5 shadow-2xl">
-                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-amber-500/30 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                      <ChefHat className="w-5 h-5 text-amber-400" />
-                      <h4 className="text-base lg:text-lg font-black uppercase tracking-wider text-amber-400">
-                        PREPARANDO
-                      </h4>
-                    </div>
-                    <span className="text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      {preparingOrders.length}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {preparingOrders.length > 0 ? (
-                        preparingOrders.map(o => (
-                          <div key={o.id} className="bg-stone-800/90 border border-amber-500/30 p-3.5 rounded-2xl text-center shadow-md">
-                            <span className="text-xs text-amber-300/80 block font-bold uppercase">Senha</span>
-                            <span className="text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-tight block my-1">
-                              #{String(o.id).slice(-4).padStart(4, '0')}
-                            </span>
-                            <p className="text-xs lg:text-sm text-stone-200 truncate font-bold uppercase mt-1">
-                              {o.customerName || 'Cliente'}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold">
-                          Nenhum pedido em preparo
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. ENTREGUE */}
-                <div className="h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-sky-500/40 p-5 shadow-2xl">
-                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-sky-500/30 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                      <PackageCheck className="w-5 h-5 text-sky-400" />
-                      <h4 className="text-base lg:text-lg font-black uppercase tracking-wider text-sky-400">
-                        ENTREGUE
-                      </h4>
-                    </div>
-                    <span className="text-sm font-black px-3.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                      {deliveredOrders.length}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {deliveredOrders.length > 0 ? (
-                        deliveredOrders.map(o => (
-                          <div key={o.id} className="bg-stone-900/90 border border-sky-500/30 p-3.5 rounded-2xl text-center opacity-90 shadow-md">
-                            <div className="flex items-center justify-center gap-1.5 text-xs text-sky-400 font-bold uppercase">
-                              <CheckCircle2 className="w-4 h-4" />
-                              <span>Entregue</span>
-                            </div>
-                            <span className="text-2xl lg:text-3xl font-black text-sky-200 font-mono leading-tight block my-1">
-                              #{String(o.id).slice(-4).padStart(4, '0')}
-                            </span>
-                            <p className="text-xs lg:text-sm text-stone-400 truncate font-bold uppercase mt-1">
-                              {o.customerName || 'Cliente'}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold">
-                          Nenhum pedido entregue recentemente
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
-              {/* 1. PEDIDO PRONTO (acumula todos os pedidos prontos para retirada) */}
-              <div className="flex-[1.6] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border-2 border-emerald-500/50 p-3 shadow-lg">
-                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                    <h4 className="text-xs lg:text-sm font-black uppercase tracking-wider text-emerald-400">
-                      PEDIDO PRONTO
-                    </h4>
-                  </div>
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                    {readyOrders.length} {readyOrders.length === 1 ? 'pronto' : 'prontos'}
-                  </span>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    {readyOrders.length > 0 ? (
-                      readyOrders.map(o => {
-                        const callState = orderCallProgress[String(o.id)];
-                        const displayName = cleanCustomerNameForTvVoice(o.customerName);
-                        return (
-                          <div
-                            key={o.id}
-                            className={`bg-emerald-950/80 border-2 border-emerald-500/80 p-2.5 rounded-xl text-center shadow-lg ${
-                              callState ? 'ring-2 ring-amber-400/90 border-amber-400 animate-pulse' : ''
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <span className="text-[10px] text-emerald-300 font-bold uppercase">Senha</span>
-                              {callState && (
-                                <span className="text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.5 rounded-full">
-                                  🔊 {callState.attempt}/{callState.total}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-2xl lg:text-3xl font-black text-white tracking-widest font-mono block leading-none">
-                              #{String(o.id).slice(-4).padStart(4, '0')}
-                            </span>
-                            <p className="text-[11px] text-emerald-100 truncate font-bold mt-1 uppercase">
-                              {displayName}
-                            </p>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="col-span-2 py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium">
-                        Nenhum pedido pronto no momento
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. PREPARANDO */}
-              <div className="flex-1 min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-amber-500/25 p-3">
-                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <ChefHat className="w-3.5 h-3.5 text-amber-400" />
-                    <h4 className="text-xs lg:text-sm font-black uppercase tracking-wider text-amber-400">
-                      PREPARANDO
-                    </h4>
-                  </div>
-                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    {preparingOrders.length}
-                  </span>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    {preparingOrders.length > 0 ? (
-                      preparingOrders.map(o => (
-                        <div key={o.id} className="bg-stone-800/90 border border-amber-500/30 p-2 rounded-xl text-center">
-                          <span className="text-[10px] text-amber-300/80 block font-bold uppercase">Senha</span>
-                          <span className="text-lg font-black text-amber-300 font-mono leading-tight block">
-                            #{String(o.id).slice(-4).padStart(4, '0')}
-                          </span>
-                          <p className="text-[11px] text-stone-200 truncate font-medium mt-0.5">
-                            {o.customerName || 'Cliente'}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium">
-                        Nenhum pedido em preparo
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. ENTREGUE */}
-              <div className="flex-[0.9] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-sky-500/25 p-3">
-                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <PackageCheck className="w-3.5 h-3.5 text-sky-400" />
-                    <h4 className="text-xs lg:text-sm font-black uppercase tracking-wider text-sky-400">
-                      ENTREGUE
-                    </h4>
-                  </div>
-                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                    {deliveredOrders.length}
-                  </span>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    {deliveredOrders.length > 0 ? (
-                      deliveredOrders.map(o => (
-                        <div key={o.id} className="bg-stone-900/90 border border-sky-500/25 p-2 rounded-xl text-center opacity-90">
-                          <div className="flex items-center justify-center gap-1 text-[10px] text-sky-400 font-bold uppercase">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Entregue</span>
-                          </div>
-                          <span className="text-base font-black text-sky-200 font-mono leading-tight block">
-                            #{String(o.id).slice(-4).padStart(4, '0')}
-                          </span>
-                          <p className="text-[10px] text-stone-400 truncate font-medium mt-0.5">
-                            {o.customerName || 'Cliente'}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium">
-                        Nenhum pedido entregue recentemente
-                      </div>
-                    )}
-                  </div>
-                </div>
-            </div>
+            {renderOrdersPanel()}
           </div>
         )}
-      </div>
 
       {/* Fullscreen TV Order Call Banner Popup Overlay */}
       {activeCall && (
@@ -2254,47 +2152,28 @@ export default function TvDisplay() {
       )}
 
       {/* Bottom News Ticker (Letreiro Rodapé Animado) */}
-      <div className="absolute bottom-0 left-0 right-0 h-14 bg-stone-950 text-white font-black flex items-center z-30 shadow-2xl overflow-hidden border-t-2 border-amber-500/30">
-        <div className="px-6 py-2.5 bg-amber-600 text-white uppercase tracking-widest text-xs font-black shrink-0 flex items-center gap-2 shadow-md z-10 border-r border-amber-500/40">
-          <Flame className="w-4 h-4 text-white animate-pulse" />
-          <span>Informativo</span>
-        </div>
-        
-        <div className="flex-1 overflow-hidden relative">
-          <div className="whitespace-nowrap flex items-center gap-12 animate-marquee text-lg md:text-xl font-bold text-white tracking-wider drop-shadow-md">
-            <span className="text-white font-black">{storeInfo.tvTickerText || '🥟 Salgados fresquinhos e crocantes para revenda e consumo! Peça pelo app ou no balcão!'}</span>
-            <span className="text-amber-400 font-bold text-xl">•</span>
-            <span className="text-white font-black">🥟 Venha conhecer nossa linha completa de salgados especiais para festas e revenda!</span>
-            <span className="text-amber-400 font-bold text-xl">•</span>
-            <span className="text-white font-black">📱 Faça seu pedido com praticidade pelo nosso Cardápio Digital!</span>
-            <span className="text-amber-400 font-bold text-xl">•</span>
-            <span className="text-white font-black">🥟 BALBEC • Revenda de Salgados</span>
+      {mode !== 'fullscreen_orders' && (
+        <div className="absolute bottom-0 left-0 right-0 h-14 bg-stone-950 text-white font-black flex items-center z-30 shadow-2xl overflow-hidden border-t-2 border-amber-500/30">
+          <div className="px-6 py-2.5 bg-amber-600 text-white uppercase tracking-widest text-xs font-black shrink-0 flex items-center gap-2 shadow-md z-10 border-r border-amber-500/40">
+            <Flame className="w-4 h-4 text-white animate-pulse" />
+            <span>Informativo</span>
+          </div>
+          
+          <div className="flex-1 overflow-hidden relative">
+            <div className="whitespace-nowrap flex items-center gap-12 animate-marquee text-lg md:text-xl font-bold text-white tracking-wider drop-shadow-md">
+              <span className="text-white font-black">{storeInfo.tvTickerText || '🥟 Salgados fresquinhos e crocantes para revenda e consumo! Peça pelo app ou no balcão!'}</span>
+              <span className="text-amber-400 font-bold text-xl">•</span>
+              <span className="text-white font-black">🥟 Venha conhecer nossa linha completa de salgados especiais para festas e revenda!</span>
+              <span className="text-amber-400 font-bold text-xl">•</span>
+              <span className="text-white font-black">📱 Faça seu pedido com praticidade pelo nosso Cardápio Digital!</span>
+              <span className="text-amber-400 font-bold text-xl">•</span>
+              <span className="text-white font-black">🥟 BALBEC • Revenda de Salgados</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Custom Styles for Smooth Animations */}
-      <style>{`
-        @keyframes marquee {
-          0% { transform: translateX(100%); }
-          100% { transform: translateX(-100%); }
-        }
-        .animate-marquee {
-          display: inline-block;
-          animation: marquee 35s linear infinite;
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.99); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes zoomSlow {
-          0% { transform: scale(1); }
-          100% { transform: scale(1.08); }
-        }
-      `}</style>
+      </div>
     </div>
   );
 }
