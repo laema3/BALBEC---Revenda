@@ -459,7 +459,7 @@ export default function TvDisplay() {
 
   // Active TV Call state for popup overlay
   const [activeCall, setActiveCall] = useState<TvCallItem | null>(null);
-  const [orderCallProgress, setOrderCallProgress] = useState<Record<string, { attempt: number; total: number }>>({});
+  const [orderCallProgress, setOrderCallProgress] = useState<Record<string, { attempt: number; isAnnouncing?: boolean; nextCallAt?: number }>>({});
   const lastProcessedCallId = useRef<string>('');
   const callDismissTimer = useRef<any>(null);
 
@@ -661,8 +661,8 @@ export default function TvDisplay() {
     setActiveCall(prev => (prev && prev.orderId === orderId ? null : prev));
   }, []);
 
-  // Schedule 3 calls spaced 30 seconds apart (0s, 30s, 60s) when PEDIDO PRONTO
-  const startThreeCallSequence = useCallback((params: {
+  // Schedule immediate voice announcement and repeat every 3 minutes while in PEDIDO PRONTO
+  const startRecurringCallSequence = useCallback((params: {
     orderId: string;
     orderNumber: string;
     customerName: string;
@@ -670,13 +670,23 @@ export default function TvDisplay() {
     tableOrDesk?: string;
     forceRestart?: boolean;
     isManual?: boolean;
+    initialDelayMs?: number;
   }) => {
-    const { orderId, orderNumber, customerName, type, tableOrDesk, forceRestart, isManual } = params;
+    const {
+      orderId,
+      orderNumber,
+      customerName,
+      type,
+      tableOrDesk,
+      forceRestart,
+      isManual,
+      initialDelayMs = 0
+    } = params;
     if (!orderId) return;
 
     const existing = activeSequencesRef.current.get(orderId);
-    if (existing && !existing.cancelled && !forceRestart && (Date.now() - existing.startedAt < 10000)) {
-      return; // Deduplicate rapid double events (e.g., SSE tv_call + orders update together)
+    if (existing && !existing.cancelled && !forceRestart) {
+      return; // Already running recurring 3-minute announcements for this order
     }
 
     // Cancel any older active sequence for this order before starting fresh
@@ -695,35 +705,45 @@ export default function TvDisplay() {
     };
     activeSequencesRef.current.set(orderId, sequence);
 
-    const totalAttempts = 3;
-    const intervalMs = 30000; // 30 em 30 segundos
+    const REPEAT_INTERVAL_MS = 3 * 60 * 1000; // Repetir de 3 em 3 minutos
 
     const executeAttempt = (attemptNumber: number) => {
       const currentSeq = activeSequencesRef.current.get(orderId);
       if (!currentSeq || currentSeq.cycleId !== cycleId || currentSeq.cancelled) return;
 
-      // For follow-up attempts (2 and 3), verify the order hasn't already been delivered/cancelled
+      // Keep timers array pruned so long-running ready orders never accumulate stale timer IDs
+      currentSeq.timers = [];
+
+      // Verify order is still in PEDIDO PRONTO before repeating (or on delayed reminders)
       const latestOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
-      if (attemptNumber > 1 && !isManual && latestOrder && !isOrderReadyStatus(latestOrder.status)) {
+      const mustVerifyStillReady = attemptNumber > 1 || initialDelayMs > 0 || !isManual;
+      if (mustVerifyStillReady && (!latestOrder || !isOrderReadyStatus(latestOrder.status))) {
         cancelOrderCallSequence(orderId);
         return;
       }
 
+      const resolvedName = customerName || latestOrder?.customerName || 'Cliente';
+      const now = Date.now();
+      const attemptId = `${cycleId}_att_${attemptNumber}`;
+
       setOrderCallProgress(prev => ({
         ...prev,
-        [orderId]: { attempt: attemptNumber, total: totalAttempts }
+        [orderId]: {
+          attempt: attemptNumber,
+          isAnnouncing: true,
+          nextCallAt: now + REPEAT_INTERVAL_MS
+        }
       }));
 
       setActiveCall({
-        id: `${cycleId}_att_${attemptNumber}`,
+        id: attemptId,
         orderId,
         orderNumber,
-        customerName: customerName || latestOrder?.customerName || 'Cliente',
+        customerName: resolvedName,
         type: type || latestOrder?.type || 'balcao',
         tableOrDesk,
-        calledAt: Date.now(),
-        attempt: attemptNumber,
-        totalAttempts
+        calledAt: now,
+        attempt: attemptNumber
       });
 
       if (!isVoiceMutedRef.current) {
@@ -731,46 +751,51 @@ export default function TvDisplay() {
         const voiceTimer = setTimeout(() => {
           const checkSeq = activeSequencesRef.current.get(orderId);
           if (checkSeq && checkSeq.cycleId === cycleId && !checkSeq.cancelled && !isVoiceMutedRef.current) {
-            speakOrderCall(orderNumber, customerName || latestOrder?.customerName || 'Cliente');
+            speakOrderCall(orderNumber, resolvedName);
           }
         }, 900);
-        sequence.timers.push(voiceTimer);
+        currentSeq.timers.push(voiceTimer);
       }
 
       if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
       callDismissTimer.current = setTimeout(() => {
-        setActiveCall(prev => (prev?.id === `${cycleId}_att_${attemptNumber}` ? null : prev));
+        setActiveCall(prev => (prev?.id === attemptId ? null : prev));
       }, 9500);
+
+      const highlightEndTimer = setTimeout(() => {
+        const checkSeq = activeSequencesRef.current.get(orderId);
+        if (checkSeq && checkSeq.cycleId === cycleId && !checkSeq.cancelled) {
+          setOrderCallProgress(prev => {
+            const cur = prev[orderId];
+            if (!cur || cur.attempt !== attemptNumber) return prev;
+            return {
+              ...prev,
+              [orderId]: { ...cur, isAnnouncing: false }
+            };
+          });
+        }
+      }, 12000);
+      currentSeq.timers.push(highlightEndTimer);
+
+      // Schedule next repeat in 3 minutes (and continue every 3 minutes while still PEDIDO PRONTO)
+      const shouldScheduleRepeat = !latestOrder || isOrderReadyStatus(latestOrder.status);
+      if (shouldScheduleRepeat) {
+        const nextTimer = setTimeout(() => {
+          executeAttempt(attemptNumber + 1);
+        }, REPEAT_INTERVAL_MS);
+        currentSeq.timers.push(nextTimer);
+      }
     };
 
-    // Call 1 immediately (0s), Call 2 at 30s, Call 3 at 60s
-    [0, intervalMs, intervalMs * 2].forEach((delayMs, idx) => {
-      const attempt = idx + 1;
-      if (delayMs === 0) {
-        executeAttempt(attempt);
-      } else {
-        const t = setTimeout(() => executeAttempt(attempt), delayMs);
-        sequence.timers.push(t);
-      }
-    });
-
-    // Clear progress badge & active sequence after the 3rd call finishes (~70s)
-    const cleanupTimer = setTimeout(() => {
-      const currentSeq = activeSequencesRef.current.get(orderId);
-      if (currentSeq && currentSeq.cycleId === cycleId) {
-        activeSequencesRef.current.delete(orderId);
-        setOrderCallProgress(prev => {
-          if (!prev[orderId]) return prev;
-          const next = { ...prev };
-          delete next[orderId];
-          return next;
-        });
-      }
-    }, intervalMs * 2 + 10000);
-    sequence.timers.push(cleanupTimer);
+    if (initialDelayMs > 0) {
+      const startTimer = setTimeout(() => executeAttempt(1), initialDelayMs);
+      sequence.timers.push(startTimer);
+    } else {
+      executeAttempt(1);
+    }
   }, [cancelOrderCallSequence]);
 
-  // Cleanup all pending 30s call timers on unmount
+  // Cleanup all pending 3-minute call timers on unmount
   useEffect(() => {
     return () => {
       activeSequencesRef.current.forEach(seq => {
@@ -782,12 +807,26 @@ export default function TvDisplay() {
     };
   }, []);
 
-  // Watch orders status transitions: start 3x30s calls when entering PEDIDO PRONTO, cancel if moved away
+  // Watch orders status transitions: announce immediately on PEDIDO PRONTO and repeat every 3 minutes until delivered
   useEffect(() => {
     if (!hasInitializedOrdersRef.current) {
       if (orders.length > 0) {
+        let readyIdx = 0;
         orders.forEach(o => {
-          prevOrderStatusesRef.current.set(String(o.id), o.status);
+          const id = String(o.id);
+          prevOrderStatusesRef.current.set(id, o.status);
+          if (isOrderReadyStatus(o.status)) {
+            startRecurringCallSequence({
+              orderId: id,
+              orderNumber: id.slice(-4).padStart(4, '0'),
+              customerName: o.customerName || 'Cliente',
+              type: o.type || 'balcao',
+              tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
+              forceRestart: false,
+              initialDelayMs: 3 * 60 * 1000 + readyIdx * 10000
+            });
+            readyIdx += 1;
+          }
         });
         hasInitializedOrdersRef.current = true;
       }
@@ -815,13 +854,23 @@ export default function TvDisplay() {
       }
 
       if (!wasReady && isNowReady) {
-        startThreeCallSequence({
+        startRecurringCallSequence({
           orderId: id,
           orderNumber: id.slice(-4).padStart(4, '0'),
           customerName: o.customerName || 'Cliente',
           type: o.type || 'balcao',
           tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
           forceRestart: false
+        });
+      } else if (isNowReady && !activeSequencesRef.current.has(id)) {
+        startRecurringCallSequence({
+          orderId: id,
+          orderNumber: id.slice(-4).padStart(4, '0'),
+          customerName: o.customerName || 'Cliente',
+          type: o.type || 'balcao',
+          tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
+          forceRestart: false,
+          initialDelayMs: 3 * 60 * 1000
         });
       } else if (wasReady && !isNowReady) {
         cancelOrderCallSequence(id);
@@ -833,17 +882,17 @@ export default function TvDisplay() {
     // Cancel sequences for orders removed or no longer ready
     Array.from(activeSequencesRef.current.keys()).forEach(activeId => {
       const stillExists = orders.find(o => String(o.id) === activeId);
-      if (stillExists && !isOrderReadyStatus(stillExists.status)) {
+      if (!stillExists || !isOrderReadyStatus(stillExists.status)) {
         cancelOrderCallSequence(activeId);
       }
     });
-  }, [orders, startThreeCallSequence, cancelOrderCallSequence]);
+  }, [orders, startRecurringCallSequence, cancelOrderCallSequence]);
 
   const processIncomingTvCall = useCallback((call: TvCallItem) => {
     if (call && call.id && call.id !== lastProcessedCallId.current) {
       if (Date.now() - call.calledAt < 35000) {
         lastProcessedCallId.current = call.id;
-        startThreeCallSequence({
+        startRecurringCallSequence({
           orderId: String(call.orderId || call.id),
           orderNumber: call.orderNumber,
           customerName: call.customerName,
@@ -854,7 +903,7 @@ export default function TvDisplay() {
         });
       }
     }
-  }, [startThreeCallSequence]);
+  }, [startRecurringCallSequence]);
 
   // Poll for TV Call events (backup)
   useEffect(() => {
@@ -882,8 +931,22 @@ export default function TvDisplay() {
     fetchData().finally(() => {
       if (!hasInitializedOrdersRef.current) {
         const initialOrders = useStore.getState().orders || [];
+        let readyIdx = 0;
         initialOrders.forEach(o => {
-          prevOrderStatusesRef.current.set(String(o.id), o.status);
+          const id = String(o.id);
+          prevOrderStatusesRef.current.set(id, o.status);
+          if (isOrderReadyStatus(o.status)) {
+            startRecurringCallSequence({
+              orderId: id,
+              orderNumber: id.slice(-4).padStart(4, '0'),
+              customerName: o.customerName || 'Cliente',
+              type: o.type || 'balcao',
+              tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
+              forceRestart: false,
+              initialDelayMs: 3 * 60 * 1000 + readyIdx * 10000
+            });
+            readyIdx += 1;
+          }
         });
         hasInitializedOrdersRef.current = true;
       }
@@ -1629,8 +1692,8 @@ export default function TvDisplay() {
               return (
                 <div
                   className={isFull
-                    ? `w-full h-full bg-emerald-950/90 border-2 border-emerald-500/90 px-5 py-4 rounded-2xl shadow-xl flex items-center justify-between gap-4 overflow-hidden ${callState ? 'ring-4 ring-amber-400/90 border-amber-400' : ''}`
-                    : `w-full h-full bg-emerald-950/85 border-2 border-emerald-500/85 px-3.5 py-3 rounded-2xl shadow-lg flex items-center justify-between gap-3 overflow-hidden ${callState ? 'ring-2 ring-amber-400/90 border-amber-400' : ''}`}
+                    ? `w-full h-full bg-emerald-950/90 border-2 border-emerald-500/90 px-5 py-4 rounded-2xl shadow-xl flex items-center justify-between gap-4 overflow-hidden ${callState?.isAnnouncing ? 'ring-4 ring-amber-400/90 border-amber-400' : ''}`
+                    : `w-full h-full bg-emerald-950/85 border-2 border-emerald-500/85 px-3.5 py-3 rounded-2xl shadow-lg flex items-center justify-between gap-3 overflow-hidden ${callState?.isAnnouncing ? 'ring-2 ring-amber-400/90 border-amber-400' : ''}`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0 flex-1">
                     <span className="relative flex h-4 w-4 shrink-0">
@@ -1644,7 +1707,7 @@ export default function TvDisplay() {
                         </span>
                         {callState && (
                           <span className={isFull ? "text-xs font-black bg-amber-400 text-stone-950 px-2.5 py-0.5 rounded-full animate-pulse" : "text-[10px] font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full animate-pulse"}>
-                            🔊 {callState.attempt}/{callState.total}
+                            🔊 {callState.attempt}º chamado
                           </span>
                         )}
                       </div>
@@ -2152,7 +2215,7 @@ export default function TvDisplay() {
                       <div
                         key={o.id}
                         className={`shrink-0 bg-emerald-900/80 border-2 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 shadow-lg ${
-                          callState
+                          callState?.isAnnouncing
                             ? 'border-amber-400 ring-2 ring-amber-400/60 animate-pulse'
                             : 'border-emerald-400/70'
                         }`}
@@ -2166,7 +2229,7 @@ export default function TvDisplay() {
                           </p>
                           {callState ? (
                             <span className="text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.2 rounded-full inline-block mt-0.5">
-                              🔊 Chamado {callState.attempt}/{callState.total}
+                              🔊 {callState.attempt}º chamado
                             </span>
                           ) : (
                             <span className="text-[9px] font-bold text-emerald-300 uppercase">
@@ -2336,7 +2399,7 @@ export default function TvDisplay() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-wider truncate">Painel de Pedidos</h3>
-                  <p className="text-xs text-stone-400 font-bold truncate">Chamada automática 3x a cada 30s para pedidos prontos</p>
+                  <p className="text-xs text-stone-400 font-bold truncate">Chamada automática por voz ao ficar pronto e repetição a cada 3 min</p>
                 </div>
               </div>
 
@@ -2398,7 +2461,7 @@ export default function TvDisplay() {
               </div>
               <div className="inline-flex items-center gap-2 px-6 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-black uppercase tracking-widest">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                Pedido Pronto! • Chamado {activeCall.attempt || 1} de {activeCall.totalAttempts || 3}
+                Pedido Pronto! • {activeCall.attempt || 1}º Chamado • Repete a cada 3 min
               </div>
             </div>
 
