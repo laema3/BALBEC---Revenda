@@ -10,6 +10,7 @@ export interface BestSellerEntry {
   category?: Category;
   soldCount: number;
   isFrozenCategory: boolean;
+  displayPrice?: number;
 }
 
 interface BestSellersCarouselProps {
@@ -38,7 +39,14 @@ export function BestSellersCarousel({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [isPaused, setIsPaused] = useState(false);
 
-  if (!items || items.length === 0) return null;
+  const itemsSignature = items.map(e => `${e.product.id}_${e.isFrozenCategory ? 'f' : 'n'}`).join('|');
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.scrollTo({ left: 0, behavior: 'auto' });
+    }
+  }, [itemsSignature]);
 
   const isCompact = variant === 'compact' || variant === 'success';
 
@@ -68,9 +76,14 @@ export function BestSellersCarousel({
     return () => clearInterval(interval);
   }, [items, isCompact, isPaused]);
 
+  if (!items || items.length === 0) return null;
+
+  const hasLockedNonFrozen = isFrozenOrderActive && variant !== 'success' && items.some(i => !i.isFrozenCategory);
+  const isFrozenSuggestionsOnly = isFrozenOrderActive && variant !== 'success' && items.every(i => i.isFrozenCategory);
+
   return (
     <section
-      aria-label="Produtos Mais Vendidos"
+      aria-label={isFrozenSuggestionsOnly ? 'Congelados Mais Vendidos' : 'Produtos Mais Vendidos'}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       className={
@@ -85,7 +98,11 @@ export function BestSellersCarousel({
       <div className="flex items-end justify-between gap-3 mb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-orange-600 shrink-0" />
+            {isFrozenSuggestionsOnly ? (
+              <Snowflake className="w-4 h-4 text-blue-600 shrink-0" />
+            ) : (
+              <Flame className="w-4 h-4 text-orange-600 shrink-0" />
+            )}
             <h2
               className={`font-black text-stone-900 tracking-tight ${
                 isCompact ? 'text-sm sm:text-base' : 'text-base sm:text-xl'
@@ -93,19 +110,25 @@ export function BestSellersCarousel({
             >
               {variant === 'success'
                 ? 'Faça Outro Pedido com os Mais Vendidos'
-                : isFrozenOrderActive
-                  ? 'Mais Vendidos para o Próximo Pedido'
-                  : variant === 'compact'
-                    ? 'Aproveite e Leve Também'
-                    : 'Mais Vendidos'}
+                : isFrozenSuggestionsOnly
+                  ? variant === 'compact'
+                    ? 'Aproveite e Leve Mais Congelados'
+                    : 'Congelados Mais Vendidos'
+                  : isFrozenOrderActive
+                    ? 'Mais Vendidos para o Próximo Pedido'
+                    : variant === 'compact'
+                      ? 'Aproveite e Leve Também'
+                      : 'Mais Vendidos'}
             </h2>
           </div>
           <p className="text-xs text-stone-600 font-medium mt-0.5 leading-snug">
             {variant === 'success'
               ? 'Toque em qualquer item abaixo para iniciar um novo pedido imediato.'
-              : isFrozenOrderActive
-                ? 'Você está comprando congelados (48h). Finalize este pedido e faça outro com estes sucessos de venda.'
-                : 'Os campeões de pedidos para deixar seu carrinho ainda mais completo.'}
+              : isFrozenSuggestionsOnly
+                ? 'Sugestões exclusivas de produtos congelados (48h) para adicionar direto ao seu pedido.'
+                : isFrozenOrderActive
+                  ? 'Você está comprando congelados (48h). Finalize este pedido e faça outro com estes sucessos de venda.'
+                  : 'Os campeões de pedidos para deixar seu carrinho ainda mais completo.'}
           </p>
         </div>
 
@@ -129,8 +152,8 @@ export function BestSellersCarousel({
         </div>
       </div>
 
-      {/* Aviso orientado à ação quando o cliente está em Pedido de Congelados */}
-      {isFrozenOrderActive && variant !== 'success' && (
+      {/* Aviso orientado à ação quando o cliente está em Pedido de Congelados e visualiza itens não congelados */}
+      {hasLockedNonFrozen && (
         <div className="mb-3 p-3 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-left">
           <div className="flex items-start gap-2.5 min-w-0">
             <Snowflake className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
@@ -158,16 +181,17 @@ export function BestSellersCarousel({
         className="flex gap-3 overflow-x-auto no-scrollbar md:desktop-custom-scrollbar pb-2 snap-x snap-mandatory scroll-smooth"
       >
         {items.map((entry, idx) => {
-          const { product, category, soldCount, isFrozenCategory } = entry;
+          const { product, category, soldCount, isFrozenCategory, displayPrice } = entry;
           const isInCart = cartProductIds.has(product.id);
           const isQueued = Boolean(queuedProductIds?.has(product.id));
           const isLockedByFrozen = isFrozenOrderActive && !isFrozenCategory && variant !== 'success';
           const catLabel = category ? formatCapitalized(category.name) : '';
           const frozenCompatible = category ? isCategoryFrozenModality(category) : isFrozenCategory;
+          const shownPrice = displayPrice !== undefined ? displayPrice : product.price;
 
           return (
             <div
-              key={`best_${variant}_${product.id}_${idx}`}
+              key={`best_${variant}_${product.id}_${isFrozenCategory ? 'f' : 'n'}_${idx}`}
               onClick={() => {
                 if (canBuy) onSelectProduct(entry);
               }}
@@ -176,7 +200,9 @@ export function BestSellersCarousel({
               } ${
                 isQueued
                   ? 'border-orange-400 shadow-sm'
-                  : 'border-stone-200 hover:border-stone-300 hover:shadow-md'
+                  : isFrozenCategory && isFrozenOrderActive
+                    ? 'border-blue-200 hover:border-blue-300 hover:shadow-md'
+                    : 'border-stone-200 hover:border-stone-300 hover:shadow-md'
               } ${canBuy ? 'cursor-pointer' : ''}`}
             >
               <div>
@@ -195,10 +221,18 @@ export function BestSellersCarousel({
 
                 {/* Unboxed Metadata Line (Zero-Pill Rule) */}
                 <div className="text-[11px] font-bold text-stone-500 flex items-center gap-1.5 truncate mb-1">
-                  <span className="text-orange-700 font-black tabular-nums">#{idx + 1}</span>
+                  <span className={`${isFrozenCategory && isFrozenOrderActive ? 'text-blue-700' : 'text-orange-700'} font-black tabular-nums`}>
+                    #{idx + 1}
+                  </span>
                   <span aria-hidden="true">·</span>
                   <span className="truncate">
-                    {soldCount > 0 ? `${soldCount} pedidos` : catLabel || 'Mais pedido'}
+                    {isFrozenCategory
+                      ? soldCount > 0
+                        ? `❄️ ${soldCount} pedidos`
+                        : `❄️ ${catLabel || 'Congelado'}`
+                      : soldCount > 0
+                        ? `${soldCount} pedidos`
+                        : catLabel || 'Mais pedido'}
                   </span>
                 </div>
 
@@ -214,8 +248,10 @@ export function BestSellersCarousel({
 
               {/* Price + Primary Action */}
               <div className="pt-2.5 mt-2 border-t border-stone-100 flex items-center justify-between gap-2">
-                <span className="text-sm sm:text-base font-black text-orange-700 tabular-nums whitespace-nowrap">
-                  {formatCurrency(product.price)}
+                <span className={`text-sm sm:text-base font-black tabular-nums whitespace-nowrap ${
+                  isFrozenCategory && isFrozenOrderActive ? 'text-blue-700' : 'text-orange-700'
+                }`}>
+                  {formatCurrency(shownPrice)}
                 </span>
 
                 {canBuy && (

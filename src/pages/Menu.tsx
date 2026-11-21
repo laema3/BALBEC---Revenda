@@ -2774,8 +2774,17 @@ export default function Menu() {
   };
 
   // Carrossel de Mais Vendidos calculado sobre o histórico real de pedidos + catálogo ativo
-  const bestSellerEntries = useMemo<BestSellerEntry[]>(() => {
-    if (!Array.isArray(products) || products.length === 0) return [];
+  // - Antes de escolher modalidade (tela inicial): todos os tipos de produtos
+  // - Modalidade Congelados: apenas sugestões de produtos congelados
+  // - Modalidade Outros Produtos: todos os outros tipos, exceto congelados
+  const { allBestSellerEntries, frozenBestSellerEntries, normalBestSellerEntries } = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) {
+      return {
+        allBestSellerEntries: [] as BestSellerEntry[],
+        frozenBestSellerEntries: [] as BestSellerEntry[],
+        normalBestSellerEntries: [] as BestSellerEntry[],
+      };
+    }
 
     const catMap = new Map<string, Category>();
     if (Array.isArray(categories)) {
@@ -2784,7 +2793,13 @@ export default function Menu() {
       }
     }
 
+    const foundCong = products.find(p => p && p.id === 'prod_congelado');
+    const frozenExtraVal = foundCong && foundCong.price && foundCong.price < 2.0 ? Number(foundCong.price) : 0.30;
+
     const soldByProductId: Record<string, number> = {};
+    const soldFrozenByProductId: Record<string, number> = {};
+    const soldNormalByProductId: Record<string, number> = {};
+
     for (const o of (orders || [])) {
       if (!o || o.status === 'cancelled' || (o as any).status === 'canceled') continue;
       let orderItems: any[] = [];
@@ -2802,6 +2817,18 @@ export default function Menu() {
         if (!it || !it.productId) continue;
         const q = Math.max(1, Number(it.quantity) || 1);
         soldByProductId[it.productId] = (soldByProductId[it.productId] || 0) + q;
+        const itemWasFrozen = Boolean(
+          it.isFrozen ||
+          (it.prepType && String(it.prepType).startsWith('congelado')) ||
+          (Array.isArray(it.addons) && it.addons.some((a: any) =>
+            a?.isFrozen || a?.productId === 'prod_congelado' || String(a?.name || '').toLowerCase().includes('congelad')
+          ))
+        );
+        if (itemWasFrozen) {
+          soldFrozenByProductId[it.productId] = (soldFrozenByProductId[it.productId] || 0) + q;
+        } else {
+          soldNormalByProductId[it.productId] = (soldNormalByProductId[it.productId] || 0) + q;
+        }
       }
     }
 
@@ -2815,7 +2842,10 @@ export default function Menu() {
           : c.availableInStore !== false;
     };
 
-    const entries: BestSellerEntry[] = [];
+    const allEntries: BestSellerEntry[] = [];
+    const frozenEntries: BestSellerEntry[] = [];
+    const normalEntries: BestSellerEntry[] = [];
+
     for (const p of products) {
       if (!p || !p.isActive || p.isFlavor || (p as any).isVisible === false) continue;
       if (isAddonItem(p, categories) || shouldExcludeProduct(p, categories)) continue;
@@ -2836,25 +2866,85 @@ export default function Menu() {
       const resolvedCat = validProdCat || validFrozenCat;
       if (!resolvedCat) continue;
 
-      const isFrozenCategory = isCategoryFrozenModality(resolvedCat);
-      entries.push({
+      const isFrozenName = normalizeText(p.name || '').includes('congelad');
+      const isPrimaryFrozen = Boolean(validProdCat && isCategoryFrozenModality(validProdCat));
+      const isSalgado = isSalgadoProduct(p, categories);
+
+      // 1. Lista geral (tela inicial antes de escolher modalidade): todos os tipos
+      const isResolvedFrozen = isCategoryFrozenModality(resolvedCat) || isFrozenName;
+      allEntries.push({
         product: p,
         category: resolvedCat,
         soldCount: soldByProductId[p.id] || 0,
-        isFrozenCategory,
+        isFrozenCategory: isResolvedFrozen,
+        displayPrice: (isResolvedFrozen && isSalgado) ? (p.price + frozenExtraVal) : p.price,
       });
+
+      // 2. Lista exclusiva de Congelados
+      const frozenTargetCat = validFrozenCat
+        ? validFrozenCat
+        : isPrimaryFrozen
+          ? validProdCat
+          : isFrozenName
+            ? validProdCat
+            : undefined;
+      if (frozenTargetCat) {
+        frozenEntries.push({
+          product: p,
+          category: frozenTargetCat,
+          soldCount: soldFrozenByProductId[p.id] || 0,
+          isFrozenCategory: true,
+          displayPrice: (isSalgado || isCategoryFrozenModality(frozenTargetCat)) ? (p.price + frozenExtraVal) : p.price,
+        });
+      }
+
+      // 3. Lista de Outros Produtos (todos os outros tipos, menos congelados)
+      if (validProdCat && !isPrimaryFrozen && !isFrozenName) {
+        normalEntries.push({
+          product: p,
+          category: validProdCat,
+          soldCount: soldNormalByProductId[p.id] || 0,
+          isFrozenCategory: false,
+          displayPrice: p.price,
+        });
+      }
     }
 
-    entries.sort((a, b) => {
-      if (b.soldCount !== a.soldCount) return b.soldCount - a.soldCount;
-      const ordA = a.product.order ?? 0;
-      const ordB = b.product.order ?? 0;
-      if (ordA !== ordB) return ordA - ordB;
-      return (a.product.name || '').localeCompare(b.product.name || '', 'pt-BR', { sensitivity: 'base' });
-    });
+    const sortEntries = (list: BestSellerEntry[], secondarySoldMap?: Record<string, number>) => {
+      list.sort((a, b) => {
+        if (b.soldCount !== a.soldCount) return b.soldCount - a.soldCount;
+        if (secondarySoldMap) {
+          const secA = secondarySoldMap[a.product.id] || 0;
+          const secB = secondarySoldMap[b.product.id] || 0;
+          if (secB !== secA) return secB - secA;
+        }
+        const ordA = a.product.order ?? 0;
+        const ordB = b.product.order ?? 0;
+        if (ordA !== ordB) return ordA - ordB;
+        return (a.product.name || '').localeCompare(b.product.name || '', 'pt-BR', { sensitivity: 'base' });
+      });
+      return list.slice(0, 10);
+    };
 
-    return entries.slice(0, 10);
+    return {
+      allBestSellerEntries: sortEntries(allEntries),
+      frozenBestSellerEntries: sortEntries(frozenEntries, soldByProductId),
+      normalBestSellerEntries: sortEntries(normalEntries, soldByProductId),
+    };
   }, [products, categories, orders, salesChannel]);
+
+  const activeSuggestedModality: 'frozen' | 'normal' | null =
+    orderModalityPreference === 'frozen' || hasFrozenInCart
+      ? 'frozen'
+      : orderModalityPreference === 'normal' || hasNormalInCart
+        ? 'normal'
+        : null;
+
+  const bestSellerEntries = useMemo<BestSellerEntry[]>(() => {
+    if (activeSuggestedModality === 'frozen') return frozenBestSellerEntries;
+    if (activeSuggestedModality === 'normal') return normalBestSellerEntries;
+    return allBestSellerEntries;
+  }, [activeSuggestedModality, frozenBestSellerEntries, normalBestSellerEntries, allBestSellerEntries]);
 
   const cartProductIds = useMemo(() => {
     return new Set(cart.map(i => i.productId));
@@ -2864,9 +2954,16 @@ export default function Menu() {
     return new Set(queuedImpulseProducts.map(p => p.id));
   }, [queuedImpulseProducts]);
 
-  const handleAddCarouselProductNormally = (product: Product, cat?: Category, forceNormal: boolean = false) => {
+  const handleAddCarouselProductNormally = (
+    product: Product,
+    cat?: Category,
+    forceNormal: boolean = false,
+    forceFrozen: boolean = false
+  ) => {
     const targetCat = cat || categories.find(c => c.id === product.categoryId);
-    const isFrozenContext = forceNormal ? false : Boolean(targetCat && isCategoryFrozenModality(targetCat));
+    const isFrozenContext = forceNormal
+      ? false
+      : Boolean(forceFrozen || (targetCat && isCategoryFrozenModality(targetCat)));
     const normCatName = normalizeText(targetCat?.name || '');
     const isBakedCategory = normCatName.includes('assad');
     const isFriedNormalCategory = !isFrozenContext && !isBakedCategory && (
@@ -2971,7 +3068,7 @@ export default function Menu() {
       setImpulseFrozenModal({ isOpen: true, entry });
       return;
     }
-    handleAddCarouselProductNormally(entry.product, entry.category);
+    handleAddCarouselProductNormally(entry.product, entry.category, false, entry.isFrozenCategory);
   };
 
   const switchFromFrozenToNormalAndAddImpulse = (product: Product) => {
@@ -4111,9 +4208,9 @@ export default function Menu() {
                 </div>
               )}
 
-              {bestSellerEntries.some(e => !e.isFrozenCategory) && (
+              {normalBestSellerEntries.length > 0 && (
                 <BestSellersCarousel
-                  items={bestSellerEntries.filter(e => !e.isFrozenCategory)}
+                  items={normalBestSellerEntries}
                   isFrozenOrderActive={false}
                   canBuy={true}
                   cartProductIds={cartProductIds}
