@@ -169,55 +169,156 @@ function playChimeSound() {
   }
 }
 
-// Sequential speech queue so multiple PEDIDO PRONTO calls never cut each other off
-const speechQueue: string[] = [];
+// Sequential announcement queue with 5s spacing so multiple PEDIDO PRONTO calls never overlap or rush together
+interface QueuedTvAnnouncement {
+  orderId: string;
+  text: string;
+  shouldPlay: () => boolean;
+  isMuted: () => boolean;
+  onStart?: () => void;
+  onComplete?: () => void;
+}
+
+const SPEECH_GAP_BETWEEN_CALLS_MS = 5000; // Espaço de 5 segundos entre um pedido e outro
+const speechQueue: QueuedTvAnnouncement[] = [];
 let isSpeechPlaying = false;
+let lastSpeechEndedAt = 0;
 let speechSafetyTimeout: any = null;
+let speechChimeTimeout: any = null;
+let speechNextTimeout: any = null;
+
+function removeOrderFromSpeechQueue(orderId: string) {
+  for (let i = speechQueue.length - 1; i >= 0; i--) {
+    if (speechQueue[i].orderId === orderId) {
+      speechQueue.splice(i, 1);
+    }
+  }
+}
+
+function clearSpeechQueue() {
+  speechQueue.length = 0;
+  if (speechNextTimeout) {
+    clearTimeout(speechNextTimeout);
+    speechNextTimeout = null;
+  }
+  if (speechChimeTimeout) {
+    clearTimeout(speechChimeTimeout);
+    speechChimeTimeout = null;
+  }
+  if (speechSafetyTimeout) {
+    clearTimeout(speechSafetyTimeout);
+    speechSafetyTimeout = null;
+  }
+  isSpeechPlaying = false;
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  } catch {}
+}
 
 function processSpeechQueue() {
   try {
     if (isSpeechPlaying || speechQueue.length === 0) return;
-    if (!('speechSynthesis' in window)) {
-      speechQueue.length = 0;
+
+    // Enforce a 5-second breathing gap after the previous announcement finished
+    const now = Date.now();
+    const elapsedSinceLast = lastSpeechEndedAt > 0 ? now - lastSpeechEndedAt : SPEECH_GAP_BETWEEN_CALLS_MS;
+    if (lastSpeechEndedAt > 0 && elapsedSinceLast < SPEECH_GAP_BETWEEN_CALLS_MS) {
+      if (!speechNextTimeout) {
+        speechNextTimeout = setTimeout(() => {
+          speechNextTimeout = null;
+          processSpeechQueue();
+        }, SPEECH_GAP_BETWEEN_CALLS_MS - elapsedSinceLast);
+      }
       return;
     }
-    const nextText = speechQueue.shift();
-    if (!nextText) return;
+
+    const nextItem = speechQueue.shift();
+    if (!nextItem) return;
+
+    // Skip immediately if the order was already delivered/cancelled while waiting in queue
+    if (!nextItem.shouldPlay()) {
+      processSpeechQueue();
+      return;
+    }
 
     isSpeechPlaying = true;
     try {
-      window.speechSynthesis.resume();
+      nextItem.onStart?.();
     } catch {}
 
-    const utterance = new SpeechSynthesisUtterance(nextText);
-    utterance.lang = 'pt-BR';
-    utterance.rate = 0.95;
-    utterance.pitch = 1.05;
-    utterance.volume = 1;
-
-    try {
-      const voices = window.speechSynthesis.getVoices();
-      const ptVoice = voices.find(v => v.lang?.toLowerCase().includes('pt-br')) || voices.find(v => v.lang?.toLowerCase().startsWith('pt'));
-      if (ptVoice) utterance.voice = ptVoice;
-    } catch {}
-
+    let finished = false;
     const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (speechChimeTimeout) {
+        clearTimeout(speechChimeTimeout);
+        speechChimeTimeout = null;
+      }
       if (speechSafetyTimeout) {
         clearTimeout(speechSafetyTimeout);
         speechSafetyTimeout = null;
       }
       isSpeechPlaying = false;
-      setTimeout(processSpeechQueue, 250);
+      lastSpeechEndedAt = Date.now();
+      try {
+        nextItem.onComplete?.();
+      } catch {}
+
+      if (speechQueue.length > 0 && !speechNextTimeout) {
+        speechNextTimeout = setTimeout(() => {
+          speechNextTimeout = null;
+          processSpeechQueue();
+        }, SPEECH_GAP_BETWEEN_CALLS_MS);
+      }
     };
 
-    utterance.onend = finish;
-    utterance.onerror = finish;
-    speechSafetyTimeout = setTimeout(finish, 12000);
+    if (nextItem.isMuted() || !('speechSynthesis' in window)) {
+      speechSafetyTimeout = setTimeout(finish, 4000);
+      return;
+    }
 
-    window.speechSynthesis.speak(utterance);
+    // Play chime first, then speak clearly after 900ms
+    playChimeSound();
+    speechChimeTimeout = setTimeout(() => {
+      speechChimeTimeout = null;
+      if (!nextItem.shouldPlay() || nextItem.isMuted()) {
+        finish();
+        return;
+      }
+      try {
+        window.speechSynthesis.resume();
+      } catch {}
+
+      const utterance = new SpeechSynthesisUtterance(nextItem.text);
+      utterance.lang = 'pt-BR';
+      utterance.rate = 0.95;
+      utterance.pitch = 1.05;
+      utterance.volume = 1;
+
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        const ptVoice = voices.find(v => v.lang?.toLowerCase().includes('pt-br')) || voices.find(v => v.lang?.toLowerCase().startsWith('pt'));
+        if (ptVoice) utterance.voice = ptVoice;
+      } catch {}
+
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      speechSafetyTimeout = setTimeout(finish, 12000);
+
+      window.speechSynthesis.speak(utterance);
+    }, 900);
   } catch (e) {
     console.warn('[TV Speech] Queue error:', e);
     isSpeechPlaying = false;
+    lastSpeechEndedAt = Date.now();
+    if (speechQueue.length > 0 && !speechNextTimeout) {
+      speechNextTimeout = setTimeout(() => {
+        speechNextTimeout = null;
+        processSpeechQueue();
+      }, SPEECH_GAP_BETWEEN_CALLS_MS);
+    }
   }
 }
 
@@ -233,15 +334,29 @@ function cleanCustomerNameForTvVoice(rawName?: string): string {
   return cleaned || 'cliente';
 }
 
-// Queue Portuguese announcement
-function speakOrderCall(orderNumber: string, customerName: string) {
+// Enqueue Portuguese announcement with synchronized chime + 5s spacing between calls
+function enqueueOrderAnnouncement(params: {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  shouldPlay: () => boolean;
+  isMuted: () => boolean;
+  onStart?: () => void;
+  onComplete?: () => void;
+}) {
   try {
-    if (!('speechSynthesis' in window)) return;
-    const cleanNum = String(orderNumber || '').replace('#', '').trim();
+    const cleanNum = String(params.orderNumber || '').replace('#', '').trim();
     const spokenNum = cleanNum.replace(/^0+(?=\d)/, '') || cleanNum;
-    const spokenName = cleanCustomerNameForTvVoice(customerName);
-    const text = `Atenção, pedido pronto! Pedido número ${spokenNum}, ${spokenName}, favor retirar o pedido no balcão!`;
-    speechQueue.push(text);
+    const spokenName = cleanCustomerNameForTvVoice(params.customerName);
+    const text = `Atenção! Pedido número ${spokenNum}, ${spokenName}, favor retirar o pedido no balcão!`;
+    speechQueue.push({
+      orderId: params.orderId,
+      text,
+      shouldPlay: params.shouldPlay,
+      isMuted: params.isMuted,
+      onStart: params.onStart,
+      onComplete: params.onComplete
+    });
     processSpeechQueue();
   } catch (e) {
     console.warn('[TV Speech] Error:', e);
@@ -653,6 +768,7 @@ export default function TvDisplay() {
       seq.timers.forEach(t => clearTimeout(t));
       activeSequencesRef.current.delete(orderId);
     }
+    removeOrderFromSpeechQueue(orderId);
     setOrderCallProgress(prev => {
       if (!prev[orderId]) return prev;
       const next = { ...prev };
@@ -662,7 +778,7 @@ export default function TvDisplay() {
     setActiveCall(prev => (prev && prev.orderId === orderId ? null : prev));
   }, []);
 
-  // Schedule voice announcements: 3 calls (10s apart) immediately on PEDIDO PRONTO, repeating that 3x burst every 3 minutes until delivered
+  // Schedule voice announcements: 3 calls (10s apart) immediately on PEDIDO PRONTO, repeating that 3x burst every 6 minutes until delivered (with 5s spacing between different orders)
   const startRecurringCallSequence = useCallback((params: {
     orderId: string;
     orderNumber: string;
@@ -695,6 +811,7 @@ export default function TvDisplay() {
       existing.cancelled = true;
       existing.timers.forEach(t => clearTimeout(t));
       activeSequencesRef.current.delete(orderId);
+      removeOrderFromSpeechQueue(orderId);
     }
 
     const cycleId = `cycle_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -708,7 +825,7 @@ export default function TvDisplay() {
 
     const BURST_CALLS_COUNT = 3; // 3 anúncios por ciclo
     const BURST_INTERVAL_MS = 10 * 1000; // Intervalo de 10 em 10 segundos entre os 3 anúncios
-    const CYCLE_REPEAT_INTERVAL_MS = 3 * 60 * 1000; // Repete a sequência de 3 em 3 minutos até mudar o status
+    const CYCLE_REPEAT_INTERVAL_MS = 6 * 60 * 1000; // Repete a sequência de 6 em 6 minutos até mudar o status
 
     const executeCycle = (cycleNumber: number) => {
       const currentSeq = activeSequencesRef.current.get(orderId);
@@ -729,80 +846,90 @@ export default function TvDisplay() {
       const nextCycleAt = cycleStartedAt + CYCLE_REPEAT_INTERVAL_MS;
 
       const executeBurstCall = (burstAttempt: number) => {
-        const checkSeq = activeSequencesRef.current.get(orderId);
-        if (!checkSeq || checkSeq.cycleId !== cycleId || checkSeq.cancelled) return;
+        const isStillEligible = () => {
+          const checkSeq = activeSequencesRef.current.get(orderId);
+          if (!checkSeq || checkSeq.cycleId !== cycleId || checkSeq.cancelled) return false;
+          const freshOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
+          const mustVerifyBurst = cycleNumber > 1 || burstAttempt > 1 || initialDelayMs > 0 || !isManual;
+          if (mustVerifyBurst && (!freshOrder || !isOrderReadyStatus(freshOrder.status))) {
+            return false;
+          }
+          return true;
+        };
 
-        // Re-check status before every single call (stops mid-burst immediately if marked ENTREGUE)
-        const freshOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
-        const mustVerifyBurst = cycleNumber > 1 || burstAttempt > 1 || initialDelayMs > 0 || !isManual;
-        if (mustVerifyBurst && (!freshOrder || !isOrderReadyStatus(freshOrder.status))) {
+        if (!isStillEligible()) {
           cancelOrderCallSequence(orderId);
           return;
         }
 
+        const freshOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
         const resolvedName = customerName || freshOrder?.customerName || 'Cliente';
-        const now = Date.now();
         const attemptId = `${cycleId}_c${cycleNumber}_a${burstAttempt}`;
 
-        setOrderCallProgress(prev => ({
-          ...prev,
-          [orderId]: {
-            attempt: burstAttempt,
-            totalAttempts: BURST_CALLS_COUNT,
-            cycle: cycleNumber,
-            isAnnouncing: true,
-            nextCallAt: nextCycleAt
-          }
-        }));
-
-        setActiveCall({
-          id: attemptId,
+        enqueueOrderAnnouncement({
           orderId,
           orderNumber,
           customerName: resolvedName,
-          type: type || freshOrder?.type || 'balcao',
-          tableOrDesk,
-          calledAt: now,
-          attempt: burstAttempt,
-          totalAttempts: BURST_CALLS_COUNT,
-          cycle: cycleNumber
+          shouldPlay: isStillEligible,
+          isMuted: () => isVoiceMutedRef.current,
+          onStart: () => {
+            const now = Date.now();
+            setOrderCallProgress(prev => ({
+              ...prev,
+              [orderId]: {
+                attempt: burstAttempt,
+                totalAttempts: BURST_CALLS_COUNT,
+                cycle: cycleNumber,
+                isAnnouncing: true,
+                nextCallAt: nextCycleAt
+              }
+            }));
+
+            setActiveCall({
+              id: attemptId,
+              orderId,
+              orderNumber,
+              customerName: resolvedName,
+              type: type || freshOrder?.type || 'balcao',
+              tableOrDesk,
+              calledAt: now,
+              attempt: burstAttempt,
+              totalAttempts: BURST_CALLS_COUNT,
+              cycle: cycleNumber
+            });
+
+            if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
+          },
+          onComplete: () => {
+            if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
+            callDismissTimer.current = setTimeout(() => {
+              setActiveCall(prev => (prev?.id === attemptId ? null : prev));
+            }, 2500);
+
+            if (burstAttempt === BURST_CALLS_COUNT) {
+              const hlSeq = activeSequencesRef.current.get(orderId);
+              if (hlSeq && hlSeq.cycleId === cycleId && !hlSeq.cancelled) {
+                const highlightEndTimer = setTimeout(() => {
+                  const activeCheck = activeSequencesRef.current.get(orderId);
+                  if (activeCheck && activeCheck.cycleId === cycleId && !activeCheck.cancelled) {
+                    setOrderCallProgress(prev => {
+                      const cur = prev[orderId];
+                      if (!cur || cur.cycle !== cycleNumber || cur.attempt !== burstAttempt) return prev;
+                      return {
+                        ...prev,
+                        [orderId]: { ...cur, isAnnouncing: false }
+                      };
+                    });
+                  }
+                }, 3000);
+                hlSeq.timers.push(highlightEndTimer);
+              }
+            }
+          }
         });
-
-        if (!isVoiceMutedRef.current) {
-          playChimeSound();
-          const voiceTimer = setTimeout(() => {
-            const voiceSeq = activeSequencesRef.current.get(orderId);
-            if (voiceSeq && voiceSeq.cycleId === cycleId && !voiceSeq.cancelled && !isVoiceMutedRef.current) {
-              speakOrderCall(orderNumber, resolvedName);
-            }
-          }, 900);
-          checkSeq.timers.push(voiceTimer);
-        }
-
-        if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
-        callDismissTimer.current = setTimeout(() => {
-          setActiveCall(prev => (prev?.id === attemptId ? null : prev));
-        }, 9200);
-
-        if (burstAttempt === BURST_CALLS_COUNT) {
-          const highlightEndTimer = setTimeout(() => {
-            const hlSeq = activeSequencesRef.current.get(orderId);
-            if (hlSeq && hlSeq.cycleId === cycleId && !hlSeq.cancelled) {
-              setOrderCallProgress(prev => {
-                const cur = prev[orderId];
-                if (!cur || cur.cycle !== cycleNumber || cur.attempt !== burstAttempt) return prev;
-                return {
-                  ...prev,
-                  [orderId]: { ...cur, isAnnouncing: false }
-                };
-              });
-            }
-          }, 10500);
-          checkSeq.timers.push(highlightEndTimer);
-        }
       };
 
-      // Dispara os 3 anúncios deste ciclo de 10 em 10 segundos (0s, 10s, 20s)
+      // Dispara os 3 anúncios deste ciclo de 10 em 10 segundos (0s, 10s, 20s) respeitando espaço de 5s entre pedidos na fila de voz
       for (let i = 0; i < BURST_CALLS_COUNT; i++) {
         const burstAttempt = i + 1;
         if (i === 0) {
@@ -815,7 +942,7 @@ export default function TvDisplay() {
         }
       }
 
-      // Agenda o próximo ciclo completo (3x de 10 em 10s) para daqui a 3 minutos enquanto continuar PEDIDO PRONTO
+      // Agenda o próximo ciclo completo (3x de 10 em 10s) para daqui a 6 minutos enquanto continuar PEDIDO PRONTO
       const shouldScheduleNextCycle = !latestOrder || isOrderReadyStatus(latestOrder.status);
       if (shouldScheduleNextCycle) {
         const nextCycleTimer = setTimeout(() => {
@@ -833,7 +960,7 @@ export default function TvDisplay() {
     }
   }, [cancelOrderCallSequence]);
 
-  // Cleanup all pending 3-minute call timers on unmount
+  // Cleanup all pending 6-minute call timers & speech queue on unmount
   useEffect(() => {
     return () => {
       activeSequencesRef.current.forEach(seq => {
@@ -841,11 +968,12 @@ export default function TvDisplay() {
         seq.timers.forEach(t => clearTimeout(t));
       });
       activeSequencesRef.current.clear();
+      clearSpeechQueue();
       if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
     };
   }, []);
 
-  // Watch orders status transitions: announce immediately on PEDIDO PRONTO and repeat every 3 minutes until delivered
+  // Watch orders status transitions: announce immediately on PEDIDO PRONTO and repeat every 6 minutes until delivered
   useEffect(() => {
     if (!hasInitializedOrdersRef.current) {
       if (orders.length > 0) {
@@ -861,7 +989,7 @@ export default function TvDisplay() {
               type: o.type || 'balcao',
               tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
               forceRestart: false,
-              initialDelayMs: 3 * 60 * 1000 + readyIdx * 35000
+              initialDelayMs: 6 * 60 * 1000 + readyIdx * 35000
             });
             readyIdx += 1;
           }
@@ -908,7 +1036,7 @@ export default function TvDisplay() {
           type: o.type || 'balcao',
           tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
           forceRestart: false,
-          initialDelayMs: 3 * 60 * 1000
+          initialDelayMs: 6 * 60 * 1000
         });
       } else if (wasReady && !isNowReady) {
         cancelOrderCallSequence(id);
@@ -981,7 +1109,7 @@ export default function TvDisplay() {
               type: o.type || 'balcao',
               tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
               forceRestart: false,
-              initialDelayMs: 3 * 60 * 1000 + readyIdx * 35000
+              initialDelayMs: 6 * 60 * 1000 + readyIdx * 35000
             });
             readyIdx += 1;
           }
@@ -1747,7 +1875,7 @@ export default function TvDisplay() {
                           <span className={isFull ? "text-xs font-black bg-amber-400 text-stone-950 px-2.5 py-0.5 rounded-full animate-pulse" : "text-[10px] font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full animate-pulse"}>
                             {callState.isAnnouncing
                               ? `🔊 Chamada ${callState.attempt}/${callState.totalAttempts}${callState.cycle > 1 ? ` • ${callState.cycle}º ciclo` : ''}`
-                              : `🔊 ${callState.cycle}º ciclo (3x) • repete em 3 min`}
+                              : `🔊 ${callState.cycle}º ciclo (3x) • repete em 6 min`}
                           </span>
                         )}
                       </div>
@@ -2441,7 +2569,7 @@ export default function TvDisplay() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-wider truncate">Painel de Pedidos</h3>
-                  <p className="text-xs text-stone-400 font-bold truncate">Chamada por voz (3x a cada 10s) com repetição a cada 3 min até entregar</p>
+                  <p className="text-xs text-stone-400 font-bold truncate">Chamada por voz (3x a cada 10s, intervalo de 5s entre pedidos) com repetição a cada 6 min</p>
                 </div>
               </div>
 
@@ -2503,7 +2631,7 @@ export default function TvDisplay() {
               </div>
               <div className="inline-flex items-center gap-2 px-6 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-black uppercase tracking-widest">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                Pedido Pronto! • Chamada {activeCall.attempt || 1} de {activeCall.totalAttempts || 3}{activeCall.cycle && activeCall.cycle > 1 ? ` (${activeCall.cycle}º ciclo)` : ''} • Repete a cada 3 min
+                Pedido Pronto! • Chamada {activeCall.attempt || 1} de {activeCall.totalAttempts || 3}{activeCall.cycle && activeCall.cycle > 1 ? ` (${activeCall.cycle}º ciclo)` : ''} • Repete a cada 6 min
               </div>
             </div>
 
