@@ -279,6 +279,7 @@ export interface TvCallItem {
   isManual?: boolean;
   attempt?: number;
   totalAttempts?: number;
+  cycle?: number;
 }
 
 interface TvOrdersAutoScrollListProps {
@@ -459,7 +460,7 @@ export default function TvDisplay() {
 
   // Active TV Call state for popup overlay
   const [activeCall, setActiveCall] = useState<TvCallItem | null>(null);
-  const [orderCallProgress, setOrderCallProgress] = useState<Record<string, { attempt: number; isAnnouncing?: boolean; nextCallAt?: number }>>({});
+  const [orderCallProgress, setOrderCallProgress] = useState<Record<string, { attempt: number; totalAttempts: number; cycle: number; isAnnouncing?: boolean; nextCallAt?: number }>>({});
   const lastProcessedCallId = useRef<string>('');
   const callDismissTimer = useRef<any>(null);
 
@@ -661,7 +662,7 @@ export default function TvDisplay() {
     setActiveCall(prev => (prev && prev.orderId === orderId ? null : prev));
   }, []);
 
-  // Schedule immediate voice announcement and repeat every 3 minutes while in PEDIDO PRONTO
+  // Schedule voice announcements: 3 calls (10s apart) immediately on PEDIDO PRONTO, repeating that 3x burst every 3 minutes until delivered
   const startRecurringCallSequence = useCallback((params: {
     orderId: string;
     orderNumber: string;
@@ -686,7 +687,7 @@ export default function TvDisplay() {
 
     const existing = activeSequencesRef.current.get(orderId);
     if (existing && !existing.cancelled && !forceRestart) {
-      return; // Already running recurring 3-minute announcements for this order
+      return; // Already running recurring announcements for this order
     }
 
     // Cancel any older active sequence for this order before starting fresh
@@ -705,93 +706,130 @@ export default function TvDisplay() {
     };
     activeSequencesRef.current.set(orderId, sequence);
 
-    const REPEAT_INTERVAL_MS = 3 * 60 * 1000; // Repetir de 3 em 3 minutos
+    const BURST_CALLS_COUNT = 3; // 3 anúncios por ciclo
+    const BURST_INTERVAL_MS = 10 * 1000; // Intervalo de 10 em 10 segundos entre os 3 anúncios
+    const CYCLE_REPEAT_INTERVAL_MS = 3 * 60 * 1000; // Repete a sequência de 3 em 3 minutos até mudar o status
 
-    const executeAttempt = (attemptNumber: number) => {
+    const executeCycle = (cycleNumber: number) => {
       const currentSeq = activeSequencesRef.current.get(orderId);
       if (!currentSeq || currentSeq.cycleId !== cycleId || currentSeq.cancelled) return;
 
-      // Keep timers array pruned so long-running ready orders never accumulate stale timer IDs
+      // Prune completed timers from previous cycle
       currentSeq.timers = [];
 
-      // Verify order is still in PEDIDO PRONTO before repeating (or on delayed reminders)
+      // Verify order is still in PEDIDO PRONTO before starting this cycle
       const latestOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
-      const mustVerifyStillReady = attemptNumber > 1 || initialDelayMs > 0 || !isManual;
-      if (mustVerifyStillReady && (!latestOrder || !isOrderReadyStatus(latestOrder.status))) {
+      const mustVerifyCycle = cycleNumber > 1 || initialDelayMs > 0 || !isManual;
+      if (mustVerifyCycle && (!latestOrder || !isOrderReadyStatus(latestOrder.status))) {
         cancelOrderCallSequence(orderId);
         return;
       }
 
-      const resolvedName = customerName || latestOrder?.customerName || 'Cliente';
-      const now = Date.now();
-      const attemptId = `${cycleId}_att_${attemptNumber}`;
+      const cycleStartedAt = Date.now();
+      const nextCycleAt = cycleStartedAt + CYCLE_REPEAT_INTERVAL_MS;
 
-      setOrderCallProgress(prev => ({
-        ...prev,
-        [orderId]: {
-          attempt: attemptNumber,
-          isAnnouncing: true,
-          nextCallAt: now + REPEAT_INTERVAL_MS
+      const executeBurstCall = (burstAttempt: number) => {
+        const checkSeq = activeSequencesRef.current.get(orderId);
+        if (!checkSeq || checkSeq.cycleId !== cycleId || checkSeq.cancelled) return;
+
+        // Re-check status before every single call (stops mid-burst immediately if marked ENTREGUE)
+        const freshOrder = ordersRef.current.find(o => String(o.id) === String(orderId));
+        const mustVerifyBurst = cycleNumber > 1 || burstAttempt > 1 || initialDelayMs > 0 || !isManual;
+        if (mustVerifyBurst && (!freshOrder || !isOrderReadyStatus(freshOrder.status))) {
+          cancelOrderCallSequence(orderId);
+          return;
         }
-      }));
 
-      setActiveCall({
-        id: attemptId,
-        orderId,
-        orderNumber,
-        customerName: resolvedName,
-        type: type || latestOrder?.type || 'balcao',
-        tableOrDesk,
-        calledAt: now,
-        attempt: attemptNumber
-      });
+        const resolvedName = customerName || freshOrder?.customerName || 'Cliente';
+        const now = Date.now();
+        const attemptId = `${cycleId}_c${cycleNumber}_a${burstAttempt}`;
 
-      if (!isVoiceMutedRef.current) {
-        playChimeSound();
-        const voiceTimer = setTimeout(() => {
-          const checkSeq = activeSequencesRef.current.get(orderId);
-          if (checkSeq && checkSeq.cycleId === cycleId && !checkSeq.cancelled && !isVoiceMutedRef.current) {
-            speakOrderCall(orderNumber, resolvedName);
+        setOrderCallProgress(prev => ({
+          ...prev,
+          [orderId]: {
+            attempt: burstAttempt,
+            totalAttempts: BURST_CALLS_COUNT,
+            cycle: cycleNumber,
+            isAnnouncing: true,
+            nextCallAt: nextCycleAt
           }
-        }, 900);
-        currentSeq.timers.push(voiceTimer);
+        }));
+
+        setActiveCall({
+          id: attemptId,
+          orderId,
+          orderNumber,
+          customerName: resolvedName,
+          type: type || freshOrder?.type || 'balcao',
+          tableOrDesk,
+          calledAt: now,
+          attempt: burstAttempt,
+          totalAttempts: BURST_CALLS_COUNT,
+          cycle: cycleNumber
+        });
+
+        if (!isVoiceMutedRef.current) {
+          playChimeSound();
+          const voiceTimer = setTimeout(() => {
+            const voiceSeq = activeSequencesRef.current.get(orderId);
+            if (voiceSeq && voiceSeq.cycleId === cycleId && !voiceSeq.cancelled && !isVoiceMutedRef.current) {
+              speakOrderCall(orderNumber, resolvedName);
+            }
+          }, 900);
+          checkSeq.timers.push(voiceTimer);
+        }
+
+        if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
+        callDismissTimer.current = setTimeout(() => {
+          setActiveCall(prev => (prev?.id === attemptId ? null : prev));
+        }, 9200);
+
+        if (burstAttempt === BURST_CALLS_COUNT) {
+          const highlightEndTimer = setTimeout(() => {
+            const hlSeq = activeSequencesRef.current.get(orderId);
+            if (hlSeq && hlSeq.cycleId === cycleId && !hlSeq.cancelled) {
+              setOrderCallProgress(prev => {
+                const cur = prev[orderId];
+                if (!cur || cur.cycle !== cycleNumber || cur.attempt !== burstAttempt) return prev;
+                return {
+                  ...prev,
+                  [orderId]: { ...cur, isAnnouncing: false }
+                };
+              });
+            }
+          }, 10500);
+          checkSeq.timers.push(highlightEndTimer);
+        }
+      };
+
+      // Dispara os 3 anúncios deste ciclo de 10 em 10 segundos (0s, 10s, 20s)
+      for (let i = 0; i < BURST_CALLS_COUNT; i++) {
+        const burstAttempt = i + 1;
+        if (i === 0) {
+          executeBurstCall(burstAttempt);
+        } else {
+          const burstTimer = setTimeout(() => {
+            executeBurstCall(burstAttempt);
+          }, i * BURST_INTERVAL_MS);
+          currentSeq.timers.push(burstTimer);
+        }
       }
 
-      if (callDismissTimer.current) clearTimeout(callDismissTimer.current);
-      callDismissTimer.current = setTimeout(() => {
-        setActiveCall(prev => (prev?.id === attemptId ? null : prev));
-      }, 9500);
-
-      const highlightEndTimer = setTimeout(() => {
-        const checkSeq = activeSequencesRef.current.get(orderId);
-        if (checkSeq && checkSeq.cycleId === cycleId && !checkSeq.cancelled) {
-          setOrderCallProgress(prev => {
-            const cur = prev[orderId];
-            if (!cur || cur.attempt !== attemptNumber) return prev;
-            return {
-              ...prev,
-              [orderId]: { ...cur, isAnnouncing: false }
-            };
-          });
-        }
-      }, 12000);
-      currentSeq.timers.push(highlightEndTimer);
-
-      // Schedule next repeat in 3 minutes (and continue every 3 minutes while still PEDIDO PRONTO)
-      const shouldScheduleRepeat = !latestOrder || isOrderReadyStatus(latestOrder.status);
-      if (shouldScheduleRepeat) {
-        const nextTimer = setTimeout(() => {
-          executeAttempt(attemptNumber + 1);
-        }, REPEAT_INTERVAL_MS);
-        currentSeq.timers.push(nextTimer);
+      // Agenda o próximo ciclo completo (3x de 10 em 10s) para daqui a 3 minutos enquanto continuar PEDIDO PRONTO
+      const shouldScheduleNextCycle = !latestOrder || isOrderReadyStatus(latestOrder.status);
+      if (shouldScheduleNextCycle) {
+        const nextCycleTimer = setTimeout(() => {
+          executeCycle(cycleNumber + 1);
+        }, CYCLE_REPEAT_INTERVAL_MS);
+        currentSeq.timers.push(nextCycleTimer);
       }
     };
 
     if (initialDelayMs > 0) {
-      const startTimer = setTimeout(() => executeAttempt(1), initialDelayMs);
+      const startTimer = setTimeout(() => executeCycle(1), initialDelayMs);
       sequence.timers.push(startTimer);
     } else {
-      executeAttempt(1);
+      executeCycle(1);
     }
   }, [cancelOrderCallSequence]);
 
@@ -823,7 +861,7 @@ export default function TvDisplay() {
               type: o.type || 'balcao',
               tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
               forceRestart: false,
-              initialDelayMs: 3 * 60 * 1000 + readyIdx * 10000
+              initialDelayMs: 3 * 60 * 1000 + readyIdx * 35000
             });
             readyIdx += 1;
           }
@@ -943,7 +981,7 @@ export default function TvDisplay() {
               type: o.type || 'balcao',
               tableOrDesk: o.tableNumber ? `Mesa ${o.tableNumber}` : undefined,
               forceRestart: false,
-              initialDelayMs: 3 * 60 * 1000 + readyIdx * 10000
+              initialDelayMs: 3 * 60 * 1000 + readyIdx * 35000
             });
             readyIdx += 1;
           }
@@ -1707,7 +1745,9 @@ export default function TvDisplay() {
                         </span>
                         {callState && (
                           <span className={isFull ? "text-xs font-black bg-amber-400 text-stone-950 px-2.5 py-0.5 rounded-full animate-pulse" : "text-[10px] font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full animate-pulse"}>
-                            🔊 {callState.attempt}º chamado
+                            {callState.isAnnouncing
+                              ? `🔊 Chamada ${callState.attempt}/${callState.totalAttempts}${callState.cycle > 1 ? ` • ${callState.cycle}º ciclo` : ''}`
+                              : `🔊 ${callState.cycle}º ciclo (3x) • repete em 3 min`}
                           </span>
                         )}
                       </div>
@@ -2229,7 +2269,9 @@ export default function TvDisplay() {
                           </p>
                           {callState ? (
                             <span className="text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.2 rounded-full inline-block mt-0.5">
-                              🔊 {callState.attempt}º chamado
+                              {callState.isAnnouncing
+                                ? `🔊 Chamada ${callState.attempt}/${callState.totalAttempts}`
+                                : `🔊 ${callState.cycle}º ciclo (3x)`}
                             </span>
                           ) : (
                             <span className="text-[9px] font-bold text-emerald-300 uppercase">
@@ -2399,7 +2441,7 @@ export default function TvDisplay() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-wider truncate">Painel de Pedidos</h3>
-                  <p className="text-xs text-stone-400 font-bold truncate">Chamada automática por voz ao ficar pronto e repetição a cada 3 min</p>
+                  <p className="text-xs text-stone-400 font-bold truncate">Chamada por voz (3x a cada 10s) com repetição a cada 3 min até entregar</p>
                 </div>
               </div>
 
@@ -2461,7 +2503,7 @@ export default function TvDisplay() {
               </div>
               <div className="inline-flex items-center gap-2 px-6 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-black uppercase tracking-widest">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                Pedido Pronto! • {activeCall.attempt || 1}º Chamado • Repete a cada 3 min
+                Pedido Pronto! • Chamada {activeCall.attempt || 1} de {activeCall.totalAttempts || 3}{activeCall.cycle && activeCall.cycle > 1 ? ` (${activeCall.cycle}º ciclo)` : ''} • Repete a cada 3 min
               </div>
             </div>
 
