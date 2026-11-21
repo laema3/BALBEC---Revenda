@@ -363,6 +363,28 @@ export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   return isSalgadoName;
 };
 
+export const getProductMinQuantity = (product: any): number => {
+  if (!product) return 1;
+  const code = String(product.externalId || product.code || product.id || '').trim();
+  const numericCode = code.replace(/\D/g, '');
+
+  const group25 = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427'];
+  const group20 = ['1416', '1419', '1420', '1421', '1422', '1423', '1424'];
+
+  if (group25.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
+    return 25;
+  }
+  if (group20.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
+    return 20;
+  }
+
+  const minFroz = Number(product.minFrozenQuantity);
+  if (!isNaN(minFroz) && minFroz > 1) {
+    return minFroz;
+  }
+  return 1;
+};
+
 
 
 

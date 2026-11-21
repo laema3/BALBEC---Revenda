@@ -7,7 +7,7 @@ import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
 import { BakeryLoader } from '../components/BakeryLoader';
 import { MaintenancePage } from '../components/MaintenancePage';
-import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct, isCategoryFrozenModality } from '../constants';
+import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct, isCategoryFrozenModality, getProductMinQuantity } from '../constants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCode, resolveAddonCode } from '../utils/printer';
 import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation, sharePixReceipt, buildPixReceiptShareText } from '../utils/paymentStatusHelper';
@@ -40,6 +40,13 @@ export default function Menu() {
   const [frozenPrepErrors, setFrozenPrepErrors] = useState<Record<string, boolean>>({});
   const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
   const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
+
+  const getMinQty = (prod: any, isFrozen: boolean = false) => {
+    const base = getProductMinQuantity(prod);
+    const froz = Number(prod?.minFrozenQuantity);
+    const explicit = (!isNaN(froz) && froz > 1) ? froz : 1;
+    return isFrozen ? Math.max(base, explicit) : base;
+  };
 
   useEffect(() => {
     if (!cartToastMessage) return;
@@ -2045,7 +2052,7 @@ export default function Menu() {
     const exCongeladoFrito = cartItemsForProd.filter(ci => ci.prepType === 'congelado_frito').reduce((s, ci) => s + ci.quantity, 0);
 
     if (mode === 'congelado') {
-      const minRequired = Number(product.minFrozenQuantity) > 1 ? Number(product.minFrozenQuantity) : 1;
+      const minRequired = getMinQty(product, true);
       setProntoFritoQty(0);
       setProntoCruQty(0);
       if (exCongeladoCru > 0 || exCongeladoFrito > 0) {
@@ -2739,9 +2746,7 @@ export default function Menu() {
       return;
     }
     
-    const minRequired = (isFrozenContext && Number(product.minFrozenQuantity) > 1) 
-      ? Number(product.minFrozenQuantity) 
-      : 1;
+    const minRequired = getMinQty(product, isFrozenContext);
     const finalQty = Math.max(minRequired, qty);
 
     if (isFrozenContext) {
@@ -2769,7 +2774,7 @@ export default function Menu() {
   const initiateAddToCart = (product: any) => {
     const prodCat = categories.find(c => c.id === product?.categoryId);
     const isFrozenCat = prodCat ? isCategoryFrozenModality(prodCat) : false;
-    const minRequired = (isFrozenCat && Number(product.minFrozenQuantity) > 1) ? Number(product.minFrozenQuantity) : 1;
+    const minRequired = getMinQty(product, isFrozenCat);
     initiateAddToCartWithQty(product, minRequired, isFrozenCat);
   };
 
@@ -3051,7 +3056,7 @@ export default function Menu() {
 
       initiateAddToCartWithQty(
         prod,
-        isFrozenContext ? Math.max(1, Number(prod.minFrozenQuantity) || 1) : 1,
+        getMinQty(prod, isFrozenContext),
         isFrozenContext,
         forceNormal
       );
@@ -7847,9 +7852,7 @@ export default function Menu() {
                             ? 'Selecione CRU CONGELADO ou FRITO CONGELADO! ❄️'
                             : 'Selecione CRU ou FRITO!';
 
-                        const minRequired = (isFrozenCategoryContext && Number(product.minFrozenQuantity) > 1)
-                          ? Number(product.minFrozenQuantity)
-                          : 1;
+                        const minRequired = getMinQty(product, isFrozenCategoryContext);
 
                         const isFrozenModalityActive = Boolean(orderModalityPreference === 'frozen' || hasFrozenInCart);
                         const isNormalModalityActive = Boolean(orderModalityPreference === 'normal' || hasNormalInCart);
@@ -8501,7 +8504,7 @@ export default function Menu() {
                           {(() => {
                             const prod = products.find(p => p.id === item.productId);
                             const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                            const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                            const minQ = getMinQty(prod, isFrozen);
                             return minQ > 1 ? (
                               <span className="text-[9px] font-bold text-blue-700">Mín: {minQ} un</span>
                             ) : null;
@@ -8523,7 +8526,7 @@ export default function Menu() {
                             onClick={() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               const step = minQ > 1 ? minQ : 1;
                               if (item.quantity - step < minQ) {
                                 setCart(prev => prev.filter(ci => !(ci.productId === item.productId && (ci.prepType || '') === (item.prepType || '') && JSON.stringify(ci.addons) === JSON.stringify(item.addons) && JSON.stringify(ci.flavor) === JSON.stringify(item.flavor))));
@@ -8543,20 +8546,20 @@ export default function Menu() {
                             readOnly={(() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               return minQ > 1;
                             })()}
                             value={cartItemInputMap[itemKey] ?? item.quantity}
                             onFocus={(e) => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               if (minQ === 1) e.target.select();
                             }}
                             onChange={(e) => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               if (minQ > 1) return;
                               const raw = e.target.value.replace(/\D/g, '');
                               setCartItemInputMap(prev => ({ ...prev, [itemKey]: raw }));
@@ -8570,7 +8573,7 @@ export default function Menu() {
                             onBlur={() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               if (minQ > 1) return;
                               const raw = cartItemInputMap[itemKey];
                               const parsed = parseInt(String(raw ?? item.quantity), 10);
@@ -8591,13 +8594,13 @@ export default function Menu() {
                             className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono ${(() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               return minQ > 1 ? 'cursor-not-allowed bg-stone-50' : '';
                             })()}`}
                             title={(() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               return minQ > 1 ? `Mínimo de ${minQ} un (controlado pelos botões + / -)` : "Digite a quantidade diretamente (pode apagar tudo)";
                             })()}
                           />
@@ -8606,7 +8609,7 @@ export default function Menu() {
                             onClick={() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
-                              const minQ = (isFrozen && prod && Number(prod.minFrozenQuantity) > 1) ? Number(prod.minFrozenQuantity) : 1;
+                              const minQ = getMinQty(prod, isFrozen);
                               const step = minQ > 1 ? minQ : 1;
                               updateQuantity(item.productId, item.addons, item.flavor, step, item.prepType);
                             }}
