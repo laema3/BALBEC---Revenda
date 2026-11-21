@@ -2932,6 +2932,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       items: normalizedItems,
       createdAt: createdAtTs,
       updatedAt: Number(data.updatedAt) || createdAtTs,
+      ...(initialStatus === 'preparing' ? { preparingAt: Number(data.preparingAt) || createdAtTs } : {}),
+      ...((initialStatus === 'ready' || initialStatus === 'ready_for_pickup' || initialStatus === 'ready_for_delivery')
+        ? { readyAt: Number(data.readyAt) || createdAtTs }
+        : {}),
+      ...(initialStatus === 'completed' ? { deliveredAt: Number(data.deliveredAt || data.deliveryCompletedAt) || createdAtTs } : {}),
       status: initialStatus,
       deliveryStatus: initialDeliveryStatus,
       customerName: data.customerName || (isKiosk ? 'Cliente Totem' : 'Cliente')
@@ -3213,15 +3218,23 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     const { id } = req.params;
     const data = { ...req.body };
 
-    // Sincronizar deliveryStatus automaticamente conforme o status do pedido para pedidos de delivery
+    const updatedTimestamp = Date.now();
+
+    // Sincronizar deliveryStatus e timestamps de etapa automaticamente conforme o status do pedido
     if (data.status) {
-      if (data.status === 'out_for_delivery') {
+      if (data.status === 'preparing') {
+        if (!data.preparingAt) data.preparingAt = updatedTimestamp;
+      } else if (data.status === 'ready' || data.status === 'ready_for_pickup') {
+        if (!data.readyAt) data.readyAt = updatedTimestamp;
+      } else if (data.status === 'out_for_delivery') {
         data.deliveryStatus = data.deliveryStatus || 'in_transit';
-        if (!data.deliveryAcceptedAt) data.deliveryAcceptedAt = Date.now();
+        if (!data.deliveryAcceptedAt) data.deliveryAcceptedAt = updatedTimestamp;
       } else if (data.status === 'completed') {
         data.deliveryStatus = data.deliveryStatus || 'delivered';
-        if (!data.deliveryCompletedAt) data.deliveryCompletedAt = Date.now();
+        if (!data.deliveryCompletedAt) data.deliveryCompletedAt = updatedTimestamp;
+        if (!data.deliveredAt) data.deliveredAt = data.deliveryCompletedAt || updatedTimestamp;
       } else if (data.status === 'ready_for_delivery') {
+        if (!data.readyAt) data.readyAt = updatedTimestamp;
         if (!data.deliveryStatus || data.deliveryStatus === 'pending') {
           data.deliveryStatus = 'ready';
         }
@@ -3231,7 +3244,6 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
 
     const targetId = String(id).trim();
-    const updatedTimestamp = Date.now();
     let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
     if (!matchedOrder && targetId.length >= 4) {
       matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
@@ -6298,10 +6310,13 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       }
 
       const ord = memOrders[orderIdx];
+      const completedAtTs = Date.now();
       const updatedOrder = {
         ...ord,
         deliveryStatus: 'delivered',
-        deliveryCompletedAt: Date.now(),
+        deliveryCompletedAt: completedAtTs,
+        deliveredAt: completedAtTs,
+        updatedAt: completedAtTs,
         status: 'completed'
       };
 

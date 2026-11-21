@@ -274,6 +274,9 @@ export interface Order {
   status: 'pending' | 'preparing' | 'ready' | 'ready_for_delivery' | 'ready_for_pickup' | 'out_for_delivery' | 'completed' | 'cancelled';
   createdAt: number;
   updatedAt?: number;
+  preparingAt?: number | null;
+  readyAt?: number | null;
+  deliveredAt?: number | null;
   type: 'kiosk' | 'delivery' | 'online' | 'dine_in';
   paymentMethod: string;
   paymentStatus?: 'pending' | 'approved' | 'rejected';
@@ -910,7 +913,12 @@ const normalizeServerOrder = (o: any): Order => {
     ...(bfExportedAtVal ? { blueFocusExportedAt: bfExportedAtVal } : {}),
     blueFocusExportError: bfExportErrorVal,
     createdAt: Number(o.createdAt) || Date.now(),
-    updatedAt: Number(o.updatedAt || o.createdAt) || Date.now()
+    updatedAt: Number(o.updatedAt || o.createdAt) || Date.now(),
+    ...(Number(o.preparingAt || o.preparing_at || 0) ? { preparingAt: Number(o.preparingAt || o.preparing_at) } : {}),
+    ...(Number(o.readyAt || o.ready_at || 0) ? { readyAt: Number(o.readyAt || o.ready_at) } : {}),
+    ...(Number(o.deliveredAt || o.delivered_at || o.deliveryCompletedAt || o.delivery_completed_at || 0)
+      ? { deliveredAt: Number(o.deliveredAt || o.delivered_at || o.deliveryCompletedAt || o.delivery_completed_at) }
+      : {})
   };
 };
 
@@ -2060,12 +2068,22 @@ export const useStore = create<StoreState>((set, get) => ({
       expiresAt: lockTs + 8000
     });
 
+    const stageTimestampPatch: Partial<Order> =
+      status === 'preparing'
+        ? { preparingAt: lockTs }
+        : (status === 'ready' || status === 'ready_for_pickup' || status === 'ready_for_delivery')
+        ? { readyAt: lockTs }
+        : status === 'completed'
+        ? { deliveredAt: lockTs, deliveryCompletedAt: lockTs }
+        : {};
+
     // Atualização otimista imediata com garantia de reversão em falha
     set(state => {
       const next: Order[] = state.orders.map(o => String(o.id).trim() === targetId ? { 
         ...o, 
         status,
         ...(deliveryStatus ? { deliveryStatus } : {}),
+        ...stageTimestampPatch,
         updatedAt: lockTs
       } as any : o);
       saveOrdersToStorage(next);
@@ -2078,7 +2096,8 @@ export const useStore = create<StoreState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           status,
-          ...(deliveryStatus ? { deliveryStatus } : {})
+          ...(deliveryStatus ? { deliveryStatus } : {}),
+          ...stageTimestampPatch
         })
       });
       if (!res.ok) {

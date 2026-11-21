@@ -545,6 +545,18 @@ export function smartMergeCollectionItems(
               merged.blueFocusExportedAt = Math.max(Number(existing.blueFocusExportedAt || 0), Number(item.blueFocusExportedAt || 0)) || undefined;
               merged.blueFocusExportError = null;
             }
+            if (existing.preparingAt || item.preparingAt) {
+              merged.preparingAt = Math.max(Number(existing.preparingAt || 0), Number(item.preparingAt || 0)) || undefined;
+            }
+            if (existing.readyAt || item.readyAt) {
+              merged.readyAt = Math.max(Number(existing.readyAt || 0), Number(item.readyAt || 0)) || undefined;
+            }
+            if (existing.deliveredAt || item.deliveredAt || existing.deliveryCompletedAt || item.deliveryCompletedAt) {
+              merged.deliveredAt = Math.max(
+                Number(existing.deliveredAt || existing.deliveryCompletedAt || 0),
+                Number(item.deliveredAt || item.deliveryCompletedAt || 0)
+              ) || undefined;
+            }
           }
           delete merged._isSeed;
           mergedMap.set(id, merged);
@@ -578,6 +590,18 @@ export function smartMergeCollectionItems(
               merged.blueFocusExported = true;
               merged.blueFocusExportedAt = Math.max(Number(existing.blueFocusExportedAt || 0), Number(item.blueFocusExportedAt || 0)) || undefined;
               merged.blueFocusExportError = null;
+            }
+            if (existing.preparingAt || item.preparingAt) {
+              merged.preparingAt = Math.max(Number(existing.preparingAt || 0), Number(item.preparingAt || 0)) || undefined;
+            }
+            if (existing.readyAt || item.readyAt) {
+              merged.readyAt = Math.max(Number(existing.readyAt || 0), Number(item.readyAt || 0)) || undefined;
+            }
+            if (existing.deliveredAt || item.deliveredAt || existing.deliveryCompletedAt || item.deliveryCompletedAt) {
+              merged.deliveredAt = Math.max(
+                Number(existing.deliveredAt || existing.deliveryCompletedAt || 0),
+                Number(item.deliveredAt || item.deliveryCompletedAt || 0)
+              ) || undefined;
             }
           }
           delete merged._isSeed;

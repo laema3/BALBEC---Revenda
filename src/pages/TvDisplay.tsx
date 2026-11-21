@@ -240,7 +240,7 @@ function speakOrderCall(orderNumber: string, customerName: string) {
     const cleanNum = String(orderNumber || '').replace('#', '').trim();
     const spokenNum = cleanNum.replace(/^0+(?=\d)/, '') || cleanNum;
     const spokenName = cleanCustomerNameForTvVoice(customerName);
-    const text = `Pedido pronto! Atenção: senha número ${spokenNum}, ${spokenName}, favor retirar o pedido no balcão!`;
+    const text = `Atenção, pedido pronto! Pedido número ${spokenNum}, ${spokenName}, favor retirar o pedido no balcão!`;
     speechQueue.push(text);
     processSpeechQueue();
   } catch (e) {
@@ -250,6 +250,22 @@ function speakOrderCall(orderNumber: string, customerName: string) {
 
 function isOrderReadyStatus(status?: string): boolean {
   return status === 'ready' || status === 'ready_for_pickup' || status === 'ready_for_delivery';
+}
+
+function formatStageDateTimeParts(ts?: number | null): { date: string; time: string } {
+  const value = Number(ts || 0);
+  if (!value || !Number.isFinite(value)) return { date: '--/--/----', time: '--:--' };
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return { date: '--/--/----', time: '--:--' };
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return {
+    date: `${day}/${month}/${year}`,
+    time: `${hours}:${minutes}`
+  };
 }
 
 export interface TvCallItem {
@@ -302,6 +318,7 @@ export default function TvDisplay() {
   }>>(new Map());
   const hasInitializedOrdersRef = useRef(false);
   const prevOrderStatusesRef = useRef<Map<string, string>>(new Map());
+  const stageTimestampsRef = useRef<Map<string, { preparingAt?: number; readyAt?: number; deliveredAt?: number }>>(new Map());
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -622,12 +639,24 @@ export default function TvDisplay() {
     }
 
     const currentIds = new Set<string>();
+    const nowTs = Date.now();
     orders.forEach(o => {
       const id = String(o.id);
       currentIds.add(id);
       const prevStatus = prevOrderStatusesRef.current.get(id);
       const isNowReady = isOrderReadyStatus(o.status);
       const wasReady = isOrderReadyStatus(prevStatus);
+
+      if (prevStatus !== o.status) {
+        const prevMap = stageTimestampsRef.current.get(id) || {};
+        if (o.status === 'preparing') {
+          stageTimestampsRef.current.set(id, { ...prevMap, preparingAt: Number(o.preparingAt || o.updatedAt || nowTs) });
+        } else if (isNowReady) {
+          stageTimestampsRef.current.set(id, { ...prevMap, readyAt: Number(o.readyAt || o.updatedAt || nowTs) });
+        } else if (o.status === 'completed') {
+          stageTimestampsRef.current.set(id, { ...prevMap, deliveredAt: Number(o.deliveredAt || o.deliveryCompletedAt || o.updatedAt || nowTs) });
+        }
+      }
 
       if (!wasReady && isNowReady) {
         startThreeCallSequence({
@@ -1183,14 +1212,14 @@ export default function TvDisplay() {
     return () => clearInterval(interval);
   }, [activeSlideIndex, allMenuSlides.length > 0]);
 
-  // Categorized orders for the 3-status TV panel (PEDIDO PRONTO, PREPARANDO, ENTREGUE)
+  // Categorized orders for the 3-status TV panel (PREPARANDO, PEDIDO PRONTO, ENTREGUE)
   // Todos os pedidos prontos ficam acumulados no painel (mais recentes primeiro) até serem marcados como entregues
   const readyOrders = useMemo(() => {
     return (orders || [])
       .filter(o => isOrderReadyStatus(o.status))
       .sort((a, b) => {
-        const tsA = Number((a as any).updatedAt || a.createdAt || 0);
-        const tsB = Number((b as any).updatedAt || b.createdAt || 0);
+        const tsA = Number(a.readyAt || stageTimestampsRef.current.get(String(a.id))?.readyAt || a.updatedAt || a.createdAt || 0);
+        const tsB = Number(b.readyAt || stageTimestampsRef.current.get(String(b.id))?.readyAt || b.updatedAt || b.createdAt || 0);
         return tsB - tsA;
       });
   }, [orders]);
@@ -1198,19 +1227,23 @@ export default function TvDisplay() {
   const preparingOrders = useMemo(() => {
     return (orders || [])
       .filter(o => o.status === 'preparing')
-      .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0))
-      .slice(0, 8);
+      .sort((a, b) => {
+        const tsA = Number(a.preparingAt || stageTimestampsRef.current.get(String(a.id))?.preparingAt || a.updatedAt || a.createdAt || 0);
+        const tsB = Number(b.preparingAt || stageTimestampsRef.current.get(String(b.id))?.preparingAt || b.updatedAt || b.createdAt || 0);
+        return tsA - tsB;
+      })
+      .slice(0, 15);
   }, [orders]);
 
   const deliveredOrders = useMemo(() => {
     return (orders || [])
       .filter(o => o.status === 'completed')
       .sort((a, b) => {
-        const tsA = Number(a.deliveryCompletedAt || (a as any).updatedAt || a.createdAt || 0);
-        const tsB = Number(b.deliveryCompletedAt || (b as any).updatedAt || b.createdAt || 0);
+        const tsA = Number(a.deliveredAt || a.deliveryCompletedAt || stageTimestampsRef.current.get(String(a.id))?.deliveredAt || a.updatedAt || a.createdAt || 0);
+        const tsB = Number(b.deliveredAt || b.deliveryCompletedAt || stageTimestampsRef.current.get(String(b.id))?.deliveredAt || b.updatedAt || b.createdAt || 0);
         return tsB - tsA;
       })
-      .slice(0, 8);
+      .slice(0, 12);
   }, [orders]);
 
   // Helper function to aggressively disable YouTube closed captions / subtitles via postMessage API
@@ -1339,34 +1372,75 @@ export default function TvDisplay() {
     return (
       <div className={isFull ? "flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden" : "flex-1 min-h-0 flex flex-col gap-3 overflow-hidden"}>
         {/* 1. PREPARANDO */}
-        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-amber-500/40 p-5 shadow-2xl" : "flex-1 min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-amber-500/25 p-3"}>
-          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-amber-500/30 shrink-0">
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/75 rounded-3xl border border-amber-500/45 p-5 shadow-2xl" : "flex-1 min-h-0 flex flex-col bg-stone-950/60 rounded-2xl border border-amber-500/35 p-3"}>
+          <div className="flex items-center justify-between gap-2 mb-2.5 lg:mb-3.5 pb-2.5 border-b border-amber-500/30 shrink-0">
             <div className="flex items-center gap-2.5">
-              <ChefHat className={isFull ? "w-5 h-5 text-amber-400" : "w-3.5 h-3.5 text-amber-400"} />
+              <span className="relative flex h-3.5 w-3.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-400" />
+              </span>
+              <ChefHat className={isFull ? "w-5 h-5 text-amber-400 animate-pulse" : "w-4 h-4 text-amber-400 animate-pulse"} />
               <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-amber-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-amber-400"}>
                 PREPARANDO
               </h4>
             </div>
-            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30"}>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse" : "text-[11px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"}>
               {preparingOrders.length}
             </span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+            <div className={isFull ? "flex flex-col gap-3" : "flex flex-col gap-2"}>
               {preparingOrders.length > 0 ? (
-                preparingOrders.map(o => (
-                  <div key={o.id} className={isFull ? "bg-stone-800/90 border border-amber-500/30 p-3.5 rounded-2xl text-center shadow-md" : "bg-stone-800/90 border border-amber-500/30 p-2 rounded-xl text-center"}>
-                    <span className="text-xs text-amber-300/80 block font-bold uppercase">Senha</span>
-                    <span className={isFull ? "text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-tight block my-1" : "text-lg font-black text-amber-300 font-mono leading-tight block"}>
-                      #{String(o.id).slice(-4).padStart(4, '0')}
-                    </span>
-                    <p className={isFull ? "text-xs lg:text-sm text-stone-200 truncate font-bold uppercase mt-1" : "text-[11px] text-stone-200 truncate font-medium mt-0.5"}>
-                      {o.customerName || 'Cliente'}
-                    </p>
-                  </div>
-                ))
+                preparingOrders.map(o => {
+                  const stageTs = Number(o.preparingAt || stageTimestampsRef.current.get(String(o.id))?.preparingAt || o.updatedAt || o.createdAt || 0);
+                  const { date, time } = formatStageDateTimeParts(stageTs);
+                  return (
+                    <div
+                      key={o.id}
+                      className={isFull
+                        ? "w-full bg-stone-900/95 border border-amber-500/45 px-4 py-3.5 rounded-2xl shadow-lg flex items-center justify-between gap-4"
+                        : "w-full bg-stone-900/95 border border-amber-500/40 px-3 py-2.5 rounded-xl shadow-md flex items-center justify-between gap-3"}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="relative flex h-3 w-3 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className={isFull ? "text-[11px] text-amber-300/90 font-black uppercase tracking-wider" : "text-[10px] text-amber-300/90 font-bold uppercase tracking-wider"}>
+                              Pedido
+                            </span>
+                            <span className={isFull ? "text-2xl lg:text-3xl font-black text-amber-300 font-mono leading-none tracking-wide" : "text-lg font-black text-amber-300 font-mono leading-none tracking-wide"}>
+                              #{String(o.id).slice(-4).padStart(4, '0')}
+                            </span>
+                          </div>
+                          <p className={isFull ? "text-sm text-stone-100 truncate font-bold uppercase mt-1" : "text-xs text-stone-200 truncate font-semibold mt-0.5 uppercase"}>
+                            {cleanCustomerNameForTvVoice(o.customerName)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={isFull
+                        ? "shrink-0 text-right bg-amber-500/15 border border-amber-400/45 rounded-xl px-3.5 py-2 animate-pulse"
+                        : "shrink-0 text-right bg-amber-500/15 border border-amber-400/40 rounded-lg px-2.5 py-1.5 animate-pulse"}
+                      >
+                        <div className="flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>Em preparo</span>
+                        </div>
+                        <div className={isFull ? "text-base lg:text-lg font-black font-mono text-amber-200 leading-tight mt-0.5" : "text-xs font-black font-mono text-amber-200 leading-tight mt-0.5"}>
+                          {time}
+                        </div>
+                        <div className={isFull ? "text-[11px] font-bold font-mono text-amber-300/90 leading-tight" : "text-[10px] font-bold font-mono text-amber-300/90 leading-tight"}>
+                          {date}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                <div className={isFull ? "py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
                   Nenhum pedido em preparo
                 </div>
               )}
@@ -1375,48 +1449,81 @@ export default function TvDisplay() {
         </div>
 
         {/* 2. PEDIDO PRONTO */}
-        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border-2 border-emerald-500/60 p-5 shadow-2xl" : "flex-[1.6] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border-2 border-emerald-500/50 p-3 shadow-lg"}>
-          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-emerald-500/30 shrink-0">
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/75 rounded-3xl border-2 border-emerald-500/70 p-5 shadow-2xl" : "flex-[1.5] min-h-0 flex flex-col bg-stone-950/60 rounded-2xl border-2 border-emerald-500/60 p-3 shadow-lg"}>
+          <div className="flex items-center justify-between gap-2 mb-2.5 lg:mb-3.5 pb-2.5 border-b border-emerald-500/35 shrink-0">
             <div className="flex items-center gap-2.5">
-              <span className={isFull ? "w-4 h-4 rounded-full bg-emerald-400 animate-ping" : "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"} />
+              <span className="relative flex h-4 w-4 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-400" />
+              </span>
               <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-emerald-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-emerald-400"}>
                 PEDIDO PRONTO
               </h4>
             </div>
-            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"}>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/45 animate-pulse" : "text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/45 animate-pulse"}>
               {readyOrders.length} {readyOrders.length === 1 ? 'pronto' : 'prontos'}
             </span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+            <div className={isFull ? "flex flex-col gap-3" : "flex flex-col gap-2"}>
               {readyOrders.length > 0 ? (
                 readyOrders.map(o => {
                   const callState = orderCallProgress[String(o.id)];
                   const displayName = cleanCustomerNameForTvVoice(o.customerName);
+                  const stageTs = Number(o.readyAt || stageTimestampsRef.current.get(String(o.id))?.readyAt || o.updatedAt || o.createdAt || 0);
+                  const { date, time } = formatStageDateTimeParts(stageTs);
                   return (
                     <div
                       key={o.id}
-                      className={isFull ? `bg-emerald-950/90 border-2 border-emerald-500/90 p-4 rounded-2xl text-center shadow-xl ${callState ? 'ring-4 ring-amber-400/90 border-amber-400 animate-pulse' : ''}` : `bg-emerald-950/80 border-2 border-emerald-500/80 p-2.5 rounded-xl text-center shadow-lg ${callState ? 'ring-2 ring-amber-400/90 border-amber-400 animate-pulse' : ''}`}
+                      className={isFull
+                        ? `w-full bg-emerald-950/90 border-2 border-emerald-500/90 px-4 py-4 rounded-2xl shadow-xl flex items-center justify-between gap-4 ${callState ? 'ring-4 ring-amber-400/90 border-amber-400' : ''}`
+                        : `w-full bg-emerald-950/85 border-2 border-emerald-500/85 px-3 py-2.5 rounded-xl shadow-lg flex items-center justify-between gap-3 ${callState ? 'ring-2 ring-amber-400/90 border-amber-400' : ''}`}
                     >
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className={isFull ? "text-xs text-emerald-300 font-black uppercase" : "text-[10px] text-emerald-300 font-bold uppercase"}>Senha</span>
-                        {callState && (
-                          <span className={isFull ? "text-xs font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full" : "text-[9px] font-black bg-amber-400 text-stone-950 px-1.5 py-0.5 rounded-full"}>
-                            🔊 {callState.attempt}/{callState.total}
-                          </span>
-                        )}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="relative flex h-3.5 w-3.5 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-85" />
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={isFull ? "text-xs text-emerald-300 font-black uppercase tracking-wider" : "text-[10px] text-emerald-300 font-black uppercase tracking-wider"}>
+                              Pedido
+                            </span>
+                            <span className={isFull ? "text-3xl lg:text-4xl font-black text-white tracking-wider font-mono leading-none" : "text-xl lg:text-2xl font-black text-white tracking-wider font-mono leading-none"}>
+                              #{String(o.id).slice(-4).padStart(4, '0')}
+                            </span>
+                            {callState && (
+                              <span className={isFull ? "text-xs font-black bg-amber-400 text-stone-950 px-2.5 py-0.5 rounded-full animate-pulse" : "text-[10px] font-black bg-amber-400 text-stone-950 px-2 py-0.5 rounded-full animate-pulse"}>
+                                🔊 {callState.attempt}/{callState.total}
+                              </span>
+                            )}
+                          </div>
+                          <p className={isFull ? "text-sm lg:text-base text-emerald-100 truncate font-black uppercase mt-1.5" : "text-xs text-emerald-100 truncate font-bold mt-1 uppercase"}>
+                            {displayName}
+                          </p>
+                        </div>
                       </div>
-                      <span className={isFull ? "text-4xl lg:text-5xl font-black text-white tracking-widest font-mono block leading-none my-1.5" : "text-2xl lg:text-3xl font-black text-white tracking-widest font-mono block leading-none"}>
-                        #{String(o.id).slice(-4).padStart(4, '0')}
-                      </span>
-                      <p className={isFull ? "text-sm text-emerald-100 truncate font-black uppercase mt-2" : "text-[11px] text-emerald-100 truncate font-bold mt-1 uppercase"}>
-                        {displayName}
-                      </p>
+
+                      <div className={isFull
+                        ? "shrink-0 text-right bg-emerald-500/20 border border-emerald-400/60 rounded-xl px-3.5 py-2 animate-pulse"
+                        : "shrink-0 text-right bg-emerald-500/20 border border-emerald-400/55 rounded-lg px-2.5 py-1.5 animate-pulse"}
+                      >
+                        <div className="flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>Pronto em</span>
+                        </div>
+                        <div className={isFull ? "text-lg lg:text-xl font-black font-mono text-white leading-tight mt-0.5" : "text-xs font-black font-mono text-white leading-tight mt-0.5"}>
+                          {time}
+                        </div>
+                        <div className={isFull ? "text-[11px] font-bold font-mono text-emerald-200 leading-tight" : "text-[10px] font-bold font-mono text-emerald-200 leading-tight"}>
+                          {date}
+                        </div>
+                      </div>
                     </div>
                   );
                 })
               ) : (
-                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                <div className={isFull ? "py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
                   Nenhum pedido pronto no momento
                 </div>
               )}
@@ -1425,37 +1532,75 @@ export default function TvDisplay() {
         </div>
 
         {/* 3. ENTREGUE */}
-        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/70 rounded-3xl border border-sky-500/40 p-5 shadow-2xl" : "flex-[0.9] min-h-0 flex flex-col bg-stone-950/50 rounded-2xl border border-sky-500/25 p-3"}>
-          <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-sky-500/30 shrink-0">
+        <div className={isFull ? "h-full min-h-0 flex flex-col bg-stone-950/75 rounded-3xl border border-sky-500/45 p-5 shadow-2xl" : "flex-1 min-h-0 flex flex-col bg-stone-950/60 rounded-2xl border border-sky-500/35 p-3"}>
+          <div className="flex items-center justify-between gap-2 mb-2.5 lg:mb-3.5 pb-2.5 border-b border-sky-500/30 shrink-0">
             <div className="flex items-center gap-2.5">
-              <PackageCheck className={isFull ? "w-5 h-5 text-sky-400" : "w-3.5 h-3.5 text-sky-400"} />
+              <span className="relative flex h-3.5 w-3.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-sky-400" />
+              </span>
+              <PackageCheck className={isFull ? "w-5 h-5 text-sky-400 animate-pulse" : "w-4 h-4 text-sky-400 animate-pulse"} />
               <h4 className={isFull ? "text-base lg:text-lg font-black uppercase tracking-wider text-sky-400" : "text-xs lg:text-sm font-black uppercase tracking-wider text-sky-400"}>
                 ENTREGUE
               </h4>
             </div>
-            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30" : "text-[11px] font-black px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30"}>
+            <span className={isFull ? "text-sm font-black px-3.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 animate-pulse" : "text-[11px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 animate-pulse"}>
               {deliveredOrders.length}
             </span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-            <div className={isFull ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "grid grid-cols-2 gap-2"}>
+            <div className={isFull ? "flex flex-col gap-3" : "flex flex-col gap-2"}>
               {deliveredOrders.length > 0 ? (
-                deliveredOrders.map(o => (
-                  <div key={o.id} className={isFull ? "bg-stone-900/90 border border-sky-500/30 p-3.5 rounded-2xl text-center opacity-90 shadow-md" : "bg-stone-900/90 border border-sky-500/25 p-2 rounded-xl text-center opacity-90"}>
-                    <div className={isFull ? "flex items-center justify-center gap-1.5 text-xs text-sky-400 font-bold uppercase" : "flex items-center justify-center gap-1 text-[10px] text-sky-400 font-bold uppercase"}>
-                      <CheckCircle2 className={isFull ? "w-4 h-4" : "w-3 h-3"} />
-                      <span>Entregue</span>
+                deliveredOrders.map(o => {
+                  const stageTs = Number(o.deliveredAt || o.deliveryCompletedAt || stageTimestampsRef.current.get(String(o.id))?.deliveredAt || o.updatedAt || o.createdAt || 0);
+                  const { date, time } = formatStageDateTimeParts(stageTs);
+                  return (
+                    <div
+                      key={o.id}
+                      className={isFull
+                        ? "w-full bg-stone-900/95 border border-sky-500/40 px-4 py-3.5 rounded-2xl shadow-lg flex items-center justify-between gap-4"
+                        : "w-full bg-stone-900/95 border border-sky-500/35 px-3 py-2.5 rounded-xl shadow-md flex items-center justify-between gap-3"}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="relative flex h-3 w-3 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-400" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className={isFull ? "text-[11px] text-sky-300/90 font-black uppercase tracking-wider" : "text-[10px] text-sky-300/90 font-bold uppercase tracking-wider"}>
+                              Pedido
+                            </span>
+                            <span className={isFull ? "text-2xl lg:text-3xl font-black text-sky-200 font-mono leading-none tracking-wide" : "text-lg font-black text-sky-200 font-mono leading-none tracking-wide"}>
+                              #{String(o.id).slice(-4).padStart(4, '0')}
+                            </span>
+                          </div>
+                          <p className={isFull ? "text-sm text-stone-300 truncate font-bold uppercase mt-1" : "text-xs text-stone-300 truncate font-semibold mt-0.5 uppercase"}>
+                            {cleanCustomerNameForTvVoice(o.customerName)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={isFull
+                        ? "shrink-0 text-right bg-sky-500/15 border border-sky-400/45 rounded-xl px-3.5 py-2 animate-pulse"
+                        : "shrink-0 text-right bg-sky-500/15 border border-sky-400/40 rounded-lg px-2.5 py-1.5 animate-pulse"}
+                      >
+                        <div className="flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wider text-sky-300">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>Entregue em</span>
+                        </div>
+                        <div className={isFull ? "text-base lg:text-lg font-black font-mono text-sky-100 leading-tight mt-0.5" : "text-xs font-black font-mono text-sky-100 leading-tight mt-0.5"}>
+                          {time}
+                        </div>
+                        <div className={isFull ? "text-[11px] font-bold font-mono text-sky-300/90 leading-tight" : "text-[10px] font-bold font-mono text-sky-300/90 leading-tight"}>
+                          {date}
+                        </div>
+                      </div>
                     </div>
-                    <span className={isFull ? "text-2xl lg:text-3xl font-black text-sky-200 font-mono leading-tight block my-1" : "text-base font-black text-sky-200 font-mono leading-tight block"}>
-                      #{String(o.id).slice(-4).padStart(4, '0')}
-                    </span>
-                    <p className={isFull ? "text-xs lg:text-sm text-stone-400 truncate font-bold uppercase mt-1" : "text-[10px] text-stone-400 truncate font-medium mt-0.5"}>
-                      {o.customerName || 'Cliente'}
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               ) : (
-                <div className={isFull ? "col-span-full py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "col-span-2 py-3 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
+                <div className={isFull ? "py-16 text-center text-stone-500 bg-stone-900/65 rounded-2xl border border-stone-800 text-base font-bold" : "py-4 text-center text-stone-500 bg-stone-900/60 rounded-xl border border-stone-800 text-xs font-medium"}>
                   Nenhum pedido entregue recentemente
                 </div>
               )}
@@ -2048,7 +2193,7 @@ export default function TvDisplay() {
                   <BellRing className="w-6 h-6 animate-bounce" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-wider truncate">Painel de Senhas e Pedidos</h3>
+                  <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-wider truncate">Painel de Pedidos</h3>
                   <p className="text-xs text-stone-400 font-bold truncate">Chamada automática 3x a cada 30s para pedidos prontos</p>
                 </div>
               </div>
@@ -2115,10 +2260,10 @@ export default function TvDisplay() {
               </div>
             </div>
 
-            {/* Password Number */}
+            {/* Order Number */}
             <div className="my-4">
               <span className="text-stone-400 text-sm font-bold uppercase tracking-widest block mb-1">
-                Número da Senha
+                Número do Pedido
               </span>
               <div className="text-8xl md:text-9xl font-black text-amber-400 font-mono tracking-wider drop-shadow-[0_0_35px_rgba(245,158,11,0.6)]">
                 #{activeCall.orderNumber}
