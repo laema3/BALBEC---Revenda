@@ -589,7 +589,7 @@ interface StoreState {
   deleteTvMedia: (id: string) => Promise<void>;
 
   placeOrder: (order: Omit<Order, 'id' | 'createdAt' | 'status'> & { status?: Order['status']; deliveryStatus?: Order['deliveryStatus'] }) => Promise<Order>;
-  updateOrderStatus: (id: string, status: Order['status']) => Promise<void>;
+  updateOrderStatus: (id: string, status: Order['status'], masterPassword?: string) => Promise<void>;
   confirmOrderPayment: (id: string, password: string, operatorName?: string) => Promise<{ success: boolean; order?: Order; error?: string }>;
   markOrderPrinted: (id: string) => Promise<void>;
   appendItemsToOrder: (orderId: string, newItems: OrderItem[]) => Promise<{ success: boolean; order?: Order; error?: string }>;
@@ -2050,7 +2050,7 @@ export const useStore = create<StoreState>((set, get) => ({
     return createdOrder;
   },
   
-  updateOrderStatus: async (id, status) => {
+  updateOrderStatus: async (id, status, masterPassword) => {
     const targetId = String(id).trim();
     const deliveryStatus: Order['deliveryStatus'] = 
       status === 'out_for_delivery' ? 'in_transit' :
@@ -2060,13 +2060,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const prevOrders = get().orders;
     const lockTs = Date.now();
-    ordersMutationEpoch++;
-    recentOrderMutationLocks.set(targetId, {
-      status,
-      ...(deliveryStatus ? { deliveryStatus } : {}),
-      updatedAt: lockTs,
-      expiresAt: lockTs + 8000
-    });
+    const trimmedMasterPwd = String(masterPassword || '').trim();
+    const isPasswordAuthorizedChange = trimmedMasterPwd.length > 0;
 
     const stageTimestampPatch: Partial<Order> =
       status === 'preparing'
@@ -2077,23 +2072,39 @@ export const useStore = create<StoreState>((set, get) => ({
         ? { deliveredAt: lockTs, deliveryCompletedAt: lockTs }
         : {};
 
-    // Atualização otimista imediata com garantia de reversão em falha
-    set(state => {
-      const next: Order[] = state.orders.map(o => String(o.id).trim() === targetId ? { 
-        ...o, 
+    const applyLocalStatusUpdate = () => {
+      ordersMutationEpoch++;
+      recentOrderMutationLocks.set(targetId, {
         status,
         ...(deliveryStatus ? { deliveryStatus } : {}),
-        ...stageTimestampPatch,
-        updatedAt: lockTs
-      } as any : o);
-      saveOrdersToStorage(next);
-      return { orders: next };
-    });
+        updatedAt: lockTs,
+        expiresAt: lockTs + 8000
+      });
+      set(state => {
+        const next: Order[] = state.orders.map(o => String(o.id).trim() === targetId ? { 
+          ...o, 
+          status,
+          ...(deliveryStatus ? { deliveryStatus } : {}),
+          ...stageTimestampPatch,
+          updatedAt: lockTs
+        } as any : o);
+        saveOrdersToStorage(next);
+        return { orders: next };
+      });
+    };
+
+    // Para avanço normal, aplica atualização otimista imediata; quando envolve senha Master (voltar status), aguarda validação do servidor antes de alterar a tela
+    if (!isPasswordAuthorizedChange) {
+      applyLocalStatusUpdate();
+    }
 
     try {
       const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isPasswordAuthorizedChange ? { 'x-master-password': trimmedMasterPwd } : {})
+        },
         body: JSON.stringify({ 
           status,
           ...(deliveryStatus ? { deliveryStatus } : {}),
@@ -2104,11 +2115,16 @@ export const useStore = create<StoreState>((set, get) => ({
         const errData = await res.json().catch(() => null);
         throw new Error(errData?.error || `HTTP ${res.status}`);
       }
+      if (isPasswordAuthorizedChange) {
+        applyLocalStatusUpdate();
+      }
     } catch (error) {
-      recentOrderMutationLocks.delete(targetId);
-      ordersMutationEpoch++;
-      saveOrdersToStorage(prevOrders);
-      set({ orders: prevOrders });
+      if (!isPasswordAuthorizedChange) {
+        recentOrderMutationLocks.delete(targetId);
+        ordersMutationEpoch++;
+        saveOrdersToStorage(prevOrders);
+        set({ orders: prevOrders });
+      }
       console.error('Error updating order status:', error);
       throw error;
     }

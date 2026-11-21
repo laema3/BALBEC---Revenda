@@ -5,6 +5,7 @@ import { eq, desc, asc, sql } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { registerAiRoutes } from './aiAssistant';
 import { cleanProductDescription } from '../constants';
 import { printOrderToNetworkPrinter } from './printerRoutes';
@@ -3216,9 +3217,29 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.put('/api/db/orders/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
+    const rawMasterPwd = String(req.headers['x-master-password'] || req.body?.masterPassword || '').trim();
     const data = { ...req.body };
+    delete data.masterPassword;
 
     const updatedTimestamp = Date.now();
+
+    const targetId = String(id).trim();
+    let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
+    if (!matchedOrder && targetId.length >= 4) {
+      matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
+    }
+    const resolvedId = matchedOrder ? String(matchedOrder.id).trim() : targetId;
+
+    // Medida de segurança: voltar status de um pedido já avançado (ou reabrir cancelado / cancelar entregue) exige senha Master
+    if (matchedOrder && data.status && isOrderStatusRollbackServer(matchedOrder.status, data.status)) {
+      if (!isValidMasterPasswordServer(rawMasterPwd)) {
+        return res.status(403).json({
+          success: false,
+          code: 'MASTER_PASSWORD_REQUIRED',
+          error: 'Senha Master incorreta! Para voltar atrás no status de um pedido, é obrigatória a confirmação com a senha Master.'
+        });
+      }
+    }
 
     // Sincronizar deliveryStatus e timestamps de etapa automaticamente conforme o status do pedido
     if (data.status) {
@@ -3242,13 +3263,6 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         data.deliveryStatus = 'cancelled';
       }
     }
-
-    const targetId = String(id).trim();
-    let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
-    if (!matchedOrder && targetId.length >= 4) {
-      matchedOrder = memOrders.find(o => String(o.id).endsWith(targetId) || targetId.endsWith(String(o.id)));
-    }
-    const resolvedId = matchedOrder ? String(matchedOrder.id).trim() : targetId;
 
     // Bloqueia envio para produção (preparando, pronto, concluído) se pedido de congelados 50% ainda não foi confirmado pelo operador
     const isAdvancingToProduction = Boolean(
@@ -3719,11 +3733,54 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     }
   });
 
-  const MASTER_SECURITY_PASSWORD = 'MASTERBALBEC';
+  const MASTER_SECURITY_PASSWORD = process.env.MASTER_SECURITY_PASSWORD || 'MASTERBALBEC';
+
+  function isValidMasterPasswordServer(candidate: string): boolean {
+    const provided = String(candidate || '').trim();
+    const expected = String(MASTER_SECURITY_PASSWORD || '').trim();
+    if (!provided || !expected) return false;
+    const providedBuf = Buffer.from(provided, 'utf8');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    if (providedBuf.length !== expectedBuf.length) return false;
+    return crypto.timingSafeEqual(providedBuf, expectedBuf);
+  }
+
+  function getOrderStatusStageRankServer(status?: string): number {
+    switch (String(status || '').trim()) {
+      case 'pending':
+        return 0;
+      case 'preparing':
+        return 1;
+      case 'ready':
+      case 'ready_for_pickup':
+      case 'ready_for_delivery':
+      case 'out_for_delivery':
+        return 2;
+      case 'completed':
+        return 3;
+      case 'cancelled':
+        return -1;
+      default:
+        return 0;
+    }
+  }
+
+  function isOrderStatusRollbackServer(currentStatus?: string, nextStatus?: string): boolean {
+    const cur = String(currentStatus || 'pending').trim();
+    const next = String(nextStatus || '').trim();
+    if (!next || cur === next) return false;
+    // Reabrir pedido cancelado para qualquer status ativo exige senha Master
+    if (cur === 'cancelled' && next !== 'cancelled') return true;
+    // Cancelar pedido que já foi entregue exige senha Master
+    if (cur === 'completed' && next === 'cancelled') return true;
+    const curRank = getOrderStatusStageRankServer(cur);
+    const nextRank = getOrderStatusStageRankServer(next);
+    return curRank > 0 && nextRank >= 0 && nextRank < curRank;
+  }
 
   app.post('/api/db/master/verify', (req: Request, res: Response) => {
     const rawMasterPwd = String(req.body?.masterPassword || '').trim();
-    if (rawMasterPwd !== MASTER_SECURITY_PASSWORD) {
+    if (!isValidMasterPasswordServer(rawMasterPwd)) {
       return res.status(403).json({
         success: false,
         error: 'Senha Master incorreta! Verifique e tente novamente.'
@@ -3734,7 +3791,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
   app.delete('/api/db/orders', async (req: Request, res: Response) => {
     const rawMasterPwd = String(req.headers['x-master-password'] || req.body?.masterPassword || '').trim();
-    if (rawMasterPwd !== MASTER_SECURITY_PASSWORD) {
+    if (!isValidMasterPasswordServer(rawMasterPwd)) {
       return res.status(403).json({
         success: false,
         error: 'Senha Master incorreta! É necessária a confirmação com a senha Master para zerar os pedidos.'
@@ -3761,7 +3818,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
   app.delete('/api/db/orders/:id', async (req: Request, res: Response) => {
     try {
       const rawMasterPwd = String(req.headers['x-master-password'] || req.body?.masterPassword || '').trim();
-      if (rawMasterPwd !== MASTER_SECURITY_PASSWORD) {
+      if (!isValidMasterPasswordServer(rawMasterPwd)) {
         return res.status(403).json({
           success: false,
           error: 'Senha Master incorreta! É necessária a confirmação com a senha Master para excluir este pedido.'

@@ -238,10 +238,12 @@ export default function Admin() {
     isSubmitting: boolean;
   } | null>(null);
   const [masterAuthModal, setMasterAuthModal] = useState<{
-    action: 'delete_order' | 'clear_all_orders' | 'view_payment_audit' | 'view_single_order_confirmer';
+    action: 'delete_order' | 'clear_all_orders' | 'view_payment_audit' | 'view_single_order_confirmer' | 'revert_order_status';
     title: string;
     description: string;
     orderId?: string;
+    currentStatus?: Order['status'];
+    targetStatus?: Order['status'];
     password: string;
     showPassword: boolean;
     error: string | null;
@@ -3117,6 +3119,21 @@ export default function Admin() {
         return;
       }
 
+      if (masterAuthModal.action === 'revert_order_status' && masterAuthModal.orderId && masterAuthModal.targetStatus) {
+        const orderNum = String(masterAuthModal.orderId).slice(-4).padStart(4, '0');
+        const nextLabel = getOrderStatusDisplayName(masterAuthModal.targetStatus);
+        processedOrderIds.current.add(masterAuthModal.orderId);
+        await updateOrderStatus(masterAuthModal.orderId, masterAuthModal.targetStatus, pwd);
+        stopAlarm();
+        playStatusChangeAudio();
+        setMasterAuthModal(null);
+        showInfoModal(
+          'Status Alterado (Master)',
+          `O status do Pedido #${orderNum} foi alterado para "${nextLabel}" com autorização Master.`
+        );
+        return;
+      }
+
       const verifyRes = await fetch('/api/db/master/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3188,8 +3205,78 @@ export default function Admin() {
     }
   };
 
+  const getOrderStatusStageRank = (status?: Order['status'] | string): number => {
+    switch (String(status || '').trim()) {
+      case 'pending':
+        return 0;
+      case 'preparing':
+        return 1;
+      case 'ready':
+      case 'ready_for_pickup':
+      case 'ready_for_delivery':
+      case 'out_for_delivery':
+        return 2;
+      case 'completed':
+        return 3;
+      case 'cancelled':
+        return -1;
+      default:
+        return 0;
+    }
+  };
+
+  const getOrderStatusDisplayName = (status?: Order['status'] | string): string => {
+    switch (String(status || '').trim()) {
+      case 'pending':
+        return 'Pendente';
+      case 'preparing':
+        return 'Preparando';
+      case 'ready':
+      case 'ready_for_pickup':
+      case 'ready_for_delivery':
+      case 'out_for_delivery':
+        return 'Pedido Pronto';
+      case 'completed':
+        return 'Entregue';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return String(status || 'Desconhecido');
+    }
+  };
+
+  const isOrderStatusRollback = (currentStatus?: Order['status'], nextStatus?: Order['status']): boolean => {
+    if (!currentStatus || !nextStatus) return false;
+    if (currentStatus === nextStatus) return false;
+    // Reabrir um pedido já cancelado exige senha Master
+    if (currentStatus === 'cancelled' && nextStatus !== 'cancelled') return true;
+    // Cancelar um pedido que já está como Entregue exige senha Master
+    if (currentStatus === 'completed' && nextStatus === 'cancelled') return true;
+    const currentRank = getOrderStatusStageRank(currentStatus);
+    const nextRank = getOrderStatusStageRank(nextStatus);
+    return currentRank > 0 && nextRank >= 0 && nextRank < currentRank;
+  };
+
   const handleUpdateOrderStatus = async (id: string, status: Order['status']) => {
     const targetOrder = orders.find(o => o.id === id) || rawOrders.find(o => o.id === id);
+    if (targetOrder) {
+      const normalizedCurrent =
+        targetOrder.status === 'ready_for_pickup' ||
+        targetOrder.status === 'ready_for_delivery' ||
+        targetOrder.status === 'out_for_delivery'
+          ? 'ready'
+          : targetOrder.status;
+      const normalizedNext =
+        status === 'ready_for_pickup' ||
+        status === 'ready_for_delivery' ||
+        status === 'out_for_delivery'
+          ? 'ready'
+          : status;
+      if (normalizedCurrent === normalizedNext) {
+        return;
+      }
+    }
+
     if (
       targetOrder &&
       status !== 'pending' &&
@@ -3207,14 +3294,49 @@ export default function Admin() {
       return;
     }
 
-    try {
+    const shortId = String(id).slice(-4).padStart(4, '0');
+    const currentLabel = getOrderStatusDisplayName(targetOrder?.status);
+    const nextLabel = getOrderStatusDisplayName(status);
+    const customerLabel = targetOrder?.customerName ? ` (${targetOrder.customerName})` : '';
+
+    // Regra de segurança: voltar atrás no status exige senha Master
+    if (targetOrder && isOrderStatusRollback(targetOrder.status, status)) {
       stopAlarm();
-      playStatusChangeAudio();
-      await updateOrderStatus(id, status);
-    } catch (error: any) {
-      console.error('Error updating order status:', error);
-      showInfoModal('Erro ao Atualizar Status', error?.message || 'Não foi possível salvar o novo status do pedido no servidor. Tente novamente.');
+      setMasterAuthModal({
+        action: 'revert_order_status',
+        title: `Voltar Status • Pedido #${shortId}`,
+        description: `Você está tentando voltar o status do Pedido #${shortId}${customerLabel} de "${currentLabel}" para "${nextLabel}".\n\nPor medida de segurança, informe a senha Master para autorizar esta reversão.`,
+        orderId: id,
+        currentStatus: targetOrder.status,
+        targetStatus: status,
+        password: '',
+        showPassword: false,
+        error: null,
+        isSubmitting: false
+      });
+      return;
     }
+
+    // Fluxo normal (avanço de status): confirmar com o operador antes de alterar
+    stopAlarm();
+    setConfirmModal({
+      isOpen: true,
+      title: `Confirmar Alteração • Pedido #${shortId}`,
+      message: `Deseja realmente alterar o status do Pedido #${shortId}${customerLabel} de "${currentLabel}" para "${nextLabel}"?`,
+      confirmText: 'Sim, Alterar Status',
+      cancelText: 'Cancelar',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          stopAlarm();
+          playStatusChangeAudio();
+          await updateOrderStatus(id, status);
+        } catch (error: any) {
+          console.error('Error updating order status:', error);
+          showInfoModal('Erro ao Atualizar Status', error?.message || 'Não foi possível salvar o novo status do pedido no servidor. Tente novamente.');
+        }
+      }
+    });
   };
 
   const handleCallOnTv = async (order: Order) => {
@@ -3237,10 +3359,30 @@ export default function Admin() {
 
   const handleCancelOrder = async (id: string) => {
     stopAlarm();
+    const targetOrder = orders.find(o => o.id === id) || rawOrders.find(o => o.id === id);
+    if (targetOrder && targetOrder.status === 'completed') {
+      const shortId = String(id).slice(-4).padStart(4, '0');
+      setMasterAuthModal({
+        action: 'revert_order_status',
+        title: `Cancelar Pedido Entregue • #${shortId}`,
+        description: `O Pedido #${shortId} já está marcado como "Entregue". Por medida de segurança, informe a senha Master para alterar o status para "Cancelado".`,
+        orderId: id,
+        currentStatus: targetOrder.status,
+        targetStatus: 'cancelled',
+        password: '',
+        showPassword: false,
+        error: null,
+        isSubmitting: false
+      });
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
       title: 'Cancelar Pedido',
-      message: 'Tem certeza que deseja cancelar este pedido?',
+      message: 'Deseja realmente alterar o status deste pedido para "Cancelado"?',
+      confirmText: 'Sim, Cancelar Pedido',
+      cancelText: 'Voltar',
       onConfirm: async () => {
         try {
           await updateOrderStatus(id, 'cancelled');
@@ -10212,12 +10354,16 @@ export default function Admin() {
             <div className={`px-5 py-4 flex items-center justify-between text-white ${
               masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders'
                 ? 'bg-red-700'
+                : masterAuthModal.action === 'revert_order_status'
+                ? 'bg-amber-700'
                 : 'bg-stone-900'
             }`}>
               <div className="flex items-center gap-2.5">
                 <Lock className={`w-5 h-5 ${
                   masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders'
                     ? 'text-red-200'
+                    : masterAuthModal.action === 'revert_order_status'
+                    ? 'text-amber-200'
                     : 'text-amber-400'
                 }`} />
                 <div>
@@ -10240,7 +10386,7 @@ export default function Admin() {
             </div>
 
             <form onSubmit={handleSubmitMasterAuth} className="p-5 space-y-4">
-              <p className="text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
+              <p className="text-xs sm:text-sm text-stone-700 font-medium leading-relaxed whitespace-pre-line">
                 {masterAuthModal.description}
               </p>
 
@@ -10292,6 +10438,8 @@ export default function Admin() {
                   className={`px-5 py-2.5 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
                     masterAuthModal.action === 'delete_order' || masterAuthModal.action === 'clear_all_orders'
                       ? 'bg-red-600 hover:bg-red-700'
+                      : masterAuthModal.action === 'revert_order_status'
+                      ? 'bg-amber-600 hover:bg-amber-700'
                       : 'bg-stone-900 hover:bg-stone-800 text-amber-300'
                   }`}
                 >
@@ -10304,6 +10452,11 @@ export default function Admin() {
                     <>
                       <Trash2 className="w-4 h-4" />
                       Autorizar Exclusão
+                    </>
+                  ) : masterAuthModal.action === 'revert_order_status' ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      Autorizar Alteração
                     </>
                   ) : (
                     <>
