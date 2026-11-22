@@ -255,6 +255,7 @@ export default function Admin() {
     search: string;
   }>({ isOpen: false, focusOrderId: null, search: '' });
   const [modalType, setModalType] = useState<'category' | 'product' | 'user' | null>(null);
+  const [categorySaleMode, setCategorySaleMode] = useState<'pack' | 'unit'>('pack');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedFrozenCategoryId, setSelectedFrozenCategoryId] = useState<string>('');
@@ -2620,6 +2621,8 @@ export default function Admin() {
       setSelectedCategoryId(item?.categoryId || '');
       setSelectedFrozenCategoryId(item?.frozenCategoryId || '');
       setIsFlavorInModal(item?.isFlavor || false);
+    } else if (type === 'category') {
+      setCategorySaleMode(item?.saleMode || 'pack');
     }
     setIsModalOpen(true);
   };
@@ -10864,7 +10867,8 @@ export default function Admin() {
                   <label className="block text-sm font-bold text-stone-700 mb-1">Modo de Venda (Preço e Quantidade)</label>
                   <select
                     name="saleMode"
-                    defaultValue={editingItem?.saleMode || 'pack'}
+                    value={categorySaleMode}
+                    onChange={(e) => setCategorySaleMode(e.target.value as 'pack' | 'unit')}
                     className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-stone-50"
                   >
                     <option value="pack">🔢 Por Quantidade / Lote (Mínimo / Pacote - Ex: 20 ou 25 un)</option>
@@ -10875,19 +10879,23 @@ export default function Admin() {
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-1">Quantidade por Lote / Pacote (Ex: 20 ou 25)</label>
-                  <input
-                    type="number"
-                    name="defaultPackSize"
-                    min={1}
-                    defaultValue={editingItem?.defaultPackSize || 25}
-                    className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-stone-50"
-                  />
-                  <p className="text-[11px] text-stone-500 mt-1">
-                    Defina quantas unidades compõem o lote/pacote desta categoria para que o cliente saiba exatamente ao comprar.
-                  </p>
-                </div>
+                {categorySaleMode === 'pack' && (
+                  <div className="bg-orange-50/60 border border-orange-200 rounded-xl p-3.5 space-y-1.5 animate-fadeIn">
+                    <label className="block text-sm font-extrabold text-orange-950 mb-1">
+                      📦 Digite a Quantidade por Lote / Pacote
+                    </label>
+                    <input
+                      type="number"
+                      name="defaultPackSize"
+                      min={1}
+                      defaultValue={editingItem?.defaultPackSize || 25}
+                      className="w-full p-2.5 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-white"
+                    />
+                    <p className="text-[11px] text-orange-800">
+                      Ex: 25 unidades. Ao escolher venda por lote, o sistema usará esta quantidade como base e multiplicador automático para o cliente.
+                    </p>
+                  </div>
+                )}
                 
                 <div className="pt-2 border-t border-stone-100">
                   <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 mb-3">
