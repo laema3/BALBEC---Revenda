@@ -329,6 +329,26 @@ export async function exportOrderToBlueFocusSoap(params: {
 
   const lines: ExportLine[] = [];
 
+  function getProductPackSize(codeOrItem: any): number {
+    const code = typeof codeOrItem === 'string' ? codeOrItem : String(codeOrItem?.code || codeOrItem?.externalId || codeOrItem?.productId || '').trim();
+    const numericCode = code.replace(/\D/g, '');
+
+    const group25 = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427'];
+    const group20 = ['1416', '1419', '1420', '1421', '1422', '1423', '1424'];
+
+    if (group25.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
+      return 25;
+    }
+    if (group20.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
+      return 20;
+    }
+    const minFroz = Number(codeOrItem?.minFrozenQuantity);
+    if (!isNaN(minFroz) && minFroz > 1) {
+      return minFroz;
+    }
+    return 1;
+  }
+
   for (const item of order.items) {
     if (!item) continue;
     const qty = Math.max(0.001, Number(item.quantity) || 1);
@@ -355,10 +375,13 @@ export async function exportOrderToBlueFocusSoap(params: {
       obsParts.push(String(item.notes).trim());
     }
 
+    const packSize = getProductPackSize(mainCode);
+    const effectiveUnitPrice = packSize > 1 ? Number(item.price || 0) / packSize : Number(item.price || 0);
+
     lines.push({
       code: mainCode,
       quantity: qty,
-      unitPrice: Math.max(0, Number(item.price || 0)),
+      unitPrice: Math.max(0, effectiveUnitPrice),
       obs: obsParts.join(' | ').substring(0, 200),
     });
 

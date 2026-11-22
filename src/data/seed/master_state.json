@@ -33,15 +33,15 @@
     "ntfyTopic": "balbecrevenda_pedidos",
     "ntfyEnabled": true,
     "tvTickerText": "🥟 Salgados fresquinhos e crocantes para revenda e consumo! Peça pelo app ou no balcão!",
-    "tvMode": "split_orders",
+    "tvMode": "fullscreen_orders",
     "tvSelectedCategories": "[]",
-    "tvSoundEnabled": false,
+    "tvSoundEnabled": true,
     "tvShowClock": true,
     "tvShowCaptions": false,
     "isMaintenance": false,
     "maintenanceMessage": "Estamos atualizando nosso cardápio e sistemas para melhor atendê-lo. Voltaremos em breve!",
     "weeklySchedule": "[{\"dayOfWeek\":0,\"dayName\":\"Domingo\",\"shortName\":\"Dom\",\"isOpen\":false,\"openTime\":\"07:00\",\"closeTime\":\"13:00\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"},{\"dayOfWeek\":1,\"dayName\":\"Segunda-feira\",\"shortName\":\"Seg\",\"isOpen\":true,\"openTime\":\"09:00\",\"closeTime\":\"19:30\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"},{\"dayOfWeek\":2,\"dayName\":\"Terça-feira\",\"shortName\":\"Ter\",\"isOpen\":true,\"openTime\":\"09:00\",\"closeTime\":\"19:30\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"},{\"dayOfWeek\":3,\"dayName\":\"Quarta-feira\",\"shortName\":\"Qua\",\"isOpen\":true,\"openTime\":\"09:00\",\"closeTime\":\"19:30\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"},{\"dayOfWeek\":4,\"dayName\":\"Quinta-feira\",\"shortName\":\"Qui\",\"isOpen\":true,\"openTime\":\"09:00\",\"closeTime\":\"19:30\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"},{\"dayOfWeek\":5,\"dayName\":\"Sexta-feira\",\"shortName\":\"Sex\",\"isOpen\":true,\"openTime\":\"09:00\",\"closeTime\":\"13:00\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"},{\"dayOfWeek\":6,\"dayName\":\"Sábado\",\"shortName\":\"Sáb\",\"isOpen\":true,\"openTime\":\"09:00\",\"closeTime\":\"19:30\",\"hasBreak\":false,\"breakStart\":\"\",\"breakEnd\":\"\"}]",
-    "autoOpenClose": false,
+    "autoOpenClose": true,
     "forceOpen": true,
     "closedMessage": "Estamos fechados no momento. Confira nossos horários de atendimento!",
     "aiAgentEnabled": false,
@@ -90,7 +90,7 @@
     "smsRemindersEnabled": true,
     "autoSmsWebhookUrl": "",
     "autoSmsApiKey": "",
-    "blueFocusExportConfig": "{\"empresaId\":\"MARCOSFELI\",\"usuarioId\":\"APPBALBEC\",\"pdvCodigo\":\"1000\",\"pessoaId\":\"0\",\"syncUrl\":\"https://www.app.bluefocus.com.br/BlueFocusCloud/servlet/aintegracaofcxexportacadsat?wsdl\",\"orderUrl\":\"https://www.app.bluefocus.com.br/BlueFocusCloud/servlet/aintegracaofcxexportacadsat?wsdl\",\"tipoAtualizacao\":\"C\",\"tipo\":\"4\",\"dataInicial\":\"30/12/1899\",\"startCargaNumero\":\"15270\",\"startCargaSequencia\":\"1751\",\"startProdutoId\":\"2283\",\"authToken\":\"b022f872-e257-4453-beba-3e4f4bf5ab19\",\"batchSize\":\"4\",\"preserveManualPrices\":true,\"autoExportMode\":\"manual\",\"defaultClienteId\":\"100\",\"formaDinheiroId\":\"1\",\"formaPixId\":\"1\",\"formaDebitoId\":\"1\",\"formaCreditoId\":\"1\",\"autoSyncEnabled\":true,\"_fullSyncedAt\":1795087624211}",
+    "blueFocusExportConfig": "{\"empresaId\":\"MARCOSFELI\",\"usuarioId\":\"APPBALBEC\",\"pdvCodigo\":\"1000\",\"pessoaId\":\"0\",\"syncUrl\":\"https://www.app.bluefocus.com.br/BlueFocusCloud/servlet/aintegracaofcxexportacadsat?wsdl\",\"orderUrl\":\"https://www.app.bluefocus.com.br/BlueFocusCloud/servlet/aintegracaofcxexportacadsat?wsdl\",\"tipoAtualizacao\":\"C\",\"tipo\":\"4\",\"dataInicial\":\"30/12/1899\",\"startCargaNumero\":\"15275\",\"startCargaSequencia\":\"1751\",\"startProdutoId\":\"2283\",\"authToken\":\"b022f872-e257-4453-beba-3e4f4bf5ab19\",\"batchSize\":\"4\",\"preserveManualPrices\":true,\"autoExportMode\":\"manual\",\"defaultClienteId\":\"100\",\"formaDinheiroId\":\"1\",\"formaPixId\":\"1\",\"formaDebitoId\":\"1\",\"formaCreditoId\":\"1\",\"autoSyncEnabled\":true,\"_fullSyncedAt\":1795216112844}",
     "onlinePaymentEnabled": false,
     "onlinePaymentOperator": "mercadopago",
     "onlinePaymentPublicKey": "",
@@ -98,7 +98,7 @@
     "orderSoundEnabled": true,
     "orderChimeEnabled": true,
     "_isSeed": false,
-    "updatedAt": 1795087624968
+    "updatedAt": 1795262924293
   },
   "tvMedia": [
     {
@@ -181791,18 +181791,18 @@
       "2ne2h6e": 1794861125636
     },
     "orders": {
-      "0001": 1795087721214,
-      "0002": 1795087718981,
-      "0006": 1795087698717,
-      "0005": 1795087704242,
-      "0004": 1795087714603,
-      "0003": 1795087716810,
-      "0007": 1795087702762,
-      "0008": 1795087700733,
-      "0009": 1795087705665,
-      "0012": 1795087706892,
-      "0011": 1795087708561,
-      "0010": 1795087710027
+      "0001": 1795278890690,
+      "0002": 1795263163409,
+      "0006": 1795264886527,
+      "0005": 1795263186661,
+      "0004": 1795260135027,
+      "0003": 1795263174237,
+      "0007": 1795265298649,
+      "0008": 1795265287172,
+      "0009": 1795265276977,
+      "0012": 1795199328273,
+      "0011": 1795199341255,
+      "0010": 1795265265230
     },
     "customers": {},
     "users": {},
@@ -181811,7 +181811,7 @@
       "tv_1792500213194_ovy69": 1794664174047
     },
     "totemBackups": {},
-    "ordersClearedAt": 0,
-    "updatedAt": 1795175302641
+    "ordersClearedAt": 1795265311278,
+    "updatedAt": 1795344019375
   }
 }

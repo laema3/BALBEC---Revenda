@@ -48,6 +48,15 @@ export default function Menu() {
     return isFrozen ? Math.max(base, explicit) : base;
   };
 
+  const getEffectiveItemTotal = useCallback((item: any) => {
+    const prod = products.find(p => p.id === item.productId);
+    const packSize = getProductMinQuantity(prod || item);
+    const effectiveMultiplier = packSize > 1 ? (item.quantity / packSize) : item.quantity;
+    const addonsTotal = item.addons?.reduce((addonSum, addon) => addonSum + addon.price, 0) || 0;
+    const flavorTotal = item.flavor?.price || 0;
+    return (item.price + flavorTotal + addonsTotal) * effectiveMultiplier;
+  }, [products]);
+
   useEffect(() => {
     if (!cartToastMessage) return;
     const timer = setTimeout(() => {
@@ -838,12 +847,8 @@ export default function Menu() {
   }, [appendOrderTarget, isCartItemFrozen]);
 
   const appendCartSubtotal = useMemo(() => {
-    return appendCart.reduce((sum, item) => {
-      const addonsTotal = item.addons?.reduce((addonSum, addon) => addonSum + addon.price, 0) || 0;
-      const flavorTotal = item.flavor?.price || 0;
-      return sum + ((item.price + flavorTotal + addonsTotal) * item.quantity);
-    }, 0);
-  }, [appendCart]);
+    return appendCart.reduce((sum, item) => sum + getEffectiveItemTotal(item), 0);
+  }, [appendCart, getEffectiveItemTotal]);
 
   const handleStartAppendOrder = useCallback((order: Order) => {
     if (!isOrderEligibleForAppend(order)) {
@@ -3159,11 +3164,7 @@ export default function Menu() {
     });
   };
 
-  const subtotal = cart.reduce((sum, item) => {
-    const addonsTotal = item.addons?.reduce((addonSum, addon) => addonSum + addon.price, 0) || 0;
-    const flavorTotal = item.flavor?.price || 0;
-    return sum + ((item.price + flavorTotal + addonsTotal) * item.quantity);
-  }, 0);
+  const subtotal = cart.reduce((sum, item) => sum + getEffectiveItemTotal(item), 0);
 
   const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
   const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
@@ -8453,7 +8454,7 @@ export default function Menu() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between font-bold mb-1">
                         <span className="line-clamp-1 pr-2 text-stone-900">{formatCapitalized(item.name)}</span>
-                        <span className="text-orange-600 font-black">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</span>
+                        <span className="text-orange-600 font-black">{formatCurrency(getEffectiveItemTotal(item))}</span>
                       </div>
                       {item.prepLabel ? (
                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider my-0.5 border ${
@@ -8500,7 +8501,15 @@ export default function Menu() {
                       )}
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
                         <div className="flex flex-col">
-                          <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0))} un</span>
+                          {(() => {
+                            const prod = products.find(p => p.id === item.productId);
+                            const packSize = getProductMinQuantity(prod || item);
+                            return packSize > 1 ? (
+                              <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} pacote ({packSize} un)</span>
+                            ) : (
+                              <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} un</span>
+                            );
+                          })()}
                           {(() => {
                             const prod = products.find(p => p.id === item.productId);
                             const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
@@ -9778,7 +9787,7 @@ export default function Menu() {
                         <strong>{it.quantity}x</strong> {it.name} {it.prepLabel ? `(${it.prepLabel.split(' ')[1] || it.prepLabel})` : ''}
                       </span>
                       <span className="font-mono text-stone-500 text-[11px]">
-                        {formatCurrency(it.price * it.quantity)}
+                        {formatCurrency(getEffectiveItemTotal(it))}
                       </span>
                     </div>
                   ))}
