@@ -29,7 +29,7 @@ export function buildBalbecDocumentationPdf(): jsPDF {
 
   // --- CAPA / CABEÇALHO ---
   doc.setFillColor(30, 27, 25); // Stone 900
-  doc.rect(margin, currentY, contentWidth, 24, 'F');
+  doc.rect(margin, currentY, contentWidth, 26, 'F');
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
@@ -39,28 +39,29 @@ export function buildBalbecDocumentationPdf(): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(253, 186, 116); // Orange 300
-  doc.text('DOCUMENTAÇÃO TÉCNICA E MANUAL OPERACIONAL DO SISTEMA', margin + 6, currentY + 16);
+  doc.text('DOCUMENTAÇÃO TÉCNICA E MANUAL OPERACIONAL COMPLETO DO SISTEMA', margin + 6, currentY + 16);
 
   doc.setTextColor(200, 200, 200);
   doc.setFontSize(7.5);
-  doc.text('Versão: 2.8.0 Production | Data: Nov/2026 | Ambiente: Web / Mobile / Totem / KDS', margin + 6, currentY + 21);
+  doc.text('Versão: 3.0.0 Production | Lançamento Oficial: Nov/2026 | Arquitetura: Web PWA / KDS / Totem / TV / ERP', margin + 6, currentY + 22);
 
-  currentY += 30;
+  currentY += 32;
 
-  // --- ÍNDICE RÁPIDO ---
+  // --- SUMÁRIO EXECUTIVO ---
   doc.setFillColor(245, 245, 244);
-  doc.rect(margin, currentY, contentWidth, 18, 'F');
+  doc.rect(margin, currentY, contentWidth, 22, 'F');
   doc.setTextColor(68, 64, 60);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text('SUMÁRIO EXECUTIVO DE MÓDULOS E FUNCIONALIDADES:', margin + 4, currentY + 5);
+  doc.text('SUMÁRIO EXECUTIVO DE MÓDULOS E FUNCIONALIDADES IMPLEMENTADAS:', margin + 4, currentY + 5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text('1. Visão Geral da Plataforma | 2. Modalidade Congelados vs. Prontos | 3. Acréscimo em Pedidos Existentes', margin + 4, currentY + 10);
-  doc.text('4. Notificações Inteligentes & 3x/dia | 5. Totem Autoatendimento | 6. Smart TV | 7. Gestão KDS | 8. Backups', margin + 4, currentY + 14);
+  doc.text('1. Visão Geral da Plataforma | 2. Gestão de Venda por Lote vs. Unitária | 3. Regras de Preços & Conversão de Pacotes', margin + 4, currentY + 10);
+  doc.text('4. Modalidades (Prontos vs. Congelados) | 5. Pagamentos, Alerta Pulsante & Confirmação de Retirada', margin + 4, currentY + 14);
+  doc.text('6. Smart TV com Voz Sincronizada | 7. Segurança Master & Auditoria Crítica | 8. Acréscimos & Backups', margin + 4, currentY + 18);
 
-  currentY += 24;
+  currentY += 28;
 
   const printSectionHeader = (numberStr: string, title: string) => {
     checkPageBreak(16);
@@ -73,7 +74,7 @@ export function buildBalbecDocumentationPdf(): jsPDF {
     doc.text(numberStr, margin + 1.8, currentY + 4.2);
 
     doc.setTextColor(28, 25, 23);
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setFont('helvetica', 'bold');
     doc.text(title, margin + 9, currentY + 4.8);
 
@@ -138,85 +139,82 @@ export function buildBalbecDocumentationPdf(): jsPDF {
     currentY += boxHeight + 3;
   };
 
-  // --- SEÇÃO 1: VISÃO GERAL ---
-  printSectionHeader('1', 'Visão Geral da Plataforma BALBEC');
-  printParagraph('O Sistema BALBEC - REVENDA foi desenvolvido com tecnologia de ponta (React SPA, Vite, Node.js Express, Tailwind CSS e banco sincronizado) para proporcionar agilidade extrema tanto no atendimento digital ao cliente quanto nos processos internos de balcão e produção.');
-  printBullet('Cardápio Digital PWA', 'Interface moderna para smartphones e navegadores desktop com carregamento instantâneo, visualização detalhada de salgados, lanches na chapa e cálculo automático de totais.');
-  printBullet('Totem de Autoatendimento (/totem)', 'Kiosk em tela cheia com interface de alta acessibilidade para totens verticais ou tablets no balcão da loja física.');
-  printBullet('Painel Smart TV (/tv)', 'Exibição de senhas em tempo real com alertas sonoros de chamada e carrossel de vídeos promocionais.');
-  printBullet('Painel Admin e KDS (/admin)', 'Gestão completa de pedidos com filtros de status, impressão de comandas térmicas e controle administrativo.');
+  // --- SEÇÃO 1 ---
+  printSectionHeader('1', 'Visão Geral da Plataforma BALBEC - REVENDA');
+  printParagraph('Desenvolvida sob medida para automação de salgaderias, revendas e consumo imediato, a plataforma integra vendas digitais (PWA), totem presencial, cozinha (KDS), painel de chamadas na TV e retaguarda administrativa.');
+  printBullet('Cardápio Digital PWA', 'Interface web de alta performance para smartphones e desktops com navegação por categorias, fotos em alta resolução e cálculo automático de taxas.');
+  printBullet('Totem de Autoatendimento (/totem)', 'Modo quiosque em tela cheia otimizado para tablets ou totens verticais no balcão da loja, com tipografia ampliada.');
+  printBullet('Painel Smart TV (/tv)', 'Exibição de senhas prontas, chamadas por voz sintetizada, letreiro de novidades e carrossel multimídia.');
+  printBullet('Painel Administrativo (/admin)', 'Central de controle com KDS em tempo real, impressoras térmicas, relatórios e gestão de usuários.');
   currentY += 3;
 
-  // --- SEÇÃO 2: MODALIDADES ---
-  printSectionHeader('2', 'Regras de Negócio: Congelados vs. Salgados Prontos');
-  printParagraph('Para preservar a qualidade do serviço e evitar divergências de tempo de preparo, o sistema impõe bloqueio rigoroso entre modalidades distintas dentro do mesmo pedido:');
-  printBullet('Salgados Prontos (Normais)', 'Destinados ao consumo imediato ou retirada rápida. Disponíveis nas opções Frito/Assado e Cru/Pré-Assado. Não podem ser misturados com itens congelados no mesmo pedido.');
-  printBullet('Salgados Congelados', 'Destinados a estoque residencial, festas ou revenda. Possuem prazo de preparo de até 48 horas a partir do envio do pedido, com acréscimo automático de R$ 0,30 por unidade.');
-  printAlertBox('Obs: Pedidos congelados com entrega em até 48 horas podem ser antecipados e você será avisado pelo aplicativo.');
-  printBullet('Tratamento de Conflito no Carrinho', 'Se o cliente selecionar um salgado pronto com carrinho contendo congelados (ou vice-versa), o bloco correspondente bloqueia com aviso explicativo e botões para finalizar o pedido atual ou limpar o carrinho para começar novo pedido.');
+  // --- SEÇÃO 2 ---
+  printSectionHeader('2', 'Gestão de Categorias: Venda por Lote vs. Venda Unitária');
+  printParagraph('O painel de controle administrativo agora permite definir o modo de venda de cada categoria de forma independente, oferecendo total flexibilidade ao lojista:');
+  printBullet('Modo por Quantidade / Lote', 'Ideal para pacotes de salgados (ex: 20 ou 25 unidades). O sistema aplica a quantidade pré-definida no painel como padrão e multiplicador automático.');
+  printBullet('Modo Unitário (1 por 1)', 'Permite a venda peça a peça (unidade livre), onde o cliente escolhe exatamente quantas unidades deseja levar sem travamento de lotes.');
+  printBullet('Configuração Dinâmica no Painel', 'Em Admin > Categorias, ao selecionar o modo de venda por lote, um campo interativo surge para o lojista digitar a quantidade exata por pacote.');
   currentY += 3;
 
-  // --- SEÇÃO 3: ACRÉSCIMO ---
-  printSectionHeader('3', 'Funcionalidade de Acréscimo em Pedidos Existentes');
-  printParagraph('Permite ao cliente adicionar itens extras a um pedido já enviado caso tenha esquecido algum item, sem gerar pedidos duplicados ou confusão na entrega:');
-  printBullet('Critério 1 - Status Pendente', 'O pedido original deve estar exclusivamente em "Pendente". Quando a cozinha altera o status para "Preparando", a opção é desabilitada para evitar retrabalho na linha de produção.');
-  printBullet('Critério 2 - Pagamento na Retirada', 'Habilitado especificamente para a condição de Pagamento na Retirada no balcão.');
-  printBullet('Critério 3 - Mesma Modalidade', 'Se o pedido for de congelados, só permite acréscimo de congelados. Se for de produtos prontos, só aceita itens prontos.');
-  printParagraph('Após a confirmação, o pedido é atualizado instantaneamente no banco de dados, recalculando o valor total e atualizando a visualização na cozinha.');
+  // --- SEÇÃO 3 ---
+  printSectionHeader('3', 'Regras de Preços & Conversão de Pacotes (BlueFocus ERP)');
+  printParagraph('Integração inteligente com os códigos de cadastro da BlueFocus ERP para garantir precisão absoluta nos valores:');
+  printBullet('Lotes de 25 Unidades (Códigos 1413–1418, 1425–1427)', 'O preço cadastrado (ex: R$ 24,50) já refere-se ao pacote fechado de 25 unidades. O sistema calcula proporcionalmente sem multiplicar incorretamente.');
+  printBullet('Lotes de 20 Unidades (Códigos 1416, 1419–1424)', 'Mesma regra aplicada para pacotes de 20 unidades.');
+  printBullet('Salgados Fritos, Assados e Congelados Unitários', 'Para produtos vendidos unitariamente mas com quantidade mínima por grupo (ex: Bolinho de bacalhau a R$ 4,60 com mínimo de 10 unidades), o sistema multiplica automaticamente o preço unitário pela quantidade mínima ao adicionar ao carrinho.');
   currentY += 3;
 
-  // --- SEÇÃO 4: NOTIFICAÇÕES ---
-  printSectionHeader('4', 'Sistema de Notificações Inteligentes & Lembretes');
-  printBullet('Notificações 3x ao Dia para Congelados', 'Para pedidos que possuem produtos congelados, o sistema dispara lembretes automáticos em horários estratégicos (ex: 09h, 14h e 18h) reforçando o prazo de 48h e a possibilidade de antecipação.');
-  printBullet('Logomarca Oficial e Sem Cortes', 'Todas as notificações exibem o ícone oficial BALBEC e corpo de texto diagramado sem cortes em navegadores Chrome e Windows.');
-  printBullet('Aviso Sonoro no Balcão', 'O painel administrativo emite alerta sonoro instantâneo quando qualquer novo pedido entra no sistema.');
+  // --- SEÇÃO 4 ---
+  printSectionHeader('4', 'Modalidades: Salgados Prontos vs. Salgados Congelados');
+  printParagraph('Bloqueio inteligente para evitar erros operacionais na linha de produção:');
+  printBullet('Salgados Prontos (Consumo Imediato)', 'Fritos ou assados na hora. Não podem ser misturados com congelados no mesmo pedido.');
+  printBullet('Salgados Congelados (Prazo até 48h)', 'Possuem taxa de congelamento (+R$ 0,30/un) e prazo de entrega estipulado. O carrinho avisa caso o cliente tente misturar com produtos prontos.');
   currentY += 3;
 
-  // --- SEÇÃO 5: MODO TOTEM ---
-  printSectionHeader('5', 'Modo Totem / Autoatendimento Presencial (/totem)');
-  printParagraph('O modo Totem foi construído para terminais verticais ou tablets instalados na loja:');
-  printBullet('Escala Ampliada de Tipografia', 'Fontes e botões 30% maiores para garantir leitura clara a distância e facilidade de toque.');
-  printBullet('Trava Administrativa de Categorias', 'O lojista define no Admin exatamente quais categorias aparecem no Totem, protegendo contra redefinições acidentais.');
-  printBullet('Auto-Reset por Inatividade', 'O carrinho zera e a tela reinicia automaticamente se o terminal ficar ocioso por determinado tempo.');
+  // --- SEÇÃO 5 ---
+  printSectionHeader('5', 'Pagamento Híbrido, Cobrança na Retirada & Alerta Pulsante');
+  printParagraph('Mecanismos avançados para controle financeiro no caixa e balcão:');
+  printBullet('Alerta Pulsante em Vermelho', 'Sempre que houver valores a serem recebidos na retirada (integral ou parcial 50%), a mensagem "COBRAR INTEGRAL / PARCIAL NA RETIRADA" pisca em destaque vermelho nos pedidos até o status mudar para "Entregue".');
+  printBullet('Confirmação de Recebimento ao Entregar', 'Ao alterar o status do pedido para "Entregue" (se houver saldo pendente na retirada), o sistema abre um modal de confirmação obrigatória destacando o valor exato devido e perguntando se o operador já recebeu o pagamento.');
+  printBullet('Isenção para Cartão Online Integral', 'Pedidos pagos 100% online via Pix ou Cartão ignoram automaticamente essa pergunta de recebimento presencial.');
   currentY += 3;
 
-  // --- SEÇÃO 6: SMART TV ---
-  printSectionHeader('6', 'Painel Smart TV & Chamada de Senhas (/tv)');
-  printBullet('Chamada Audiovisual', 'Ao clicar em "Chamar TV" no Admin, o número do pedido surge em destaque com toque de campainha na televisão da loja.');
-  printBullet('Mídia Dinâmica', 'Carrossel automático com fotos de salgados, letreiro com avisos e exibição de pedidos aguardando retirada.');
+  // --- SEÇÃO 6 ---
+  printSectionHeader('6', 'Smart TV com Voz Sincronizada & Ciclos de Chamada');
+  printParagraph('Aprimoramento do sistema de chamadas para a televisão da loja:');
+  printBullet('Abertura Otimizada', 'A frase inicial foi encurtada de "atenção, pedido pronto..." para um objetivo **"ATENÇÃO..."**, seguida pelo número do pedido.');
+  printBullet('Ciclo de Anúncio Inteligente', 'Quando um pedido fica pronto, a voz o anuncia **3 vezes seguidas de 10 em 10 segundos**, com pausa respiratória de 5 segundos entre números.');
+  printBullet('Repetição Contínua', 'Esse ciclo de 3 chamadas se repete a cada **6 minutos** ininterruptamente até que o status do pedido seja alterado para "Entregue".');
   currentY += 3;
 
-  // --- SEÇÃO 7: PAINEL ADMIN & KDS ---
-  printSectionHeader('7', 'Painel Administrativo, KDS e Operação (/admin)');
-  printBullet('Fila KDS em Tempo Real', 'Controle da esteira de pedidos: Pendente -> Preparando -> Pronto p/ Retirada -> Finalizado.');
-  printBullet('Impressão Térmica Direta', 'Emissão de comandas de produção e recibos de balcão formatados para bobinas de 80mm e 58mm.');
-  printBullet('Gestão do Catálogo', 'Cadastro de produtos, categorias, sabores e controle de adicionais exclusivos para lanches na chapa.');
-  printBullet('Integração BlueFocus ERP', 'Sincronização com o sistema ERP da loja, com suporte a reversão segura de atualizações.');
+  // --- SEÇÃO 7 ---
+  printSectionHeader('7', 'Segurança Master, Reversão Protegida & Auditoria Crítica');
+  printParagraph('Rigorous controle de segurança para proteger o caixa e o catálogo:');
+  printBullet('Senha Master de Proteção (MASTERBALBEC)', 'Qualquer avanço ou retrocesso de status de pedidos exige autorização com senha Master quando configurado, evitando fraudes.');
+  printBullet('Nova aba de Auditoria Crítica', 'Exclusiva para usuários *Admin* e *Master*. Registra automaticamente e exibe em tabela detalhada quem excluiu pedidos, quem confirmou recebimentos pendentes, e quem aprovou novos cadastros de usuários.');
   currentY += 3;
 
-  // --- SEÇÃO 8: BACKUPS ---
-  printSectionHeader('8', 'Sistema de Backups e Restauração Instantânea');
-  printBullet('Backups Horários Automáticos', 'Snapshots do banco gravados a cada hora no disco do servidor com restauração de 1 clique pelo Admin.');
-  printBullet('Exportação e Importação JSON', 'Geração de arquivo completo para backup no computador do proprietário.');
-  printBullet('Rollback de Versão no Railway', 'Histórico completo de versões publicado em produção, permitindo reverter código em segundos.');
+  // --- SEÇÃO 8 ---
+  printSectionHeader('8', 'Acréscimos em Pedidos & Sistema de Backups');
+  printBullet('Acréscimo de Itens', 'Clientes podem adicionar itens extras a pedidos em status "Pendente" antes do início do preparo na cozinha.');
+  printBullet('Backups Automáticos & Restauração', 'Snapshots horários gravados no banco PostgreSQL e opção de exportação/importação em JSON.');
   currentY += 3;
 
-  // --- SEÇÃO 9: GUIA PASSO A PASSO ---
-  printSectionHeader('9', 'Roteiro Operacional do Dia a Dia');
-  printParagraph('Passo a passo simplificado para a equipe da loja:');
-  printBullet('1. Abertura do Dia', 'Acesse o Admin (/admin), verifique se o aviso sonoro está "ON" e abra a Smart TV (/tv) na televisão do salão.');
-  printBullet('2. Chegada de Pedidos', 'O alarme sonoro toca no caixa. Imprima a comanda térmica e altere o status para "Preparando".');
-  printBullet('3. Conclusão da Produção', 'Mude o status para "Pronto p/ Retirada" e clique em "Chamar TV" para alertar o cliente.');
-  printBullet('4. Entrega ao Cliente', 'Entregue os salgados e marque o pedido como "Finalizado".');
+  // --- SEÇÃO 9 ---
+  printSectionHeader('9', 'Roteiro Operacional Diário para a Loja');
+  printBullet('1. Abertura', 'Abra o Painel Admin (/admin) e verifique se o som de novos pedidos está ativo.');
+  printBullet('2. Produção', 'Quando o alerta tocar, imprima a comanda e mude o status para "Preparando".');
+  printBullet('3. Chamada na TV', 'Ao finalizar, mude para "Pronto" e clique em "Chamar TV" para anunciar o número.');
+  printBullet('4. Conclusão', 'Confirme o recebimento do saldo devido (se houver) e mude para "Entregue".');
 
-  // --- RODAPÉ COM NÚMERO DE PÁGINAS ---
+  // --- RODAPÉ ---
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
-    doc.text(`BALBEC - REVENDA • Documentação Oficial do Sistema • Página ${i} de ${totalPages}`, margin, pageHeight - 6);
+    doc.text(`BALBEC - REVENDA • Documentação Oficial para o Proprietário • Versão 3.0 • Página ${i} de ${totalPages}`, margin, pageHeight - 6);
   }
 
   return doc;

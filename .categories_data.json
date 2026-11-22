@@ -8,8 +8,26 @@
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
+    "modality": "congelado",
+    "updatedAt": 1794573618672,
+    "manualFields": []
+  },
+  {
+    "id": "rjhc9i7",
+    "name": "Salgados (FRITOS)",
+    "order": 1,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": false,
     "modality": "pronto",
-    "updatedAt": 1794508629936
+    "updatedAt": 1795378096733,
+    "manualFields": [
+      "saleMode"
+    ],
+    "saleMode": "unit",
+    "defaultPackSize": 1
   },
   {
     "id": "hricv6a",
@@ -17,23 +35,71 @@
     "order": 2,
     "externalId": "BEBIDA",
     "isVisible": false,
+    "availableForDelivery": false,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1795377750432,
+    "manualFields": [
+      "saleMode",
+      "name",
+      "order",
+      "modality",
+      "defaultPackSize",
+      "availableForDelivery",
+      "availableInStore",
+      "availableForKiosk",
+      "isVisible"
+    ],
+    "saleMode": "pack",
+    "defaultPackSize": 1
+  },
+  {
+    "id": "bjdjdho",
+    "name": "Salgados (ASSADOS)",
+    "order": 2,
+    "externalId": null,
+    "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794446348070
+    "updatedAt": 1795378068180,
+    "manualFields": [
+      "saleMode"
+    ],
+    "saleMode": "unit",
+    "defaultPackSize": 1
   },
   {
     "id": "nyww21f",
     "name": "TIPO 2",
     "order": 3,
     "externalId": "REVENDA",
-    "isVisible": false,
+    "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794508645878
+    "updatedAt": 1794834675935,
+    "manualFields": []
+  },
+  {
+    "id": "xqs010m",
+    "name": "Salgados (FRITOS) Congelados",
+    "order": 3,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": false,
+    "modality": "congelado",
+    "updatedAt": 1795377441158,
+    "manualFields": [
+      "saleMode"
+    ],
+    "saleMode": "pack",
+    "defaultPackSize": 1
   },
   {
     "id": "k790tcu",
@@ -45,19 +111,59 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794446380240
+    "updatedAt": 1794446380240,
+    "manualFields": []
+  },
+  {
+    "id": "lmh1bv4",
+    "name": "Salgados (ASSADOS) Congelados",
+    "order": 4,
+    "externalId": null,
+    "isVisible": true,
+    "availableForDelivery": true,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "congelado",
+    "updatedAt": 1794860220459,
+    "manualFields": []
+  },
+  {
+    "id": "wscjzcx",
+    "name": "Salgados Festa (FRITOS)",
+    "order": 5,
+    "externalId": "REVENDA FESTA",
+    "isVisible": true,
+    "availableForDelivery": false,
+    "availableInStore": true,
+    "availableForKiosk": true,
+    "modality": "pronto",
+    "updatedAt": 1795377709486,
+    "manualFields": [
+      "name",
+      "order",
+      "modality",
+      "saleMode",
+      "defaultPackSize",
+      "availableForDelivery",
+      "availableInStore",
+      "availableForKiosk",
+      "isVisible"
+    ],
+    "saleMode": "pack",
+    "defaultPackSize": 25
   },
   {
     "id": "e0sv8sp",
-    "name": "GALINHADA",
-    "order": 5,
+    "name": "Salgados Festa (ASSADOS)",
+    "order": 6,
     "externalId": "GALINH",
-    "isVisible": false,
+    "isVisible": true,
     "availableForDelivery": true,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794446376011
+    "updatedAt": 1794861374408,
+    "manualFields": []
   },
   {
     "id": "80iq08q",
@@ -69,7 +175,8 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794446390312
+    "updatedAt": 1794446390312,
+    "manualFields": []
   },
   {
     "id": "j9pixiq",
@@ -81,31 +188,33 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794446373278
+    "updatedAt": 1794446373278,
+    "manualFields": []
   },
   {
     "id": "wmsqohp",
     "name": "Diversos",
-    "order": 8,
+    "order": 7,
     "externalId": "DIVERSOS",
-    "isVisible": false,
-    "availableForDelivery": true,
+    "isVisible": true,
+    "availableForDelivery": false,
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794446360019
-  },
-  {
-    "id": "wscjzcx",
-    "name": "REVENDA FESTA",
-    "order": 9,
-    "externalId": "REVENDA FESTA",
-    "isVisible": false,
-    "availableForDelivery": true,
-    "availableInStore": true,
-    "availableForKiosk": true,
-    "modality": "pronto",
-    "updatedAt": 1794508630634
+    "updatedAt": 1795377700659,
+    "manualFields": [
+      "saleMode",
+      "name",
+      "order",
+      "modality",
+      "defaultPackSize",
+      "availableForDelivery",
+      "availableInStore",
+      "availableForKiosk",
+      "isVisible"
+    ],
+    "saleMode": "pack",
+    "defaultPackSize": 1
   },
   {
     "id": "nwc89q5",
@@ -117,30 +226,7 @@
     "availableInStore": true,
     "availableForKiosk": true,
     "modality": "pronto",
-    "updatedAt": 1794508629028
-  },
-  {
-    "id": "xqs010m",
-    "name": "Salgados Grandes Congelados (Crus)",
-    "order": 11,
-    "externalId": null,
-    "isVisible": true,
-    "availableForDelivery": true,
-    "availableInStore": true,
-    "availableForKiosk": false,
-    "modality": "congelado",
-    "updatedAt": 1794509822486
-  },
-  {
-    "id": "rjhc9i7",
-    "name": "Salgados Grandes",
-    "order": 12,
-    "externalId": null,
-    "isVisible": true,
-    "availableForDelivery": true,
-    "availableInStore": true,
-    "availableForKiosk": false,
-    "modality": "pronto",
-    "updatedAt": 1794509149814
+    "updatedAt": 1794508629028,
+    "manualFields": []
   }
 ]
