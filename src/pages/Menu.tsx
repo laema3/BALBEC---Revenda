@@ -42,6 +42,8 @@ export default function Menu() {
   const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
 
   const getMinQty = (prod: any, isFrozen: boolean = false) => {
+    const cat = categories.find(c => c.id === prod?.categoryId || c.id === prod?.frozenCategoryId);
+    if (cat?.saleMode === 'unit') return 1;
     const base = getProductMinQuantity(prod);
     const froz = Number(prod?.minFrozenQuantity);
     const explicit = (!isNaN(froz) && froz > 1) ? froz : 1;
@@ -50,6 +52,9 @@ export default function Menu() {
 
   const getEffectiveItemTotal = useCallback((item: any) => {
     const prod = products.find(p => p.id === item.productId);
+    const cat = categories.find(c => c.id === prod?.categoryId || c.id === prod?.frozenCategoryId || c.id === item?.categoryId);
+    const isUnitSale = cat?.saleMode === 'unit';
+
     const code = String((prod as any)?.externalId || (prod as any)?.code || item?.externalId || item?.code || item?.productId || '').trim();
     const numericCode = code.replace(/\D/g, '');
     const batchCodes = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427', '1416', '1419', '1420', '1421', '1422', '1423', '1424'];
@@ -59,15 +64,14 @@ export default function Menu() {
     const flavorTotal = item.flavor?.price || 0;
     const unitOrBasePrice = item.price + flavorTotal + addonsTotal;
 
-    if (isBatchProduct) {
+    if (isBatchProduct && !isUnitSale) {
       const packSize = getProductMinQuantity(prod || item);
       const effectiveMultiplier = packSize > 1 ? (item.quantity / packSize) : item.quantity;
       return unitOrBasePrice * effectiveMultiplier;
     } else {
-      // Unitary product with min quantity (e.g. bolinho de bacalhau unit price 4.60 * quantity 10 = 46.00)
       return unitOrBasePrice * item.quantity;
     }
-  }, [products]);
+  }, [products, categories]);
 
   useEffect(() => {
     if (!cartToastMessage) return;

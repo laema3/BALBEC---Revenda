@@ -23,6 +23,7 @@ export const categories = pgTable('categories', {
   availableInStore: boolean('available_in_store').default(true),
   availableForKiosk: boolean('available_for_kiosk').default(true),
   modality: text('modality').default('pronto'),
+  saleMode: text('sale_mode').default('pack'),
   manualFields: jsonb('manual_fields').$type<string[]>().default([]),
   updatedAt: bigint('updated_at', { mode: 'number' }),
 });

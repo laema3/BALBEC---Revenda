@@ -201,6 +201,7 @@ export interface Category {
   availableInStore?: boolean;
   availableForKiosk?: boolean;
   modality?: 'pronto' | 'congelado' | string;
+  saleMode?: 'pack' | 'unit';
   manualFields?: string[];
   updatedAt?: number;
 }

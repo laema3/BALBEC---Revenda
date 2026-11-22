@@ -2643,6 +2643,7 @@ export default function Admin() {
     const finalModality = catName.toLowerCase().includes('congelad')
       ? 'congelado'
       : (rawModality === 'congelado' || rawModality === 'pronto' ? rawModality : 'pronto');
+    const saleMode = ((formData.get('saleMode') as string) || 'pack') as 'pack' | 'unit';
     const store = formData.get('availableInStore') === 'on';
     const kiosk = formData.get('availableForKiosk') === 'on';
     const isVisibleChecked = formData.get('isVisible') === 'on';
@@ -2651,6 +2652,7 @@ export default function Admin() {
       name: catName,
       order: Number(formData.get('order')),
       modality: finalModality,
+      saleMode,
       availableForDelivery: false,
       availableInStore: store,
       availableForKiosk: kiosk,
@@ -6154,6 +6156,23 @@ export default function Admin() {
                         }`}
                       >
                         {isCategoryFrozenModality(category) ? '❄️ Modalidade: Congelados (+R$ 0,30 • 48h)' : '🔥 Modalidade: Prontos (Normais)'}
+                      </button>
+
+                      <button
+                        type="button"
+                        title={category.saleMode === 'unit' ? "Modo de Venda: Unitário (1 por 1). Clique para mudar para Por Quantidade/Lote" : "Modo de Venda: Por Quantidade/Lote. Clique para mudar para Unitário (1 por 1)"}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const newMode = category.saleMode === 'unit' ? 'pack' : 'unit';
+                          await updateCategory(category.id, { saleMode: newMode });
+                        }}
+                        className={`text-[10px] px-2.5 py-0.5 rounded-md border transition-all cursor-pointer font-extrabold flex items-center gap-1 active:scale-95 ${
+                          category.saleMode === 'unit'
+                            ? 'bg-purple-100 text-purple-900 border-purple-300 shadow-xs hover:bg-purple-200'
+                            : 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-xs hover:bg-emerald-200'
+                        }`}
+                      >
+                        {category.saleMode === 'unit' ? '📦 Venda: Unitária (1 por 1)' : '🔢 Venda: Por Quantidade/Lote'}
                       </button>
                     </div>
                   </div>
@@ -10836,6 +10855,21 @@ export default function Admin() {
                   </select>
                   <p className="text-[11px] text-stone-500 mt-1">
                     Define se ao clicar em um produto dentro desta categoria o cliente verá as variações de <strong>Prontos</strong> ou de <strong>Congelados</strong>.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 mb-1">Modo de Venda (Preço e Quantidade)</label>
+                  <select
+                    name="saleMode"
+                    defaultValue={editingItem?.saleMode || 'pack'}
+                    className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-stone-50"
+                  >
+                    <option value="pack">🔢 Por Quantidade / Lote (Mínimo / Pacote - Ex: 20 ou 25 un)</option>
+                    <option value="unit">📦 Unitário (1 por 1 - Usuário define quantidade livre)</option>
+                  </select>
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Escolha se os produtos desta categoria serão vendidos por quantidade/lote ou de forma unitária (1 por 1).
                   </p>
                 </div>
                 
