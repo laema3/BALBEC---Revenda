@@ -50,11 +50,23 @@ export default function Menu() {
 
   const getEffectiveItemTotal = useCallback((item: any) => {
     const prod = products.find(p => p.id === item.productId);
-    const packSize = getProductMinQuantity(prod || item);
-    const effectiveMultiplier = packSize > 1 ? (item.quantity / packSize) : item.quantity;
+    const code = String((prod as any)?.externalId || (prod as any)?.code || item?.externalId || item?.code || item?.productId || '').trim();
+    const numericCode = code.replace(/\D/g, '');
+    const batchCodes = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427', '1416', '1419', '1420', '1421', '1422', '1423', '1424'];
+    const isBatchProduct = batchCodes.some(c => code === c || numericCode === c || code.endsWith(c));
+
     const addonsTotal = item.addons?.reduce((addonSum, addon) => addonSum + addon.price, 0) || 0;
     const flavorTotal = item.flavor?.price || 0;
-    return (item.price + flavorTotal + addonsTotal) * effectiveMultiplier;
+    const unitOrBasePrice = item.price + flavorTotal + addonsTotal;
+
+    if (isBatchProduct) {
+      const packSize = getProductMinQuantity(prod || item);
+      const effectiveMultiplier = packSize > 1 ? (item.quantity / packSize) : item.quantity;
+      return unitOrBasePrice * effectiveMultiplier;
+    } else {
+      // Unitary product with min quantity (e.g. bolinho de bacalhau unit price 4.60 * quantity 10 = 46.00)
+      return unitOrBasePrice * item.quantity;
+    }
   }, [products]);
 
   useEffect(() => {
@@ -8503,8 +8515,12 @@ export default function Menu() {
                         <div className="flex flex-col">
                           {(() => {
                             const prod = products.find(p => p.id === item.productId);
+                            const code = String((prod as any)?.externalId || (prod as any)?.code || item?.externalId || item?.code || item?.productId || '').trim();
+                            const numericCode = code.replace(/\D/g, '');
+                            const batchCodes = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427', '1416', '1419', '1420', '1421', '1422', '1423', '1424'];
+                            const isBatchProduct = batchCodes.some(c => code === c || numericCode === c || code.endsWith(c));
                             const packSize = getProductMinQuantity(prod || item);
-                            return packSize > 1 ? (
+                            return isBatchProduct && packSize > 1 ? (
                               <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} pacote ({packSize} un)</span>
                             ) : (
                               <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} un</span>
