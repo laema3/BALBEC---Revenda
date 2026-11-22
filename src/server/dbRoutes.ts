@@ -1050,6 +1050,7 @@ export function formatCategoryForDb(c: any) {
     ? 'congelado'
     : (c.modality === 'congelado' || c.modality === 'pronto' ? c.modality : 'pronto');
   const finalSaleMode = c.saleMode === 'unit' || c.sale_mode === 'unit' ? 'unit' : 'pack';
+  const defaultPackSize = Number(c.defaultPackSize || c.default_pack_size || c.packSize || 1);
   const manualFields = Array.isArray(c.manualFields)
     ? c.manualFields
     : (Array.isArray(c.manual_fields) ? c.manual_fields : []);
@@ -1065,6 +1066,7 @@ export function formatCategoryForDb(c: any) {
     availableForKiosk: parseDbBool(c.availableForKiosk, c.available_for_kiosk, true),
     modality: finalModality,
     saleMode: finalSaleMode,
+    defaultPackSize,
     manualFields,
     updatedAt: Number(c.updatedAt || c.updated_at || 0),
   };

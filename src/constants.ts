@@ -363,8 +363,15 @@ export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   return isSalgadoName;
 };
 
-export const getProductMinQuantity = (product: any): number => {
+export const getProductMinQuantity = (product: any, categories: any[] = []): number => {
   if (!product) return 1;
+  const prodMin = Number(product.minFrozenQuantity || product.packSize || product.defaultPackSize);
+  if (!isNaN(prodMin) && prodMin > 1) return prodMin;
+
+  const cat = categories.find(c => c.id === product.categoryId || c.id === product.frozenCategoryId);
+  const catPack = Number(cat?.defaultPackSize || cat?.packSize || cat?.minQuantity);
+  if (!isNaN(catPack) && catPack > 1) return catPack;
+
   const code = String(product.externalId || product.code || product.id || '').trim();
   const numericCode = code.replace(/\D/g, '');
 
@@ -376,11 +383,6 @@ export const getProductMinQuantity = (product: any): number => {
   }
   if (group20.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
     return 20;
-  }
-
-  const minFroz = Number(product.minFrozenQuantity);
-  if (!isNaN(minFroz) && minFroz > 1) {
-    return minFroz;
   }
   return 1;
 };

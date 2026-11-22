@@ -2644,6 +2644,7 @@ export default function Admin() {
       ? 'congelado'
       : (rawModality === 'congelado' || rawModality === 'pronto' ? rawModality : 'pronto');
     const saleMode = ((formData.get('saleMode') as string) || 'pack') as 'pack' | 'unit';
+    const defaultPackSize = Number(formData.get('defaultPackSize')) || 1;
     const store = formData.get('availableInStore') === 'on';
     const kiosk = formData.get('availableForKiosk') === 'on';
     const isVisibleChecked = formData.get('isVisible') === 'on';
@@ -2653,6 +2654,7 @@ export default function Admin() {
       order: Number(formData.get('order')),
       modality: finalModality,
       saleMode,
+      defaultPackSize,
       availableForDelivery: false,
       availableInStore: store,
       availableForKiosk: kiosk,
@@ -10870,6 +10872,20 @@ export default function Admin() {
                   </select>
                   <p className="text-[11px] text-stone-500 mt-1">
                     Escolha se os produtos desta categoria serão vendidos por quantidade/lote ou de forma unitária (1 por 1).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 mb-1">Quantidade por Lote / Pacote (Ex: 20 ou 25)</label>
+                  <input
+                    type="number"
+                    name="defaultPackSize"
+                    min={1}
+                    defaultValue={editingItem?.defaultPackSize || 25}
+                    className="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-stone-50"
+                  />
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Defina quantas unidades compõem o lote/pacote desta categoria para que o cliente saiba exatamente ao comprar.
                   </p>
                 </div>
                 
