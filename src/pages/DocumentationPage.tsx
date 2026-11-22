@@ -264,11 +264,10 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
                 { id: 'modalidades', label: '2. Congelados vs. Prontos' },
                 { id: 'acrescimo', label: '3. Acréscimo em Pedidos' },
                 { id: 'notificacoes', label: '4. Notificações & Lembretes' },
-                { id: 'totem', label: '5. Modo Totem (Autoatendimento)' },
-                { id: 'tv', label: '6. Painel Smart TV' },
-                { id: 'admin', label: '7. Gestão & KDS Admin' },
-                { id: 'backups', label: '8. Backups & Restauração' },
-                { id: 'passo-a-passo', label: '9. Guia Operacional' },
+                { id: 'tv', label: '5. Painel Smart TV' },
+                { id: 'admin', label: '6. Gestão & KDS Admin' },
+                { id: 'backups', label: '7. Backups & Restauração' },
+                { id: 'passo-a-passo', label: '8. Guia Operacional' },
               ].map(item => (
                 <button
                   key={item.id}
@@ -304,7 +303,7 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
               O <strong>Sistema BALBEC - REVENDA</strong> é uma solução completa desenvolvida para automatizar, controlar e simplificar toda a cadeia de pedidos, produção e entrega de salgados especiais e tradicionais.
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200">
                 <div className="flex items-center gap-2 font-black text-stone-900 text-sm mb-1">
                   <ShoppingBag className="w-4 h-4 text-orange-600" />
@@ -312,16 +311,6 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
                 </div>
                 <p className="text-xs text-stone-600">
                   Acessível pelo navegador em smartphones ou computadores, permitindo pedidos com agilidade sem exigir instalação pesada nas lojas de aplicativos.
-                </p>
-              </div>
-
-              <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200">
-                <div className="flex items-center gap-2 font-black text-stone-900 text-sm mb-1">
-                  <Layers className="w-4 h-4 text-blue-600" />
-                  <span>Totem Autoatendimento</span>
-                </div>
-                <p className="text-xs text-stone-600">
-                  Modo de tela cheia com interface de alta acessibilidade para totens verticais ou tablets no balcão da loja, sem filas.
                 </p>
               </div>
 
@@ -503,40 +492,11 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
           </div>
         </section>
 
-        {/* 5. MODO TOTEM */}
-        <section id="totem" className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-stone-200 mb-8 print:shadow-none print:border-none print:p-0 print:mb-6 print:break-inside-avoid">
-          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-stone-100">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg">
-              5
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-stone-900">
-                Modo Totem / Autoatendimento Presencial (/totem)
-              </h2>
-              <p className="text-xs text-stone-500 font-medium">
-                Interface kiosk para terminais touch-screen na loja física
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3 text-sm text-stone-700 leading-relaxed">
-            <p>
-              O endereço <code>/totem</code> inicializa a plataforma em <strong>Modo Kiosk</strong>:
-            </p>
-            <ul className="text-xs space-y-2 list-disc list-inside text-stone-700">
-              <li><strong>Tipografia e Botões Ampliados:</strong> Escala de fonte +30% para leitura fácil a distância e toques sem erro.</li>
-              <li><strong>Trava de Categorias:</strong> O lojista pode selecionar no Admin quais categorias exatas devem aparecer no Totem e travar essa seleção contra alterações acidentais.</li>
-              <li><strong>Auto-Reset por Inatividade:</strong> Após período sem uso, o totem zera o carrinho automaticamente e volta à tela inicial.</li>
-              <li><strong>Teclado Virtual Integrado:</strong> Campo de identificação e número de WhatsApp com teclado adaptado a toque.</li>
-            </ul>
-          </div>
-        </section>
-
-        {/* 6. PAINEL SMART TV */}
+        {/* 5. PAINEL SMART TV */}
         <section id="tv" className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-stone-200 mb-8 print:shadow-none print:border-none print:p-0 print:mb-6 print:break-inside-avoid">
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-lg">
-              6
+              5
             </div>
             <div>
               <h2 className="text-xl font-black text-stone-900">
@@ -563,11 +523,11 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
           </div>
         </section>
 
-        {/* 7. PAINEL ADMINISTRATIVO & KDS */}
+        {/* 6. PAINEL ADMINISTRATIVO & KDS */}
         <section id="admin" className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-stone-200 mb-8 print:shadow-none print:border-none print:p-0 print:mb-6 print:break-inside-avoid">
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-stone-800 text-white flex items-center justify-center font-bold text-lg">
-              7
+              6
             </div>
             <div>
               <h2 className="text-xl font-black text-stone-900">
@@ -613,11 +573,11 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
           </div>
         </section>
 
-        {/* 8. BACKUPS & RESTAURAÇÃO */}
+        {/* 7. BACKUPS & RESTAURAÇÃO */}
         <section id="backups" className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-stone-200 mb-8 print:shadow-none print:border-none print:p-0 print:mb-6 print:break-inside-avoid">
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-lg">
-              8
+              7
             </div>
             <div>
               <h2 className="text-xl font-black text-stone-900">
@@ -662,11 +622,11 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
           </div>
         </section>
 
-        {/* 9. GUIA OPERACIONAL PASSO A PASSO */}
+        {/* 8. GUIA OPERACIONAL PASSO A PASSO */}
         <section id="passo-a-passo" className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-stone-200 mb-8 print:shadow-none print:border-none print:p-0 print:mb-6 print:break-inside-avoid">
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg">
-              9
+              8
             </div>
             <div>
               <h2 className="text-xl font-black text-stone-900">
@@ -681,7 +641,7 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
           <div className="space-y-4 text-sm text-stone-700 leading-relaxed">
             <div className="border border-stone-200 rounded-2xl p-4 bg-stone-50">
               <h3 className="font-black text-stone-900 text-sm mb-2 text-orange-600 uppercase tracking-wide">
-                Fluxo do Cliente (Pelo Celular ou Totem):
+                Fluxo do Cliente (Pelo Celular):
               </h3>
               <ol className="text-xs space-y-1.5 list-decimal list-inside text-stone-700">
                 <li>Acessa o cardápio e seleciona os produtos desejados.</li>
