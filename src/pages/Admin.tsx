@@ -756,7 +756,9 @@ export default function Admin() {
     onConfirm: () => void | Promise<void>, 
     debugXml?: string,
     confirmText?: string,
-    cancelText?: string | null
+    cancelText?: string | null,
+    isPaymentAlert?: boolean,
+    highlightAmount?: string
   } | null>(null);
 
   const showInfoModal = (title: string, message: string) => {
@@ -3317,8 +3319,46 @@ export default function Admin() {
       return;
     }
 
-    // Fluxo normal (avanço de status): confirmar com o operador antes de alterar
+    // Fluxo normal (avanço de status): se for alterar para ENTREGUE e houver valor a receber (integral ou parcial), perguntar se já recebeu o valor devido
+    const paymentBreakdown = targetOrder ? getOrderPaymentBreakdown(targetOrder) : null;
+    const hasPendingCollectionOnDelivery = Boolean(
+      status === 'completed' &&
+      paymentBreakdown &&
+      (paymentBreakdown.kind === 'pay_on_pickup' || paymentBreakdown.kind === 'partial_50') &&
+      paymentBreakdown.remainingAmount > 0
+    );
+
     stopAlarm();
+    if (hasPendingCollectionOnDelivery && paymentBreakdown) {
+      const dueFormatted = formatBRL(paymentBreakdown.remainingAmount);
+      const isPartial = paymentBreakdown.kind === 'partial_50';
+      setConfirmModal({
+        isOpen: true,
+        isPaymentAlert: true,
+        highlightAmount: dueFormatted,
+        title: isPartial
+          ? `⚠️ Recebimento Restante • Pedido #${shortId}`
+          : `⚠️ Recebimento Pendente • Pedido #${shortId}`,
+        message: isPartial
+          ? `Este pedido teve 50% pago antecipadamente e ainda possui saldo RESTANTE de ${dueFormatted} a receber na retirada.\n\nVocê já recebeu o valor devido do cliente${customerLabel} antes de alterar o status para "Entregue"?`
+          : `Este pedido possui valor INTEGRAL de ${dueFormatted} (${paymentBreakdown.methodLabel}) a receber na retirada.\n\nVocê já recebeu o valor devido do cliente${customerLabel} antes de alterar o status para "Entregue"?`,
+        confirmText: 'Sim, Já Recebi e Entregar',
+        cancelText: 'Não Recebi (Voltar)',
+        onConfirm: async () => {
+          setConfirmModal(null);
+          try {
+            stopAlarm();
+            playStatusChangeAudio();
+            await updateOrderStatus(id, status);
+          } catch (error: any) {
+            console.error('Error updating order status:', error);
+            showInfoModal('Erro ao Atualizar Status', error?.message || 'Não foi possível salvar o novo status do pedido no servidor. Tente novamente.');
+          }
+        }
+      });
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
       title: `Confirmar Alteração • Pedido #${shortId}`,
@@ -4415,10 +4455,13 @@ export default function Admin() {
                         {(() => {
                           const pb = getOrderPaymentBreakdown(ord);
                           const needsPayConfirm = requiresOperatorPaymentConfirmation(ord);
+                          const shouldPulseRed = (pb.kind === 'pay_on_pickup' || pb.kind === 'partial_50') && ord.status !== 'completed' && ord.status !== 'cancelled';
                           return (
                             <>
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                                pb.kind === 'partial_50'
+                                shouldPulseRed
+                                  ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/40 ring-2 ring-red-400/60'
+                                  : pb.kind === 'partial_50'
                                   ? 'bg-amber-100 text-amber-900 border-amber-300'
                                   : pb.kind === 'paid_full'
                                   ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -5333,30 +5376,45 @@ export default function Admin() {
                     {(() => {
                       const pb = getOrderPaymentBreakdown(order);
                       const needsPayConfirm = requiresOperatorPaymentConfirmation(order);
+                      const shouldPulseRed = (pb.kind === 'pay_on_pickup' || pb.kind === 'partial_50') && order.status !== 'completed' && order.status !== 'cancelled';
                       return (
                         <div className="space-y-2.5 mb-3">
-                          <div className={`px-3 py-2.5 rounded-xl border-2 text-xs shadow-2xs space-y-1 ${
-                            pb.kind === 'partial_50'
+                          <div className={`px-3 py-2.5 rounded-xl border-2 text-xs shadow-2xs space-y-1 transition-all ${
+                            shouldPulseRed
+                              ? 'bg-red-600 border-red-800 text-white animate-pulse shadow-lg shadow-red-600/35 ring-2 ring-red-400/80'
+                              : pb.kind === 'partial_50'
                               ? 'bg-amber-50 border-amber-400 text-amber-950'
                               : pb.kind === 'paid_full'
                               ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
                               : 'bg-orange-50 border-orange-300 text-orange-950'
                           }`}>
                             <div className="font-black uppercase tracking-tight flex items-center justify-between gap-2 flex-wrap">
-                              <span>{pb.operatorTitle}</span>
+                              <span className="inline-flex items-center gap-2">
+                                {shouldPulseRed && (
+                                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80" />
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                                  </span>
+                                )}
+                                <span>{pb.operatorTitle}</span>
+                              </span>
                               {order.paymentConfirmedByOperator === true && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black shadow-2xs">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black shadow-2xs ${
+                                  shouldPulseRed
+                                    ? 'bg-emerald-500 text-white border border-white/30'
+                                    : 'bg-emerald-600 text-white'
+                                }`}>
                                   <ShieldCheck className="w-3 h-3" />
                                   {pb.kind === 'partial_50' ? '50% CONFIRMADO' : 'PAGAMENTO CONFIRMADO'}
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] font-semibold leading-snug opacity-95">
+                            <p className={`text-[11px] font-semibold leading-snug ${shouldPulseRed ? 'text-red-50' : 'opacity-95'}`}>
                               {pb.operatorMessage}
                             </p>
                             {order.paymentConfirmedByOperator === true && (
                               <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-                                <p className="text-[10px] font-bold text-emerald-800">
+                                <p className={`text-[10px] font-bold ${shouldPulseRed ? 'text-red-100' : 'text-emerald-800'}`}>
                                   ✓ Recebimento validado{order.paymentConfirmedAt ? ` em ${new Date(order.paymentConfirmedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''} • Liberado para produção.
                                 </p>
                                 <button
@@ -5717,10 +5775,13 @@ export default function Admin() {
                       <div className="font-bold text-stone-900">{formatCurrency(order.total)}</div>
                       {(() => {
                         const pb = getOrderPaymentBreakdown(order);
+                        const shouldPulseRed = (pb.kind === 'pay_on_pickup' || pb.kind === 'partial_50') && order.status !== 'completed' && order.status !== 'cancelled';
                         return (
                           <div className="space-y-1 mt-1">
                             <div className={`inline-block px-2 py-0.5 rounded text-[10px] font-black border ${
-                              pb.kind === 'partial_50'
+                              shouldPulseRed
+                                ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/40 ring-2 ring-red-400/60'
+                                : pb.kind === 'partial_50'
                                 ? 'bg-amber-100 text-amber-900 border-amber-300'
                                 : pb.kind === 'paid_full'
                                 ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -10664,44 +10725,78 @@ export default function Admin() {
       })()}
 
       {confirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className={`bg-white rounded-2xl shadow-xl w-full ${confirmModal.debugXml ? 'max-w-lg' : 'max-w-sm'} overflow-hidden p-6`}>
-            <h3 className="text-xl font-bold text-stone-800 mb-2">{confirmModal.title}</h3>
-            <p className="text-stone-600 mb-6 whitespace-pre-wrap">{confirmModal.message}</p>
-            
-            {confirmModal.debugXml && (
-              <div className="mb-6">
-                <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Resposta XML (Debug)</label>
-                <textarea 
-                  readOnly 
-                  value={confirmModal.debugXml} 
-                  className="w-full h-32 p-2 bg-stone-50 border rounded text-[10px] font-mono outline-none"
-                />
-                <p className="text-[10px] text-stone-400 mt-1">Copie este conteúdo e envie para o suporte se o problema persistir.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
+          <div className={`bg-white rounded-2xl shadow-2xl w-full ${confirmModal.debugXml ? 'max-w-lg' : confirmModal.isPaymentAlert ? 'max-w-md border-2 border-red-500' : 'max-w-sm'} overflow-hidden`}>
+            {confirmModal.isPaymentAlert && (
+              <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">{confirmModal.title}</h3>
+                </div>
               </div>
             )}
 
-            <div className="flex justify-end gap-3">
-              {confirmModal.cancelText !== null && (
-                <button type="button" onClick={() => setConfirmModal(null)} className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-lg font-medium cursor-pointer">
-                  {confirmModal.cancelText || 'Cancelar'}
-                </button>
+            <div className="p-6">
+              {!confirmModal.isPaymentAlert && (
+                <h3 className="text-xl font-bold text-stone-800 mb-2">{confirmModal.title}</h3>
               )}
-              <button 
-                type="button" 
-                onClick={async (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const fn = confirmModal?.onConfirm;
-                  setConfirmModal(null); // Ensure it closes immediately on click
-                  if (fn) {
-                    await fn();
-                  }
-                }} 
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 cursor-pointer shadow-sm active:scale-95 transition-all"
-              >
-                {confirmModal.confirmText || 'OK'}
-              </button>
+
+              {confirmModal.isPaymentAlert && confirmModal.highlightAmount && (
+                <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border-2 border-red-300 text-center">
+                  <span className="block text-[11px] font-black uppercase tracking-wider text-red-700">
+                    Valor a Receber na Retirada
+                  </span>
+                  <span className="block text-2xl sm:text-3xl font-black font-mono text-red-700 mt-0.5">
+                    {confirmModal.highlightAmount}
+                  </span>
+                </div>
+              )}
+
+              <p className={`mb-6 whitespace-pre-wrap ${confirmModal.isPaymentAlert ? 'text-stone-800 font-semibold text-sm leading-relaxed' : 'text-stone-600'}`}>
+                {confirmModal.message}
+              </p>
+              
+              {confirmModal.debugXml && (
+                <div className="mb-6">
+                  <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">Resposta XML (Debug)</label>
+                  <textarea 
+                    readOnly 
+                    value={confirmModal.debugXml} 
+                    className="w-full h-32 p-2 bg-stone-50 border rounded text-[10px] font-mono outline-none"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">Copie este conteúdo e envie para o suporte se o problema persistir.</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 flex-wrap">
+                {confirmModal.cancelText !== null && (
+                  <button type="button" onClick={() => setConfirmModal(null)} className="px-4 py-2.5 text-stone-600 hover:bg-stone-100 rounded-lg font-bold text-sm cursor-pointer">
+                    {confirmModal.cancelText || 'Cancelar'}
+                  </button>
+                )}
+                <button 
+                  type="button" 
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const fn = confirmModal?.onConfirm;
+                    setConfirmModal(null); // Ensure it closes immediately on click
+                    if (fn) {
+                      await fn();
+                    }
+                  }} 
+                  className={`px-4 py-2.5 text-white rounded-lg font-bold text-sm cursor-pointer shadow-sm active:scale-95 transition-all ${
+                    confirmModal.isPaymentAlert
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
+                >
+                  {confirmModal.confirmText || 'OK'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
