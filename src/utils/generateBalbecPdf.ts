@@ -43,7 +43,7 @@ export function buildBalbecDocumentationPdf(): jsPDF {
 
   doc.setTextColor(200, 200, 200);
   doc.setFontSize(7.5);
-  doc.text('Versão: 3.0.0 Production | Lançamento Oficial: Nov/2026 | Arquitetura: Web PWA / KDS / Totem / TV / ERP', margin + 6, currentY + 22);
+  doc.text('Versão: 3.0.0 Production | Lançamento Oficial: Nov/2026 | Arquitetura: Web PWA / KDS / TV / ERP', margin + 6, currentY + 22);
 
   currentY += 32;
 
@@ -122,28 +122,10 @@ export function buildBalbecDocumentationPdf(): jsPDF {
     }
   };
 
-  const printAlertBox = (text: string) => {
-    const lines = doc.splitTextToSize(text, contentWidth - 8);
-    const boxHeight = lines.length * 4.2 + 6;
-    checkPageBreak(boxHeight + 2);
-
-    doc.setFillColor(254, 242, 242); // Red 50
-    doc.setDrawColor(254, 202, 202); // Red 200
-    doc.roundedRect(margin, currentY, contentWidth, boxHeight, 2, 2, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(185, 28, 28); // Red 700
-    doc.text(lines, margin + 4, currentY + 4.5);
-
-    currentY += boxHeight + 3;
-  };
-
   // --- SEÇÃO 1 ---
   printSectionHeader('1', 'Visão Geral da Plataforma BALBEC - REVENDA');
-  printParagraph('Desenvolvida sob medida para automação de salgaderias, revendas e consumo imediato, a plataforma integra vendas digitais (PWA), totem presencial, cozinha (KDS), painel de chamadas na TV e retaguarda administrativa.');
+  printParagraph('Desenvolvida sob medida para automação de salgaderias, revendas e consumo imediato, a plataforma integra vendas digitais (PWA), cozinha (KDS), painel de chamadas na TV e retaguarda administrativa.');
   printBullet('Cardápio Digital PWA', 'Interface web de alta performance para smartphones e desktops com navegação por categorias, fotos em alta resolução e cálculo automático de taxas.');
-  printBullet('Totem de Autoatendimento (/totem)', 'Modo quiosque em tela cheia otimizado para tablets ou totens verticais no balcão da loja, com tipografia ampliada.');
   printBullet('Painel Smart TV (/tv)', 'Exibição de senhas prontas, chamadas por voz sintetizada, letreiro de novidades e carrossel multimídia.');
   printBullet('Painel Administrativo (/admin)', 'Central de controle com KDS em tempo real, impressoras térmicas, relatórios e gestão de usuários.');
   currentY += 3;
