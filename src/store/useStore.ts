@@ -216,6 +216,18 @@ export interface User {
   role: 'master' | 'admin' | 'padrao' | 'operator';
 }
 
+export interface AuditLog {
+  id: string;
+  timestamp: number;
+  type: string;
+  title: string;
+  description: string;
+  userName: string;
+  userEmail: string;
+  role: string;
+  details?: string;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -537,6 +549,9 @@ interface StoreState {
   ordersError: string | null;
   isOnline: boolean;
   isInitialized: boolean;
+  auditLogs: AuditLog[];
+  addAuditLog: (log: Omit<AuditLog, 'id' | 'timestamp'>) => void;
+  clearAuditLogs: () => void;
   
   // Setters
   setCategories: (categories: Category[]) => void;
@@ -1032,6 +1047,14 @@ const reconcileServerOrders = (
   );
 };
 
+const getStoredAdminUser = () => {
+  try {
+    const raw = localStorage.getItem('balbec_admin_session');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+};
+
 export const useStore = create<StoreState>((set, get) => ({
   categories: getInitialCategories(),
   products: getInitialProducts(),
@@ -1047,6 +1070,33 @@ export const useStore = create<StoreState>((set, get) => ({
   isOnline: true,
   isInitialized: getInitialProducts().length > 0,
   currentNotification: null,
+  auditLogs: (() => {
+    try {
+      const saved = localStorage.getItem('balbec_audit_logs');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  })(),
+  addAuditLog: (log) => {
+    const newEntry: AuditLog = {
+      id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: Date.now(),
+      ...log
+    };
+    set(state => {
+      const next = [newEntry, ...(state.auditLogs || [])].slice(0, 500);
+      try {
+        localStorage.setItem('balbec_audit_logs', JSON.stringify(next));
+      } catch (e) {}
+      return { auditLogs: next };
+    });
+  },
+  clearAuditLogs: () => {
+    set({ auditLogs: [] });
+    try {
+      localStorage.removeItem('balbec_audit_logs');
+    } catch (e) {}
+  },
   
   setCategories: (categories) => set({ categories }),
   setProducts: (products) => set({ products }),
@@ -1809,6 +1859,16 @@ export const useStore = create<StoreState>((set, get) => ({
   addUser: async (user, customId) => {
     const uid = String(customId || user.uid || `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const newUser = { uid, ...user };
+    const adminUser = getStoredAdminUser();
+    get().addAuditLog({
+      type: 'approve_user',
+      title: 'Novo Usuário Cadastrado / Aprovado',
+      description: `Usuário "${user.name}" (${user.email}) criado com cargo [${user.role}]`,
+      userName: adminUser?.name || 'Master/Admin',
+      userEmail: adminUser?.email || '',
+      role: adminUser?.role || 'master',
+      details: `Cargo: ${user.role}, Email: ${user.email}`
+    });
     try {
       const res = await fetch('/api/db/users', {
         method: 'POST',
@@ -2171,6 +2231,17 @@ export const useStore = create<StoreState>((set, get) => ({
         return { orders: next };
       });
 
+      const adminUser = getStoredAdminUser();
+      get().addAuditLog({
+        type: 'confirm_payment',
+        title: 'Recebimento de Pagamento Pendente',
+        description: `Pagamento pendente do pedido #${targetId} confirmado por ${operatorName || adminUser?.name || 'Operador'}`,
+        userName: adminUser?.name || operatorName || 'Operador',
+        userEmail: adminUser?.email || '',
+        role: adminUser?.role || 'admin',
+        details: `Pedido: #${targetId}`
+      });
+
       return { success: true, order: normalized };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Erro de conexão ao confirmar pagamento.' };
@@ -2282,6 +2353,17 @@ export const useStore = create<StoreState>((set, get) => ({
       const updated = currentOrders.filter(o => String(o.id).trim() !== targetId);
       saveOrdersToStorage(updated);
       return { orders: updated };
+    });
+
+    const adminUser = getStoredAdminUser();
+    get().addAuditLog({
+      type: 'delete_order',
+      title: 'Exclusão de Pedido',
+      description: `Pedido #${targetId} excluído do sistema`,
+      userName: adminUser?.name || 'Master/Admin',
+      userEmail: adminUser?.email || '',
+      role: adminUser?.role || 'master',
+      details: `ID do pedido: ${targetId}`
     });
   },
 

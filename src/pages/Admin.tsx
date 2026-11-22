@@ -122,10 +122,11 @@ export default function Admin() {
     addProduct, updateProduct, deleteProduct,
     addUser, updateUser, deleteUser,
     updateOrderStatus, confirmOrderPayment, markOrderPrinted, deleteOrder, clearAllOrders, updateStoreInfo, exportOrderToBlueFocus,
-    fetchData, fetchCustomers
+    fetchData, fetchCustomers, auditLogs, clearAuditLogs
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [auditSearch, setAuditSearch] = useState('');
   const [showInstallsModal, setShowInstallsModal] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -9532,6 +9533,114 @@ export default function Admin() {
     );
   };
 
+  const renderAuditTab = () => {
+    const auditLogsList = (auditLogs || []).filter(log => {
+      const q = auditSearch.toLowerCase();
+      return !q || log.title.toLowerCase().includes(q) || log.description.toLowerCase().includes(q) || log.userName.toLowerCase().includes(q) || log.userEmail.toLowerCase().includes(q);
+    });
+
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-xs border border-stone-200">
+          <div>
+            <h2 className="text-xl font-extrabold text-stone-900 flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-orange-600" /> Auditoria Crítica do Sistema
+            </h2>
+            <p className="text-sm text-stone-500 mt-0.5">
+              Registro completo de ações críticas realizadas por administradores e operadores (ex: exclusão de pedidos, confirmação de pagamentos pendentes, cadastros e aprovações).
+            </p>
+          </div>
+          {isMaster && auditLogsList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Tem certeza que deseja limpar todos os registros de auditoria?')) {
+                  clearAuditLogs();
+                }
+              }}
+              className="px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 font-bold text-xs rounded-xl border border-red-200 transition-all cursor-pointer"
+            >
+              🗑️ Limpar Auditoria (Master)
+            </button>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xs border border-stone-200 overflow-hidden">
+          <div className="p-4 border-b border-stone-200 bg-stone-50 flex items-center gap-3">
+            <Search className="w-5 h-5 text-stone-400" />
+            <input
+              type="text"
+              placeholder="Pesquisar por ação, usuário, email ou descrição..."
+              value={auditSearch}
+              onChange={(e) => setAuditSearch(e.target.value)}
+              className="w-full bg-transparent border-none outline-none text-sm text-stone-800 placeholder-stone-400 font-medium"
+            />
+            {auditSearch && (
+              <button onClick={() => setAuditSearch('')} className="text-xs text-stone-500 hover:text-stone-800 font-bold px-2 py-1 bg-stone-200 rounded-lg">Limpar</button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-stone-100 text-stone-700 font-bold text-xs uppercase tracking-wider border-b">
+                <tr>
+                  <th className="p-4">Data e Hora</th>
+                  <th className="p-4">Ação / Evento</th>
+                  <th className="p-4">Descrição</th>
+                  <th className="p-4">Usuário Responsável</th>
+                  <th className="p-4">Papel</th>
+                  <th className="p-4">Detalhes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 text-sm">
+                {auditLogsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-12 text-center text-stone-400 font-medium">
+                      Nenhum registro de auditoria encontrado. As ações críticas (exclusão de pedidos, recebimentos, aprovações) serão registradas automaticamente aqui.
+                    </td>
+                  </tr>
+                ) : (
+                  auditLogsList.map((log) => {
+                    const dateStr = new Date(log.timestamp).toLocaleString('pt-BR');
+                    return (
+                      <tr key={log.id} className="hover:bg-stone-50/80 transition-colors">
+                        <td className="p-4 text-xs font-mono text-stone-600 whitespace-nowrap">{dateStr}</td>
+                        <td className="p-4 font-extrabold text-stone-900 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs border ${
+                            log.type === 'delete_order' ? 'bg-red-50 text-red-700 border-red-200' :
+                            log.type === 'confirm_payment' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}>
+                            {log.title}
+                          </span>
+                        </td>
+                        <td className="p-4 text-stone-700 font-medium max-w-xs truncate" title={log.description}>{log.description}</td>
+                        <td className="p-4">
+                          <div className="font-bold text-stone-900">{log.userName || 'Sistema'}</div>
+                          <div className="text-xs text-stone-400">{log.userEmail || ''}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                            log.role === 'master' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                            log.role === 'admin' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                            'bg-stone-100 text-stone-700'
+                          }`}>
+                            {log.role}
+                          </span>
+                        </td>
+                        <td className="p-4 text-xs font-mono text-stone-500 max-w-xs truncate" title={log.details || '-'}>{log.details || '-'}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const handleGoogleLogin = async () => {
     try {
       const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
@@ -10066,6 +10175,18 @@ export default function Admin() {
             </button>
           )}
 
+          {!isCaixaUser && isAdminOrMaster && (
+            <button type="button" 
+              onClick={() => {
+                setActiveTab('audit');
+                setIsMobileNavOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm ${activeTab === 'audit' ? 'bg-orange-600 text-white' : 'hover:bg-stone-800'}`}
+            >
+              <ShieldCheck className="w-5 h-5" /> Auditoria Crítica
+            </button>
+          )}
+
           <Link
             to="/documentacao"
             target="_blank"
@@ -10203,6 +10324,7 @@ export default function Admin() {
         {activeTab === 'settings' && !isCaixaUser && isMaster && renderSettings()}
         {activeTab === 'users' && !isCaixaUser && isMaster && renderUsers()}
         {activeTab === 'sms' && (isAdminOrMaster || isCaixaUser) && <SmsRemindersTab />}
+        {activeTab === 'audit' && !isCaixaUser && isAdminOrMaster && renderAuditTab()}
       </main>
 
       {/* Global ERP Sync Progress Modal when not on products tab */}
