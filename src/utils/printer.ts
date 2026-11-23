@@ -887,6 +887,12 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
           return `<div class="center" style="margin-top: 5px; padding: 4px 6px; border: 1.5px solid #000; font-size: 11px; font-weight: 900; text-transform: uppercase;">${pb.receiptLine}</div>`;
         })()}
 
+        ${order.notes && order.notes.trim() !== '' ? `
+        <div style="margin-top: 6px; padding: 5px 6px; border: 1.5px solid #000; text-align: left; font-size: 11px; font-weight: 900;">
+          <div style="font-size: 10px; text-transform: uppercase; margin-bottom: 2px;">📝 OBSERVAÇÕES FINAIS:</div>
+          <div style="font-weight: 700; word-break: break-word;">${order.notes.trim()}</div>
+        </div>` : ''}
+
         ${!isClient ? `
         <div class="attendant-box" style="margin-top: 8px; font-size: 11px; border-top: 1px dashed #000; padding-top: 5px; text-align: left;">
           <div>Conferido / Atendente: ___________________</div>
@@ -1099,6 +1105,10 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     lines.push('\x1D\x42\x01\x1B\x45\x01');
     lines.push(` ${normalizeEscPosText(pbEsc.receiptLine)} \n`);
     lines.push('\x1B\x45\x00\x1D\x42\x00');
+    if (order.notes && order.notes.trim() !== '') {
+      lines.push('\n\x1B\x45\x01OBSERVACOES FINAIS:\x1B\x45\x00\n');
+      lines.push(`${normalizeEscPosText(order.notes.trim())}\n`);
+    }
     lines.push('--------------------------------\n');
 
     if (isClient) {

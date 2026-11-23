@@ -33,6 +33,7 @@ export default function Menu() {
   const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData, fetchOrdersOnly, appendItemsToOrder } = useStore();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [productQuantities, setProductQuantities] = useState<Record<string, number | string>>({});
   type PrepChoiceType = 'congelado_cru' | 'congelado_frito' | 'congelado_pre_assado' | 'congelado_assado_pronto' | 'pronto_pre_assado' | 'pronto_assado_pronto' | 'pronto_cru' | 'pronto_frito';
@@ -3456,6 +3457,7 @@ export default function Menu() {
             ? false
             : undefined,
         pixReceiptUrl: pixReceiptFile || undefined,
+        notes: orderNotes.trim() || undefined,
       });
 
       if (createdOrder) {
@@ -3466,6 +3468,7 @@ export default function Menu() {
         setPaymentMode(null);
         setPaymentMethod('');
         setPixReceiptFile(null);
+        setOrderNotes('');
         safeStorage.removeItem('balbec_active_cart');
         safeStorage.removeItem('balbec_selected_schedule_time');
         safeStorage.removeItem('balbec_selected_schedule_date');
@@ -5819,6 +5822,21 @@ export default function Menu() {
               <div className="border-t pt-4 flex justify-between items-center text-xl font-black text-stone-900">
                 <span>Total do Pedido</span>
                 <span style={{ color: storeInfo.themeColor }}>{formatCurrency(total)}</span>
+              </div>
+
+              {/* Campo de Observações Finais */}
+              <div className="mt-3 pt-3 border-t border-stone-200 text-left">
+                <label htmlFor="checkout-order-notes" className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5 flex items-center gap-1.5">
+                  <span>📝</span> OBSERVAÇÕES FINAIS
+                </label>
+                <textarea
+                  id="checkout-order-notes"
+                  rows={2}
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  placeholder="Ex: Cliente resolveu pagar de outra forma na retirada, observações de troco ou recado..."
+                  className="w-full p-2.5 text-xs bg-white border border-stone-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-stone-800 placeholder-stone-400 font-medium shadow-2xs"
+                />
               </div>
 
               {hasFrozenInCart && frozenPaymentPlan === 'parcial' && (

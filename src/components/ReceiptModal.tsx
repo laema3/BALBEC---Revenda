@@ -274,6 +274,13 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
               {paymentBreakdown.receiptLine}
             </div>
 
+            {order.notes && order.notes.trim() !== '' && (
+              <div className="mt-2 bg-amber-50 border border-amber-300 p-2 rounded text-[11px] text-amber-900 font-bold text-left">
+                <div className="text-[10px] uppercase text-amber-800 font-black mb-0.5">📝 OBSERVAÇÕES FINAIS:</div>
+                <div className="font-medium whitespace-pre-wrap">{order.notes.trim()}</div>
+              </div>
+            )}
+
             <div className="border-t-2 border-black my-2"></div>
             <div className="text-center font-bold text-[10px]">*** OBRIGADO PELA PREFERÊNCIA ***</div>
 

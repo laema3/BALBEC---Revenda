@@ -884,6 +884,7 @@ export function formatOrderForDb(order: any) {
     blueFocusExportedAt: order.blueFocusExportedAt ? Number(order.blueFocusExportedAt) : null,
     blueFocusExportError: order.blueFocusExportError ? String(order.blueFocusExportError) : null,
     pixReceiptUrl: order.pixReceiptUrl ? String(order.pixReceiptUrl) : null,
+    notes: order.notes ? String(order.notes) : '',
     updatedAt: Number(order.updatedAt) || createdAt
   };
 }

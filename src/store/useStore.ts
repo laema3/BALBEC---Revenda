@@ -337,6 +337,7 @@ export interface Order {
   blueFocusExportedAt?: number | null;
   blueFocusExportError?: string | null;
   pixReceiptUrl?: string;
+  notes?: string;
 }
 
 export interface TvMediaItem {

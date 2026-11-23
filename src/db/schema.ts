@@ -99,6 +99,7 @@ export const orders = pgTable('orders', {
   blueFocusExportedAt: bigint('bluefocus_exported_at', { mode: 'number' }),
   blueFocusExportError: text('bluefocus_export_error'),
   pixReceiptUrl: text('pix_receipt_url'),
+  notes: text('notes').default(''),
   updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
