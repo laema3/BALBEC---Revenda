@@ -608,7 +608,7 @@ interface StoreState {
 
   placeOrder: (order: Omit<Order, 'id' | 'createdAt' | 'status'> & { status?: Order['status']; deliveryStatus?: Order['deliveryStatus'] }) => Promise<Order>;
   updateOrderStatus: (id: string, status: Order['status'], masterPassword?: string) => Promise<void>;
-  confirmOrderPayment: (id: string, password: string, operatorName?: string) => Promise<{ success: boolean; order?: Order; error?: string }>;
+  confirmOrderPayment: (id: string, password: string, operatorName?: string, pixReceiptUrl?: string) => Promise<{ success: boolean; order?: Order; error?: string }>;
   markOrderPrinted: (id: string) => Promise<void>;
   appendItemsToOrder: (orderId: string, newItems: OrderItem[]) => Promise<{ success: boolean; order?: Order; error?: string }>;
   deleteOrder: (id: string, masterPassword: string) => Promise<void>;
@@ -2193,7 +2193,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  confirmOrderPayment: async (id, password, operatorName) => {
+  confirmOrderPayment: async (id, password, operatorName, pixReceiptUrl) => {
     const targetId = String(id || '').trim();
     if (!targetId) {
       return { success: false, error: 'Pedido inválido.' };
@@ -2202,7 +2202,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const res = await fetch(`/api/db/orders/${encodeURIComponent(targetId)}/confirm-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, operatorName })
+        body: JSON.stringify({ password, operatorName, pixReceiptUrl })
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success || !data?.order) {

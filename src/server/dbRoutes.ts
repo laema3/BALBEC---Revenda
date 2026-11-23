@@ -3442,6 +3442,14 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         });
       }
 
+      const pixReceiptUrl = String(req.body?.pixReceiptUrl || '').trim();
+      if (!pixReceiptUrl) {
+        return res.status(400).json({
+          success: false,
+          error: 'É obrigatório anexar o comprovante do pagamento para prosseguir.'
+        });
+      }
+
       const targetId = String(id || '').trim();
       let matchedOrder = memOrders.find(o => String(o.id).trim() === targetId);
       if (!matchedOrder && targetId.length >= 4) {
@@ -3471,6 +3479,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         paymentConfirmedByOperator: true,
         paymentConfirmedAt: confirmedAt,
         paymentConfirmedBy: operatorName,
+        pixReceiptUrl: pixReceiptUrl || matchedOrder.pixReceiptUrl || undefined,
         updatedAt: nowTs
       };
 
@@ -3488,6 +3497,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
                 paymentConfirmedByOperator: true,
                 paymentConfirmedAt: confirmedAt,
                 paymentConfirmedBy: operatorName,
+                pixReceiptUrl: pixReceiptUrl || undefined,
                 updatedAt: nowTs
               })
               .where(eq(orders.id, resolvedId))

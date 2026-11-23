@@ -48,6 +48,7 @@ import {
   RefreshCw,
   Search,
   History,
+  Paperclip,
   AlertTriangle,
   FileText,
   HardDrive,
@@ -234,6 +235,7 @@ export default function Admin() {
     order: Order;
     confirmerName: string;
     password: string;
+    receiptUrl: string | null;
     showPassword: boolean;
     error: string | null;
     isSubmitting: boolean;
@@ -3076,6 +3078,7 @@ export default function Admin() {
       order,
       confirmerName: '',
       password: '',
+      receiptUrl: null,
       showPassword: false,
       error: prefillError,
       isSubmitting: false
@@ -3191,8 +3194,14 @@ export default function Admin() {
       return;
     }
 
+    const receiptUrl = paymentConfirmModal.receiptUrl;
+    if (!receiptUrl) {
+      setPaymentConfirmModal(prev => prev ? { ...prev, error: 'É obrigatório anexar o comprovante do pagamento para prosseguir.' } : null);
+      return;
+    }
+
     setPaymentConfirmModal(prev => prev ? { ...prev, isSubmitting: true, error: null } : null);
-    const result = await confirmOrderPayment(paymentConfirmModal.order.id, pwd, confirmer);
+    const result = await confirmOrderPayment(paymentConfirmModal.order.id, pwd, confirmer, receiptUrl);
 
     if (result.success) {
       playStatusChangeAudio();
@@ -10514,6 +10523,51 @@ export default function Admin() {
                   </div>
                 </div>
 
+                {/* Anexar Comprovante do Pagamento / Pix */}
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5 flex items-center gap-1.5">
+                    <Paperclip className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Anexar Comprovante do Pix / Pagamento *</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="file" 
+                      accept="image/*,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert('O arquivo é muito grande (máximo 5MB).');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (uploadEvent) => {
+                            setPaymentConfirmModal(prev => prev ? { ...prev, receiptUrl: uploadEvent.target?.result as string, error: null } : null);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full text-xs text-stone-600 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer border-2 border-dashed border-stone-300 rounded-xl p-2 bg-stone-50"
+                    />
+                  </div>
+                  {paymentConfirmModal.receiptUrl ? (
+                    <div className="mt-2 flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-xs text-emerald-900 font-bold">
+                      <span className="truncate">Comprovante anexado com sucesso!</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setPaymentConfirmModal(prev => prev ? { ...prev, receiptUrl: null } : null)}
+                        className="text-red-600 hover:text-red-800 text-[11px] font-black px-2 py-0.5 cursor-pointer"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-amber-700 font-bold mt-1">
+                      ⚠️ É obrigatório anexar o comprovante do pagamento para habilitar a confirmação.
+                    </p>
+                  )}
+                </div>
+
                 {paymentConfirmModal.error && (
                   <div className="bg-red-50 border border-red-300 text-red-800 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
@@ -10532,7 +10586,7 @@ export default function Admin() {
                   </button>
                   <button
                     type="submit"
-                    disabled={paymentConfirmModal.isSubmitting}
+                    disabled={paymentConfirmModal.isSubmitting || !paymentConfirmModal.receiptUrl}
                     className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
                   >
                     {paymentConfirmModal.isSubmitting ? (
