@@ -222,8 +222,8 @@ export default function Admin() {
           setActiveTab('dashboard');
         }
       } else if (!isMaster) {
-        // Grupo Administrador (incluindo Vanderluce) NÃO tem acesso a configurações e usuários
-        if (activeTab === 'settings' || activeTab === 'users') {
+        // Grupo Administrador (incluindo Vanderluce) NÃO tem acesso a configurações, usuários, histórico de atualizações e auditoria
+        if (activeTab === 'settings' || activeTab === 'users' || activeTab === 'sync_logs' || activeTab === 'audit') {
           setActiveTab('dashboard');
         }
       }
@@ -5325,15 +5325,17 @@ export default function Admin() {
               <p className="text-xs text-stone-500 mt-0.5">Visualize e controle os pedidos recebidos de todos os canais.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openPaymentAuditWithMaster(null)}
-                className="bg-stone-900 hover:bg-stone-800 text-amber-300 border border-amber-400/40 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                title="Consultar quem confirmou/liberou pagamentos online (exige senha Master)"
-              >
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Auditoria de Liberações (Master)</span>
-              </button>
+              {isMaster && (
+                <button
+                  type="button"
+                  onClick={() => openPaymentAuditWithMaster(null)}
+                  className="bg-stone-900 hover:bg-stone-800 text-amber-300 border border-amber-400/40 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  title="Consultar quem confirmou/liberou pagamentos online (exige senha Master)"
+                >
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>Auditoria de Liberações (Master)</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -10478,7 +10480,8 @@ export default function Admin() {
               </span>
             </button>
           )}
-          {!isCaixaUser && isAdminOrMaster && (
+          {/* Histórico de Atualizações: APENAS USUÁRIO MASTER */}
+          {!isCaixaUser && isMaster && (
             <button type="button" 
               onClick={() => {
                 setActiveTab('sync_logs');
@@ -10536,7 +10539,8 @@ export default function Admin() {
             </button>
           )}
 
-          {!isCaixaUser && isAdminOrMaster && (
+          {/* Auditoria Crítica: APENAS USUÁRIO MASTER */}
+          {!isCaixaUser && isMaster && (
             <button type="button" 
               onClick={() => {
                 setActiveTab('audit');
@@ -10548,20 +10552,23 @@ export default function Admin() {
             </button>
           )}
 
-          <Link
-            to="/documentacao"
-            target="_blank"
-            className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm text-stone-300 hover:text-white hover:bg-stone-800"
-            title="Abrir a documentação completa e roteiro funcional para visualização e impressão em PDF"
-          >
-            <span className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-orange-400" />
-              <span>Documentação PDF</span>
-            </span>
-            <span className="text-[10px] bg-orange-600/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded font-black uppercase">
-              Manual
-            </span>
-          </Link>
+          {/* Documentação PDF: APENAS USUÁRIO MASTER */}
+          {!isCaixaUser && isMaster && (
+            <Link
+              to="/documentacao"
+              target="_blank"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors cursor-pointer font-medium text-sm text-stone-300 hover:text-white hover:bg-stone-800"
+              title="Abrir a documentação completa e roteiro funcional para visualização e impressão em PDF"
+            >
+              <span className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-orange-400" />
+                <span>Documentação PDF</span>
+              </span>
+              <span className="text-[10px] bg-orange-600/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded font-black uppercase">
+                Manual
+              </span>
+            </Link>
+          )}
         </nav>
         <div className="p-4 border-t border-stone-800 space-y-2 shrink-0">
           <button type="button" 
@@ -10680,12 +10687,12 @@ export default function Admin() {
         {activeTab === 'categories' && !isCaixaUser && renderCategories()}
         {activeTab === 'products' && !isCaixaUser && renderProducts()}
         {activeTab === 'flavors' && !isCaixaUser && renderFlavors()}
-        {activeTab === 'sync_logs' && !isCaixaUser && isAdminOrMaster && renderSyncLogs()}
+        {activeTab === 'sync_logs' && !isCaixaUser && isMaster && renderSyncLogs()}
         {activeTab === 'tv' && !isCaixaUser && <TvManagerTab />}
         {activeTab === 'settings' && !isCaixaUser && isMaster && renderSettings()}
         {activeTab === 'users' && !isCaixaUser && isMaster && renderUsers()}
         {activeTab === 'sms' && (isAdminOrMaster || isCaixaUser) && <SmsRemindersTab />}
-        {activeTab === 'audit' && !isCaixaUser && isAdminOrMaster && renderAuditTab()}
+        {activeTab === 'audit' && !isCaixaUser && isMaster && renderAuditTab()}
       </main>
 
       {/* Global ERP Sync Progress Modal when not on products tab */}
