@@ -3427,7 +3427,13 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     try {
       const { id } = req.params;
       const rawPassword = String(req.body?.password || '').trim();
-      if (rawPassword !== 'balbecrecebe') {
+      const masterPwd = process.env.MASTER_SECURITY_PASSWORD || 'MASTERBALBEC';
+      const isValidPassword = 
+        rawPassword === 'balbecrecebe' || 
+        rawPassword === masterPwd || 
+        memUsers.some(u => String(u.password || '').trim() === rawPassword);
+
+      if (!isValidPassword) {
         return res.status(403).json({
           success: false,
           error: 'Senha incorreta! Digite a senha de confirmação para validar o recebimento do pagamento.'
