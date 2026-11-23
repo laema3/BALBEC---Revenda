@@ -64,7 +64,6 @@ Versão: 2.8.0 Production | Data: Novembro/2026
 1. VISÃO GERAL DA PLATAFORMA
 Plataforma completa de revenda e consumo de salgados especiais, contendo:
 - Cardápio Digital PWA (/ e /cardapio)
-- Totem de Autoatendimento Presencial (/totem)
 - Painel Smart TV com Chamada Audiovisual de Senhas (/tv)
 - Painel Administrativo e KDS de Produção (/admin)
 
@@ -85,12 +84,7 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
 - Logomarca oficial BALBEC em todas as notificações sem corte de caracteres.
 - Alarme sonoro em tempo real no painel admin para alertar o balcão.
 
-5. MODO TOTEM (/totem)
-- Interface de autoatendimento touch-screen com tipografia e botões 30% maiores.
-- Trava de categorias aprovadas para exibição no totem.
-- Auto-reset por inatividade.
-
-6. PAINEL SMART TV (/tv)
+5. PAINEL SMART TV (/tv)
 - Chamada de senhas com campainha sonora ao clicar em "Chamar TV" no Admin.
 - Carrossel de fotos e letreiro de novidades da loja.
 
@@ -216,7 +210,7 @@ Permite adicionar itens extras a um pedido já enviado caso tenha esquecido algu
             <div className="text-right sm:text-right shrink-0 text-xs text-stone-500 space-y-1 bg-stone-50 p-3 rounded-2xl border border-stone-200 print:bg-transparent print:p-0 print:border-none">
               <div><strong>Versão:</strong> 2.8.0 Production</div>
               <div><strong>Emissão:</strong> Novembro / 2026</div>
-              <div><strong>Ambiente:</strong> Web / Mobile / Totem / KDS</div>
+              <div><strong>Ambiente:</strong> Web / Mobile / KDS</div>
               <div><strong>Status:</strong> Homologado &amp; Ativo</div>
             </div>
           </div>

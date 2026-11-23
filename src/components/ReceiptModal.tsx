@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Order, StoreInfo } from '../store/useStore';
 import { getFullReceiptHTML, printReceipt, getActiveOrderPrinter, resolveItemCode, resolveAddonCode, resolveOrderModality } from '../utils/printer';
 import { getOrderPaymentBreakdown, sharePixReceipt } from '../utils/paymentStatusHelper';
-import { Printer, X, Copy, Check, ExternalLink, Loader2, Share2 } from 'lucide-react';
+import { Printer, X, Copy, Check, ExternalLink, Loader2, Share2, Paperclip } from 'lucide-react';
 
 interface ReceiptModalProps {
   order: Order | null;
@@ -283,6 +283,23 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
 
         {/* Rodapé e Ações */}
         <div className="p-3 bg-white border-t border-stone-200 space-y-2">
+          {order.pixReceiptUrl && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-1.5 text-emerald-900 font-bold truncate">
+                <Paperclip className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="truncate">Comprovante Pix Anexado pelo Cliente</span>
+              </div>
+              <a
+                href={order.pixReceiptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-[11px] flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Ver Comprovante</span>
+              </a>
+            </div>
+          )}
           {shareFeedback && (
             <div className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-center">
               {shareFeedback}

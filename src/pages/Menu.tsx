@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore, OrderItem, Order, CustomerAddress, Product, Category } from '../store/useStore';
 import { formatCurrency, formatCapitalized, expandAbbreviations, formatDateBR, formatAllDatesBR } from '../lib/utils';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, Pencil, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff, Share2, MessageCircle } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, Pencil, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Settings, Droplets, Search, X, Printer, User as UserIcon, RefreshCw, Store, Tv, BellRing, Clock, MapPin, KeyRound, ShieldAlert, ShieldCheck, LocateFixed, AlertTriangle, UtensilsCrossed, QrCode, Scissors, UserCheck, CreditCard, Copy, Lock, UserPlus, LogIn, Sparkles, Monitor, Calendar, PackageCheck, Eye, EyeOff, Share2, MessageCircle, Paperclip } from 'lucide-react';
 import { getCurrentPosition, calculateDistanceMeters, formatDistance } from '../utils/geolocation';
 import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
@@ -203,6 +203,7 @@ export default function Menu() {
 
   const [paymentMode, setPaymentMode] = useState<'online' | 'delivery' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [pixReceiptFile, setPixReceiptFile] = useState<string | null>(null);
   const [frozenPaymentPlan, setFrozenPaymentPlan] = useState<'integral' | 'parcial' | null>(null);
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -3459,6 +3460,7 @@ export default function Menu() {
             confirmedPaymentMethod.toLowerCase().includes('pix mp'))
             ? false
             : undefined,
+        pixReceiptUrl: pixReceiptFile || undefined,
       });
 
       if (createdOrder) {
@@ -3468,6 +3470,7 @@ export default function Menu() {
         setFrozenPaymentPlan(null);
         setPaymentMode(null);
         setPaymentMethod('');
+        setPixReceiptFile(null);
         safeStorage.removeItem('balbec_active_cart');
         safeStorage.removeItem('balbec_selected_schedule_time');
         safeStorage.removeItem('balbec_selected_schedule_date');
@@ -6137,6 +6140,47 @@ export default function Menu() {
                     )}
                   </button>
                 </div>
+              </div>
+
+              {/* Anexar Comprovante Pix (para conferência posterior) */}
+              <div className="w-full bg-stone-50 border border-stone-200 rounded-2xl p-3 mb-4">
+                <label className="text-[11px] font-black text-stone-700 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                  <Paperclip className="w-4 h-4 text-orange-600 shrink-0" />
+                  <span>Anexar Comprovante do Pix (Opcional p/ Conferência)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="file" 
+                    accept="image/*,application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('O arquivo é muito grande (máximo 5MB).');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = (uploadEvent) => {
+                          setPixReceiptFile(uploadEvent.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="w-full text-xs text-stone-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-black file:bg-orange-600 file:text-white hover:file:bg-orange-700 cursor-pointer"
+                  />
+                </div>
+                {pixReceiptFile && (
+                  <div className="mt-2 flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-xs text-emerald-900 font-bold">
+                    <span className="truncate">Comprovante anexado com sucesso!</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setPixReceiptFile(null)}
+                      className="text-red-600 hover:text-red-800 text-[11px] font-black px-2 py-0.5 cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Live Polling Status */}
