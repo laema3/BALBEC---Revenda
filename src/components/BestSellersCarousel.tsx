@@ -19,7 +19,7 @@ interface BestSellersCarouselProps {
   canBuy: boolean;
   cartProductIds: Set<string>;
   queuedProductIds?: Set<string>;
-  variant?: 'feed' | 'compact' | 'success';
+  variant?: 'feed' | 'compact' | 'checkout' | 'success';
   onSelectProduct: (entry: BestSellerEntry) => void;
   onFinishFrozenNow?: () => void;
   themeColor?: string;
@@ -48,7 +48,7 @@ export function BestSellersCarousel({
     }
   }, [itemsSignature]);
 
-  const isCompact = variant === 'compact' || variant === 'success';
+  const isCompact = variant === 'compact' || variant === 'checkout' || variant === 'success';
 
   const scrollCarousel = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
@@ -89,9 +89,11 @@ export function BestSellersCarousel({
       className={
         variant === 'feed'
           ? 'mb-8 sm:mb-10 max-w-4xl lg:max-w-7xl mx-auto'
-          : variant === 'success'
-            ? 'mt-4 text-left'
-            : 'mt-4 pt-4 border-t border-stone-200 text-left'
+          : variant === 'checkout'
+            ? 'bg-white rounded-2xl shadow-sm border border-stone-200/90 p-4 sm:p-5 text-left'
+            : variant === 'success'
+              ? 'mt-4 text-left'
+              : 'mt-4 pt-4 border-t border-stone-200 text-left'
       }
     >
       {/* Header Row */}
@@ -111,12 +113,12 @@ export function BestSellersCarousel({
               {variant === 'success'
                 ? 'Faça Outro Pedido com os Mais Vendidos'
                 : isFrozenSuggestionsOnly
-                  ? variant === 'compact'
+                  ? variant === 'compact' || variant === 'checkout'
                     ? 'Aproveite e Leve Mais Congelados'
                     : 'Congelados Mais Vendidos'
                   : isFrozenOrderActive
                     ? 'Mais Vendidos para o Próximo Pedido'
-                    : variant === 'compact'
+                    : variant === 'compact' || variant === 'checkout'
                       ? 'Aproveite e Leve Também'
                       : 'Mais Vendidos'}
             </h2>
@@ -128,7 +130,9 @@ export function BestSellersCarousel({
                 ? 'Sugestões exclusivas de produtos congelados (48h) para adicionar direto ao seu pedido.'
                 : isFrozenOrderActive
                   ? 'Você está comprando congelados (48h). Finalize este pedido e faça outro com estes sucessos de venda.'
-                  : 'Os campeões de pedidos para deixar seu carrinho ainda mais completo.'}
+                  : variant === 'checkout'
+                    ? 'Antes de finalizar, adicione os itens mais pedidos direto ao seu pedido.'
+                    : 'Os campeões de pedidos para deixar seu carrinho ainda mais completo.'}
           </p>
         </div>
 

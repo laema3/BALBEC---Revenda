@@ -288,7 +288,7 @@ export default function Menu() {
 
   // Auto-scroll para cada etapa do checkout conforme o preenchimento
   useEffect(() => {
-    if (isCheckout) {
+      if (isCheckout) {
       // 1. Rolagem para horário se agendamento estiver habilitado e ainda não escolhido
       if (storeInfo.deliveryScheduleEnabled && !selectedScheduleTime) {
         setTimeout(() => {
@@ -2997,7 +2997,7 @@ export default function Menu() {
       ? (isFrozenContext ? storeInfo.salgadoPrepAssadoCongeladoEnabled !== false : storeInfo.salgadoPrepAssadoEnabled !== false)
       : (isFrozenContext ? storeInfo.salgadoPrepFritoCongeladoEnabled !== false : (isFriedNormalCategory ? storeInfo.salgadoPrepFritoEnabled !== false : false));
     const needsPrep = isPrepEnabled && (isFrozenContext || isBakedCategory || isFriedNormalCategory) && !isAddonProduct(product) && canBuy;
-    const minReq = isFrozenContext ? Math.max(1, Number(product.minFrozenQuantity) || 1) : 1;
+    const minReq = getMinQty(product, isFrozenContext);
 
     if (needsPrep) {
       openFrozenModal(product, minReq, isFrozenContext ? 'congelado' : 'pronto');
@@ -3030,7 +3030,7 @@ export default function Menu() {
       if (needsPrep) {
         if (!openedModal) {
           openedModal = true;
-          openFrozenModal(prod, isFrozenContext ? Math.max(1, Number(prod.minFrozenQuantity) || 1) : 1, isFrozenContext ? 'congelado' : 'pronto');
+          openFrozenModal(prod, getMinQty(prod, isFrozenContext), isFrozenContext ? 'congelado' : 'pronto');
         }
         continue;
       }
@@ -4227,25 +4227,6 @@ export default function Menu() {
                   </button>
                 </div>
               )}
-
-              {normalBestSellerEntries.length > 0 && (
-                <BestSellersCarousel
-                  items={normalBestSellerEntries}
-                  isFrozenOrderActive={false}
-                  canBuy={true}
-                  cartProductIds={cartProductIds}
-                  queuedProductIds={queuedProductIds}
-                  variant="success"
-                  themeColor={storeInfo.themeColor || '#ea580c'}
-                  onSelectProduct={(entry) => {
-                    const combined = [
-                      entry.product,
-                      ...queuedImpulseProducts.filter(q => q.id !== entry.product.id),
-                    ];
-                    startNewOrderWithImpulseProducts(combined);
-                  }}
-                />
-              )}
             </div>
           )}
 
@@ -4843,6 +4824,873 @@ export default function Menu() {
     );
   }
 
+  const renderProductSelectionModals = () => (
+    <>
+      {/* Addon Modal */}
+      {addonModal.isOpen && addonModal.product && (() => {
+        const maxAddons = addonModal.product.maxAddons || 3;
+        const { availableAddons, availableFlavors } = addonModal;
+        const hasFlavors = availableFlavors.length > 0;
+        const hasAddons = availableAddons.length > 0;
+        const basePrice = addonModal.product.price || 0;
+        const addonsTotal = addonModal.selectedAddons.reduce((sum, a) => sum + (a.price || 0), 0);
+        const flavorPrice = addonModal.selectedFlavor?.price || 0;
+        const currentTotal = basePrice + addonsTotal + flavorPrice;
+        const isFlavorMissing = hasFlavors && !addonModal.selectedFlavor;
+
+        const handleAddWithoutAddons = () => {
+          addToCart(addonModal.product, [], addonModal.selectedFlavor);
+        };
+
+        const handleCancelOrClose = () => {
+          // Se tiver apenas adicionais opcionais (sem sabor obrigatório pendente), adiciona o item normalmente como solicitado pelo usuário
+          if (!hasFlavors && hasAddons) {
+            addToCart(addonModal.product, [], null);
+          } else {
+            setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
+          }
+        };
+
+        return (
+        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-stone-100 max-h-[90vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-stone-100">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-stone-900 leading-tight">
+                  {hasFlavors && !hasAddons ? 'Escolha o Sabor' : formatCapitalized(addonModal.product.name)}
+                </h2>
+                {(addonModal.product.externalId || addonModal.product.description) && (
+                  <p className="text-xs sm:text-sm text-red-600 font-medium italic mt-1 line-clamp-2">
+                    {formatCapitalized(formatProductDescriptionWithCode(addonModal.product.description, addonModal.product.externalId))}
+                  </p>
+                )}
+                <p className="text-xs sm:text-sm text-stone-500 font-medium mt-0.5">
+                  {hasFlavors && !hasAddons 
+                    ? `Para: ${formatCapitalized(addonModal.product.name)}`
+                    : hasAddons 
+                      ? `Deseja adicionar algum adicional? (Opcional - até ${maxAddons})`
+                      : 'Opções do item'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCancelOrClose}
+                className="p-1.5 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-700 transition-colors shrink-0 cursor-pointer"
+                title="Fechar e adicionar sem adicionais"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+              
+              {/* Sabores (Obrigatórios quando aplicável, ex: sucos/polpas) */}
+              {hasFlavors && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-orange-700">1. Sabor (Obrigatório)</span>
+                    {addonModal.selectedFlavor && (
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                        {addonModal.selectedFlavor.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {availableFlavors.map(flavor => {
+                      const flavorCode = (flavor.externalId || (flavor as any).code || '').toString().trim();
+                      return (
+                      <label 
+                        key={flavor.id} 
+                        className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer transition-all ${
+                          addonModal.selectedFlavor?.productId === flavor.id 
+                            ? 'border-orange-500 bg-orange-50/90 text-orange-950 font-bold shadow-xs' 
+                            : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50 text-stone-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="radio" 
+                            name="flavor" 
+                            className="w-5 h-5 text-orange-600 focus:ring-orange-500"
+                            checked={addonModal.selectedFlavor?.productId === flavor.id}
+                            onChange={() => setAddonModal(prev => ({ 
+                              ...prev, 
+                              selectedFlavor: { 
+                                productId: flavor.id, 
+                                name: flavor.name, 
+                                price: flavor.price,
+                                externalId: flavorCode,
+                                code: flavorCode
+                              } 
+                            }))}
+                          />
+                          <span className="text-sm font-medium">
+                            {formatCapitalized(flavor.name)}
+                            {flavorCode && (
+                              <span className="ml-1.5 text-[10px] font-mono font-bold bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded border border-stone-200">
+                                CÓD: {flavorCode}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Adicionais / Complementos (Totalmente Opcionais) */}
+              {hasAddons && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      Adicionais na Chapa / Lanche (Opcional - até {maxAddons})
+                    </span>
+                    {addonModal.selectedAddons.length > 0 && (
+                      <span className="text-[11px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md">
+                        {addonModal.selectedAddons.length} de {maxAddons}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
+                    {availableAddons.map(addon => {
+                      const addonCode = (addon.externalId || (addon as any).code || '').toString().trim();
+                      const isSelected = addonModal.selectedAddons.some(a => a.productId === addon.id);
+                      const isMaxReached = addonModal.selectedAddons.length >= maxAddons;
+                      const isDisabled = !isSelected && isMaxReached;
+                      
+                      return (
+                        <label 
+                          key={addon.id} 
+                          className={`flex items-center justify-between p-3.5 border-2 rounded-2xl transition-all ${
+                            isDisabled 
+                              ? 'opacity-40 cursor-not-allowed bg-stone-50 border-stone-200' 
+                              : isSelected 
+                                ? 'border-orange-500 bg-orange-50/90 cursor-pointer shadow-xs font-bold' 
+                                : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50 cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input 
+                              type="checkbox"
+                              className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500 cursor-pointer disabled:cursor-not-allowed"
+                              checked={isSelected}
+                              disabled={isDisabled}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  if (!isMaxReached) {
+                                    setAddonModal(prev => ({ 
+                                      ...prev, 
+                                      selectedAddons: [
+                                        ...prev.selectedAddons, 
+                                        { 
+                                          productId: addon.id, 
+                                          name: addon.name, 
+                                          price: addon.price,
+                                          externalId: addonCode,
+                                          code: addonCode
+                                        }
+                                      ] 
+                                    }));
+                                  }
+                                } else {
+                                  setAddonModal(prev => ({ ...prev, selectedAddons: prev.selectedAddons.filter(a => a.productId !== addon.id) }));
+                                }
+                              }}
+                            />
+                            <span className="text-sm text-stone-900">
+                              {formatCapitalized(addon.name)}
+                              {addonCode && (
+                                <span className="ml-1.5 text-[10px] font-mono font-bold bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded border border-stone-200">
+                                  CÓD: {addonCode}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <span className="text-xs sm:text-sm font-black text-orange-700">
+                            {addon.price > 0 ? `+ ${formatCurrency(addon.price)}` : 'Grátis'}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions Footer */}
+            <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row gap-2.5">
+              
+              {/* Botão para adicionar sem adicionais / lanche puro */}
+              {hasAddons && !hasFlavors && (
+                <button 
+                  type="button"
+                  onClick={handleAddWithoutAddons}
+                  className="py-3.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-2xl font-bold text-xs sm:text-sm transition-all border border-stone-300/80 cursor-pointer flex-1 flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <span>Sem Adicionais</span>
+                  <span className="text-stone-500">({formatCurrency(basePrice)})</span>
+                </button>
+              )}
+
+              {/* Botão Cancelar se for sabor */}
+              {hasFlavors && (
+                <button 
+                  type="button"
+                  onClick={() => setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] })} 
+                  className="py-3.5 px-4 border-2 border-stone-200 hover:bg-stone-50 text-stone-700 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              )}
+
+              {/* Botão Principal de Adicionar */}
+              <button 
+                type="button"
+                onClick={() => addToCart(addonModal.product, addonModal.selectedAddons, addonModal.selectedFlavor)} 
+                className={`py-3.5 px-5 text-white rounded-2xl font-extrabold text-sm sm:text-base transition-all shadow-lg flex-1 flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  addonModal.selectedAddons.length > 0 ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-600/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
+                }`}
+                disabled={!canBuy || isFlavorMissing}
+              >
+                {!canBuy ? (
+                  'Apenas Visualização'
+                ) : isFlavorMissing ? (
+                  'Selecione um Sabor'
+                ) : addonModal.selectedAddons.length > 0 ? (
+                  <>
+                    <span>Adicionar ({addonModal.selectedAddons.length})</span>
+                    <span className="bg-black/20 px-2 py-0.5 rounded-lg text-xs font-black">{formatCurrency(currentTotal)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Adicionar ao Pedido</span>
+                    <span className="bg-black/20 px-2 py-0.5 rounded-lg text-xs font-black">{formatCurrency(basePrice)}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )})()}
+
+      {/* Modal de Variações de Preparo (Exibe APENAS as variações da categoria selecionada: Prontos OU Congelados) */}
+      {frozenModal.isOpen && frozenModal.product && (() => {
+        const found = products.find(p => p.id === 'prod_congelado');
+        const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
+        const congeladoProd = found || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
+
+        const isFrozenMode = frozenModal.mode === 'congelado';
+        const minRequired = (isFrozenMode && Number(frozenModal.product.minFrozenQuantity) > 1) 
+          ? Number(frozenModal.product.minFrozenQuantity) 
+          : 1;
+        const totalProntoSelected = prontoFritoQty + prontoCruQty;
+        const totalCongeladoSelected = congeladoCruQty + congeladoFritoQty;
+        const grandTotalSelected = isFrozenMode ? totalCongeladoSelected : totalProntoSelected;
+
+        return (
+          <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-2xl border border-stone-200 space-y-5 my-auto max-h-[94vh] overflow-y-auto">
+              {/* Header do Modal */}
+              <div className="text-center space-y-1.5">
+                <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner border ${
+                  isFrozenMode
+                    ? 'bg-gradient-to-br from-blue-100 to-cyan-100 text-blue-600 border-blue-200'
+                    : 'bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600 border-orange-200'
+                }`}>
+                  {isFrozenMode ? '❄️' : '🥟'}
+                </div>
+                <h3 className="text-lg sm:text-xl font-black text-stone-900 uppercase tracking-tight">
+                  {frozenModal.product.name}
+                </h3>
+                {isFrozenMode && minRequired > 1 && (
+                  <div className="inline-block bg-blue-100 text-blue-900 border border-blue-300 px-3 py-1 rounded-xl text-xs font-black shadow-xs">
+                    ❄️ Quantidade Mínima: {minRequired} unidades
+                  </div>
+                )}
+                <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
+                  Defina abaixo a quantidade desejada para cada opção de preparo:
+                </p>
+              </div>
+
+              {!isFrozenMode ? (
+                /* MODALIDADE: SALGADOS PRONTOS (NORMAIS) */
+                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/40 shadow-xs p-4">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-200/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🔥</span>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-tight">
+                          Salgados Prontos (Normais)
+                        </h4>
+                        <p className="text-[10px] text-amber-800 font-medium">
+                          Preparo rápido para consumo imediato
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-black uppercase">
+                      {formatCurrency(frozenModal.product.price)} un
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    {/* Opção 1: Salgado Pronto FRITO/ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Pronto FRITO/ASSADO
+                        </p>
+                        <p className="text-[11px] text-amber-800 font-bold">
+                          {formatCurrency(frozenModal.product.price)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-amber-50 rounded-xl p-1 border border-amber-200">
+                        <button
+                          type="button"
+                          onClick={() => setProntoFritoQty(Math.max(0, prontoFritoQty - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-black flex items-center justify-center cursor-pointer border border-amber-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={prontoFritoQty}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setProntoFritoQty(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setProntoFritoQty(prontoFritoQty + 1)}
+                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Opção 2: Salgado Pronto CRU/PRÉ-ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Pronto CRU/PRÉ-ASSADO
+                        </p>
+                        <p className="text-[11px] text-amber-800 font-bold">
+                          {formatCurrency(frozenModal.product.price)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-amber-50 rounded-xl p-1 border border-amber-200">
+                        <button
+                          type="button"
+                          onClick={() => setProntoCruQty(Math.max(0, prontoCruQty - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-black flex items-center justify-center cursor-pointer border border-amber-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={prontoCruQty}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setProntoCruQty(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setProntoCruQty(prontoCruQty + 1)}
+                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* MODALIDADE: SALGADOS CONGELADOS */
+                <div className="rounded-2xl border-2 border-blue-300 bg-blue-50/40 shadow-xs p-4 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">❄️</span>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-black text-blue-950 uppercase tracking-tight">
+                          Salgados Congelados
+                        </h4>
+                        <p className="text-[10px] text-blue-700 font-bold">
+                          ⏱️ Prazo de preparo de até 48 horas (pode ficar pronto antes)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded-full font-black uppercase">
+                      {formatCurrency(frozenModal.product.price + pVal)} un
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    {/* Opção 1: Salgado Congelado CRU/PRÉ-ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-blue-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Congelado CRU/PRÉ-ASSADO
+                        </p>
+                        <p className="text-[11px] text-blue-800 font-bold">
+                          {formatCurrency(frozenModal.product.price + pVal)} <span className="text-[10px] opacity-80 font-normal">(+{formatCurrency(pVal)})</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            const next = congeladoCruQty - step;
+                            setCongeladoCruQty(next < 0 ? 0 : (next < minRequired && next > 0 ? 0 : next));
+                          }}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          readOnly={minRequired > 1}
+                          value={congeladoCruQty}
+                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
+                          onChange={(e) => {
+                            if (minRequired > 1) return;
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setCongeladoCruQty(isNaN(val) ? 0 : val);
+                          }}
+                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                          title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            setCongeladoCruQty(congeladoCruQty === 0 ? minRequired : congeladoCruQty + step);
+                          }}
+                          className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Opção 2: Salgado Congelado FRITO/ASSADO */}
+                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-blue-200 shadow-2xs">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-stone-900 uppercase">
+                          Salgado Congelado FRITO/ASSADO
+                        </p>
+                        <p className="text-[11px] text-blue-800 font-bold">
+                          {formatCurrency(frozenModal.product.price + pVal)} <span className="text-[10px] opacity-80 font-normal">(+{formatCurrency(pVal)})</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            const next = congeladoFritoQty - step;
+                            setCongeladoFritoQty(next < 0 ? 0 : (next < minRequired && next > 0 ? 0 : next));
+                          }}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          readOnly={minRequired > 1}
+                          value={congeladoFritoQty}
+                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
+                          onChange={(e) => {
+                            if (minRequired > 1) return;
+                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                            setCongeladoFritoQty(isNaN(val) ? 0 : val);
+                          }}
+                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                          title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const step = minRequired > 1 ? minRequired : 1;
+                            setCongeladoFritoQty(congeladoFritoQty === 0 ? minRequired : congeladoFritoQty + step);
+                          }}
+                          className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs font-extrabold text-red-600 bg-red-50/90 border border-red-200 rounded-xl p-2.5 text-center leading-relaxed">
+                    Obs: Pedidos congelados com entrega em até 48 horas podem ser antecipados e você será avisado pelo aplicativo.
+                  </p>
+                </div>
+              )}
+
+              {/* Botões de Ação do Modal */}
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (grandTotalSelected === 0) {
+                      alert('Por favor, defina a quantidade para pelo menos uma das opções acima.');
+                      return;
+                    }
+                    if (isFrozenMode && grandTotalSelected < minRequired) {
+                      alert(`A quantidade mínima para este salgado congelado é de ${minRequired} unidades.`);
+                      return;
+                    }
+
+                    const isItemFrozenHelper = (ci: any) => Boolean(
+                      ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))
+                    );
+
+                    // Limpa versões anteriores deste produto na modalidade atual para aplicar a nova seleção
+                    if (appendOrderTarget) {
+                      setAppendCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && isItemFrozenHelper(ci) === isFrozenMode)));
+                    } else {
+                      setCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && isItemFrozenHelper(ci) === isFrozenMode)));
+                    }
+
+                    if (!isFrozenMode) {
+                      // 1. Salgado Pronto FRITO/ASSADO
+                      if (prontoFritoQty > 0) {
+                        addToCart(frozenModal.product, [], null, prontoFritoQty, 'pronto_frito', 'Salgado Pronto FRITO/ASSADO', true);
+                      }
+
+                      // 2. Salgado Pronto CRU/PRÉ-ASSADO
+                      if (prontoCruQty > 0) {
+                        addToCart(frozenModal.product, [], null, prontoCruQty, 'pronto_cru', 'Salgado Pronto CRU/PRÉ-ASSADO', true);
+                      }
+                    } else {
+                      // 3. Salgado Congelado CRU/PRÉ-ASSADO
+                      if (congeladoCruQty > 0) {
+                        const frozenAddon = {
+                          productId: congeladoProd.id,
+                          name: 'Salgado Congelado CRU/PRÉ-ASSADO',
+                          price: pVal,
+                          externalId: (congeladoProd as any).externalId || '9999',
+                          isFrozen: true
+                        };
+                        addToCart(frozenModal.product, [frozenAddon], null, congeladoCruQty, 'congelado_cru', 'Salgado Congelado CRU/PRÉ-ASSADO', true);
+                      }
+
+                      // 4. Salgado Congelado FRITO/ASSADO
+                      if (congeladoFritoQty > 0) {
+                        const frozenAddon = {
+                          productId: congeladoProd.id,
+                          name: 'Salgado Congelado FRITO/ASSADO',
+                          price: pVal,
+                          externalId: (congeladoProd as any).externalId || '9999',
+                          isFrozen: true
+                        };
+                        addToCart(frozenModal.product, [frozenAddon], null, congeladoFritoQty, 'congelado_frito', 'Salgado Congelado FRITO/ASSADO', true);
+                      }
+                    }
+
+                    setFrozenModal({ isOpen: false, product: null, quantity: 1, mode: 'pronto' });
+                  }}
+                  disabled={grandTotalSelected === 0}
+                  className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Confirmar e Adicionar ({grandTotalSelected} un) 🛒</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFrozenModal({ isOpen: false, product: null, quantity: 1, mode: 'pronto' })}
+                  className="w-full py-2.5 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal de Conflito de Carrinho / Restrição Congelados */}
+      {cartConflictModal.isOpen && (() => {
+        const isFrozenBlockedNormal = cartConflictModal.type === 'frozen_mode_blocked_normal' || cartConflictModal.type === 'has_frozen_blocked_normal';
+        const isOnlyModeLock = cartConflictModal.type === 'frozen_mode_blocked_normal';
+
+        return (
+        <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border ${
+              isFrozenBlockedNormal
+                ? 'bg-blue-100 text-blue-600 border-blue-200'
+                : 'bg-amber-100 text-amber-600 border-amber-200'
+            }`}>
+              {isFrozenBlockedNormal ? '❄️' : '🔥'}
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-stone-900 uppercase tracking-tight">
+                {isOnlyModeLock
+                  ? 'Pedido Exclusivo de Congelados'
+                  : isFrozenBlockedNormal
+                    ? 'Nesse Pedido, Só Poderá Ter Itens Congelados'
+                    : 'Carrinho com Produtos Prontos (Normais)'}
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-700 leading-relaxed font-semibold">
+                {isFrozenBlockedNormal
+                  ? 'Você escolheu a modalidade de congelados (prazo de 48h, disponível a partir de +2 dias). Nesse pedido, só poderá ter itens congelados.'
+                  : 'Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido.'}
+              </p>
+              <p className="text-xs sm:text-sm text-blue-700 font-extrabold pt-1">
+                Caso o pedido de congelados fique pronto antes das 48 horas, você será avisado pelas notificações.
+              </p>
+            </div>
+
+            <div className={`border rounded-2xl p-3.5 text-xs text-left font-medium ${
+              isFrozenBlockedNormal
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
+              {isFrozenBlockedNormal ? (
+                <>
+                  💡 <strong>Deseja mudar para outros produtos?</strong><br/>
+                  Ao escolher <strong>Mudar para Outros Produtos</strong>, {hasFrozenInCart ? 'o carrinho de congelados será limpo e ' : ''}a janela de agendamento será aberta novamente sem a limitação dos 2 dias.
+                </>
+              ) : (
+                <>
+                  💡 <strong>Deseja finalizar o pedido atual ou iniciar um novo pedido?</strong><br/>
+                  Você pode finalizar os itens prontos primeiro ou limpar o carrinho para iniciar um pedido de congelados (+2 dias).
+                </>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-2">
+              {hasFrozenInCart && isFrozenBlockedNormal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = cartConflictModal.type;
+                    setCartConflictModal({ isOpen: false, type: t });
+                    setIsCartOpen(true);
+                  }}
+                  className="w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md bg-blue-600 hover:bg-blue-700"
+                >
+                  Ver Meu Carrinho de Congelados 🛒
+                </button>
+              )}
+
+              {!isFrozenBlockedNormal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = cartConflictModal.type;
+                    setCartConflictModal({ isOpen: false, type: t });
+                    setIsCartOpen(true);
+                  }}
+                  className="w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md bg-amber-600 hover:bg-amber-700"
+                >
+                  Ver Meu Carrinho e Finalizar 🛒
+                </button>
+              )}
+
+              {isFrozenBlockedNormal ? (
+                <button
+                  type="button"
+                  onClick={switchFromFrozenToNormalAndReschedule}
+                  className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+                >
+                  Mudar para Outros Produtos (Reagendar sem 2 dias)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetProd = cartConflictModal.product;
+                    const targetQty = cartConflictModal.qty || 1;
+                    const targetIsFrozen = Boolean(cartConflictModal.isFrozenContext);
+                    const targetPrepType = cartConflictModal.prepType as PrepChoiceType | undefined;
+                    const t = cartConflictModal.type;
+                    setCart([]);
+                    safeStorage.removeItem('balbec_active_cart');
+                    setProntoFritoQty(0);
+                    setProntoCruQty(0);
+                    setCongeladoCruQty(0);
+                    setCongeladoFritoQty(0);
+                    setFrozenPrepChoices({});
+                    setFrozenPrepErrors({});
+                    updateOrderModalityPreference(targetIsFrozen ? 'frozen' : 'normal');
+                    setCartConflictModal({ isOpen: false, type: t });
+                    if (targetIsFrozen && storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate)) {
+                      clearScheduleSelection();
+                      setScheduleStepMode('pickup');
+                      setShowScheduleSelectionStep(true);
+                    }
+                    if (targetProd) {
+                      setTimeout(() => {
+                        initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true, targetPrepType);
+                      }, 100);
+                    }
+                  }}
+                  className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
+                >
+                  Limpar Carrinho e Pedir Congelados
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const t = cartConflictModal.type;
+                  setCartConflictModal({ isOpen: false, type: t });
+                  if (isFrozenBlockedNormal) {
+                    const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
+                    if (firstFrozenCat) {
+                      scrollToCategory(firstFrozenCat.id);
+                    }
+                  }
+                }}
+                className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                {isFrozenBlockedNormal ? 'Continuar nos Congelados' : 'Cancelar'}
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* Modal de Sugestão para Compra Separada quando o Cliente está em Pedido de Congelados */}
+      {impulseFrozenModal.isOpen && impulseFrozenModal.entry && (() => {
+        const suggestedProduct = impulseFrozenModal.entry.product;
+        const alreadyQueued = queuedProductIds.has(suggestedProduct.id);
+
+        return (
+          <div className="fixed inset-0 z-[135] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-stone-50 border border-stone-200 text-left">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-stone-200 shrink-0">
+                  <ProductImage
+                    src={suggestedProduct.imageUrl}
+                    alt={suggestedProduct.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-orange-700">
+                    Sugestão dos Mais Vendidos
+                  </p>
+                  <h3 className="text-base font-black text-stone-900 leading-snug line-clamp-2">
+                    {formatCapitalized(suggestedProduct.name)}
+                  </h3>
+                  <p className="text-sm font-black text-orange-700 tabular-nums mt-0.5">
+                    {formatCurrency(suggestedProduct.price)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="text-lg font-black text-stone-900 tracking-tight">
+                  {hasFrozenInCart
+                    ? 'Finalize os Congelados e Faça Outro Pedido'
+                    : 'Pedido Atual Configurado para Congelados'}
+                </h4>
+                <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">
+                  {hasFrozenInCart
+                    ? 'Pedidos de congelados têm prazo de até 48h (+2 dias) e são fechados em separado. Sugerimos finalizar seu pedido de congelados primeiro e fazer um novo pedido com este item.'
+                    : 'Você iniciou este pedido na modalidade de congelados (48h). Se preferir pedir este item agora, você pode mudar para Outros Produtos e reagendar sem espera de 2 dias.'}
+                </p>
+              </div>
+
+              <div className="space-y-2.5 pt-1">
+                {hasFrozenInCart ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateQueuedImpulseProducts(prev =>
+                          prev.some(p => p.id === suggestedProduct.id) ? prev : [...prev, suggestedProduct]
+                        );
+                        setImpulseFrozenModal({ isOpen: false, entry: null });
+                        setIsCartOpen(false);
+                        const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate);
+                        const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
+                        if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
+                          if (frozenNeedsLaterDate) {
+                            updateOrderModalityPreference('frozen');
+                            clearScheduleSelection();
+                          } else if (slotInvalidForDay) {
+                            setSelectedScheduleTime('');
+                            safeStorage.removeItem('balbec_selected_schedule_time');
+                          }
+                          setScheduleStepMode('pickup');
+                          setShowScheduleSelectionStep(true);
+                        } else {
+                          setIsCheckout(true);
+                        }
+                      }}
+                      className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Reservar Item e Finalizar Congelados</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!alreadyQueued) {
+                          updateQueuedImpulseProducts(prev => [...prev, suggestedProduct]);
+                        }
+                        setImpulseFrozenModal({ isOpen: false, entry: null });
+                        setCartToastMessage(`"${formatCapitalized(suggestedProduct.name)}" reservado para o seu 2º pedido!`);
+                      }}
+                      className="w-full py-3 px-4 bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 rounded-xl font-black text-xs transition-all cursor-pointer"
+                    >
+                      {alreadyQueued
+                        ? 'Já está Reservado — Continuar nos Congelados'
+                        : 'Reservar para o Próximo Pedido e Continuar'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => switchFromFrozenToNormalAndAddImpulse(suggestedProduct)}
+                    className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer shadow-md"
+                  >
+                    Mudar para Outros Produtos e Adicionar Agora
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setImpulseFrozenModal({ isOpen: false, entry: null })}
+                  className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Continuar nos Congelados
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </>
+  );
+
   if (isCheckout) {
     const isKioskMode = salesChannel === 'kiosk' || isTotemPath;
     const isTableOrder = Boolean((salesChannel === 'instore' || deliveryType === 'pickup') && selectedTableNumber !== null);
@@ -4953,7 +5801,7 @@ export default function Menu() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <div className="font-bold text-stone-900">{formatCurrency((item.price + (item.flavor?.price || 0) + (item.addons?.reduce((sum, a) => sum + a.price, 0) || 0)) * item.quantity)}</div>
+                      <div className="font-bold text-stone-900">{formatCurrency(getEffectiveItemTotal(item))}</div>
                       <button
                         type="button"
                         onClick={() => {
@@ -5024,7 +5872,22 @@ export default function Menu() {
             </div>
           </div>
 
-          <div>
+          {!appendOrderTarget && bestSellerEntries.length > 0 && (
+            <div className="md:col-span-2 md:order-3">
+              <BestSellersCarousel
+                items={bestSellerEntries}
+                isFrozenOrderActive={orderModalityPreference === 'frozen' || hasFrozenInCart}
+                canBuy={canBuy}
+                cartProductIds={cartProductIds}
+                queuedProductIds={queuedProductIds}
+                variant="checkout"
+                themeColor={storeInfo.themeColor || '#ea580c'}
+                onSelectProduct={handleSelectBestSeller}
+              />
+            </div>
+          )}
+
+          <div className="md:order-2">
             {/* Opções de Entrega / Retirada */}
             {isKioskMode ? (
               <div className="space-y-6">
@@ -6431,6 +7294,7 @@ export default function Menu() {
             </div>
           </div>
         )}
+        {renderProductSelectionModals()}
       </div>
     );
   }
@@ -7771,35 +8635,6 @@ export default function Menu() {
               </div>
             ) : (
               <>
-                {!appendOrderTarget && searchTerm.trim() === '' && bestSellerEntries.length > 0 && (
-                  <BestSellersCarousel
-                    items={bestSellerEntries}
-                    isFrozenOrderActive={orderModalityPreference === 'frozen' || hasFrozenInCart}
-                    canBuy={canBuy}
-                    cartProductIds={cartProductIds}
-                    queuedProductIds={queuedProductIds}
-                    variant="feed"
-                    themeColor={storeInfo.themeColor || '#ea580c'}
-                    onSelectProduct={handleSelectBestSeller}
-                    onFinishFrozenNow={() => {
-                      const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                      const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
-                      if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
-                        if (frozenNeedsLaterDate) {
-                          updateOrderModalityPreference('frozen');
-                          clearScheduleSelection();
-                        } else if (slotInvalidForDay) {
-                          setSelectedScheduleTime('');
-                          safeStorage.removeItem('balbec_selected_schedule_time');
-                        }
-                        setScheduleStepMode('pickup');
-                        setShowScheduleSelectionStep(true);
-                        return;
-                      }
-                      setIsCheckout(true);
-                    }}
-                  />
-                )}
                 {displayedCategories.map(category => {
                 const categoryProducts = productsByCategory[category.id] || [];
                 if (categoryProducts.length === 0) return null;
@@ -8706,37 +9541,6 @@ export default function Menu() {
                   </div>
                 );
               })}
-              {!appendOrderTarget && bestSellerEntries.length > 0 && (
-                <BestSellersCarousel
-                  items={bestSellerEntries}
-                  isFrozenOrderActive={orderModalityPreference === 'frozen' || hasFrozenInCart}
-                  canBuy={canBuy}
-                  cartProductIds={cartProductIds}
-                  queuedProductIds={queuedProductIds}
-                  variant="compact"
-                  themeColor={storeInfo.themeColor || '#ea580c'}
-                  onSelectProduct={handleSelectBestSeller}
-                  onFinishFrozenNow={() => {
-                    const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && hasFrozenInCart && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                    const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
-                    if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
-                      if (frozenNeedsLaterDate) {
-                        updateOrderModalityPreference('frozen');
-                        clearScheduleSelection();
-                      } else if (slotInvalidForDay) {
-                        setSelectedScheduleTime('');
-                        safeStorage.removeItem('balbec_selected_schedule_time');
-                      }
-                      setScheduleStepMode('pickup');
-                      setShowScheduleSelectionStep(true);
-                      setIsCartOpen(false);
-                      return;
-                    }
-                    setIsCartOpen(false);
-                    setIsCheckout(true);
-                  }}
-                />
-              )}
             </>
           )}
         </div>
@@ -8793,868 +9597,8 @@ export default function Menu() {
         )}
       </div>
 
-      {/* Addon Modal */}
-      {addonModal.isOpen && addonModal.product && (() => {
-        const maxAddons = addonModal.product.maxAddons || 3;
-        const { availableAddons, availableFlavors } = addonModal;
-        const hasFlavors = availableFlavors.length > 0;
-        const hasAddons = availableAddons.length > 0;
-        const basePrice = addonModal.product.price || 0;
-        const addonsTotal = addonModal.selectedAddons.reduce((sum, a) => sum + (a.price || 0), 0);
-        const flavorPrice = addonModal.selectedFlavor?.price || 0;
-        const currentTotal = basePrice + addonsTotal + flavorPrice;
-        const isFlavorMissing = hasFlavors && !addonModal.selectedFlavor;
+      {renderProductSelectionModals()}
 
-        const handleAddWithoutAddons = () => {
-          addToCart(addonModal.product, [], addonModal.selectedFlavor);
-        };
-
-        const handleCancelOrClose = () => {
-          // Se tiver apenas adicionais opcionais (sem sabor obrigatório pendente), adiciona o item normalmente como solicitado pelo usuário
-          if (!hasFlavors && hasAddons) {
-            addToCart(addonModal.product, [], null);
-          } else {
-            setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] });
-          }
-        };
-
-        return (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-stone-100 max-h-[90vh] flex flex-col">
-            
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-stone-100">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-black text-stone-900 leading-tight">
-                  {hasFlavors && !hasAddons ? 'Escolha o Sabor' : formatCapitalized(addonModal.product.name)}
-                </h2>
-                {(addonModal.product.externalId || addonModal.product.description) && (
-                  <p className="text-xs sm:text-sm text-red-600 font-medium italic mt-1 line-clamp-2">
-                    {formatCapitalized(formatProductDescriptionWithCode(addonModal.product.description, addonModal.product.externalId))}
-                  </p>
-                )}
-                <p className="text-xs sm:text-sm text-stone-500 font-medium mt-0.5">
-                  {hasFlavors && !hasAddons 
-                    ? `Para: ${formatCapitalized(addonModal.product.name)}`
-                    : hasAddons 
-                      ? `Deseja adicionar algum adicional? (Opcional - até ${maxAddons})`
-                      : 'Opções do item'}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCancelOrClose}
-                className="p-1.5 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-700 transition-colors shrink-0 cursor-pointer"
-                title="Fechar e adicionar sem adicionais"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
-              
-              {/* Sabores (Obrigatórios quando aplicável, ex: sucos/polpas) */}
-              {hasFlavors && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-orange-700">1. Sabor (Obrigatório)</span>
-                    {addonModal.selectedFlavor && (
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        {addonModal.selectedFlavor.name}
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {availableFlavors.map(flavor => {
-                      const flavorCode = (flavor.externalId || (flavor as any).code || '').toString().trim();
-                      return (
-                      <label 
-                        key={flavor.id} 
-                        className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer transition-all ${
-                          addonModal.selectedFlavor?.productId === flavor.id 
-                            ? 'border-orange-500 bg-orange-50/90 text-orange-950 font-bold shadow-xs' 
-                            : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50 text-stone-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input 
-                            type="radio" 
-                            name="flavor" 
-                            className="w-5 h-5 text-orange-600 focus:ring-orange-500"
-                            checked={addonModal.selectedFlavor?.productId === flavor.id}
-                            onChange={() => setAddonModal(prev => ({ 
-                              ...prev, 
-                              selectedFlavor: { 
-                                productId: flavor.id, 
-                                name: flavor.name, 
-                                price: flavor.price,
-                                externalId: flavorCode,
-                                code: flavorCode
-                              } 
-                            }))}
-                          />
-                          <span className="text-sm font-medium">
-                            {formatCapitalized(flavor.name)}
-                            {flavorCode && (
-                              <span className="ml-1.5 text-[10px] font-mono font-bold bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded border border-stone-200">
-                                CÓD: {flavorCode}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </label>
-                    );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Adicionais / Complementos (Totalmente Opcionais) */}
-              {hasAddons && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      Adicionais na Chapa / Lanche (Opcional - até {maxAddons})
-                    </span>
-                    {addonModal.selectedAddons.length > 0 && (
-                      <span className="text-[11px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md">
-                        {addonModal.selectedAddons.length} de {maxAddons}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
-                    {availableAddons.map(addon => {
-                      const addonCode = (addon.externalId || (addon as any).code || '').toString().trim();
-                      const isSelected = addonModal.selectedAddons.some(a => a.productId === addon.id);
-                      const isMaxReached = addonModal.selectedAddons.length >= maxAddons;
-                      const isDisabled = !isSelected && isMaxReached;
-                      
-                      return (
-                        <label 
-                          key={addon.id} 
-                          className={`flex items-center justify-between p-3.5 border-2 rounded-2xl transition-all ${
-                            isDisabled 
-                              ? 'opacity-40 cursor-not-allowed bg-stone-50 border-stone-200' 
-                              : isSelected 
-                                ? 'border-orange-500 bg-orange-50/90 cursor-pointer shadow-xs font-bold' 
-                                : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50 cursor-pointer'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input 
-                              type="checkbox"
-                              className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500 cursor-pointer disabled:cursor-not-allowed"
-                              checked={isSelected}
-                              disabled={isDisabled}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  if (!isMaxReached) {
-                                    setAddonModal(prev => ({ 
-                                      ...prev, 
-                                      selectedAddons: [
-                                        ...prev.selectedAddons, 
-                                        { 
-                                          productId: addon.id, 
-                                          name: addon.name, 
-                                          price: addon.price,
-                                          externalId: addonCode,
-                                          code: addonCode
-                                        }
-                                      ] 
-                                    }));
-                                  }
-                                } else {
-                                  setAddonModal(prev => ({ ...prev, selectedAddons: prev.selectedAddons.filter(a => a.productId !== addon.id) }));
-                                }
-                              }}
-                            />
-                            <span className="text-sm text-stone-900">
-                              {formatCapitalized(addon.name)}
-                              {addonCode && (
-                                <span className="ml-1.5 text-[10px] font-mono font-bold bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded border border-stone-200">
-                                  CÓD: {addonCode}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                          <span className="text-xs sm:text-sm font-black text-orange-700">
-                            {addon.price > 0 ? `+ ${formatCurrency(addon.price)}` : 'Grátis'}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Actions Footer */}
-            <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row gap-2.5">
-              
-              {/* Botão para adicionar sem adicionais / lanche puro */}
-              {hasAddons && !hasFlavors && (
-                <button 
-                  type="button"
-                  onClick={handleAddWithoutAddons}
-                  className="py-3.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-2xl font-bold text-xs sm:text-sm transition-all border border-stone-300/80 cursor-pointer flex-1 flex items-center justify-center gap-1.5 active:scale-98"
-                >
-                  <span>Sem Adicionais</span>
-                  <span className="text-stone-500">({formatCurrency(basePrice)})</span>
-                </button>
-              )}
-
-              {/* Botão Cancelar se for sabor */}
-              {hasFlavors && (
-                <button 
-                  type="button"
-                  onClick={() => setAddonModal({ isOpen: false, product: null, selectedAddons: [], selectedFlavor: null, availableAddons: [], availableFlavors: [] })} 
-                  className="py-3.5 px-4 border-2 border-stone-200 hover:bg-stone-50 text-stone-700 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-              )}
-
-              {/* Botão Principal de Adicionar */}
-              <button 
-                type="button"
-                onClick={() => addToCart(addonModal.product, addonModal.selectedAddons, addonModal.selectedFlavor)} 
-                className={`py-3.5 px-5 text-white rounded-2xl font-extrabold text-sm sm:text-base transition-all shadow-lg flex-1 flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  addonModal.selectedAddons.length > 0 ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-600/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
-                }`}
-                disabled={!canBuy || isFlavorMissing}
-              >
-                {!canBuy ? (
-                  'Apenas Visualização'
-                ) : isFlavorMissing ? (
-                  'Selecione um Sabor'
-                ) : addonModal.selectedAddons.length > 0 ? (
-                  <>
-                    <span>Adicionar ({addonModal.selectedAddons.length})</span>
-                    <span className="bg-black/20 px-2 py-0.5 rounded-lg text-xs font-black">{formatCurrency(currentTotal)}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Adicionar ao Pedido</span>
-                    <span className="bg-black/20 px-2 py-0.5 rounded-lg text-xs font-black">{formatCurrency(basePrice)}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )})()}
-
-      {/* Modal de Variações de Preparo (Exibe APENAS as variações da categoria selecionada: Prontos OU Congelados) */}
-      {frozenModal.isOpen && frozenModal.product && (() => {
-        const found = products.find(p => p.id === 'prod_congelado');
-        const pVal = found && found.price && found.price < 2.0 ? Number(found.price) : 0.30;
-        const congeladoProd = found || { id: 'prod_congelado', name: 'Salgado Congelado', price: 0.30 };
-
-        const isFrozenMode = frozenModal.mode === 'congelado';
-        const minRequired = (isFrozenMode && Number(frozenModal.product.minFrozenQuantity) > 1) 
-          ? Number(frozenModal.product.minFrozenQuantity) 
-          : 1;
-        const totalProntoSelected = prontoFritoQty + prontoCruQty;
-        const totalCongeladoSelected = congeladoCruQty + congeladoFritoQty;
-        const grandTotalSelected = isFrozenMode ? totalCongeladoSelected : totalProntoSelected;
-
-        return (
-          <div className="fixed inset-0 z-[120] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-2xl border border-stone-200 space-y-5 my-auto max-h-[94vh] overflow-y-auto">
-              {/* Header do Modal */}
-              <div className="text-center space-y-1.5">
-                <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner border ${
-                  isFrozenMode
-                    ? 'bg-gradient-to-br from-blue-100 to-cyan-100 text-blue-600 border-blue-200'
-                    : 'bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600 border-orange-200'
-                }`}>
-                  {isFrozenMode ? '❄️' : '🥟'}
-                </div>
-                <h3 className="text-lg sm:text-xl font-black text-stone-900 uppercase tracking-tight">
-                  {frozenModal.product.name}
-                </h3>
-                {isFrozenMode && minRequired > 1 && (
-                  <div className="inline-block bg-blue-100 text-blue-900 border border-blue-300 px-3 py-1 rounded-xl text-xs font-black shadow-xs">
-                    ❄️ Quantidade Mínima: {minRequired} unidades
-                  </div>
-                )}
-                <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-                  Defina abaixo a quantidade desejada para cada opção de preparo:
-                </p>
-              </div>
-
-              {!isFrozenMode ? (
-                /* MODALIDADE: SALGADOS PRONTOS (NORMAIS) */
-                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/40 shadow-xs p-4">
-                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-200/60">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🔥</span>
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-tight">
-                          Salgados Prontos (Normais)
-                        </h4>
-                        <p className="text-[10px] text-amber-800 font-medium">
-                          Preparo rápido para consumo imediato
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-black uppercase">
-                      {formatCurrency(frozenModal.product.price)} un
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    {/* Opção 1: Salgado Pronto FRITO/ASSADO */}
-                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs">
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-stone-900 uppercase">
-                          Salgado Pronto FRITO/ASSADO
-                        </p>
-                        <p className="text-[11px] text-amber-800 font-bold">
-                          {formatCurrency(frozenModal.product.price)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 bg-amber-50 rounded-xl p-1 border border-amber-200">
-                        <button
-                          type="button"
-                          onClick={() => setProntoFritoQty(Math.max(0, prontoFritoQty - 1))}
-                          className="w-8 h-8 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-black flex items-center justify-center cursor-pointer border border-amber-300"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={prontoFritoQty}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
-                            setProntoFritoQty(isNaN(val) ? 0 : val);
-                          }}
-                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setProntoFritoQty(prontoFritoQty + 1)}
-                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Opção 2: Salgado Pronto CRU/PRÉ-ASSADO */}
-                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs">
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-stone-900 uppercase">
-                          Salgado Pronto CRU/PRÉ-ASSADO
-                        </p>
-                        <p className="text-[11px] text-amber-800 font-bold">
-                          {formatCurrency(frozenModal.product.price)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 bg-amber-50 rounded-xl p-1 border border-amber-200">
-                        <button
-                          type="button"
-                          onClick={() => setProntoCruQty(Math.max(0, prontoCruQty - 1))}
-                          className="w-8 h-8 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-black flex items-center justify-center cursor-pointer border border-amber-300"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={prontoCruQty}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
-                            setProntoCruQty(isNaN(val) ? 0 : val);
-                          }}
-                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setProntoCruQty(prontoCruQty + 1)}
-                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* MODALIDADE: SALGADOS CONGELADOS */
-                <div className="rounded-2xl border-2 border-blue-300 bg-blue-50/40 shadow-xs p-4 space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">❄️</span>
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-black text-blue-950 uppercase tracking-tight">
-                          Salgados Congelados
-                        </h4>
-                        <p className="text-[10px] text-blue-700 font-bold">
-                          ⏱️ Prazo de preparo de até 48 horas (pode ficar pronto antes)
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded-full font-black uppercase">
-                      {formatCurrency(frozenModal.product.price + pVal)} un
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    {/* Opção 1: Salgado Congelado CRU/PRÉ-ASSADO */}
-                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-blue-200 shadow-2xs">
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-stone-900 uppercase">
-                          Salgado Congelado CRU/PRÉ-ASSADO
-                        </p>
-                        <p className="text-[11px] text-blue-800 font-bold">
-                          {formatCurrency(frozenModal.product.price + pVal)} <span className="text-[10px] opacity-80 font-normal">(+{formatCurrency(pVal)})</span>
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const step = minRequired > 1 ? minRequired : 1;
-                            const next = congeladoCruQty - step;
-                            setCongeladoCruQty(next < 0 ? 0 : (next < minRequired && next > 0 ? 0 : next));
-                          }}
-                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          readOnly={minRequired > 1}
-                          value={congeladoCruQty}
-                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
-                          onChange={(e) => {
-                            if (minRequired > 1) return;
-                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
-                            setCongeladoCruQty(isNaN(val) ? 0 : val);
-                          }}
-                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
-                          title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const step = minRequired > 1 ? minRequired : 1;
-                            setCongeladoCruQty(congeladoCruQty === 0 ? minRequired : congeladoCruQty + step);
-                          }}
-                          className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Opção 2: Salgado Congelado FRITO/ASSADO */}
-                    <div className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-xl border border-blue-200 shadow-2xs">
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-stone-900 uppercase">
-                          Salgado Congelado FRITO/ASSADO
-                        </p>
-                        <p className="text-[11px] text-blue-800 font-bold">
-                          {formatCurrency(frozenModal.product.price + pVal)} <span className="text-[10px] opacity-80 font-normal">(+{formatCurrency(pVal)})</span>
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 bg-blue-50 rounded-xl p-1 border border-blue-200">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const step = minRequired > 1 ? minRequired : 1;
-                            const next = congeladoFritoQty - step;
-                            setCongeladoFritoQty(next < 0 ? 0 : (next < minRequired && next > 0 ? 0 : next));
-                          }}
-                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-100 text-blue-900 font-black flex items-center justify-center cursor-pointer border border-blue-300"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          readOnly={minRequired > 1}
-                          value={congeladoFritoQty}
-                          onFocus={(e) => { if (minRequired === 1) e.target.select(); }}
-                          onChange={(e) => {
-                            if (minRequired > 1) return;
-                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
-                            setCongeladoFritoQty(isNaN(val) ? 0 : val);
-                          }}
-                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
-                          title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const step = minRequired > 1 ? minRequired : 1;
-                            setCongeladoFritoQty(congeladoFritoQty === 0 ? minRequired : congeladoFritoQty + step);
-                          }}
-                          className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black flex items-center justify-center cursor-pointer shadow-xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs font-extrabold text-red-600 bg-red-50/90 border border-red-200 rounded-xl p-2.5 text-center leading-relaxed">
-                    Obs: Pedidos congelados com entrega em até 48 horas podem ser antecipados e você será avisado pelo aplicativo.
-                  </p>
-                </div>
-              )}
-
-              {/* Botões de Ação do Modal */}
-              <div className="space-y-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (grandTotalSelected === 0) {
-                      alert('Por favor, defina a quantidade para pelo menos uma das opções acima.');
-                      return;
-                    }
-                    if (isFrozenMode && grandTotalSelected < minRequired) {
-                      alert(`A quantidade mínima para este salgado congelado é de ${minRequired} unidades.`);
-                      return;
-                    }
-
-                    const isItemFrozenHelper = (ci: any) => Boolean(
-                      ci.isFrozen || ci.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado' || (a.name && a.name.toLowerCase().includes('congelad')))
-                    );
-
-                    // Limpa versões anteriores deste produto na modalidade atual para aplicar a nova seleção
-                    if (appendOrderTarget) {
-                      setAppendCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && isItemFrozenHelper(ci) === isFrozenMode)));
-                    } else {
-                      setCart(prev => prev.filter(ci => !(ci.productId === frozenModal.product.id && isItemFrozenHelper(ci) === isFrozenMode)));
-                    }
-
-                    if (!isFrozenMode) {
-                      // 1. Salgado Pronto FRITO/ASSADO
-                      if (prontoFritoQty > 0) {
-                        addToCart(frozenModal.product, [], null, prontoFritoQty, 'pronto_frito', 'Salgado Pronto FRITO/ASSADO', true);
-                      }
-
-                      // 2. Salgado Pronto CRU/PRÉ-ASSADO
-                      if (prontoCruQty > 0) {
-                        addToCart(frozenModal.product, [], null, prontoCruQty, 'pronto_cru', 'Salgado Pronto CRU/PRÉ-ASSADO', true);
-                      }
-                    } else {
-                      // 3. Salgado Congelado CRU/PRÉ-ASSADO
-                      if (congeladoCruQty > 0) {
-                        const frozenAddon = {
-                          productId: congeladoProd.id,
-                          name: 'Salgado Congelado CRU/PRÉ-ASSADO',
-                          price: pVal,
-                          externalId: (congeladoProd as any).externalId || '9999',
-                          isFrozen: true
-                        };
-                        addToCart(frozenModal.product, [frozenAddon], null, congeladoCruQty, 'congelado_cru', 'Salgado Congelado CRU/PRÉ-ASSADO', true);
-                      }
-
-                      // 4. Salgado Congelado FRITO/ASSADO
-                      if (congeladoFritoQty > 0) {
-                        const frozenAddon = {
-                          productId: congeladoProd.id,
-                          name: 'Salgado Congelado FRITO/ASSADO',
-                          price: pVal,
-                          externalId: (congeladoProd as any).externalId || '9999',
-                          isFrozen: true
-                        };
-                        addToCart(frozenModal.product, [frozenAddon], null, congeladoFritoQty, 'congelado_frito', 'Salgado Congelado FRITO/ASSADO', true);
-                      }
-                    }
-
-                    setFrozenModal({ isOpen: false, product: null, quantity: 1, mode: 'pronto' });
-                  }}
-                  disabled={grandTotalSelected === 0}
-                  className="w-full py-4 bg-orange-600 hover:bg-orange-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>Confirmar e Adicionar ({grandTotalSelected} un) 🛒</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFrozenModal({ isOpen: false, product: null, quantity: 1, mode: 'pronto' })}
-                  className="w-full py-2.5 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase tracking-wider cursor-pointer"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Modal de Conflito de Carrinho / Restrição Congelados */}
-      {cartConflictModal.isOpen && (() => {
-        const isFrozenBlockedNormal = cartConflictModal.type === 'frozen_mode_blocked_normal' || cartConflictModal.type === 'has_frozen_blocked_normal';
-        const isOnlyModeLock = cartConflictModal.type === 'frozen_mode_blocked_normal';
-
-        return (
-        <div className="fixed inset-0 z-[130] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-inner border ${
-              isFrozenBlockedNormal
-                ? 'bg-blue-100 text-blue-600 border-blue-200'
-                : 'bg-amber-100 text-amber-600 border-amber-200'
-            }`}>
-              {isFrozenBlockedNormal ? '❄️' : '🔥'}
-            </div>
-            
-            <div className="space-y-1.5">
-              <h3 className="text-lg font-black text-stone-900 uppercase tracking-tight">
-                {isOnlyModeLock
-                  ? 'Pedido Exclusivo de Congelados'
-                  : isFrozenBlockedNormal
-                    ? 'Nesse Pedido, Só Poderá Ter Itens Congelados'
-                    : 'Carrinho com Produtos Prontos (Normais)'}
-              </h3>
-              <p className="text-xs sm:text-sm text-stone-700 leading-relaxed font-semibold">
-                {isFrozenBlockedNormal
-                  ? 'Você escolheu a modalidade de congelados (prazo de 48h, disponível a partir de +2 dias). Nesse pedido, só poderá ter itens congelados.'
-                  : 'Devido a prazos de entrega diferentes, não é possível misturar itens normais (prontos) e congelados no mesmo pedido.'}
-              </p>
-              <p className="text-xs sm:text-sm text-blue-700 font-extrabold pt-1">
-                Caso o pedido de congelados fique pronto antes das 48 horas, você será avisado pelas notificações.
-              </p>
-            </div>
-
-            <div className={`border rounded-2xl p-3.5 text-xs text-left font-medium ${
-              isFrozenBlockedNormal
-                ? 'bg-blue-50 border-blue-200 text-blue-900'
-                : 'bg-amber-50 border-amber-200 text-amber-900'
-            }`}>
-              {isFrozenBlockedNormal ? (
-                <>
-                  💡 <strong>Deseja mudar para outros produtos?</strong><br/>
-                  Ao escolher <strong>Mudar para Outros Produtos</strong>, {hasFrozenInCart ? 'o carrinho de congelados será limpo e ' : ''}a janela de agendamento será aberta novamente sem a limitação dos 2 dias.
-                </>
-              ) : (
-                <>
-                  💡 <strong>Deseja finalizar o pedido atual ou iniciar um novo pedido?</strong><br/>
-                  Você pode finalizar os itens prontos primeiro ou limpar o carrinho para iniciar um pedido de congelados (+2 dias).
-                </>
-              )}
-            </div>
-
-            <div className="space-y-2 pt-2">
-              {hasFrozenInCart && isFrozenBlockedNormal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = cartConflictModal.type;
-                    setCartConflictModal({ isOpen: false, type: t });
-                    setIsCartOpen(true);
-                  }}
-                  className="w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md bg-blue-600 hover:bg-blue-700"
-                >
-                  Ver Meu Carrinho de Congelados 🛒
-                </button>
-              )}
-
-              {!isFrozenBlockedNormal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = cartConflictModal.type;
-                    setCartConflictModal({ isOpen: false, type: t });
-                    setIsCartOpen(true);
-                  }}
-                  className="w-full py-3.5 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md bg-amber-600 hover:bg-amber-700"
-                >
-                  Ver Meu Carrinho e Finalizar 🛒
-                </button>
-              )}
-
-              {isFrozenBlockedNormal ? (
-                <button
-                  type="button"
-                  onClick={switchFromFrozenToNormalAndReschedule}
-                  className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
-                >
-                  Mudar para Outros Produtos (Reagendar sem 2 dias)
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const targetProd = cartConflictModal.product;
-                    const targetQty = cartConflictModal.qty || 1;
-                    const targetIsFrozen = Boolean(cartConflictModal.isFrozenContext);
-                    const targetPrepType = cartConflictModal.prepType as PrepChoiceType | undefined;
-                    const t = cartConflictModal.type;
-                    setCart([]);
-                    safeStorage.removeItem('balbec_active_cart');
-                    setProntoFritoQty(0);
-                    setProntoCruQty(0);
-                    setCongeladoCruQty(0);
-                    setCongeladoFritoQty(0);
-                    setFrozenPrepChoices({});
-                    setFrozenPrepErrors({});
-                    updateOrderModalityPreference(targetIsFrozen ? 'frozen' : 'normal');
-                    setCartConflictModal({ isOpen: false, type: t });
-                    if (targetIsFrozen && storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate)) {
-                      clearScheduleSelection();
-                      setScheduleStepMode('pickup');
-                      setShowScheduleSelectionStep(true);
-                    }
-                    if (targetProd) {
-                      setTimeout(() => {
-                        initiateAddToCartWithQty(targetProd, targetQty, targetIsFrozen, true, targetPrepType);
-                      }, 100);
-                    }
-                  }}
-                  className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-stone-200"
-                >
-                  Limpar Carrinho e Pedir Congelados
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  const t = cartConflictModal.type;
-                  setCartConflictModal({ isOpen: false, type: t });
-                  if (isFrozenBlockedNormal) {
-                    const firstFrozenCat = availableCategories.find(c => isCategoryFrozenModality(c));
-                    if (firstFrozenCat) {
-                      scrollToCategory(firstFrozenCat.id);
-                    }
-                  }
-                }}
-                className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
-              >
-                {isFrozenBlockedNormal ? 'Continuar nos Congelados' : 'Cancelar'}
-              </button>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
-
-      {/* Modal de Sugestão para Compra Separada quando o Cliente está em Pedido de Congelados */}
-      {impulseFrozenModal.isOpen && impulseFrozenModal.entry && (() => {
-        const suggestedProduct = impulseFrozenModal.entry.product;
-        const alreadyQueued = queuedProductIds.has(suggestedProduct.id);
-
-        return (
-          <div className="fixed inset-0 z-[135] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
-              <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-stone-50 border border-stone-200 text-left">
-                <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-stone-200 shrink-0">
-                  <ProductImage
-                    src={suggestedProduct.imageUrl}
-                    alt={suggestedProduct.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-orange-700">
-                    Sugestão dos Mais Vendidos
-                  </p>
-                  <h3 className="text-base font-black text-stone-900 leading-snug line-clamp-2">
-                    {formatCapitalized(suggestedProduct.name)}
-                  </h3>
-                  <p className="text-sm font-black text-orange-700 tabular-nums mt-0.5">
-                    {formatCurrency(suggestedProduct.price)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <h4 className="text-lg font-black text-stone-900 tracking-tight">
-                  {hasFrozenInCart
-                    ? 'Finalize os Congelados e Faça Outro Pedido'
-                    : 'Pedido Atual Configurado para Congelados'}
-                </h4>
-                <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">
-                  {hasFrozenInCart
-                    ? 'Pedidos de congelados têm prazo de até 48h (+2 dias) e são fechados em separado. Sugerimos finalizar seu pedido de congelados primeiro e fazer um novo pedido com este item.'
-                    : 'Você iniciou este pedido na modalidade de congelados (48h). Se preferir pedir este item agora, você pode mudar para Outros Produtos e reagendar sem espera de 2 dias.'}
-                </p>
-              </div>
-
-              <div className="space-y-2.5 pt-1">
-                {hasFrozenInCart ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateQueuedImpulseProducts(prev =>
-                          prev.some(p => p.id === suggestedProduct.id) ? prev : [...prev, suggestedProduct]
-                        );
-                        setImpulseFrozenModal({ isOpen: false, entry: null });
-                        setIsCartOpen(false);
-                        const frozenNeedsLaterDate = storeInfo.deliveryScheduleEnabled && !isDateAllowedForFrozenOrder(selectedScheduleDate);
-                        const slotInvalidForDay = storeInfo.deliveryScheduleEnabled && Boolean(selectedScheduleTime) && !isSlotAllowedForDate(storeInfo, selectedScheduleDate, selectedScheduleTime);
-                        if (storeInfo.deliveryScheduleEnabled && (!selectedScheduleTime || frozenNeedsLaterDate || slotInvalidForDay)) {
-                          if (frozenNeedsLaterDate) {
-                            updateOrderModalityPreference('frozen');
-                            clearScheduleSelection();
-                          } else if (slotInvalidForDay) {
-                            setSelectedScheduleTime('');
-                            safeStorage.removeItem('balbec_selected_schedule_time');
-                          }
-                          setScheduleStepMode('pickup');
-                          setShowScheduleSelectionStep(true);
-                        } else {
-                          setIsCheckout(true);
-                        }
-                      }}
-                      className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
-                    >
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Reservar Item e Finalizar Congelados</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!alreadyQueued) {
-                          updateQueuedImpulseProducts(prev => [...prev, suggestedProduct]);
-                        }
-                        setImpulseFrozenModal({ isOpen: false, entry: null });
-                        setCartToastMessage(`"${formatCapitalized(suggestedProduct.name)}" reservado para o seu 2º pedido!`);
-                      }}
-                      className="w-full py-3 px-4 bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 rounded-xl font-black text-xs transition-all cursor-pointer"
-                    >
-                      {alreadyQueued
-                        ? 'Já está Reservado — Continuar nos Congelados'
-                        : 'Reservar para o Próximo Pedido e Continuar'}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => switchFromFrozenToNormalAndAddImpulse(suggestedProduct)}
-                    className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer shadow-md"
-                  >
-                    Mudar para Outros Produtos e Adicionar Agora
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setImpulseFrozenModal({ isOpen: false, entry: null })}
-                  className="w-full py-2.5 text-stone-600 hover:text-stone-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
-                >
-                  Continuar nos Congelados
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
       {/* Modal de Bloqueio por Incompatibilidade de Modalidade no Modo Acréscimo */}
       {modalidadeConflictModal.isOpen && appendOrderTarget && (
         <div className="fixed inset-0 z-[140] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
