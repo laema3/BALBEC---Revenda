@@ -888,6 +888,7 @@ interface OrderMutationLock {
   paymentConfirmedByOperator?: boolean;
   paymentConfirmedAt?: number;
   paymentConfirmedBy?: string;
+  pixReceiptUrl?: string;
   deleted?: boolean;
   updatedAt: number;
   expiresAt: number;
@@ -910,6 +911,7 @@ const normalizeServerOrder = (o: any): Order => {
       ? false
       : null;
   const paymentConfirmedByVal = o.paymentConfirmedBy ?? o.payment_confirmed_by ?? null;
+  const pixReceiptUrlVal = o.pixReceiptUrl ?? o.pix_receipt_url ?? undefined;
   const paymentPlanVal = o.paymentPlan ?? o.payment_plan ?? undefined;
   const paidAmountVal = o.paidAmount ?? o.paid_amount;
   const remainingAmountVal = o.remainingAmount ?? o.remaining_amount;
@@ -925,6 +927,7 @@ const normalizeServerOrder = (o: any): Order => {
     ...(paymentConfirmedVal !== null ? { paymentConfirmedByOperator: paymentConfirmedVal } : {}),
     ...(paymentConfirmedAtVal ? { paymentConfirmedAt: paymentConfirmedAtVal } : {}),
     ...(paymentConfirmedByVal ? { paymentConfirmedBy: String(paymentConfirmedByVal) } : {}),
+    ...(pixReceiptUrlVal ? { pixReceiptUrl: String(pixReceiptUrlVal) } : {}),
     isPrinted: isPrintedVal,
     ...(printedAtVal ? { printedAt: printedAtVal } : {}),
     blueFocusExported: bfExportedVal,
@@ -989,7 +992,8 @@ const reconcileServerOrders = (
         ...(lock.paymentConfirmedByOperator ? {
           paymentConfirmedByOperator: true,
           paymentConfirmedAt: lock.paymentConfirmedAt || normalized.paymentConfirmedAt || lock.updatedAt,
-          paymentConfirmedBy: lock.paymentConfirmedBy || normalized.paymentConfirmedBy || 'Operador'
+          paymentConfirmedBy: lock.paymentConfirmedBy || normalized.paymentConfirmedBy || 'Operador',
+          ...(lock.pixReceiptUrl ? { pixReceiptUrl: lock.pixReceiptUrl } : {})
         } : {}),
         updatedAt: lock.updatedAt
       };
@@ -2218,6 +2222,7 @@ export const useStore = create<StoreState>((set, get) => ({
         paymentConfirmedByOperator: true,
         paymentConfirmedAt: Number(normalized.paymentConfirmedAt) || nowTs,
         paymentConfirmedBy: normalized.paymentConfirmedBy || operatorName || 'Operador',
+        ...(normalized.pixReceiptUrl || pixReceiptUrl ? { pixReceiptUrl: normalized.pixReceiptUrl || pixReceiptUrl } : {}),
         updatedAt: nowTs,
         expiresAt: nowTs + 12000
       });

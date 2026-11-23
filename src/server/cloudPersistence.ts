@@ -540,6 +540,9 @@ export function smartMergeCollectionItems(
               merged.paymentConfirmedAt = Math.max(Number(existing.paymentConfirmedAt || 0), Number(item.paymentConfirmedAt || 0)) || undefined;
               merged.paymentConfirmedBy = existing.paymentConfirmedBy || item.paymentConfirmedBy || 'Operador';
             }
+            if (item.pixReceiptUrl || existing.pixReceiptUrl) {
+              merged.pixReceiptUrl = item.pixReceiptUrl || existing.pixReceiptUrl;
+            }
             if (existing.blueFocusExported || item.blueFocusExported || existing.blueFocusExportedAt || item.blueFocusExportedAt) {
               merged.blueFocusExported = true;
               merged.blueFocusExportedAt = Math.max(Number(existing.blueFocusExportedAt || 0), Number(item.blueFocusExportedAt || 0)) || undefined;
@@ -585,6 +588,9 @@ export function smartMergeCollectionItems(
               merged.paymentConfirmedByOperator = true;
               merged.paymentConfirmedAt = Math.max(Number(existing.paymentConfirmedAt || 0), Number(item.paymentConfirmedAt || 0)) || undefined;
               merged.paymentConfirmedBy = existing.paymentConfirmedBy || item.paymentConfirmedBy || 'Operador';
+            }
+            if (existing.pixReceiptUrl || item.pixReceiptUrl) {
+              merged.pixReceiptUrl = existing.pixReceiptUrl || item.pixReceiptUrl;
             }
             if (existing.blueFocusExported || item.blueFocusExported || existing.blueFocusExportedAt || item.blueFocusExportedAt) {
               merged.blueFocusExported = true;

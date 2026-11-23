@@ -883,6 +883,7 @@ export function formatOrderForDb(order: any) {
     blueFocusExported: Boolean(order.blueFocusExported),
     blueFocusExportedAt: order.blueFocusExportedAt ? Number(order.blueFocusExportedAt) : null,
     blueFocusExportError: order.blueFocusExportError ? String(order.blueFocusExportError) : null,
+    pixReceiptUrl: order.pixReceiptUrl ? String(order.pixReceiptUrl) : null,
     updatedAt: Number(order.updatedAt) || createdAt
   };
 }
@@ -3073,7 +3074,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       paymentConfirmedBy: newOrder.paymentConfirmedBy ? String(newOrder.paymentConfirmedBy) : null,
       blueFocusExported: Boolean(newOrder.blueFocusExported),
       blueFocusExportedAt: newOrder.blueFocusExportedAt ? Number(newOrder.blueFocusExportedAt) : null,
-      blueFocusExportError: newOrder.blueFocusExportError ? String(newOrder.blueFocusExportError) : null
+      blueFocusExportError: newOrder.blueFocusExportError ? String(newOrder.blueFocusExportError) : null,
+      pixReceiptUrl: newOrder.pixReceiptUrl ? String(newOrder.pixReceiptUrl) : null
     };
 
     const createdSsePayload = {
@@ -3379,7 +3381,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
           'tableNumber', 'tableId', 'isPrinted', 'printedAt',
           'paymentPlan', 'paidAmount', 'remainingAmount',
           'paymentConfirmedByOperator', 'paymentConfirmedAt', 'paymentConfirmedBy',
-          'blueFocusExported', 'blueFocusExportedAt', 'blueFocusExportError'
+          'blueFocusExported', 'blueFocusExportedAt', 'blueFocusExportError', 'pixReceiptUrl'
         ];
         const updatePayload: any = { updatedAt: updatedTimestamp };
         for (const k of allowedKeys) {

@@ -3,6 +3,7 @@ import { Order, StoreInfo } from '../store/useStore';
 import { getFullReceiptHTML, printReceipt, getActiveOrderPrinter, resolveItemCode, resolveAddonCode, resolveOrderModality } from '../utils/printer';
 import { getOrderPaymentBreakdown, sharePixReceipt } from '../utils/paymentStatusHelper';
 import { Printer, X, Copy, Check, ExternalLink, Loader2, Share2, Paperclip } from 'lucide-react';
+import { PixReceiptViewerModal } from './PixReceiptViewerModal';
 
 interface ReceiptModalProps {
   order: Order | null;
@@ -16,6 +17,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, storeInfo, on
   const [isPrinting, setIsPrinting] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [isSharingPix, setIsSharingPix] = useState(false);
+  const [showReceiptViewer, setShowReceiptViewer] = useState(false);
 
   if (!order) return null;
 
@@ -287,17 +289,16 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 text-emerald-900 font-bold truncate">
                 <Paperclip className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="truncate">Comprovante Pix Anexado pelo Cliente</span>
+                <span className="truncate">Comprovante Pix Anexado</span>
               </div>
-              <a
-                href={order.pixReceiptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setShowReceiptViewer(true)}
                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-[11px] flex items-center gap-1 shrink-0 cursor-pointer"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Ver Comprovante</span>
-              </a>
+              </button>
             </div>
           )}
           {shareFeedback && (
@@ -350,6 +351,15 @@ Status Cobrança: ${paymentBreakdown.receiptLine}
           </div>
         </div>
       </div>
+      {showReceiptViewer && order.pixReceiptUrl && (
+        <PixReceiptViewerModal
+          receiptUrl={order.pixReceiptUrl}
+          orderId={order.id}
+          customerName={order.customerName}
+          confirmedBy={order.paymentConfirmedBy}
+          onClose={() => setShowReceiptViewer(false)}
+        />
+      )}
     </div>
   );
 };

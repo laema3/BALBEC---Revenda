@@ -394,6 +394,7 @@ export async function ensureTablesExist() {
       delivery_accepted_at BIGINT,
       delivery_completed_at BIGINT,
       scheduled_time TEXT,
+      pix_receipt_url TEXT,
       updated_at BIGINT
     );
 
@@ -551,6 +552,8 @@ export async function ensureTablesExist() {
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS available_in_store BOOLEAN DEFAULT TRUE;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS available_for_kiosk BOOLEAN DEFAULT TRUE;
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'pronto';
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS sale_mode TEXT DEFAULT 'pack';
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS default_pack_size INTEGER DEFAULT 1;
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS frozen_category_id TEXT;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_frozen BOOLEAN DEFAULT TRUE;
@@ -592,6 +595,7 @@ export async function ensureTablesExist() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_exported BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_exported_at BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS bluefocus_export_error TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS pix_receipt_url TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at BIGINT;
 
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS external_id TEXT;
