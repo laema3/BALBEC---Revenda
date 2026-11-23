@@ -100,6 +100,7 @@ export const orders = pgTable('orders', {
   blueFocusExportError: text('bluefocus_export_error'),
   pixReceiptUrl: text('pix_receipt_url'),
   notes: text('notes').default(''),
+  termPaymentSubCustomer: text('term_payment_sub_customer').default(''),
   updatedAt: bigint('updated_at', { mode: 'number' }),
 });
 
@@ -293,6 +294,7 @@ export const customers = pgTable('customers', {
   status: text('status').default('approved'),
   minOrderValue: doublePrecision('min_order_value').default(0),
   monthlyGoal: doublePrecision('monthly_goal').default(0),
+  pagamentoAPrazo: boolean('pagamento_a_prazo').default(false),
 });
 
 // Customer Addresses table

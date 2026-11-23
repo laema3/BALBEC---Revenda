@@ -885,6 +885,7 @@ export function formatOrderForDb(order: any) {
     blueFocusExportError: order.blueFocusExportError ? String(order.blueFocusExportError) : null,
     pixReceiptUrl: order.pixReceiptUrl ? String(order.pixReceiptUrl) : null,
     notes: order.notes ? String(order.notes) : '',
+    termPaymentSubCustomer: order.termPaymentSubCustomer ? String(order.termPaymentSubCustomer) : (order.term_payment_sub_customer ? String(order.term_payment_sub_customer) : ''),
     updatedAt: Number(order.updatedAt) || createdAt
   };
 }
@@ -1255,6 +1256,7 @@ export function formatCustomerForDb(c: any) {
     status: c.status === 'rejected' ? 'rejected' : (c.status === 'pending' ? 'pending' : 'approved'),
     minOrderValue: typeof c.minOrderValue === 'number' ? c.minOrderValue : (parseFloat(c.min_order_value) || 0),
     monthlyGoal: typeof c.monthlyGoal === 'number' ? c.monthlyGoal : (parseFloat(c.monthly_goal ?? c.monthlyGoal) || 0),
+    pagamentoAPrazo: Boolean(c.pagamentoAPrazo ?? c.pagamento_a_prazo ?? false),
   };
 }
 

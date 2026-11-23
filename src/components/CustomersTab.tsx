@@ -130,6 +130,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [formSource, setFormSource] = useState('manual');
   const [formStatus, setFormStatus] = useState<'approved' | 'pending' | 'rejected'>('approved');
   const [formMonthlyGoal, setFormMonthlyGoal] = useState<string>('');
+  const [formPagamentoAPrazo, setFormPagamentoAPrazo] = useState(false);
   const [formTags, setFormTags] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
@@ -281,6 +282,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       setFormSource(customer.source || 'manual');
       setFormStatus((customer.status as any) || 'approved');
       setFormMonthlyGoal(customer.monthlyGoal && customer.monthlyGoal > 0 ? String(customer.monthlyGoal) : '');
+      setFormPagamentoAPrazo(Boolean(customer.pagamentoAPrazo));
       const tagsList = Array.isArray(customer.tags) 
         ? customer.tags.join(', ') 
         : typeof customer.tags === 'string' ? customer.tags : '';
@@ -296,6 +298,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       setFormSource('manual');
       setFormStatus('approved');
       setFormMonthlyGoal('');
+      setFormPagamentoAPrazo(false);
       setFormTags('Cliente, Revenda');
       setFormNotes('');
     }
@@ -330,6 +333,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
         source: formSource,
         status: formStatus,
         monthlyGoal: parsedGoal,
+        pagamentoAPrazo: formPagamentoAPrazo,
         tags: parsedTags,
         notes: formNotes.trim() || undefined
       };
@@ -1096,6 +1100,11 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                                (customer.source === 'instore' || customer.source === 'pedido_loja' || customer.source === 'dine_in') ? 'Retirada' :
                                'Manual / Sistema'}
                             </span>
+                            {customer.pagamentoAPrazo && (
+                              <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 border border-purple-300 ml-1">
+                                📋 À Prazo
+                              </span>
+                            )}
                           </div>
                           {tagsList.length > 0 && (
                             <div className="flex flex-wrap gap-1">
@@ -1714,6 +1723,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 <p className="text-[11px] text-orange-800 leading-relaxed">
                   Conforme o cliente for comprando no mês, o percentual crescerá até atingir <strong>100%</strong>. Se deixar em branco, o cliente comprará normalmente sem meta.
                 </p>
+              </div>
+
+              <div className="p-3.5 bg-amber-50/80 border border-amber-300 rounded-2xl flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="form-pagamento-a-prazo"
+                  checked={formPagamentoAPrazo}
+                  onChange={(e) => setFormPagamentoAPrazo(e.target.checked)}
+                  className="w-5 h-5 text-orange-600 rounded focus:ring-orange-500 cursor-pointer"
+                />
+                <label htmlFor="form-pagamento-a-prazo" className="text-xs font-black text-amber-950 cursor-pointer select-none">
+                  📋 PAGAMENTO À PRAZO (Exclusivo - Desativa demais formas de pagamento para este cliente)
+                </label>
               </div>
 
               <div>

@@ -5685,6 +5685,22 @@ export default function Admin() {
                       <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">TOTAL DO PEDIDO:</span>
                       <span>{formatCurrency(order.total)}</span>
                     </div>
+
+                    {/* Observações / Mensagem do Pedido */}
+                    <div className="mt-2.5 pt-2.5 border-t border-stone-200 text-left">
+                      <div className="text-[11px] font-black uppercase tracking-wider text-stone-600 mb-1 flex items-center gap-1.5">
+                        <span>📝</span> OBSERVAÇÕES FINAIS / MENSAGEM:
+                      </div>
+                      <div className="p-2.5 bg-amber-50/80 border border-amber-300 rounded-xl text-xs text-amber-950 font-medium whitespace-pre-wrap">
+                        {order.notes ? order.notes : <span className="text-stone-400 italic">Nenhuma observação informada neste pedido.</span>}
+                      </div>
+                      {order.termPaymentSubCustomer && (
+                        <div className="mt-2 p-2 bg-purple-50 border border-purple-300 rounded-xl text-xs text-purple-950 font-bold">
+                          <span>👤 Cliente / Departamento à Prazo: </span>
+                          <span className="text-purple-700 underline">{order.termPaymentSubCustomer}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="p-4 bg-stone-50 border-t flex flex-col gap-2.5">
                     {(() => {

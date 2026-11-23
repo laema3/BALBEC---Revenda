@@ -338,6 +338,7 @@ export interface Order {
   blueFocusExportError?: string | null;
   pixReceiptUrl?: string;
   notes?: string;
+  termPaymentSubCustomer?: string;
 }
 
 export interface TvMediaItem {
@@ -521,6 +522,7 @@ export interface Customer {
   status?: 'pending' | 'approved' | 'rejected';
   minOrderValue?: number;
   monthlyGoal?: number;
+  pagamentoAPrazo?: boolean;
   mustChangePassword?: boolean;
   passwordChangedAt?: number;
 }
