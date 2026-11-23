@@ -30,7 +30,7 @@ function detectCardBrand(num: string): string {
 }
 
 export default function Menu() {
-  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData, fetchOrdersOnly, appendItemsToOrder } = useStore();
+  const { categories, products, tables, orders, customers, storeInfo, placeOrder, saveCustomer, isInitialized, fetchData, fetchOrdersOnly, fetchCustomers, appendItemsToOrder } = useStore();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
@@ -71,6 +71,10 @@ export default function Menu() {
       return unitOrBasePrice * item.quantity;
     }
   }, [products, categories]);
+
+  useEffect(() => {
+    fetchCustomers().catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!cartToastMessage) return;
@@ -496,16 +500,25 @@ export default function Menu() {
   const cleanDigits = (val?: string) => (val || '').replace(/\D/g, '');
   const matchedTermCustomer = useMemo(() => {
     if (activeCustomer) {
-      return customers.find(c => c.id === activeCustomer.id || cleanDigits(c.phone) === cleanDigits(activeCustomer.phone));
+      const matchById = customers.find(c => c.id === activeCustomer.id);
+      if (matchById) return matchById;
+      const matchByPhone = customers.find(c => cleanDigits(c.phone) === cleanDigits(activeCustomer.phone));
+      if (matchByPhone) return matchByPhone;
+      const matchByCpf = customers.find(c => c.cpf && activeCustomer.cpf && cleanDigits(c.cpf) === cleanDigits(activeCustomer.cpf));
+      if (matchByCpf) return matchByCpf;
+      if (activeCustomer.pagamentoAPrazo) return activeCustomer;
     }
     if (customerPhone.trim()) {
       const clean = cleanDigits(customerPhone);
-      return customers.find(c => cleanDigits(c.phone) === clean || (c.cpf && cleanDigits(c.cpf) === clean));
+      const matchPhone = customers.find(c => cleanDigits(c.phone) === clean);
+      if (matchPhone) return matchPhone;
+      const matchCpf = customers.find(c => c.cpf && cleanDigits(c.cpf) === clean);
+      if (matchCpf) return matchCpf;
     }
     return null;
   }, [activeCustomer, customerPhone, customers]);
 
-  const isTermPaymentAllowed = Boolean(matchedTermCustomer?.pagamentoAPrazo);
+  const isTermPaymentAllowed = Boolean(matchedTermCustomer?.pagamentoAPrazo || activeCustomer?.pagamentoAPrazo);
 
   useEffect(() => {
     if (isTermPaymentAllowed) {
