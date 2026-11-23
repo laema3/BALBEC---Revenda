@@ -242,6 +242,8 @@ function compactItemForCloud(collectionKey: string, rawItem: any): any {
             order: c.order ?? 0,
             isVisible: c.isVisible !== false,
             modality: c.modality || 'pronto',
+            saleMode: c.saleMode || 'pack',
+            defaultPackSize: c.defaultPackSize ?? 1,
             availableForDelivery: c.availableForDelivery !== false,
             availableInStore: c.availableInStore !== false,
             availableForKiosk: c.availableForKiosk !== false,
@@ -524,6 +526,12 @@ export function smartMergeCollectionItems(
           if (merged.minFrozenQuantity === undefined && existing.minFrozenQuantity) {
             merged.minFrozenQuantity = existing.minFrozenQuantity;
           }
+          if (merged.saleMode === undefined && existing.saleMode !== undefined) {
+            merged.saleMode = existing.saleMode;
+          }
+          if (merged.defaultPackSize === undefined && existing.defaultPackSize !== undefined) {
+            merged.defaultPackSize = existing.defaultPackSize;
+          }
           if ((!merged.modality || merged.modality === 'pronto') && existing.modality === 'congelado' && !item.updatedAt) {
             merged.modality = existing.modality;
           }
@@ -572,6 +580,12 @@ export function smartMergeCollectionItems(
           }
           if (merged.minFrozenQuantity === undefined && item.minFrozenQuantity) {
             merged.minFrozenQuantity = item.minFrozenQuantity;
+          }
+          if (merged.saleMode === undefined && item.saleMode !== undefined) {
+            merged.saleMode = item.saleMode;
+          }
+          if (merged.defaultPackSize === undefined && item.defaultPackSize !== undefined) {
+            merged.defaultPackSize = item.defaultPackSize;
           }
           if ((!merged.modality || merged.modality === 'pronto') && item.modality === 'congelado' && !existing.updatedAt) {
             merged.modality = item.modality;

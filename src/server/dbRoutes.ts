@@ -1018,6 +1018,17 @@ export function formatProductForDb(p: any) {
     ? p.manualFields
     : (Array.isArray(p.manual_fields) ? p.manual_fields : []);
 
+  const rawProdSaleMode = p.saleMode !== undefined ? p.saleMode : p.sale_mode;
+  const finalProdSaleMode: 'pack' | 'unit' | null =
+    rawProdSaleMode === 'unit' || rawProdSaleMode === 'pack' ? rawProdSaleMode : null;
+  const rawProdPackSize = p.defaultPackSize !== undefined ? p.defaultPackSize : p.default_pack_size;
+  const parsedProdPackSize = rawProdPackSize === null || rawProdPackSize === undefined || rawProdPackSize === ''
+    ? null
+    : parseInt(String(rawProdPackSize), 10);
+  const finalProdPackSize = parsedProdPackSize !== null && !isNaN(parsedProdPackSize) && parsedProdPackSize >= 1
+    ? parsedProdPackSize
+    : null;
+
   return {
     id: String(p.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
     categoryId: p.categoryId ? String(p.categoryId) : (p.category_id ? String(p.category_id) : null),
@@ -1036,6 +1047,8 @@ export function formatProductForDb(p: any) {
     order: typeof p.order === 'number' ? p.order : (parseInt(p.order, 10) || 0),
     allowFrozen: parseDbBool(p.allowFrozen, p.allow_frozen, true),
     minFrozenQuantity: typeof p.minFrozenQuantity === 'number' ? (isNaN(p.minFrozenQuantity) ? 1 : p.minFrozenQuantity) : (parseInt(p.minFrozenQuantity || p.min_frozen_quantity, 10) || 1),
+    saleMode: finalProdSaleMode,
+    defaultPackSize: finalProdPackSize,
     availableForDelivery,
     availableInStore,
     availableForKiosk,
@@ -1050,8 +1063,13 @@ export function formatCategoryForDb(c: any) {
   const finalModality = isNameFrozen
     ? 'congelado'
     : (c.modality === 'congelado' || c.modality === 'pronto' ? c.modality : 'pronto');
-  const finalSaleMode = c.saleMode === 'unit' || c.sale_mode === 'unit' ? 'unit' : 'pack';
-  const defaultPackSize = Number(c.defaultPackSize || c.default_pack_size || c.packSize || 1);
+  const rawSaleMode = c.saleMode !== undefined ? c.saleMode : c.sale_mode;
+  const finalSaleMode = rawSaleMode === 'unit' ? 'unit' : 'pack';
+  const rawPackSize = c.defaultPackSize !== undefined
+    ? c.defaultPackSize
+    : (c.default_pack_size !== undefined ? c.default_pack_size : c.packSize);
+  const parsedPackSize = parseInt(String(rawPackSize ?? 1), 10);
+  const defaultPackSize = !isNaN(parsedPackSize) && parsedPackSize >= 1 ? parsedPackSize : 1;
   const manualFields = Array.isArray(c.manualFields)
     ? c.manualFields
     : (Array.isArray(c.manual_fields) ? c.manual_fields : []);
@@ -1105,6 +1123,8 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
                 order: item.order,
                 allowFrozen: item.allowFrozen,
                 minFrozenQuantity: item.minFrozenQuantity,
+                saleMode: item.saleMode,
+                defaultPackSize: item.defaultPackSize,
                 availableForDelivery: item.availableForDelivery,
                 availableInStore: item.availableInStore,
                 availableForKiosk: item.availableForKiosk,
@@ -1138,6 +1158,8 @@ export async function saveProductsToPostgresBatch(productList: any[]): Promise<n
               order: item.order,
               allowFrozen: item.allowFrozen,
               minFrozenQuantity: item.minFrozenQuantity,
+              saleMode: item.saleMode,
+              defaultPackSize: item.defaultPackSize,
               availableForDelivery: item.availableForDelivery,
               availableInStore: item.availableInStore,
               availableForKiosk: item.availableForKiosk,
@@ -1173,6 +1195,8 @@ export async function saveCategoriesToPostgresBatch(categoryList: any[]): Promis
             availableInStore: cat.availableInStore,
             availableForKiosk: cat.availableForKiosk,
             modality: cat.modality,
+            saleMode: cat.saleMode,
+            defaultPackSize: cat.defaultPackSize,
             manualFields: cat.manualFields,
             updatedAt: cat.updatedAt,
           }
@@ -2511,6 +2535,8 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     if (data.availableInStore !== undefined) delete cleanBase.available_in_store;
     if (data.availableForDelivery !== undefined) delete cleanBase.available_for_delivery;
     if (data.availableForKiosk !== undefined) delete cleanBase.available_for_kiosk;
+    if (data.saleMode !== undefined) delete cleanBase.sale_mode;
+    if (data.defaultPackSize !== undefined) delete cleanBase.default_pack_size;
 
     const mergedManualFields = Array.from(new Set([
       ...(Array.isArray(existingCat?.manualFields) ? existingCat.manualFields : []),
@@ -2795,6 +2821,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
       } catch {}
     }
 
+    const cleanProdBase = { ...(existingProd || {}) };
+    if (data.saleMode !== undefined) delete cleanProdBase.sale_mode;
+    if (data.defaultPackSize !== undefined) delete cleanProdBase.default_pack_size;
+    if (data.minFrozenQuantity !== undefined) delete cleanProdBase.min_frozen_quantity;
+
     const mergedManualFields = Array.from(new Set([
       ...(Array.isArray(existingProd?.manualFields) ? existingProd.manualFields : []),
       ...(Array.isArray(data.manualFields) ? data.manualFields : []),
@@ -2802,7 +2833,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
     ]));
 
     const updatedProd = {
-      ...formatProductForDb({ ...(existingProd || {}), ...data, id, manualFields: mergedManualFields }),
+      ...formatProductForDb({ ...cleanProdBase, ...data, id, manualFields: mergedManualFields }),
       updatedAt: Date.now()
     };
 

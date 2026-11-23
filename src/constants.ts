@@ -363,29 +363,141 @@ export const isSalgadoProduct = (product: any, categories: any[] = []) => {
   return isSalgadoName;
 };
 
-export const getProductMinQuantity = (product: any, categories: any[] = []): number => {
+export const ERP_BATCH_GROUP_25 = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427'];
+export const ERP_BATCH_GROUP_20 = ['1416', '1419', '1420', '1421', '1422', '1423', '1424'];
+
+export const getErpBatchCodePackSize = (product: any): number => {
   if (!product) return 1;
-  const prodMin = Number(product.minFrozenQuantity || product.packSize || product.defaultPackSize);
-  if (!isNaN(prodMin) && prodMin > 1) return prodMin;
-
-  const cat = categories.find(c => c.id === product.categoryId || c.id === product.frozenCategoryId);
-  const catPack = Number(cat?.defaultPackSize || cat?.packSize || cat?.minQuantity);
-  if (!isNaN(catPack) && catPack > 1) return catPack;
-
   const code = String(product.externalId || product.code || product.id || '').trim();
   const numericCode = code.replace(/\D/g, '');
-
-  const group25 = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427'];
-  const group20 = ['1416', '1419', '1420', '1421', '1422', '1423', '1424'];
-
-  if (group25.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
+  if (ERP_BATCH_GROUP_25.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
     return 25;
   }
-  if (group20.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
+  if (ERP_BATCH_GROUP_20.some(c => code === c || numericCode === c || code.endsWith(c) || (code.includes(c) && c.length >= 4))) {
     return 20;
   }
   return 1;
 };
+
+export const isBatchCodeProduct = (product: any): boolean => {
+  return getErpBatchCodePackSize(product) > 1;
+};
+
+export interface ResolvedProductSaleRule {
+  saleMode: 'pack' | 'unit';
+  packSize: number;
+  minQty: number;
+  source: 'product' | 'category' | 'code' | 'default';
+  isProductOverride: boolean;
+}
+
+export const resolveProductSaleRule = (
+  product: any,
+  categories: any[] = [],
+  isFrozen: boolean = false
+): ResolvedProductSaleRule => {
+  if (!product) {
+    return { saleMode: 'unit', packSize: 1, minQty: 1, source: 'default', isProductOverride: false };
+  }
+
+  const catList = Array.isArray(categories) ? categories : [];
+  const cat = isFrozen && product.frozenCategoryId
+    ? (catList.find(c => c && c.id === product.frozenCategoryId) || catList.find(c => c && c.id === product.categoryId))
+    : (catList.find(c => c && c.id === product.categoryId) || catList.find(c => c && c.id === product.frozenCategoryId));
+
+  const rawProdMode = product.saleMode !== undefined ? product.saleMode : product.sale_mode;
+  const prodSaleMode: 'pack' | 'unit' | null =
+    rawProdMode === 'unit' || rawProdMode === 'pack' ? rawProdMode : null;
+
+  const rawProdPack = product.defaultPackSize !== undefined ? product.defaultPackSize : (product.default_pack_size !== undefined ? product.default_pack_size : product.packSize);
+  const parsedProdPack = Number(rawProdPack);
+  const prodPackSize = (!isNaN(parsedProdPack) && parsedProdPack > 1) ? Math.floor(parsedProdPack) : 0;
+
+  const rawCatPack = cat?.defaultPackSize !== undefined ? cat.defaultPackSize : (cat?.default_pack_size !== undefined ? cat.default_pack_size : (cat?.packSize ?? cat?.minQuantity));
+  const parsedCatPack = Number(rawCatPack);
+  const catPackSize = (!isNaN(parsedCatPack) && parsedCatPack > 1) ? Math.floor(parsedCatPack) : 0;
+
+  const codePackSize = getErpBatchCodePackSize(product);
+
+  const parsedFrozenMin = Number(product.minFrozenQuantity ?? product.min_frozen_quantity);
+  const frozenMin = (!isNaN(parsedFrozenMin) && parsedFrozenMin > 1) ? Math.floor(parsedFrozenMin) : 1;
+
+  // 1. Regra explícita do produto: Unitário (1 por 1)
+  if (prodSaleMode === 'unit') {
+    return { saleMode: 'unit', packSize: 1, minQty: 1, source: 'product', isProductOverride: true };
+  }
+
+  // 2. Regra explícita do produto: Por Lote / Pacote
+  if (prodSaleMode === 'pack') {
+    const resolvedPack = prodPackSize > 1
+      ? prodPackSize
+      : (catPackSize > 1 ? catPackSize : (codePackSize > 1 ? codePackSize : 1));
+    const minQty = isFrozen ? Math.max(resolvedPack, frozenMin) : resolvedPack;
+    return {
+      saleMode: 'pack',
+      packSize: resolvedPack,
+      minQty,
+      source: 'product',
+      isProductOverride: true,
+    };
+  }
+
+  // 3. Herdando da categoria (produto sem override explícito de saleMode)
+  const rawCatMode = cat?.saleMode !== undefined ? cat.saleMode : cat?.sale_mode;
+  if (rawCatMode === 'unit') {
+    return { saleMode: 'unit', packSize: 1, minQty: 1, source: 'category', isProductOverride: false };
+  }
+
+  // Categoria em modo 'pack' (ou padrão)
+  if (prodPackSize > 1) {
+    const minQty = isFrozen ? Math.max(prodPackSize, frozenMin) : prodPackSize;
+    return { saleMode: 'pack', packSize: prodPackSize, minQty, source: 'product', isProductOverride: true };
+  }
+  if (catPackSize > 1) {
+    const minQty = isFrozen ? Math.max(catPackSize, frozenMin) : catPackSize;
+    return { saleMode: 'pack', packSize: catPackSize, minQty, source: 'category', isProductOverride: false };
+  }
+  if (codePackSize > 1) {
+    const minQty = isFrozen ? Math.max(codePackSize, frozenMin) : codePackSize;
+    return { saleMode: 'pack', packSize: codePackSize, minQty, source: 'code', isProductOverride: false };
+  }
+
+  const fallbackMin = isFrozen ? frozenMin : 1;
+  return {
+    saleMode: fallbackMin > 1 ? 'pack' : 'unit',
+    packSize: fallbackMin,
+    minQty: fallbackMin,
+    source: 'default',
+    isProductOverride: false,
+  };
+};
+
+export const getProductMinQuantity = (product: any, categories: any[] = [], isFrozen: boolean = false): number => {
+  return resolveProductSaleRule(product, categories, isFrozen).minQty;
+};
+
+export const isActiveMenuProduct = (product: any, categories: any[] = []): boolean => {
+  if (!product || !product.isActive) return false;
+  if (product.isAddon || product.isFlavor) return false;
+  if (isAddonItem(product, categories) || shouldExcludeProduct(product, categories)) return false;
+  const catList = Array.isArray(categories) ? categories : [];
+  const primaryCat = catList.find(c => c && c.id === product.categoryId);
+  const frozenCat = catList.find(c => c && c.id === product.frozenCategoryId);
+  const hasVisiblePrimary = Boolean(
+    primaryCat &&
+    primaryCat.isVisible !== false &&
+    !isExcludedCategory(primaryCat.name) &&
+    !isAddonCategory(primaryCat.name)
+  );
+  const hasVisibleFrozen = Boolean(
+    frozenCat &&
+    frozenCat.isVisible !== false &&
+    !isExcludedCategory(frozenCat.name) &&
+    !isAddonCategory(frozenCat.name)
+  );
+  return hasVisiblePrimary || hasVisibleFrozen;
+};
+
 
 
 

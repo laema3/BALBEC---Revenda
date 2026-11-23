@@ -5,7 +5,7 @@ import { useStore, Category, Product, Order, User, AiTrainingExample, DEFAULT_AI
 import { printReceipt, resolveItemCode, resolveAddonCode } from '../utils/printer';
 import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation, formatBRL } from '../utils/paymentStatusHelper';
 import { formatCurrency, formatDateBR, formatAllDatesBR } from '../lib/utils';
-import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode, isCategoryFrozenModality } from '../constants';
+import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, isStoreOnlyCategory, EXCLUDED_CATEGORIES, normalizeText, isAuthorizedAdminEmail, MASTER_ADMIN_EMAILS, cleanProductDescription, formatProductDescriptionWithCode, isCategoryFrozenModality, isActiveMenuProduct, resolveProductSaleRule } from '../constants';
 import { getCollectionPath, getDocPath } from '../lib/tenants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { ProductImage } from '../components/ProductImage';
@@ -266,6 +266,9 @@ export default function Admin() {
   }>({ isOpen: false, focusOrderId: null, search: '' });
   const [modalType, setModalType] = useState<'category' | 'product' | 'user' | null>(null);
   const [categorySaleMode, setCategorySaleMode] = useState<'pack' | 'unit'>('pack');
+  const [categoryPackSizeInput, setCategoryPackSizeInput] = useState<string>('1');
+  const [productSaleMode, setProductSaleMode] = useState<'inherit' | 'pack' | 'unit'>('inherit');
+  const [productPackSizeInput, setProductPackSizeInput] = useState<string>('10');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedFrozenCategoryId, setSelectedFrozenCategoryId] = useState<string>('');
@@ -496,6 +499,54 @@ export default function Admin() {
   const [minFrozenDrafts, setMinFrozenDrafts] = useState<Record<string, string>>({});
   const [expandedMinFrozenIds, setExpandedMinFrozenIds] = useState<Record<string, boolean>>({});
   const [savedMinFrozenId, setSavedMinFrozenId] = useState<string | null>(null);
+
+  // Inline per-category & per-product pack size state
+  const [categoryPackDrafts, setCategoryPackDrafts] = useState<Record<string, string>>({});
+  const [savedCategoryPackId, setSavedCategoryPackId] = useState<string | null>(null);
+  const [productPackDrafts, setProductPackDrafts] = useState<Record<string, string>>({});
+  const [savedProductPackId, setSavedProductPackId] = useState<string | null>(null);
+
+  const focusProductPackInput = (productId: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(`prod-pack-qty-${productId}`) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 60);
+  };
+
+  const saveInlineCategoryPackSize = async (catId: string, rawVal: string | number, currentSaved?: number) => {
+    const parsed = parseInt(String(rawVal).replace(/\D/g, ''), 10);
+    const safeQty = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    setCategoryPackDrafts(prev => ({ ...prev, [catId]: String(safeQty) }));
+    if (currentSaved !== undefined && safeQty === currentSaved) return;
+    try {
+      await updateCategory(catId, { saleMode: 'pack', defaultPackSize: safeQty });
+      setSavedCategoryPackId(catId);
+      setTimeout(() => {
+        setSavedCategoryPackId(prev => (prev === catId ? null : prev));
+      }, 1800);
+    } catch (err) {
+      console.error('Error updating category defaultPackSize:', err);
+    }
+  };
+
+  const saveInlineProductPackSize = async (productId: string, rawVal: string | number, currentSaved?: number | null) => {
+    const parsed = parseInt(String(rawVal).replace(/\D/g, ''), 10);
+    const safeQty = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    setProductPackDrafts(prev => ({ ...prev, [productId]: String(safeQty) }));
+    if (currentSaved !== undefined && currentSaved !== null && safeQty === currentSaved) return;
+    try {
+      await updateProduct(productId, { saleMode: 'pack', defaultPackSize: safeQty });
+      setSavedProductPackId(productId);
+      setTimeout(() => {
+        setSavedProductPackId(prev => (prev === productId ? null : prev));
+      }, 1800);
+    } catch (err) {
+      console.error('Error updating product defaultPackSize:', err);
+    }
+  };
 
   const focusMinFrozenInput = (productId: string) => {
     setExpandedMinFrozenIds(prev => ({ ...prev, [productId]: true }));
@@ -2631,8 +2682,18 @@ export default function Admin() {
       setSelectedCategoryId(item?.categoryId || '');
       setSelectedFrozenCategoryId(item?.frozenCategoryId || '');
       setIsFlavorInModal(item?.isFlavor || false);
+      const itemSaleMode: 'inherit' | 'pack' | 'unit' =
+        item?.saleMode === 'pack' || item?.saleMode === 'unit' ? item.saleMode : 'inherit';
+      setProductSaleMode(itemSaleMode);
+      const itemCat = categories.find(c => c.id === item?.categoryId || c.id === item?.frozenCategoryId);
+      const fallbackPack = Number(item?.defaultPackSize) > 1
+        ? Number(item.defaultPackSize)
+        : (Number(itemCat?.defaultPackSize) > 1 ? Number(itemCat.defaultPackSize) : 10);
+      setProductPackSizeInput(String(fallbackPack));
     } else if (type === 'category') {
       setCategorySaleMode(item?.saleMode || 'pack');
+      const existingPack = Number(item?.defaultPackSize);
+      setCategoryPackSizeInput(String(!isNaN(existingPack) && existingPack >= 1 ? existingPack : 1));
     }
     setIsModalOpen(true);
   };
@@ -2645,6 +2706,9 @@ export default function Admin() {
     setSelectedCategoryId('');
     setSelectedFrozenCategoryId('');
     setIsFlavorInModal(false);
+    setProductSaleMode('inherit');
+    setProductPackSizeInput('10');
+    setCategoryPackSizeInput('1');
   };
 
   const handleSaveCategory = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -2656,8 +2720,12 @@ export default function Admin() {
     const finalModality = catName.toLowerCase().includes('congelad')
       ? 'congelado'
       : (rawModality === 'congelado' || rawModality === 'pronto' ? rawModality : 'pronto');
-    const saleMode = ((formData.get('saleMode') as string) || 'pack') as 'pack' | 'unit';
-    const defaultPackSize = Number(formData.get('defaultPackSize')) || 1;
+    const saleMode = ((formData.get('saleMode') as string) || categorySaleMode || 'pack') as 'pack' | 'unit';
+    const rawPack = formData.get('defaultPackSize') ?? categoryPackSizeInput;
+    const parsedPack = parseInt(String(rawPack || '1'), 10);
+    const defaultPackSize = saleMode === 'pack'
+      ? (!isNaN(parsedPack) && parsedPack >= 1 ? parsedPack : 1)
+      : 1;
     const store = formData.get('availableInStore') === 'on';
     const kiosk = formData.get('availableForKiosk') === 'on';
     const isVisibleChecked = formData.get('isVisible') === 'on';
@@ -2702,6 +2770,14 @@ export default function Admin() {
     const externalIdInput = (formData.get('externalId') as string || '').trim();
     const rawFrozenCat = (formData.get('frozenCategoryId') as string || '').trim();
     const finalFrozenCat = rawFrozenCat === 'none' ? '' : rawFrozenCat;
+    const rawSaleModeField = (formData.get('saleMode') as string) || productSaleMode || 'inherit';
+    const finalProdSaleMode: 'pack' | 'unit' | null =
+      rawSaleModeField === 'pack' || rawSaleModeField === 'unit' ? rawSaleModeField : null;
+    const parsedProdPack = parseInt(String(formData.get('defaultPackSize') ?? productPackSizeInput ?? ''), 10);
+    const finalProdPackSize: number | null = finalProdSaleMode === 'pack'
+      ? (!isNaN(parsedProdPack) && parsedProdPack >= 1 ? parsedProdPack : 1)
+      : null;
+
     const data = {
       categoryId: (formData.get('categoryId') as string) || 'none',
       frozenCategoryId: finalFrozenCat || null,
@@ -2719,6 +2795,8 @@ export default function Admin() {
       order: Number(formData.get('order') || 0),
       allowFrozen: finalFrozenCat ? true : (formData.get('allowFrozen') === 'on'),
       minFrozenQuantity: Number(formData.get('minFrozenQuantity')) || 1,
+      saleMode: finalProdSaleMode,
+      defaultPackSize: finalProdPackSize,
       availableForDelivery: false,
       availableInStore: formData.get('availableInStore') === 'on',
       availableForKiosk: formData.get('availableForKiosk') === 'on',
@@ -6249,7 +6327,10 @@ export default function Admin() {
                         onClick={async (e) => {
                           e.stopPropagation();
                           const newMode = category.saleMode === 'unit' ? 'pack' : 'unit';
-                          await updateCategory(category.id, { saleMode: newMode });
+                          await updateCategory(category.id, {
+                            saleMode: newMode,
+                            ...(newMode === 'pack' && (!category.defaultPackSize || category.defaultPackSize < 1) ? { defaultPackSize: 1 } : {})
+                          });
                         }}
                         className={`text-[10px] px-2.5 py-0.5 rounded-md border transition-all cursor-pointer font-extrabold flex items-center gap-1 active:scale-95 ${
                           category.saleMode === 'unit'
@@ -6257,8 +6338,56 @@ export default function Admin() {
                             : 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-xs hover:bg-emerald-200'
                         }`}
                       >
-                        {category.saleMode === 'unit' ? '📦 Venda: Unitária (1 por 1)' : '🔢 Venda: Por Quantidade/Lote'}
+                        {category.saleMode === 'unit'
+                          ? '📦 Venda: Unitária (1 por 1)'
+                          : `🔢 Venda: Por Lote${Number(category.defaultPackSize) > 1 ? ` (${category.defaultPackSize} un)` : ''}`}
                       </button>
+
+                      {category.saleMode !== 'unit' && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-300 rounded-md px-1.5 py-0.5"
+                          title="Defina a quantidade padrão do lote para esta categoria (1 = sem trava de lote na categoria)"
+                        >
+                          <span className="text-[10px] font-extrabold text-emerald-900">Qtd. Lote:</span>
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="numeric"
+                            value={categoryPackDrafts[category.id] !== undefined ? categoryPackDrafts[category.id] : String(Number(category.defaultPackSize) >= 1 ? Number(category.defaultPackSize) : 1)}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/\D/g, '');
+                              setCategoryPackDrafts(prev => ({ ...prev, [category.id]: clean }));
+                            }}
+                            onBlur={(e) => {
+                              saveInlineCategoryPackSize(category.id, e.target.value, Number(category.defaultPackSize) || 1);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            className="w-12 px-1 py-0 text-[11px] font-black text-center bg-white border border-emerald-400 rounded focus:ring-1 focus:ring-emerald-500 outline-none text-emerald-950 font-mono"
+                          />
+                          <span className="text-[10px] font-bold text-emerald-800">un</span>
+                          {savedCategoryPackId === category.id ? (
+                            <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1 rounded">✓ Salvo</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = categoryPackDrafts[category.id] !== undefined ? categoryPackDrafts[category.id] : String(Number(category.defaultPackSize) || 1);
+                                saveInlineCategoryPackSize(category.id, val);
+                              }}
+                              className="text-[9px] font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 px-1.5 py-0.5 rounded cursor-pointer"
+                            >
+                              OK
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -7138,6 +7267,130 @@ export default function Admin() {
                                       </div>
                                     </div>
                                   )}
+
+                                  {/* Regra individual de Lote / Unitário (exclusiva para itens ativos no menu do site) */}
+                                  {isActiveMenuProduct(product, categories) && (() => {
+                                    const currentItemMode: 'inherit' | 'pack' | 'unit' =
+                                      product.saleMode === 'pack' || product.saleMode === 'unit' ? product.saleMode : 'inherit';
+                                    const effectiveRule = resolveProductSaleRule(product, categories, false);
+                                    const parentCat = selectedPrimaryCat || selectedFrozenCat;
+                                    const parentCatSummary = parentCat?.saleMode === 'unit'
+                                      ? 'Unitário'
+                                      : (Number(parentCat?.defaultPackSize) > 1 ? `Lote ${parentCat?.defaultPackSize} un` : 'Padrão');
+                                    const currentPackVal = Number(product.defaultPackSize) >= 1
+                                      ? Number(product.defaultPackSize)
+                                      : (Number(parentCat?.defaultPackSize) > 1 ? Number(parentCat?.defaultPackSize) : 10);
+                                    const packDraftVal = productPackDrafts[product.id] !== undefined
+                                      ? productPackDrafts[product.id]
+                                      : String(currentPackVal);
+
+                                    return (
+                                      <div className={`flex flex-col gap-1 rounded-lg px-2 py-1.5 border max-w-[300px] mt-0.5 ${
+                                        currentItemMode === 'pack'
+                                          ? 'bg-emerald-50/90 border-emerald-300'
+                                          : currentItemMode === 'unit'
+                                            ? 'bg-purple-50/90 border-purple-300'
+                                            : 'bg-stone-50 border-stone-200'
+                                      }`}>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded w-[84px] shrink-0 text-center border ${
+                                            currentItemMode === 'pack'
+                                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                              : currentItemMode === 'unit'
+                                                ? 'bg-purple-100 text-purple-900 border-purple-300'
+                                                : 'bg-stone-100 text-stone-700 border-stone-300'
+                                          }`} title="Define se este item ativo no menu é vendido por Lote ou Unitário">
+                                            {currentItemMode === 'pack' ? '🔢 Lote Item' : currentItemMode === 'unit' ? '📦 Unit. Item' : '🏷️ Regra Item'}
+                                          </span>
+                                          <select
+                                            value={currentItemMode}
+                                            onChange={async (e) => {
+                                              const nextMode = e.target.value as 'inherit' | 'pack' | 'unit';
+                                              if (nextMode === 'inherit') {
+                                                await updateProduct(product.id, { saleMode: null, defaultPackSize: null });
+                                              } else if (nextMode === 'unit') {
+                                                await updateProduct(product.id, { saleMode: 'unit', defaultPackSize: null });
+                                              } else {
+                                                const initPack = Number(product.defaultPackSize) > 1
+                                                  ? Number(product.defaultPackSize)
+                                                  : (Number(parentCat?.defaultPackSize) > 1 ? Number(parentCat?.defaultPackSize) : 10);
+                                                setProductPackDrafts(prev => ({ ...prev, [product.id]: String(initPack) }));
+                                                await updateProduct(product.id, { saleMode: 'pack', defaultPackSize: initPack });
+                                                focusProductPackInput(product.id);
+                                              }
+                                            }}
+                                            className="bg-white border border-stone-300 text-stone-800 text-[11px] rounded-md p-1 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer font-bold w-full"
+                                          >
+                                            <option value="inherit">↪ Seguir Categoria ({parentCatSummary})</option>
+                                            <option value="pack">🔢 Por Lote (Definir Qtd.)</option>
+                                            <option value="unit">📦 Unitário (1 por 1)</option>
+                                          </select>
+                                        </div>
+
+                                        {currentItemMode === 'pack' && (
+                                          <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                                            <label
+                                              htmlFor={`prod-pack-qty-${product.id}`}
+                                              className="text-[10px] font-extrabold text-emerald-950 whitespace-nowrap cursor-pointer"
+                                            >
+                                              🔢 Qtd. do Lote:
+                                            </label>
+                                            <div className="flex items-center gap-1">
+                                              <input
+                                                id={`prod-pack-qty-${product.id}`}
+                                                type="number"
+                                                min={1}
+                                                inputMode="numeric"
+                                                value={packDraftVal}
+                                                placeholder="10"
+                                                onFocus={(e) => e.target.select()}
+                                                onChange={(e) => {
+                                                  const clean = e.target.value.replace(/\D/g, '');
+                                                  setProductPackDrafts(prev => ({ ...prev, [product.id]: clean }));
+                                                }}
+                                                onBlur={(e) => {
+                                                  saveInlineProductPackSize(product.id, e.target.value, product.defaultPackSize);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    (e.target as HTMLInputElement).blur();
+                                                  }
+                                                }}
+                                                className="w-16 px-1.5 py-0.5 text-xs font-black text-center bg-white border border-emerald-400 rounded-md focus:ring-2 focus:ring-emerald-500 outline-none text-emerald-950 font-mono"
+                                              />
+                                              <span className="text-[10px] font-extrabold text-emerald-800">un</span>
+                                              {savedProductPackId === product.id ? (
+                                                <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded">
+                                                  ✓ Salvo
+                                                </span>
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => saveInlineProductPackSize(product.id, packDraftVal)}
+                                                  className="text-[10px] font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                                  title="Salvar quantidade do lote deste item"
+                                                >
+                                                  OK
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <div className="text-[10px] font-bold text-stone-600 flex items-center justify-between">
+                                          <span>
+                                            {effectiveRule.saleMode === 'pack' && effectiveRule.minQty > 1
+                                              ? `✓ No menu: Lote de ${effectiveRule.minQty} un`
+                                              : '✓ No menu: Unitário (1 por 1)'}
+                                          </span>
+                                          <span className="text-[9px] uppercase tracking-wider text-stone-400">
+                                            {effectiveRule.source === 'product' ? 'Item' : effectiveRule.source === 'category' ? 'Categoria' : effectiveRule.source === 'code' ? 'Cód. ERP' : 'Padrão'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </>
                             );
@@ -11181,11 +11434,13 @@ export default function Admin() {
                       type="number"
                       name="defaultPackSize"
                       min={1}
-                      defaultValue={editingItem?.defaultPackSize || 25}
+                      value={categoryPackSizeInput}
+                      onChange={(e) => setCategoryPackSizeInput(e.target.value)}
+                      placeholder="Ex: 10, 20, 25..."
                       className="w-full p-2.5 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-sm bg-white"
                     />
                     <p className="text-[11px] text-orange-800">
-                      Ex: 25 unidades. Ao escolher venda por lote, o sistema usará esta quantidade como base e multiplicador automático para o cliente.
+                      Ex: 10 ou 25 unidades. Ao escolher venda por lote, o sistema usará esta quantidade como base e multiplicador automático para todos os itens desta categoria que seguirem a regra da categoria.
                     </p>
                   </div>
                 )}
@@ -11355,6 +11610,48 @@ export default function Admin() {
                     Vincule o mesmo produto a uma categoria de Prontos e a uma categoria de Congelados para que ele apareça nas duas categorias com suas respectivas variações.
                   </p>
                 </div>
+
+                {!isFlavorInModal && (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2.5">
+                    <label className="block text-xs font-extrabold text-emerald-950 uppercase tracking-wide">
+                      🔢 Modo de Venda deste Item no Cardápio (Unitário ou Lote)
+                    </label>
+                    <select
+                      name="saleMode"
+                      value={productSaleMode}
+                      onChange={(e) => setProductSaleMode(e.target.value as 'inherit' | 'pack' | 'unit')}
+                      className="w-full p-2.5 bg-white border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-sm"
+                    >
+                      <option value="inherit">↪ Seguir regra padrão da Categoria</option>
+                      <option value="pack">🔢 Por Quantidade / Lote (Definir quantidade exclusiva deste item)</option>
+                      <option value="unit">📦 Unitário (1 por 1 - Quantidade livre para este item)</option>
+                    </select>
+                    {productSaleMode === 'pack' && (
+                      <div className="p-2.5 bg-white/90 border border-emerald-300 rounded-lg space-y-1">
+                        <label htmlFor="productDefaultPackSize" className="block text-xs font-extrabold uppercase tracking-wider text-emerald-950">
+                          📦 Quantidade por Lote / Pacote deste Item (unidades)
+                        </label>
+                        <input
+                          type="number"
+                          name="defaultPackSize"
+                          id="productDefaultPackSize"
+                          min={1}
+                          value={productPackSizeInput}
+                          onChange={(e) => setProductPackSizeInput(e.target.value)}
+                          placeholder="Ex: 10, 15, 20, 25..."
+                          className="w-full p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-emerald-950 font-black bg-white"
+                        />
+                        <p className="text-[11px] text-emerald-800">
+                          No cardápio do site, este produto ativo iniciará nesta quantidade e os botões + / - multiplicarão de lote em lote (ex: 10, 20, 30...).
+                        </p>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-emerald-800 leading-snug">
+                      Permite definir uma regra individual para este item ativo do menu, substituindo a configuração da categoria.
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1">Nome do Produto</label>
                   <input type="text" name="name" defaultValue={editingItem?.name} required className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />

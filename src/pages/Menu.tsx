@@ -7,7 +7,7 @@ import { ProductImage } from '../components/ProductImage';
 import { Link } from 'react-router-dom';
 import { BakeryLoader } from '../components/BakeryLoader';
 import { MaintenancePage } from '../components/MaintenancePage';
-import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct, isCategoryFrozenModality, getProductMinQuantity } from '../constants';
+import { shouldExcludeProduct, isExcludedCategory, isAddonCategory, isAddonItem, EXCLUDED_CATEGORIES, normalizeText, cleanProductDescription, formatProductDescriptionWithCode, isSalgadoProduct, isCategoryFrozenModality, getProductMinQuantity, resolveProductSaleRule, isBatchCodeProduct } from '../constants';
 import { getSmartProductImage } from '../utils/imageHelper';
 import { printReceipt, printViaNetworkIp, getNetworkPrinterConfig, resolveItemCode, resolveAddonCode } from '../utils/printer';
 import { getOrderPaymentBreakdown, requiresOperatorPaymentConfirmation, sharePixReceipt, buildPixReceiptShareText } from '../utils/paymentStatusHelper';
@@ -41,32 +41,27 @@ export default function Menu() {
   const [cartItemInputMap, setCartItemInputMap] = useState<Record<string, string>>({});
   const [cartToastMessage, setCartToastMessage] = useState<string | null>(null);
 
-  const getMinQty = (prod: any, isFrozen: boolean = false) => {
-    const cat = categories.find(c => c.id === prod?.categoryId || c.id === prod?.frozenCategoryId);
-    if (cat?.saleMode === 'unit') return 1;
-    const base = getProductMinQuantity(prod);
-    const froz = Number(prod?.minFrozenQuantity);
-    const explicit = (!isNaN(froz) && froz > 1) ? froz : 1;
-    return isFrozen ? Math.max(base, explicit) : base;
-  };
+  const getMinQty = useCallback((prod: any, isFrozen: boolean = false) => {
+    return resolveProductSaleRule(prod, categories, isFrozen).minQty;
+  }, [categories]);
 
   const getEffectiveItemTotal = useCallback((item: any) => {
     const prod = products.find(p => p.id === item.productId);
-    const cat = categories.find(c => c.id === prod?.categoryId || c.id === prod?.frozenCategoryId || c.id === item?.categoryId);
-    const isUnitSale = cat?.saleMode === 'unit';
+    const isFrozen = Boolean(
+      item?.isFrozen ||
+      item?.prepType?.startsWith('congelado') ||
+      item?.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado')
+    );
+    const rule = resolveProductSaleRule(prod || item, categories, isFrozen);
+    const isUnitSale = rule.saleMode === 'unit';
+    const isBatchProduct = isBatchCodeProduct(prod || item);
 
-    const code = String((prod as any)?.externalId || (prod as any)?.code || item?.externalId || item?.code || item?.productId || '').trim();
-    const numericCode = code.replace(/\D/g, '');
-    const batchCodes = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427', '1416', '1419', '1420', '1421', '1422', '1423', '1424'];
-    const isBatchProduct = batchCodes.some(c => code === c || numericCode === c || code.endsWith(c));
-
-    const addonsTotal = item.addons?.reduce((addonSum, addon) => addonSum + addon.price, 0) || 0;
+    const addonsTotal = item.addons?.reduce((addonSum: number, addon: any) => addonSum + addon.price, 0) || 0;
     const flavorTotal = item.flavor?.price || 0;
     const unitOrBasePrice = item.price + flavorTotal + addonsTotal;
 
-    if (isBatchProduct && !isUnitSale) {
-      const packSize = getProductMinQuantity(prod || item);
-      const effectiveMultiplier = packSize > 1 ? (item.quantity / packSize) : item.quantity;
+    if (isBatchProduct && !isUnitSale && rule.packSize > 1) {
+      const effectiveMultiplier = item.quantity / rule.packSize;
       return unitOrBasePrice * effectiveMultiplier;
     } else {
       return unitOrBasePrice * item.quantity;
@@ -7975,9 +7970,13 @@ export default function Menu() {
                                     const optQty = optCartItem ? optCartItem.quantity : 0;
                                     const optQtyKey = `${qtyKey}_${opt.key}`;
                                     const step = minRequired > 1 ? minRequired : 1;
-                                    const localInputVal = productQuantities[optQtyKey] !== undefined
+                                    const rawOptVal = productQuantities[optQtyKey] !== undefined
                                       ? productQuantities[optQtyKey]
                                       : (optQty > 0 ? optQty : minRequired);
+                                    const parsedOptVal = parseInt(String(rawOptVal), 10);
+                                    const localInputVal = minRequired > 1
+                                      ? (isNaN(parsedOptVal) || parsedOptVal < minRequired ? minRequired : parsedOptVal)
+                                      : rawOptVal;
                                     const numericOptQty = Math.max(minRequired, parseInt(String(localInputVal), 10) || minRequired);
 
                                     return (
@@ -8125,16 +8124,24 @@ export default function Menu() {
                                   👁️ Apenas visualização
                                 </span>
                               ) : needsPrepChoice ? (
-                                isFrozenCategoryContext && minRequired > 1 ? (
-                                  <span className="text-[10px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg">
-                                    Mínimo: {minRequired} un
+                                minRequired > 1 ? (
+                                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${
+                                    isFrozenCategoryContext
+                                      ? 'text-blue-700 bg-blue-50 border-blue-200'
+                                      : 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                                  }`}>
+                                    {isFrozenCategoryContext ? `Mínimo: ${minRequired} un` : `Lote: ${minRequired} un`}
                                   </span>
                                 ) : null
                               ) : (
                                 (() => {
-                                  const displayedQty = productQuantities[qtyKey] !== undefined
+                                  const rawDisplayedQty = productQuantities[qtyKey] !== undefined
                                     ? productQuantities[qtyKey]
                                     : (totalCartQty > 0 ? totalCartQty : minRequired);
+                                  const parsedDisplayedQty = parseInt(String(rawDisplayedQty), 10);
+                                  const displayedQty = minRequired > 1
+                                    ? (isNaN(parsedDisplayedQty) || parsedDisplayedQty < minRequired ? minRequired : parsedDisplayedQty)
+                                    : rawDisplayedQty;
                                   const numericQty = (() => {
                                     const parsed = parseInt(String(displayedQty), 10);
                                     return isNaN(parsed) || parsed < minRequired ? minRequired : parsed;
@@ -8142,10 +8149,14 @@ export default function Menu() {
 
                                   return (
                                     <div className="flex flex-col items-end gap-1">
-                                      {/* Informação visual de quantidade mínima caso configurada */}
-                                      {isFrozenCategoryContext && minRequired > 1 && (
-                                        <span className="text-[10px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
-                                          Mínimo: {minRequired} un
+                                      {/* Informação visual de lote / quantidade mínima caso configurada */}
+                                      {minRequired > 1 && (
+                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${
+                                          isFrozenCategoryContext
+                                            ? 'text-blue-700 bg-blue-50 border-blue-200'
+                                            : 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                                        }`}>
+                                          {isFrozenCategoryContext ? `Mínimo: ${minRequired} un` : `Lote: ${minRequired} un`}
                                         </span>
                                       )}
 
@@ -8563,23 +8574,21 @@ export default function Menu() {
                         <div className="flex flex-col">
                           {(() => {
                             const prod = products.find(p => p.id === item.productId);
-                            const code = String((prod as any)?.externalId || (prod as any)?.code || item?.externalId || item?.code || item?.productId || '').trim();
-                            const numericCode = code.replace(/\D/g, '');
-                            const batchCodes = ['1413', '1414', '1415', '1417', '1418', '1425', '1426', '1427', '1416', '1419', '1420', '1421', '1422', '1423', '1424'];
-                            const isBatchProduct = batchCodes.some(c => code === c || numericCode === c || code.endsWith(c));
-                            const packSize = getProductMinQuantity(prod || item);
-                            return isBatchProduct && packSize > 1 ? (
-                              <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} pacote ({packSize} un)</span>
+                            const isFrozen = Boolean(item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado'));
+                            const rule = resolveProductSaleRule(prod || item, categories, isFrozen);
+                            const isBatchProduct = isBatchCodeProduct(prod || item);
+                            return isBatchProduct && rule.saleMode !== 'unit' && rule.packSize > 1 ? (
+                              <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} pacote ({rule.packSize} un)</span>
                             ) : (
                               <span className="text-xs text-stone-400 font-medium">{formatCurrency(item.price)} un</span>
                             );
                           })()}
                           {(() => {
                             const prod = products.find(p => p.id === item.productId);
-                            const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
+                            const isFrozen = Boolean(item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado'));
                             const minQ = getMinQty(prod, isFrozen);
                             return minQ > 1 ? (
-                              <span className="text-[9px] font-bold text-blue-700">Mín: {minQ} un</span>
+                              <span className="text-[9px] font-bold text-emerald-700">Lote / Mín: {minQ} un</span>
                             ) : null;
                           })()}
                         </div>

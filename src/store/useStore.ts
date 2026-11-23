@@ -246,6 +246,8 @@ export interface Product {
   order?: number;
   allowFrozen?: boolean;
   minFrozenQuantity?: number;
+  saleMode?: 'pack' | 'unit' | null;
+  defaultPackSize?: number | null;
   availableForDelivery?: boolean;
   availableInStore?: boolean;
   availableForKiosk?: boolean;

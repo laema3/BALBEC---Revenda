@@ -48,6 +48,8 @@ export const products = pgTable('products', {
   order: integer('order').default(0),
   allowFrozen: boolean('allow_frozen').default(true),
   minFrozenQuantity: integer('min_frozen_quantity').default(1),
+  saleMode: text('sale_mode'),
+  defaultPackSize: integer('default_pack_size'),
   availableForDelivery: boolean('available_for_delivery').default(true),
   availableInStore: boolean('available_in_store').default(true),
   availableForKiosk: boolean('available_for_kiosk').default(true),
