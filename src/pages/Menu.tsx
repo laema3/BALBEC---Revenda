@@ -3462,7 +3462,7 @@ export default function Menu() {
         deliveryStatus: isTotemOrDineIn ? 'delivered' : 'pending',
         type: isKioskMode ? 'kiosk' : (isTableOrder ? 'dine_in' : 'online'),
         paymentMethod: isTermPaymentAllowed ? 'Pagamento à Prazo' : (isKioskMode ? 'Balcão' : (isTableOrder ? 'No Caixa / Na Saída' : confirmedPaymentMethod)),
-        paymentStatus: isTermPaymentAllowed ? 'approved' : confirmedPaymentStatus,
+        paymentStatus: isTermPaymentAllowed ? 'pending' : confirmedPaymentStatus,
         paymentId: confirmedPaymentId,
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone,
@@ -3485,6 +3485,7 @@ export default function Menu() {
         paidAmount: paymentDetails?.paidAmount,
         remainingAmount: paymentDetails?.remainingAmount,
         paymentConfirmedByOperator:
+          !isTermPaymentAllowed &&
           !isTotemOrDineIn &&
           (paymentDetails?.plan === 'parcial' ||
             confirmedPaymentStatus === 'approved' ||
@@ -3506,6 +3507,7 @@ export default function Menu() {
         setPaymentMethod('');
         setPixReceiptFile(null);
         setOrderNotes('');
+        setTermSubCustomerInput('');
         safeStorage.removeItem('balbec_active_cart');
         safeStorage.removeItem('balbec_selected_schedule_time');
         safeStorage.removeItem('balbec_selected_schedule_date');
@@ -3633,7 +3635,7 @@ export default function Menu() {
         setShowTermSubCustomerModal(true);
         return;
       }
-      await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'approved');
+      await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'pending');
       return;
     }
 

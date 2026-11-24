@@ -1,6 +1,6 @@
 import { Order, StoreInfo } from '../store/useStore';
 
-export type OrderPaymentKind = 'partial_50' | 'paid_full' | 'pay_on_pickup';
+export type OrderPaymentKind = 'partial_50' | 'paid_full' | 'pay_on_pickup' | 'term_payment';
 
 export interface OrderPaymentBreakdown {
   kind: OrderPaymentKind;
@@ -41,16 +41,20 @@ export function getOrderPaymentBreakdown(order: Partial<Order> | null | undefine
     lowerMethod.includes('pix mp') ||
     (order?.paymentStatus === 'approved' && order?.type !== 'kiosk' && order?.type !== 'dine_in');
 
-  const isTermPayment = lowerMethod.includes('prazo') || lowerMethod.includes('à prazo') || lowerMethod.includes('faturado');
+  const isTermPayment =
+    lowerMethod.includes('prazo') ||
+    lowerMethod.includes('à prazo') ||
+    lowerMethod.includes('faturado') ||
+    Boolean((order as any)?.termPaymentSubCustomer || (order as any)?.term_payment_sub_customer);
 
   if (isTermPayment) {
     return {
-      kind: 'pay_on_pickup',
+      kind: 'term_payment',
       isPix: false,
       isOnline: false,
       totalAmount,
       paidAmount: 0,
-      remainingAmount: totalAmount,
+      remainingAmount: 0,
       methodLabel: rawMethod || 'Pagamento à Prazo',
       customerBadge: 'PAGAMENTO À PRAZO • FATURADO',
       customerTitle: 'Pagamento à Prazo (Acerto Diário)',
@@ -179,7 +183,14 @@ export function orderContainsFrozenItems(order: Partial<Order> | any | null | un
 export function requiresOperatorPaymentConfirmation(order: Partial<Order> | any | null | undefined): boolean {
   if (!order) return false;
   const rawMethod = String(order.paymentMethod || '').toLowerCase();
-  if (rawMethod.includes('prazo') || rawMethod.includes('faturado')) return false;
+  if (
+    rawMethod.includes('prazo') ||
+    rawMethod.includes('à prazo') ||
+    rawMethod.includes('faturado') ||
+    Boolean(order.termPaymentSubCustomer || order.term_payment_sub_customer)
+  ) {
+    return false;
+  }
   if (order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) return false;
   if (order.status === 'cancelled') return false;
   if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;

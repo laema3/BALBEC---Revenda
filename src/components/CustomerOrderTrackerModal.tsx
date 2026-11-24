@@ -563,6 +563,13 @@ export const CustomerOrderTrackerModal: React.FC<CustomerOrderTrackerModalProps>
                     </div>
                   )}
 
+                  {paymentBreakdown.kind === 'term_payment' && (
+                    <div className="bg-purple-50 border border-purple-300 rounded-2xl p-3 text-xs text-purple-950 font-semibold leading-relaxed">
+                      <span className="font-black block text-purple-800 mb-0.5">📋 {paymentBreakdown.customerTitle}</span>
+                      <span>{paymentBreakdown.customerMessage}</span>
+                    </div>
+                  )}
+
                   {paymentBreakdown.isPix && (
                     <div className="space-y-2">
                       <button

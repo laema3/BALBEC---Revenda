@@ -4563,6 +4563,8 @@ export default function Admin() {
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
                                 shouldPulseRed
                                   ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/40 ring-2 ring-red-400/60'
+                                  : pb.kind === 'term_payment'
+                                  ? 'bg-purple-100 text-purple-900 border-purple-300'
                                   : pb.kind === 'partial_50'
                                   ? 'bg-amber-100 text-amber-900 border-amber-300'
                                   : pb.kind === 'paid_full'
@@ -5501,6 +5503,8 @@ export default function Admin() {
                           <div className={`px-3 py-2.5 rounded-xl border-2 text-xs shadow-2xs space-y-1 transition-all ${
                             shouldPulseRed
                               ? 'bg-red-600 border-red-800 text-white animate-pulse shadow-lg shadow-red-600/35 ring-2 ring-red-400/80'
+                              : pb.kind === 'term_payment'
+                              ? 'bg-purple-50 border-purple-400 text-purple-950'
                               : pb.kind === 'partial_50'
                               ? 'bg-amber-50 border-amber-400 text-amber-950'
                               : pb.kind === 'paid_full'
@@ -5942,6 +5946,8 @@ export default function Admin() {
                             <div className={`inline-block px-2 py-0.5 rounded text-[10px] font-black border ${
                               shouldPulseRed
                                 ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/40 ring-2 ring-red-400/60'
+                                : pb.kind === 'term_payment'
+                                ? 'bg-purple-100 text-purple-900 border-purple-300'
                                 : pb.kind === 'partial_50'
                                 ? 'bg-amber-100 text-amber-900 border-amber-300'
                                 : pb.kind === 'paid_full'

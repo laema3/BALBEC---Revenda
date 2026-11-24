@@ -805,8 +805,20 @@ function isOrderPartial50PaymentServer(order: any): boolean {
   );
 }
 
+function isOrderTermPaymentServer(order: any): boolean {
+  if (!order) return false;
+  const rawMethod = String(order.paymentMethod || '').toLowerCase();
+  return (
+    rawMethod.includes('prazo') ||
+    rawMethod.includes('à prazo') ||
+    rawMethod.includes('faturado') ||
+    Boolean(order.termPaymentSubCustomer || order.term_payment_sub_customer)
+  );
+}
+
 function isOrderOnlinePaymentServer(order: any): boolean {
   if (!order) return false;
+  if (isOrderTermPaymentServer(order)) return false;
   if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
   const rawMethod = String(order.paymentMethod || '').toLowerCase();
   return (
@@ -819,6 +831,7 @@ function isOrderOnlinePaymentServer(order: any): boolean {
 
 function requiresOrderPaymentConfirmationServer(order: any): boolean {
   if (!order) return false;
+  if (isOrderTermPaymentServer(order)) return false;
   if (order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) return false;
   if (order.status === 'cancelled') return false;
   if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
@@ -2984,6 +2997,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     const needsOperatorConfirmationAtCreation =
       !isTotemOrDineIn &&
+      !isOrderTermPaymentServer(rawOrderDraft) &&
       initialStatus === 'pending' &&
       rawOrderDraft.paymentConfirmedByOperator !== true &&
       !rawOrderDraft.paymentConfirmedAt &&
@@ -2992,7 +3006,11 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
 
     const newOrder = {
       ...rawOrderDraft,
-      ...(needsOperatorConfirmationAtCreation ? { paymentConfirmedByOperator: false } : {})
+      ...(isOrderTermPaymentServer(rawOrderDraft)
+        ? { paymentConfirmedByOperator: undefined }
+        : needsOperatorConfirmationAtCreation
+        ? { paymentConfirmedByOperator: false }
+        : {})
     };
 
     memOrders = [newOrder, ...memOrders.filter(o => o.id !== newOrder.id)];
