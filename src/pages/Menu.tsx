@@ -3461,8 +3461,8 @@ export default function Menu() {
         status: isTotemOrDineIn ? 'completed' : 'pending',
         deliveryStatus: isTotemOrDineIn ? 'delivered' : 'pending',
         type: isKioskMode ? 'kiosk' : (isTableOrder ? 'dine_in' : 'online'),
-        paymentMethod: isKioskMode ? 'Balcão' : (isTableOrder ? 'No Caixa / Na Saída' : confirmedPaymentMethod),
-        paymentStatus: confirmedPaymentStatus,
+        paymentMethod: isTermPaymentAllowed ? 'Pagamento à Prazo' : (isKioskMode ? 'Balcão' : (isTableOrder ? 'No Caixa / Na Saída' : confirmedPaymentMethod)),
+        paymentStatus: isTermPaymentAllowed ? 'approved' : confirmedPaymentStatus,
         paymentId: confirmedPaymentId,
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone,
@@ -3494,6 +3494,7 @@ export default function Menu() {
             : undefined,
         pixReceiptUrl: pixReceiptFile || undefined,
         notes: orderNotes.trim() || undefined,
+        termPaymentSubCustomer: isTermPaymentAllowed ? termSubCustomerInput.trim() : undefined,
       });
 
       if (createdOrder) {
@@ -3626,8 +3627,12 @@ export default function Menu() {
       return;
     }
 
-    if (isTermPaymentAllowed && !termSubCustomerInput.trim()) {
-      setShowTermSubCustomerModal(true);
+    if (isTermPaymentAllowed) {
+      if (!termSubCustomerInput.trim()) {
+        setShowTermSubCustomerModal(true);
+        return;
+      }
+      await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'approved');
       return;
     }
 
@@ -6410,7 +6415,29 @@ export default function Menu() {
                       )}
                     </div>
 
-                    {hasFrozenInCart ? (
+                    {isTermPaymentAllowed ? (
+                      <div className="bg-purple-50 border-2 border-purple-500 rounded-2xl p-5 space-y-3 shadow-md animate-in fade-in">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-black">💳</span>
+                            <span>Condição Exclusiva: PAGAMENTO À PRAZO</span>
+                          </span>
+                          <span className="bg-purple-600 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-full">
+                            Faturado / Conta Empresa
+                          </span>
+                        </div>
+                        <p className="text-xs text-purple-900 font-medium leading-relaxed">
+                          Este cliente possui cadastro com <strong>Pagamento à Prazo</strong> autorizado. As demais formas de pagamento foram desabilitadas automaticamente. O pedido de <strong>{formatCurrency(total)}</strong> será faturado.
+                        </p>
+                        <div className="p-3.5 bg-white rounded-xl border border-purple-300 text-xs font-black text-purple-950 flex items-center justify-between shadow-2xs">
+                          <span className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full bg-purple-600 animate-pulse"></span>
+                            Pagamento à Prazo (Condição Obrigatória)
+                          </span>
+                          <span className="text-purple-700 font-mono text-sm font-black">{formatCurrency(total)}</span>
+                        </div>
+                      </div>
+                    ) : hasFrozenInCart ? (
                       <div className="space-y-4">
                         {/* Regra obrigatória para pedidos com produtos congelados */}
                         <div className="bg-blue-50 border-2 border-blue-300 rounded-2xl p-4 space-y-2 shadow-xs">
@@ -6940,18 +6967,20 @@ export default function Menu() {
                   <CheckCircle2 className="w-6 h-6" />
                   <span>
                     {isSendingOrder ? 'Processando...' : (
-                      isTableOrder ? 'Confirmar Pedido da Mesa' : (
-                        hasFrozenInCart && !frozenPaymentPlan
-                          ? 'Escolha Pagamento Integral ou Parcial'
-                          : (hasFrozenInCart && frozenPaymentPlan === 'parcial'
-                              ? (paymentMethod === 'Pix (Online)'
-                                  ? `Pagar 50% no Pix (${formatCurrency(partialFrozenAmount)})`
-                                  : paymentMethod === 'Cartão de Débito (Online)'
-                                    ? `Pagar 50% no Débito (${formatCurrency(partialFrozenAmount)})`
-                                    : 'Selecione Pix ou Débito (50%)')
-                              : (paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)' 
-                                  ? `Ir para Pagamento Pix (${formatCurrency(total)})` 
-                                  : (paymentMethod.includes('Online') ? `Pagar com Cartão Online (${formatCurrency(total)})` : 'Finalizar Pedido')))
+                      isTermPaymentAllowed ? 'Finalizar Pedido à Prazo' : (
+                        isTableOrder ? 'Confirmar Pedido da Mesa' : (
+                          hasFrozenInCart && !frozenPaymentPlan
+                            ? 'Escolha Pagamento Integral ou Parcial'
+                            : (hasFrozenInCart && frozenPaymentPlan === 'parcial'
+                                ? (paymentMethod === 'Pix (Online)'
+                                    ? `Pagar 50% no Pix (${formatCurrency(partialFrozenAmount)})`
+                                    : paymentMethod === 'Cartão de Débito (Online)'
+                                      ? `Pagar 50% no Débito (${formatCurrency(partialFrozenAmount)})`
+                                      : 'Selecione Pix ou Débito (50%)')
+                                : (paymentMethod === 'Pix (Online)' || paymentMethod === 'Pagamento Online (Pix MP)' 
+                                    ? `Ir para Pagamento Pix (${formatCurrency(total)})` 
+                                    : (paymentMethod.includes('Online') ? `Pagar com Cartão Online (${formatCurrency(total)})` : 'Finalizar Pedido')))
+                        )
                       )
                     )}
                   </span>
@@ -9609,6 +9638,21 @@ export default function Menu() {
             <div className="flex justify-between items-center">
               <span className="text-sm font-bold text-stone-600">Total do Pedido</span>
               <span className="text-2xl font-black text-stone-900">{formatCurrency(total)}</span>
+            </div>
+
+            {/* Campo de Observações Finais no Carrinho */}
+            <div className="pt-1 text-left">
+              <label htmlFor="cart-drawer-notes" className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1 flex items-center gap-1.5">
+                <span>📝</span> OBSERVAÇÕES FINAIS
+              </label>
+              <textarea
+                id="cart-drawer-notes"
+                rows={2}
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                placeholder="Ex: Mudança de pagamento, troco necessário, ou observações..."
+                className="w-full p-2.5 text-xs bg-white border border-stone-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-stone-800 placeholder-stone-400 font-medium shadow-2xs"
+              />
             </div>
 
             {/* Primary Finish Button */}
