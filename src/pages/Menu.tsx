@@ -3628,6 +3628,11 @@ export default function Menu() {
     }
 
     if (isTermPaymentAllowed) {
+      if (!termSubCustomerInput.trim()) {
+        alert('Por favor, preencha o campo "Para qual cliente / departamento será este pedido?" antes de finalizar.');
+        setShowTermSubCustomerModal(true);
+        return;
+      }
       await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'approved');
       return;
     }
@@ -6441,7 +6446,7 @@ export default function Menu() {
 
                         <div className="pt-2 border-t border-purple-200">
                           <label htmlFor="inline-term-subcust" className="block text-[11px] font-black uppercase tracking-wider text-purple-900 mb-1">
-                            Para qual cliente / departamento será este pedido? (Opcional)
+                            Para qual cliente / departamento será este pedido? <span className="text-red-600">*</span>
                           </label>
                           <input
                             id="inline-term-subcust"

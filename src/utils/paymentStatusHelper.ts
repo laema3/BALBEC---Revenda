@@ -178,6 +178,8 @@ export function orderContainsFrozenItems(order: Partial<Order> | any | null | un
 
 export function requiresOperatorPaymentConfirmation(order: Partial<Order> | any | null | undefined): boolean {
   if (!order) return false;
+  const rawMethod = String(order.paymentMethod || '').toLowerCase();
+  if (rawMethod.includes('prazo') || rawMethod.includes('faturado')) return false;
   if (order.paymentConfirmedByOperator === true || Boolean(order.paymentConfirmedAt)) return false;
   if (order.status === 'cancelled') return false;
   if (order.type === 'kiosk' || order.type === 'dine_in' || order.deliveryType === 'dine_in') return false;
