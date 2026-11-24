@@ -41,6 +41,27 @@ export function getOrderPaymentBreakdown(order: Partial<Order> | null | undefine
     lowerMethod.includes('pix mp') ||
     (order?.paymentStatus === 'approved' && order?.type !== 'kiosk' && order?.type !== 'dine_in');
 
+  const isTermPayment = lowerMethod.includes('prazo') || lowerMethod.includes('à prazo') || lowerMethod.includes('faturado');
+
+  if (isTermPayment) {
+    return {
+      kind: 'pay_on_pickup',
+      isPix: false,
+      isOnline: false,
+      totalAmount,
+      paidAmount: 0,
+      remainingAmount: totalAmount,
+      methodLabel: rawMethod || 'Pagamento à Prazo',
+      customerBadge: 'PAGAMENTO À PRAZO • FATURADO',
+      customerTitle: 'Pagamento à Prazo (Acerto Diário)',
+      customerMessage: 'Seus pagamentos serão feitos em um acerto no final do dia, somando todos os outros pedidos de seus clientes.',
+      operatorBadge: '📋 PAGAMENTO À PRAZO (FATURADO)',
+      operatorTitle: 'PEDIDO À PRAZO / ACERTO NO FINAL DO DIA',
+      operatorMessage: 'Pedido faturado (Pagamento à Prazo). Acerto a ser realizado no final do dia somando todos os pedidos do cliente.',
+      receiptLine: 'PAGAMENTO A PRAZO (ACERTO NO FINAL DO DIA)',
+    };
+  }
+
   const isExplicitPartial =
     order?.paymentPlan === 'parcial' ||
     lowerMethod.includes('50%') ||

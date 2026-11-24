@@ -3628,10 +3628,6 @@ export default function Menu() {
     }
 
     if (isTermPaymentAllowed) {
-      if (!termSubCustomerInput.trim()) {
-        setShowTermSubCustomerModal(true);
-        return;
-      }
       await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'approved');
       return;
     }
@@ -3898,7 +3894,9 @@ export default function Menu() {
             {/* Aviso claro de situação do pagamento no resumo do cliente */}
             {lastPlacedOrder && (
               <div className={`rounded-2xl p-4 border-2 shadow-xs space-y-1.5 ${
-                successPaymentBreakdown.kind === 'partial_50'
+                successPaymentBreakdown.customerBadge?.includes('PRAZO')
+                  ? 'bg-purple-50 border-purple-400 text-purple-950'
+                  : successPaymentBreakdown.kind === 'partial_50'
                   ? 'bg-amber-50 border-amber-400 text-amber-950'
                   : successPaymentBreakdown.kind === 'paid_full'
                   ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
@@ -3906,14 +3904,18 @@ export default function Menu() {
               }`}>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-xs sm:text-sm font-black uppercase tracking-tight">
-                    {successPaymentBreakdown.kind === 'partial_50'
+                    {successPaymentBreakdown.customerBadge?.includes('PRAZO')
+                      ? '📋 Pagamento à Prazo (Faturado)'
+                      : successPaymentBreakdown.kind === 'partial_50'
                       ? '⚠️ Pagamento Parcial (50% Pago)'
                       : successPaymentBreakdown.kind === 'paid_full'
                       ? '✅ Pagamento Integral Confirmado'
                       : '🏪 Pagamento na Retirada'}
                   </span>
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                    successPaymentBreakdown.kind === 'partial_50'
+                    successPaymentBreakdown.customerBadge?.includes('PRAZO')
+                      ? 'bg-purple-600 text-white'
+                      : successPaymentBreakdown.kind === 'partial_50'
                       ? 'bg-amber-500 text-white'
                       : successPaymentBreakdown.kind === 'paid_full'
                       ? 'bg-emerald-600 text-white'
@@ -6427,7 +6429,7 @@ export default function Menu() {
                           </span>
                         </div>
                         <p className="text-xs text-purple-900 font-medium leading-relaxed">
-                          Este cliente possui cadastro com <strong>Pagamento à Prazo</strong> autorizado. As demais formas de pagamento foram desabilitadas automaticamente. O pedido de <strong>{formatCurrency(total)}</strong> será faturado.
+                          Seus pagamentos serão feitos em um acerto no final do dia, somando todos os outros pedidos de seus clientes.
                         </p>
                         <div className="p-3.5 bg-white rounded-xl border border-purple-300 text-xs font-black text-purple-950 flex items-center justify-between shadow-2xs">
                           <span className="flex items-center gap-2">
@@ -6435,6 +6437,20 @@ export default function Menu() {
                             Pagamento à Prazo (Condição Obrigatória)
                           </span>
                           <span className="text-purple-700 font-mono text-sm font-black">{formatCurrency(total)}</span>
+                        </div>
+
+                        <div className="pt-2 border-t border-purple-200">
+                          <label htmlFor="inline-term-subcust" className="block text-[11px] font-black uppercase tracking-wider text-purple-900 mb-1">
+                            Para qual cliente / departamento será este pedido? (Opcional)
+                          </label>
+                          <input
+                            id="inline-term-subcust"
+                            type="text"
+                            value={termSubCustomerInput}
+                            onChange={(e) => setTermSubCustomerInput(e.target.value)}
+                            placeholder="Ex: Setor de Compras / João da Silva"
+                            className="w-full p-2.5 bg-white border border-purple-300 rounded-xl text-xs font-bold text-stone-900 focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
                         </div>
                       </div>
                     ) : hasFrozenInCart ? (
@@ -11047,7 +11063,7 @@ export default function Menu() {
 
       {/* Modal de Sub-Cliente para Pagamento à Prazo */}
       {showTermSubCustomerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
