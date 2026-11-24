@@ -4932,7 +4932,7 @@ export default function Admin() {
   const [pendingOrderPage, setPendingOrderPage] = useState(1);
   const [completedOrderPage, setCompletedOrderPage] = useState(1);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
-  const [orderChannelFilter, setOrderChannelFilter] = useState<'all' | 'pickup' | 'instore' | 'kiosk'>('all');
+  const [orderChannelFilter, setOrderChannelFilter] = useState<'all' | 'pickup'>('all');
   const todayKey = new Date().toISOString().slice(0, 10);
   const [selectedOrderDateTab, setSelectedOrderDateTab] = useState<string>('all');
 
@@ -4943,8 +4943,6 @@ export default function Admin() {
     // Filter orders according to channel and search query
     const filteredOrders = orders.filter(o => {
       // Channel filter
-      if (orderChannelFilter === 'kiosk' && o.type !== 'kiosk') return false;
-      if (orderChannelFilter === 'instore' && (o.type === 'kiosk' || !o.tableNumber)) return false;
       if (orderChannelFilter === 'pickup' && (o.type === 'kiosk' || !!o.tableNumber)) return false;
 
       // Search query
@@ -5201,9 +5199,7 @@ export default function Admin() {
             <span className="text-xs text-stone-500 font-bold shrink-0">Canal:</span>
             {[
               { id: 'all', label: 'Todos os Canais' },
-              { id: 'pickup', label: '🏬 Retirada Balcão' },
-              { id: 'instore', label: '🍽️ Consumo Mesa' },
-              { id: 'kiosk', label: '📱 Totem' },
+              { id: 'pickup', label: '🏬 Retirada / Balcão' },
             ].map(channel => (
               <button
                 key={channel.id}
