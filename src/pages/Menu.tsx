@@ -609,6 +609,8 @@ export default function Menu() {
     setPaymentMethod('');
     setCart([]);
     setIsCartOpen(false);
+    setShowTermSubCustomerModal(false);
+    setTermSubCustomerInput('');
     updateOrderModalityPreference(null);
     clearScheduleSelection();
     updateQueuedImpulseProducts([]);
@@ -3507,6 +3509,7 @@ export default function Menu() {
         setPaymentMethod('');
         setPixReceiptFile(null);
         setOrderNotes('');
+        setShowTermSubCustomerModal(false);
         setTermSubCustomerInput('');
         safeStorage.removeItem('balbec_active_cart');
         safeStorage.removeItem('balbec_selected_schedule_time');
@@ -3631,10 +3634,10 @@ export default function Menu() {
 
     if (isTermPaymentAllowed) {
       if (!termSubCustomerInput.trim()) {
-        alert('Por favor, preencha o campo "Para qual cliente / departamento será este pedido?" antes de finalizar.');
         setShowTermSubCustomerModal(true);
         return;
       }
+      setShowTermSubCustomerModal(false);
       await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'pending');
       return;
     }
@@ -7011,7 +7014,10 @@ export default function Menu() {
 
                 <button
                   type="button"
-                  onClick={() => setIsCheckout(false)}
+                  onClick={() => {
+                    setShowTermSubCustomerModal(false);
+                    setIsCheckout(false);
+                  }}
                   className="w-full mt-3 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold text-sm transition-colors cursor-pointer border border-stone-200 flex items-center justify-center gap-2"
                 >
                   <ArrowLeft className="w-4 h-4 text-orange-600" />
@@ -7402,6 +7408,65 @@ export default function Menu() {
                 </button>
               </div>
 
+            </div>
+          </div>
+        )}
+        {/* MODAL 3: Sub-Cliente obrigatório para Pagamento à Prazo (exibido somente no checkout) */}
+        {showTermSubCustomerModal && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
+                  📋
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-stone-900 uppercase">Pagamento à Prazo</h3>
+                  <p className="text-xs text-stone-600">Para qual cliente ou departamento dele será este pedido?</p>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="term-subcustomer-input" className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5">
+                  Nome do Cliente / Departamento / Setor *
+                </label>
+                <input
+                  id="term-subcustomer-input"
+                  type="text"
+                  value={termSubCustomerInput}
+                  onChange={(e) => setTermSubCustomerInput(e.target.value)}
+                  placeholder="Ex: Setor de Compras - Filial Centro / João da Silva"
+                  className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:ring-2 focus:ring-purple-500 outline-none"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && termSubCustomerInput.trim()) {
+                      setShowTermSubCustomerModal(false);
+                      handleCheckout();
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setShowTermSubCustomerModal(false)}
+                  className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-xl font-bold text-xs cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={!termSubCustomerInput.trim()}
+                  onClick={() => {
+                    if (!termSubCustomerInput.trim()) return;
+                    setShowTermSubCustomerModal(false);
+                    handleCheckout();
+                  }}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-black text-xs shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                >
+                  <span>Confirmar e Finalizar Pedido</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -11064,69 +11129,6 @@ export default function Menu() {
                 Sair da conta / Desconectar
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Sub-Cliente para Pagamento à Prazo */}
-      {showTermSubCustomerModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
-                📋
-              </div>
-              <div>
-                <h3 className="text-base font-black text-stone-900 uppercase">Pagamento à Prazo</h3>
-                <p className="text-xs text-stone-600">Para qual cliente ou departamento dele será este pedido?</p>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="term-subcustomer-input" className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1.5">
-                Nome do Cliente / Departamento / Setor *
-              </label>
-              <input
-                id="term-subcustomer-input"
-                type="text"
-                value={termSubCustomerInput}
-                onChange={(e) => setTermSubCustomerInput(e.target.value)}
-                placeholder="Ex: Setor de Compras - Filial Centro / João da Silva"
-                className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-bold text-stone-900 focus:ring-2 focus:ring-purple-500 outline-none"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && termSubCustomerInput.trim()) {
-                    setShowTermSubCustomerModal(false);
-                    handleCheckout();
-                  }
-                }}
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-200">
-              <button
-                type="button"
-                onClick={() => setShowTermSubCustomerModal(false)}
-                className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-xl font-bold text-xs cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={!termSubCustomerInput.trim()}
-                onClick={() => {
-                  if (!termSubCustomerInput.trim()) {
-                    alert('Por favor, informe o nome do cliente ou departamento.');
-                    return;
-                  }
-                  setShowTermSubCustomerModal(false);
-                  handleCheckout();
-                }}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-black text-xs shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-2"
-              >
-                <span>Confirmar e Finalizar Pedido</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
