@@ -808,6 +808,11 @@ export const getFullReceiptHTML = (order: Order, storeInfo: StoreInfo, autoPrint
         <div class="customer-order-box">
           <div class="box-order">PEDIDO #${orderNumber}</div>
           <div class="box-client">${customerDisplayText}</div>
+          ${(() => {
+            const subCust = order.termPaymentSubCustomer || (order as any).term_payment_sub_customer;
+            if (!subCust) return '';
+            return `<div class="box-client" style="font-size: 13px; margin: 4px 0 2px 0; font-weight: 900; background: #000; color: #fff; padding: 3px 6px; border-radius: 4px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">SUB-CLIENTE / DEP: ${subCust.trim().toUpperCase()}</div>`;
+          })()}
           ${order.tableNumber ? `<div class="box-client" style="font-size: 14px; margin-bottom: 2px;">🍽️ MESA: ${order.tableNumber}</div>` : ''}
         </div>
 
@@ -1032,6 +1037,13 @@ export const getEscPosReceiptBase64 = (order: Order, storeInfo: StoreInfo): stri
     lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x01'); // Fundo preto, texto branco, largura dupla
     lines.push(`  ${escPosCustomerText}  \n`);
     lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00');
+
+    const escSubCustomer = order.termPaymentSubCustomer || (order as any).term_payment_sub_customer;
+    if (escSubCustomer) {
+      lines.push('\x1D\x42\x01\x1B\x45\x01\x1D\x21\x01');
+      lines.push(`  SUB: ${normalizeEscPosText(escSubCustomer.trim().toUpperCase())}  \n`);
+      lines.push('\x1D\x21\x00\x1B\x45\x00\x1D\x42\x00');
+    }
 
     // Número da mesa em destaque se houver
     if (order.tableNumber) {
