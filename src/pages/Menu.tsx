@@ -3634,9 +3634,17 @@ export default function Menu() {
 
     if (isTermPaymentAllowed) {
       if (!termSubCustomerInput.trim()) {
+        const savedSub = safeStorage.getItem('balbec_last_term_sub_customer') || '';
+        if (savedSub.trim()) {
+          setTermSubCustomerInput(savedSub.trim());
+          safeStorage.setItem('balbec_last_term_sub_customer', savedSub.trim());
+          await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'pending');
+          return;
+        }
         setShowTermSubCustomerModal(true);
         return;
       }
+      safeStorage.setItem('balbec_last_term_sub_customer', termSubCustomerInput.trim());
       setShowTermSubCustomerModal(false);
       await executeFinalOrderPlacement('Pagamento à Prazo', undefined, 'pending');
       return;
@@ -7459,6 +7467,7 @@ export default function Menu() {
                   disabled={!termSubCustomerInput.trim()}
                   onClick={() => {
                     if (!termSubCustomerInput.trim()) return;
+                    safeStorage.setItem('balbec_last_term_sub_customer', termSubCustomerInput.trim());
                     setShowTermSubCustomerModal(false);
                     handleCheckout();
                   }}

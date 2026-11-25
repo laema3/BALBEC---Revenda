@@ -121,6 +121,102 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [copiedOfferText, setCopiedOfferText] = useState(false);
   const [selectedOfferTemplate, setSelectedOfferTemplate] = useState<'favorito' | 'categoria' | 'saudades'>('favorito');
 
+  // Term Settlement (Acerto Diário à Prazo) State
+  const [isTermSettlementModalOpen, setIsTermSettlementModalOpen] = useState(false);
+  const [settlementDateFilter, setSettlementDateFilter] = useState<'today' | 'all'>('today');
+
+  const termOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (o.status === 'cancelled') return false;
+      const pm = String(o.paymentMethod || '').toLowerCase();
+      const isTerm = pm.includes('prazo') || pm.includes('à prazo') || pm.includes('faturado') || Boolean(o.termPaymentSubCustomer || (o as any).term_payment_sub_customer);
+      if (!isTerm) return false;
+      if (settlementDateFilter === 'today') {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const oDate = o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '';
+        if (oDate !== todayStr) return false;
+      }
+      return true;
+    });
+  }, [orders, settlementDateFilter]);
+
+  const termOrdersBySubCustomer = useMemo(() => {
+    const map = new Map<string, { subCustomer: string; customerName: string; orders: Order[]; totalAmount: number }>();
+    termOrders.forEach(o => {
+      const sub = (o.termPaymentSubCustomer || (o as any).term_payment_sub_customer || 'Geral / Sem Sub-Cliente').trim().toUpperCase();
+      const clientName = (o.customerName || 'Cliente').trim();
+      const key = `${sub}__${clientName}`;
+      if (!map.has(key)) {
+        map.set(key, { subCustomer: sub, customerName: clientName, orders: [], totalAmount: 0 });
+      }
+      const entry = map.get(key)!;
+      entry.orders.push(o);
+      entry.totalAmount += Number(o.total) || 0;
+    });
+    return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
+  }, [termOrders]);
+
+  const handlePrintSubCustomerStatement = (entry: { subCustomer: string; customerName: string; orders: Order[]; totalAmount: number }) => {
+    const printWin = window.open('', '_blank', 'width=450,height=600');
+    if (!printWin) return;
+    const storeTitle = (storeInfo.name || 'BALBEC - REVENDA').toUpperCase();
+    const todayDateStr = new Date().toLocaleDateString('pt-BR');
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Acerto Diário - ${entry.subCustomer}</title>
+        <style>
+          body { font-family: monospace; font-size: 12px; color: #000; margin: 0; padding: 10px; width: 380px; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          .row { display: flex; justify-content: space-between; margin: 3px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="center bold" style="font-size: 14px;">${storeTitle}</div>
+        <div class="center bold" style="font-size: 13px; margin-top: 2px;">RESUMO DE ACERTO DIÁRIO • À PRAZO</div>
+        <div class="center" style="font-size: 11px; margin-top: 2px;">Data: ${todayDateStr}</div>
+        <div class="divider"></div>
+        <div><b>CLIENTE PRINCIPAL:</b> ${entry.customerName}</div>
+        <div><b>SUB-CLIENTE / DEP:</b> ${entry.subCustomer}</div>
+        <div class="divider"></div>
+        <div class="bold">PEDIDOS REALIZADOS (${entry.orders.length}):</div>
+        ${entry.orders.map(o => {
+          const num = String(o.id).slice(-4).padStart(4, '0');
+          const time = o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+          const itemsSummary = Array.isArray(o.items) ? o.items.map(it => `${it.quantity}x ${it.name}`).join(', ') : '';
+          return `<div style="margin: 6px 0; border-bottom: 1px dotted #ccc; padding-bottom: 4px;">
+            <div><b>Pedido #${num}</b> - ${time}</div>
+            <div style="font-size: 11px; color: #333;">${itemsSummary}</div>
+            <div style="text-align: right; font-weight: bold;">R$ ${(Number(o.total) || 0).toFixed(2)}</div>
+          </div>`;
+        }).join('')}
+        <div class="divider"></div>
+        <div class="row" style="font-size: 14px; font-weight: bold;">
+          <span>TOTAL A ACERTAR:</span>
+          <span>R$ ${entry.totalAmount.toFixed(2)}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="center" style="margin-top: 15px; font-size: 11px;">
+          <div>Assinatura do Conferente: ______________________</div>
+          <div style="margin-top: 10px;">Assinatura do Cliente: ______________________</div>
+        </div>
+      </body>
+      </html>
+    `;
+    printWin.document.write(html);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => {
+      printWin.print();
+      printWin.close();
+    }, 400);
+  };
+
   // Form states
   const [formName, setFormName] = useState('');
   const [formCpf, setFormCpf] = useState('');
@@ -617,6 +713,15 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
           >
             <Sparkles className="w-4 h-4" />
             <span>Disparo WhatsApp</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsTermSettlementModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+            title="Resumo de Acerto Diário por Sub-Cliente para Vendas à Prazo"
+          >
+            <span>📋 Acerto Diário • À Prazo</span>
           </button>
 
           <button
@@ -1837,6 +1942,129 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Acerto Diário • Vendas à Prazo */}
+      {isTermSettlementModalOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 space-y-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 border-b border-stone-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
+                  📋
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-stone-900 uppercase">Acerto Diário • Vendas à Prazo</h3>
+                  <p className="text-xs text-stone-500">Resumo de pedidos faturados agrupados por sub-cliente / departamento para acerto</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTermSettlementModalOpen(false)}
+                className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-stone-700">Filtro de Período:</span>
+                <button
+                  type="button"
+                  onClick={() => setSettlementDateFilter('today')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    settlementDateFilter === 'today'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-100'
+                  }`}
+                >
+                  📅 Apenas Hoje
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettlementDateFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    settlementDateFilter === 'all'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-100'
+                  }`}
+                >
+                  📂 Todos em Aberto
+                </button>
+              </div>
+              <div className="text-xs font-black text-purple-700">
+                Total Geral À Prazo: R$ {termOrdersBySubCustomer.reduce((s, e) => s + e.totalAmount, 0).toFixed(2)} ({termOrders.length} pedidos)
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {termOrdersBySubCustomer.length === 0 ? (
+                <div className="text-center py-12 text-stone-500 text-sm font-medium">
+                  Nenhum pedido à prazo encontrado para o filtro selecionado.
+                </div>
+              ) : (
+                termOrdersBySubCustomer.map((entry, idx) => (
+                  <div key={idx} className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-3 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-stone-200">
+                      <div>
+                        <div className="text-sm font-black text-stone-900 uppercase">
+                          👤 Sub-Cliente / Setor: <span className="text-purple-700">{entry.subCustomer}</span>
+                        </div>
+                        <div className="text-xs text-stone-500">
+                          Cliente Principal: <span className="font-bold text-stone-700">{entry.customerName}</span> • {entry.orders.length} pedido(s)
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-xs text-stone-500 font-bold">TOTAL A ACERTAR</div>
+                          <div className="text-base font-black text-purple-700">R$ {entry.totalAmount.toFixed(2)}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handlePrintSubCustomerStatement(entry)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-xs cursor-pointer"
+                          title="Imprimir cupom de acerto para este sub-cliente"
+                        >
+                          <span>🖨️ Imprimir Acerto</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {entry.orders.map(ord => {
+                        const num = String(ord.id).slice(-4).padStart(4, '0');
+                        const time = ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                        const itemsList = Array.isArray(ord.items) ? ord.items.map(i => `${i.quantity}x ${i.name}`).join(', ') : '';
+                        return (
+                          <div key={ord.id} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-stone-200">
+                            <div>
+                              <span className="font-bold text-stone-900">Pedido #${num}</span>
+                              <span className="text-stone-400 mx-2">•</span>
+                              <span className="text-stone-600">{time}</span>
+                              <div className="text-stone-500 truncate max-w-md">{itemsList}</div>
+                            </div>
+                            <div className="font-black text-stone-800 shrink-0">R$ {(Number(ord.total) || 0).toFixed(2)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setIsTermSettlementModalOpen(false)}
+                className="px-5 py-2.5 bg-stone-800 hover:bg-stone-900 text-white rounded-xl font-bold text-xs cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
