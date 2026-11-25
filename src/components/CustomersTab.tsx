@@ -125,24 +125,94 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [isTermSettlementModalOpen, setIsTermSettlementModalOpen] = useState(false);
   const [settlementDateFilter, setSettlementDateFilter] = useState<'today' | 'all'>('today');
 
-  const termOrders = useMemo(() => {
-    return orders.filter(o => {
-      if (o.status === 'cancelled') return false;
-      const pm = String(o.paymentMethod || '').toLowerCase();
-      const isTerm = pm.includes('prazo') || pm.includes('à prazo') || pm.includes('faturado') || Boolean(o.termPaymentSubCustomer || (o as any).term_payment_sub_customer);
-      if (!isTerm) return false;
-      if (settlementDateFilter === 'today') {
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const oDate = o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '';
-        if (oDate !== todayStr) return false;
-      }
-      return true;
-    });
-  }, [orders, settlementDateFilter]);
+  const getLocalDateKey = (timestamp?: number | string | Date) => {
+    const d = timestamp ? new Date(timestamp) : new Date();
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
-  const termOrdersBySubCustomer = useMemo(() => {
+  const escapePrintHtml = (value: unknown) =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const formatPrintBRL = (value: number) =>
+    `R$ ${(Number(value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const printHtmlViaIframe = (html: string) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const cleanup = () => {
+      try {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      } catch {
+        // ignore cleanup error
+      }
+    };
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Erro ao imprimir acerto:', err);
+      } finally {
+        setTimeout(cleanup, 1500);
+      }
+    }, 300);
+  };
+
+  const allOpenTermOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (o.status === 'cancelled' || (o as any).status === 'canceled') return false;
+      const pm = String(o.paymentMethod || '').toLowerCase();
+      return (
+        pm.includes('prazo') ||
+        pm.includes('à prazo') ||
+        pm.includes('faturado') ||
+        Boolean(o.termPaymentSubCustomer || (o as any).term_payment_sub_customer)
+      );
+    });
+  }, [orders]);
+
+  const termOrders = useMemo(() => {
+    if (settlementDateFilter === 'all') return allOpenTermOrders;
+    const todayStr = getLocalDateKey();
+    return allOpenTermOrders.filter(o => {
+      const oDate = o.createdAt ? getLocalDateKey(o.createdAt) : '';
+      return oDate === todayStr;
+    });
+  }, [allOpenTermOrders, settlementDateFilter]);
+
+  const groupTermOrdersBySubCustomer = (list: Order[]) => {
     const map = new Map<string, { subCustomer: string; customerName: string; orders: Order[]; totalAmount: number }>();
-    termOrders.forEach(o => {
+    list.forEach(o => {
       const sub = (o.termPaymentSubCustomer || (o as any).term_payment_sub_customer || 'Geral / Sem Sub-Cliente').trim().toUpperCase();
       const clientName = (o.customerName || 'Cliente').trim();
       const key = `${sub}__${clientName}`;
@@ -153,68 +223,179 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       entry.orders.push(o);
       entry.totalAmount += Number(o.total) || 0;
     });
-    return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-  }, [termOrders]);
+    return Array.from(map.values())
+      .map(entry => ({
+        ...entry,
+        orders: [...entry.orders].sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)),
+      }))
+      .sort((a, b) => b.totalAmount - a.totalAmount);
+  };
+
+  const termOrdersBySubCustomer = useMemo(
+    () => groupTermOrdersBySubCustomer(termOrders),
+    [termOrders]
+  );
+
+  const allOpenTermOrdersBySubCustomer = useMemo(
+    () => groupTermOrdersBySubCustomer(allOpenTermOrders),
+    [allOpenTermOrders]
+  );
+
+  const allOpenTermGrandTotal = useMemo(
+    () => allOpenTermOrdersBySubCustomer.reduce((sum, entry) => sum + entry.totalAmount, 0),
+    [allOpenTermOrdersBySubCustomer]
+  );
 
   const handlePrintSubCustomerStatement = (entry: { subCustomer: string; customerName: string; orders: Order[]; totalAmount: number }) => {
-    const printWin = window.open('', '_blank', 'width=450,height=600');
-    if (!printWin) return;
-    const storeTitle = (storeInfo.name || 'BALBEC - REVENDA').toUpperCase();
+    const storeTitle = escapePrintHtml((storeInfo.name || 'BALBEC - REVENDA').toUpperCase());
     const todayDateStr = new Date().toLocaleDateString('pt-BR');
-    
+    const nowTimeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Acerto Diário - ${entry.subCustomer}</title>
+        <title>Acerto Diário - ${escapePrintHtml(entry.subCustomer)}</title>
         <style>
-          body { font-family: monospace; font-size: 12px; color: #000; margin: 0; padding: 10px; width: 380px; }
+          @page { margin: 4mm; }
+          body { font-family: monospace; font-size: 12px; color: #000; margin: 0; padding: 10px; width: 320px; max-width: 100%; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .divider { border-top: 1px dashed #000; margin: 8px 0; }
-          .row { display: flex; justify-content: space-between; margin: 3px 0; }
+          .row { display: flex; justify-content: space-between; margin: 3px 0; gap: 8px; }
         </style>
       </head>
       <body>
         <div class="center bold" style="font-size: 14px;">${storeTitle}</div>
         <div class="center bold" style="font-size: 13px; margin-top: 2px;">RESUMO DE ACERTO DIÁRIO • À PRAZO</div>
-        <div class="center" style="font-size: 11px; margin-top: 2px;">Data: ${todayDateStr}</div>
+        <div class="center" style="font-size: 11px; margin-top: 2px;">Emitido em: ${todayDateStr} às ${nowTimeStr}</div>
         <div class="divider"></div>
-        <div><b>CLIENTE PRINCIPAL:</b> ${entry.customerName}</div>
-        <div><b>SUB-CLIENTE / DEP:</b> ${entry.subCustomer}</div>
+        <div><b>CLIENTE PRINCIPAL:</b> ${escapePrintHtml(entry.customerName)}</div>
+        <div><b>SUB-CLIENTE / DEP:</b> ${escapePrintHtml(entry.subCustomer)}</div>
         <div class="divider"></div>
         <div class="bold">PEDIDOS REALIZADOS (${entry.orders.length}):</div>
         ${entry.orders.map(o => {
           const num = String(o.id).slice(-4).padStart(4, '0');
-          const time = o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+          const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString('pt-BR') : '';
+          const time = o.createdAt ? new Date(o.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
           const itemsSummary = Array.isArray(o.items) ? o.items.map(it => `${it.quantity}x ${it.name}`).join(', ') : '';
-          return `<div style="margin: 6px 0; border-bottom: 1px dotted #ccc; padding-bottom: 4px;">
-            <div><b>Pedido #${num}</b> - ${time}</div>
-            <div style="font-size: 11px; color: #333;">${itemsSummary}</div>
-            <div style="text-align: right; font-weight: bold;">R$ ${(Number(o.total) || 0).toFixed(2)}</div>
+          return `<div style="margin: 6px 0; border-bottom: 1px dotted #999; padding-bottom: 4px;">
+            <div><b>Pedido #${escapePrintHtml(num)}</b> • ${escapePrintHtml(dateStr)} ${escapePrintHtml(time)}</div>
+            <div style="font-size: 11px; color: #222;">${escapePrintHtml(itemsSummary)}</div>
+            <div style="text-align: right; font-weight: bold;">${formatPrintBRL(Number(o.total) || 0)}</div>
           </div>`;
         }).join('')}
         <div class="divider"></div>
         <div class="row" style="font-size: 14px; font-weight: bold;">
           <span>TOTAL A ACERTAR:</span>
-          <span>R$ ${entry.totalAmount.toFixed(2)}</span>
+          <span>${formatPrintBRL(entry.totalAmount)}</span>
         </div>
         <div class="divider"></div>
-        <div class="center" style="margin-top: 15px; font-size: 11px;">
+        <div class="center" style="margin-top: 16px; font-size: 11px;">
           <div>Assinatura do Conferente: ______________________</div>
-          <div style="margin-top: 10px;">Assinatura do Cliente: ______________________</div>
+          <div style="margin-top: 12px;">Assinatura do Cliente: ______________________</div>
         </div>
       </body>
       </html>
     `;
-    printWin.document.write(html);
-    printWin.document.close();
-    printWin.focus();
-    setTimeout(() => {
-      printWin.print();
-      printWin.close();
-    }, 400);
+    printHtmlViaIframe(html);
+  };
+
+  const handlePrintConsolidatedTermStatement = (scope: 'all_open' | 'today') => {
+    const entries = scope === 'today' ? termOrdersBySubCustomer : allOpenTermOrdersBySubCustomer;
+    if (entries.length === 0) return;
+
+    const totalOrdersCount = entries.reduce((sum, e) => sum + e.orders.length, 0);
+    const grandTotal = entries.reduce((sum, e) => sum + e.totalAmount, 0);
+    const storeTitle = escapePrintHtml((storeInfo.name || 'BALBEC - REVENDA').toUpperCase());
+    const todayDateStr = new Date().toLocaleDateString('pt-BR');
+    const nowTimeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const scopeLabel = scope === 'today' ? `APENAS VENDAS DE HOJE (${todayDateStr})` : 'TODAS AS VENDAS EM ABERTO';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Resumo Geral de Acerto • Vendas à Prazo</title>
+        <style>
+          @page { margin: 4mm; }
+          body { font-family: monospace; font-size: 12px; color: #000; margin: 0; padding: 10px; width: 320px; max-width: 100%; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          .divider-solid { border-top: 2px solid #000; margin: 10px 0; }
+          .row { display: flex; justify-content: space-between; margin: 3px 0; gap: 8px; }
+          .sub-header { background: #000; color: #fff; padding: 4px 6px; font-weight: bold; margin-top: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .grand-total-box { border: 2px solid #000; padding: 8px 6px; margin-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="center bold" style="font-size: 14px;">${storeTitle}</div>
+        <div class="center bold" style="font-size: 13px; margin-top: 2px;">RESUMO GERAL DE ACERTO • À PRAZO</div>
+        <div class="center bold" style="font-size: 11px; margin-top: 3px;">${escapePrintHtml(scopeLabel)}</div>
+        <div class="center" style="font-size: 11px; margin-top: 2px;">Emitido em: ${todayDateStr} às ${nowTimeStr}</div>
+        <div class="divider-solid"></div>
+
+        <div class="bold" style="font-size: 12px; margin-bottom: 4px;">DETALHAMENTO POR SUB-CLIENTE (${entries.length})</div>
+        ${entries.map((entry, idx) => `
+          <div style="margin-bottom: 10px;">
+            <div class="sub-header">${idx + 1}. ${escapePrintHtml(entry.subCustomer)}</div>
+            <div style="font-size: 11px; margin: 3px 0;"><b>Cliente:</b> ${escapePrintHtml(entry.customerName)} (${entry.orders.length} ped.)</div>
+            ${entry.orders.map(o => {
+              const num = String(o.id).slice(-4).padStart(4, '0');
+              const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString('pt-BR') : '';
+              const time = o.createdAt ? new Date(o.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+              const itemsSummary = Array.isArray(o.items) ? o.items.map(it => `${it.quantity}x ${it.name}`).join(', ') : '';
+              return `<div style="margin: 4px 0; border-bottom: 1px dotted #999; padding-bottom: 3px;">
+                <div class="row">
+                  <span><b>#${escapePrintHtml(num)}</b> (${escapePrintHtml(dateStr)} ${escapePrintHtml(time)})</span>
+                  <span class="bold">${formatPrintBRL(Number(o.total) || 0)}</span>
+                </div>
+                <div style="font-size: 10px; color: #222;">${escapePrintHtml(itemsSummary)}</div>
+              </div>`;
+            }).join('')}
+            <div class="row bold" style="margin-top: 4px; font-size: 12px;">
+              <span>Subtotal ${escapePrintHtml(entry.subCustomer)}:</span>
+              <span>${formatPrintBRL(entry.totalAmount)}</span>
+            </div>
+          </div>
+        `).join('')}
+
+        <div class="divider-solid"></div>
+        <div class="bold" style="font-size: 12px; margin-bottom: 4px;">RESUMO CONSOLIDADO</div>
+        ${entries.map(entry => `
+          <div class="row" style="font-size: 11px;">
+            <span>${escapePrintHtml(entry.subCustomer)} (${entry.orders.length})</span>
+            <span class="bold">${formatPrintBRL(entry.totalAmount)}</span>
+          </div>
+        `).join('')}
+
+        <div class="grand-total-box">
+          <div class="row" style="font-size: 11px;">
+            <span>SUB-CLIENTES:</span>
+            <span class="bold">${entries.length}</span>
+          </div>
+          <div class="row" style="font-size: 11px;">
+            <span>TOTAL DE PEDIDOS EM ABERTO:</span>
+            <span class="bold">${totalOrdersCount}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="row bold" style="font-size: 15px;">
+            <span>VALOR TOTAL GERAL:</span>
+            <span>${formatPrintBRL(grandTotal)}</span>
+          </div>
+        </div>
+
+        <div class="center" style="margin-top: 18px; font-size: 11px;">
+          <div>Assinatura do Conferente: ______________________</div>
+          <div style="margin-top: 12px;">Assinatura do Responsável: _____________________</div>
+        </div>
+      </body>
+      </html>
+    `;
+    printHtmlViaIframe(html);
   };
 
   // Form states
@@ -1969,8 +2150,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-stone-700">Filtro de Período:</span>
                 <button
                   type="button"
@@ -1992,11 +2173,11 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                       : 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-100'
                   }`}
                 >
-                  📂 Todos em Aberto
+                  📂 Todos em Aberto ({allOpenTermOrders.length})
                 </button>
               </div>
               <div className="text-xs font-black text-purple-700">
-                Total Geral À Prazo: R$ {termOrdersBySubCustomer.reduce((s, e) => s + e.totalAmount, 0).toFixed(2)} ({termOrders.length} pedidos)
+                Total na Tela: {formatPrintBRL(termOrdersBySubCustomer.reduce((s, e) => s + e.totalAmount, 0))} ({termOrders.length} pedidos)
               </div>
             </div>
 
@@ -2020,13 +2201,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className="text-xs text-stone-500 font-bold">TOTAL A ACERTAR</div>
-                          <div className="text-base font-black text-purple-700">R$ {entry.totalAmount.toFixed(2)}</div>
+                          <div className="text-base font-black text-purple-700">{formatPrintBRL(entry.totalAmount)}</div>
                         </div>
                         <button
                           type="button"
                           onClick={() => handlePrintSubCustomerStatement(entry)}
                           className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-xs cursor-pointer"
-                          title="Imprimir cupom de acerto para este sub-cliente"
+                          title="Imprimir cupom de acerto somente para este sub-cliente"
                         >
                           <span>🖨️ Imprimir Acerto</span>
                         </button>
@@ -2036,17 +2217,18 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                     <div className="space-y-1.5">
                       {entry.orders.map(ord => {
                         const num = String(ord.id).slice(-4).padStart(4, '0');
-                        const time = ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                        const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('pt-BR') : '';
+                        const time = ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
                         const itemsList = Array.isArray(ord.items) ? ord.items.map(i => `${i.quantity}x ${i.name}`).join(', ') : '';
                         return (
                           <div key={ord.id} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-stone-200">
                             <div>
-                              <span className="font-bold text-stone-900">Pedido #${num}</span>
+                              <span className="font-bold text-stone-900">Pedido #{num}</span>
                               <span className="text-stone-400 mx-2">•</span>
-                              <span className="text-stone-600">{time}</span>
+                              <span className="text-stone-600">{dateStr} {time}</span>
                               <div className="text-stone-500 truncate max-w-md">{itemsList}</div>
                             </div>
-                            <div className="font-black text-stone-800 shrink-0">R$ {(Number(ord.total) || 0).toFixed(2)}</div>
+                            <div className="font-black text-stone-800 shrink-0">{formatPrintBRL(Number(ord.total) || 0)}</div>
                           </div>
                         );
                       })}
@@ -2056,14 +2238,42 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               )}
             </div>
 
-            <div className="pt-3 border-t border-stone-200 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => setIsTermSettlementModalOpen(false)}
-                className="px-5 py-2.5 bg-stone-800 hover:bg-stone-900 text-white rounded-xl font-bold text-xs cursor-pointer"
-              >
-                Fechar
-              </button>
+            <div className="pt-3 border-t border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-purple-50 border border-purple-200 rounded-xl px-3.5 py-2 flex items-center gap-2">
+                <span className="text-xs font-bold text-purple-800">Total Geral em Aberto ({allOpenTermOrders.length} ped.):</span>
+                <span className="text-sm font-black text-purple-900">{formatPrintBRL(allOpenTermGrandTotal)}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {settlementDateFilter === 'today' && termOrders.length > 0 && termOrders.length !== allOpenTermOrders.length && (
+                  <button
+                    type="button"
+                    onClick={() => handlePrintConsolidatedTermStatement('today')}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 rounded-xl font-bold text-xs cursor-pointer transition-all"
+                    title="Imprimir resumo consolidado apenas das vendas à prazo de hoje"
+                  >
+                    <span>🖨️ Imprimir Resumo de Hoje</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={allOpenTermOrders.length === 0}
+                  onClick={() => handlePrintConsolidatedTermStatement('all_open')}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl font-black text-xs shadow-sm cursor-pointer transition-all"
+                  title="Imprimir resumo completo de todas as vendas à prazo em aberto com o valor total geral"
+                >
+                  <span>🖨️ Imprimir Resumo Geral (Todas em Aberto)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTermSettlementModalOpen(false)}
+                  className="px-5 py-2.5 bg-stone-800 hover:bg-stone-900 text-white rounded-xl font-bold text-xs cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>
