@@ -3069,7 +3069,7 @@ export function setupDatabaseRoutes(app: Express, onUpdate?: (target?: string) =
         message: `Valor: R$ ${Number(newOrder.total).toFixed(2)}\nItens: ${itemsSummary}`,
         priority: 5,
         tags: ['package', 'star-struck', 'money_with_wings'],
-        click: 'https://cardapio.balbec.com.br/admin'
+        click: 'https://revenda.balbec.com.br/admin'
       };
 
       fetch('https://ntfy.sh', {

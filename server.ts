@@ -42,8 +42,8 @@ app.use((req, res, next) => {
   const host = req.headers.host;
   // Se o acesso for pelo domínio principal, redireciona para o subdomínio preservando o método (POST/GET)
   if (host && (host === 'balbec.com.br' || host === 'www.balbec.com.br')) {
-    console.log(`[Redirect] ${host}${req.url} -> cardapio.balbec.com.br (Method: ${req.method})`);
-    return res.redirect(308, `https://cardapio.balbec.com.br${req.url}`);
+    console.log(`[Redirect] ${host}${req.url} -> revenda.balbec.com.br (Method: ${req.method})`);
+    return res.redirect(308, `https://revenda.balbec.com.br${req.url}`);
   }
   // Log only API requests or page routes (skip internal Vite module compilation requests)
   if (!req.url.startsWith('/@') && !req.url.startsWith('/src/') && !req.url.startsWith('/node_modules/') && !req.url.includes('.tsx') && !req.url.includes('.ts')) {
