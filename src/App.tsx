@@ -55,12 +55,13 @@ function StoreMeta() {
       manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement;
     }
     if (manifestLink) {
-      manifestLink.href = isTotem ? '/manifest-totem.json' : isTv ? '/manifest-tv.json' : '/manifest.json';
+      manifestLink.href = isTotem ? '/manifest-totem.json?v=5' : isTv ? '/manifest-tv.json?v=5' : '/manifest.json?v=5';
     }
 
-    const logo = storeInfo?.logoUrl || '/logo.svg';
-    const isSvgLogo = logo.toLowerCase().includes('.svg') || logo.toLowerCase().startsWith('data:image/svg');
-    const applePngLogo = isSvgLogo ? '/apple-touch-icon.png' : logo;
+    const rawLogo = storeInfo?.logoUrl?.trim() || '';
+    const isSvgLogo = !rawLogo || rawLogo.toLowerCase().includes('.svg') || rawLogo.toLowerCase().startsWith('data:image/svg');
+    const iconLogo = isSvgLogo ? '/icon-192.png?v=5' : rawLogo;
+    const applePngLogo = isSvgLogo ? '/apple-touch-icon.png?v=5' : rawLogo;
     const updateLink = (rel: string, hrefValue: string) => {
       let link = document.querySelector(`link[rel='${rel}']`) as HTMLLinkElement;
       if (!link) {
@@ -71,8 +72,8 @@ function StoreMeta() {
       link.href = hrefValue;
     };
 
-    updateLink('icon', logo);
-    updateLink('shortcut icon', logo);
+    updateLink('icon', iconLogo);
+    updateLink('shortcut icon', iconLogo);
     updateLink('apple-touch-icon', applePngLogo);
     updateLink('apple-touch-icon-precomposed', applePngLogo);
   }, [storeInfo?.name, storeInfo?.logoUrl]);

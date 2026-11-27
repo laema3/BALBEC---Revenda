@@ -1,20 +1,18 @@
 // Service Worker for BALBEC PWA
-const CACHE_NAME = 'balbec-pwa-v4';
+const CACHE_NAME = 'balbec-pwa-v5';
 const PRECACHE_ASSETS = [
   '/',
-  '/manifest.json',
-  '/manifest-tv.json',
-  '/manifest-totem.json',
-  '/apple-touch-icon.png',
-  '/pwa-maskable-512x512.png',
+  '/manifest.json?v=5',
+  '/manifest-tv.json?v=5',
+  '/manifest-totem.json?v=5',
+  '/apple-touch-icon.png?v=5',
+  '/pwa-maskable-512x512.png?v=5',
   '/balbec-logo.png',
   '/logo.png',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/screenshot-wide.png',
-  '/screenshot-narrow.png',
-  '/logo.svg',
-  '/favicon.svg'
+  '/icon-192.png?v=5',
+  '/icon-512.png?v=5',
+  '/screenshot-wide.png?v=5',
+  '/screenshot-narrow.png?v=5'
 ];
 
 // Install event - pre-cache critical shell assets & activate immediately
@@ -130,8 +128,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: notificationBody,
-    icon: '/balbec-logo.png?v=3',
-    badge: '/balbec-logo.png?v=3',
+    icon: '/icon-192.png?v=5',
+    badge: '/icon-192.png?v=5',
     vibrate: [250, 100, 250],
     data: data,
     tag: data.orderId ? `order-${data.orderId}` : 'balbec-notification',

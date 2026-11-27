@@ -352,7 +352,8 @@ export function PwaInstallPrompt() {
     );
   }
 
-  const logoSrc = storeInfo.logoUrl || '/logo.svg';
+  const rawLogo = storeInfo.logoUrl?.trim() || '';
+  const logoSrc = (!rawLogo || rawLogo.toLowerCase().includes('.svg')) ? '/icon-192.png?v=5' : rawLogo;
 
   return (
     <>
@@ -377,11 +378,18 @@ export function PwaInstallPrompt() {
               </button>
 
               <div className="flex items-center gap-3 pr-8">
-                <div className="w-14 h-14 rounded-2xl bg-white p-1 shadow-md border-2 border-amber-300 shrink-0 flex items-center justify-center overflow-hidden">
+                <div className="w-14 h-14 rounded-full bg-[#efc227] shadow-md border-2 border-white shrink-0 flex items-center justify-center overflow-hidden">
                   <img
                     src={logoSrc}
                     alt={storeInfo.name || 'BALBEC - REVENDA'}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (!img.dataset.fallbackApplied) {
+                        img.dataset.fallbackApplied = 'true';
+                        img.src = '/icon-192.png?v=5';
+                      }
+                    }}
                   />
                 </div>
                 <div>
@@ -392,7 +400,7 @@ export function PwaInstallPrompt() {
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   </div>
                   <h3 className="font-black text-lg text-white leading-tight mt-0.5">
-                    {isTotemRoute ? 'Baixar App do Totem' : 'Baixe o Aplicativo no Celular'}
+                    {isTotemRoute ? 'Baixar App do Totem' : isDesktop ? 'Baixe o Aplicativo no Computador' : 'Baixe o Aplicativo no Celular'}
                   </h3>
                   <p className="text-xs text-amber-100/90 font-medium">
                     {isTotemRoute ? 'Instale o atalho direto no modo Totem' : `${storeInfo.name || 'BALBEC - REVENDA'} direto na sua tela inicial`}
