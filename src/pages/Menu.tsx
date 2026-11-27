@@ -3946,15 +3946,15 @@ export default function Menu() {
                   <div className="grid grid-cols-3 gap-2 pt-1 text-center">
                     <div className="bg-white rounded-xl p-2 border border-amber-200">
                       <span className="block text-[9px] font-bold uppercase text-stone-500">Total</span>
-                      <span className="text-xs font-black font-mono text-stone-800">{formatCurrency(successPaymentBreakdown.totalAmount)}</span>
+                      <span className="text-xs font-black tabular-nums text-stone-800">{formatCurrency(successPaymentBreakdown.totalAmount)}</span>
                     </div>
                     <div className="bg-emerald-600 text-white rounded-xl p-2">
                       <span className="block text-[9px] font-bold uppercase text-emerald-100">Pago (50%)</span>
-                      <span className="text-xs font-black font-mono">{formatCurrency(successPaymentBreakdown.paidAmount)}</span>
+                      <span className="text-xs font-black tabular-nums">{formatCurrency(successPaymentBreakdown.paidAmount)}</span>
                     </div>
                     <div className="bg-red-600 text-white rounded-xl p-2">
                       <span className="block text-[9px] font-bold uppercase text-red-100">Falta Retirada</span>
-                      <span className="text-xs font-black font-mono">{formatCurrency(successPaymentBreakdown.remainingAmount)}</span>
+                      <span className="text-xs font-black tabular-nums">{formatCurrency(successPaymentBreakdown.remainingAmount)}</span>
                     </div>
                   </div>
                 )}
@@ -5236,7 +5236,7 @@ export default function Menu() {
                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
                             setProntoFritoQty(isNaN(val) ? 0 : val);
                           }}
-                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none tabular-nums"
                         />
                         <button
                           type="button"
@@ -5275,7 +5275,7 @@ export default function Menu() {
                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
                             setProntoCruQty(isNaN(val) ? 0 : val);
                           }}
-                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono"
+                          className="w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none tabular-nums"
                         />
                         <button
                           type="button"
@@ -5342,7 +5342,7 @@ export default function Menu() {
                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
                             setCongeladoCruQty(isNaN(val) ? 0 : val);
                           }}
-                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none tabular-nums ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
                           title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
                         />
                         <button
@@ -5391,7 +5391,7 @@ export default function Menu() {
                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
                             setCongeladoFritoQty(isNaN(val) ? 0 : val);
                           }}
-                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                          className={`w-12 text-center font-black text-sm text-stone-900 bg-transparent outline-none tabular-nums ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
                           title={minRequired > 1 ? `Mínimo de ${minRequired} un (controlado por botões)` : "Digite a quantidade"}
                         />
                         <button
@@ -5909,11 +5909,11 @@ export default function Menu() {
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-3.5 space-y-1.5 animate-in fade-in">
                   <div className="flex items-center justify-between text-xs font-black text-blue-900">
                     <span>💳 Entrada Agora (50% Pix/Débito)</span>
-                    <span className="text-sm text-blue-700 font-mono">{formatCurrency(partialFrozenAmount)}</span>
+                    <span className="text-sm text-blue-700 tabular-nums">{formatCurrency(partialFrozenAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs font-bold text-stone-600">
                     <span>🏪 Saldo na Retirada (50%)</span>
-                    <span className="font-mono">{formatCurrency(remainingFrozenAmount)}</span>
+                    <span className="tabular-nums">{formatCurrency(remainingFrozenAmount)}</span>
                   </div>
                 </div>
               )}
@@ -6454,7 +6454,7 @@ export default function Menu() {
                             <span className="w-3 h-3 rounded-full bg-purple-600 animate-pulse"></span>
                             Pagamento à Prazo (Condição Obrigatória)
                           </span>
-                          <span className="text-purple-700 font-mono text-sm font-black">{formatCurrency(total)}</span>
+                          <span className="text-purple-700 tabular-nums text-sm font-black">{formatCurrency(total)}</span>
                         </div>
 
                         <div className="pt-2 border-t border-purple-200">
@@ -6512,7 +6512,7 @@ export default function Menu() {
                                   <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
                                   <span>PAGAMENTO INTEGRAL</span>
                                 </span>
-                                <span className="bg-blue-600 text-white text-xs font-black px-2.5 py-1 rounded-xl font-mono shrink-0">
+                                <span className="bg-blue-600 text-white text-xs font-black px-2.5 py-1 rounded-xl tabular-nums shrink-0">
                                   {formatCurrency(total)}
                                 </span>
                               </div>
@@ -6536,7 +6536,7 @@ export default function Menu() {
                                   <QrCode className="w-5 h-5 text-emerald-600 shrink-0" />
                                   <span>PAGAMENTO PARCIAL (50%)</span>
                                 </span>
-                                <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl font-mono shrink-0">
+                                <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl tabular-nums shrink-0">
                                   50%: {formatCurrency(partialFrozenAmount)}
                                 </span>
                               </div>
@@ -6570,15 +6570,15 @@ export default function Menu() {
                                 <div className="grid grid-cols-3 gap-2 pt-1 text-center">
                                   <div className="bg-white rounded-xl p-2 border border-emerald-200">
                                     <span className="block text-[9px] font-bold uppercase text-stone-500">Total Pedido</span>
-                                    <span className="text-xs sm:text-sm font-black text-stone-800 font-mono">{formatCurrency(total)}</span>
+                                    <span className="text-xs sm:text-sm font-black text-stone-800 tabular-nums">{formatCurrency(total)}</span>
                                   </div>
                                   <div className="bg-emerald-600 text-white rounded-xl p-2 shadow-xs">
                                     <span className="block text-[9px] font-black uppercase text-emerald-100">Pagar Agora (50%)</span>
-                                    <span className="text-sm sm:text-base font-black font-mono">{formatCurrency(partialFrozenAmount)}</span>
+                                    <span className="text-sm sm:text-base font-black tabular-nums">{formatCurrency(partialFrozenAmount)}</span>
                                   </div>
                                   <div className="bg-white rounded-xl p-2 border border-emerald-200">
                                     <span className="block text-[9px] font-bold uppercase text-stone-500">Na Retirada (50%)</span>
-                                    <span className="text-xs sm:text-sm font-black text-stone-800 font-mono">{formatCurrency(remainingFrozenAmount)}</span>
+                                    <span className="text-xs sm:text-sm font-black text-stone-800 tabular-nums">{formatCurrency(remainingFrozenAmount)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -6588,7 +6588,7 @@ export default function Menu() {
                                   <span className="text-[11px] font-black uppercase tracking-wider text-blue-800 block">
                                     Pagamento Integral Selecionado (100%)
                                   </span>
-                                  <span className="text-sm font-black text-blue-950 font-mono">
+                                  <span className="text-sm font-black text-blue-950 tabular-nums">
                                     Valor Total a Pagar: {formatCurrency(total)}
                                   </span>
                                 </div>
@@ -6649,7 +6649,7 @@ export default function Menu() {
                                         <QrCode className="w-4 h-4 text-emerald-600" />
                                         <span>{frozenPaymentPlan === 'parcial' ? 'Pix (50% Entrada)' : 'Pix'}</span>
                                       </span>
-                                      <span className="bg-emerald-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-black font-mono">
+                                      <span className="bg-emerald-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-black tabular-nums">
                                         {formatCurrency(frozenPaymentPlan === 'parcial' ? partialFrozenAmount : total)}
                                       </span>
                                     </div>
@@ -6686,7 +6686,7 @@ export default function Menu() {
                                         <CreditCard className="w-4 h-4 text-purple-600" />
                                         <span>{frozenPaymentPlan === 'parcial' ? 'Cartão de Débito (50% Entrada)' : 'Cartão de Débito'}</span>
                                       </span>
-                                      <span className="bg-purple-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-black font-mono">
+                                      <span className="bg-purple-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-black tabular-nums">
                                         {formatCurrency(frozenPaymentPlan === 'parcial' ? partialFrozenAmount : total)}
                                       </span>
                                     </div>
@@ -7064,7 +7064,7 @@ export default function Menu() {
                 <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
                   {activePixPayment.isPartialPayment ? 'Valor da Entrada (50% - Congelados)' : 'Valor do Pedido'}
                 </p>
-                <p className="text-3xl font-black text-emerald-950 font-mono mt-0.5">{formatCurrency(activePixPayment.amount)}</p>
+                <p className="text-3xl font-black text-emerald-950 tabular-nums mt-0.5">{formatCurrency(activePixPayment.amount)}</p>
                 {activePixPayment.isPartialPayment && (
                   <p className="text-[11px] font-bold text-stone-700 mt-1">
                     Total: {formatCurrency(activePixPayment.totalOrderAmount || total)} • Saldo 50% na Retirada: {formatCurrency(activePixPayment.remainingAmount || 0)}
@@ -7247,7 +7247,7 @@ export default function Menu() {
                 <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">
                   {activeCardPayment.isPartialPayment ? 'Entrada 50% a Pagar Agora' : 'Total a Pagar'}
                 </span>
-                <div className="text-2xl font-black text-blue-950 font-mono mt-0.5">{formatCurrency(activeCardPayment.amount)}</div>
+                <div className="text-2xl font-black text-blue-950 tabular-nums mt-0.5">{formatCurrency(activeCardPayment.amount)}</div>
                 {activeCardPayment.isPartialPayment && (
                   <div className="text-[11px] font-bold text-stone-700 mt-1">
                     Total do Pedido: {formatCurrency(activeCardPayment.totalOrderAmount || total)} • Restante na Retirada: {formatCurrency(activeCardPayment.remainingAmount || 0)}
@@ -7285,7 +7285,7 @@ export default function Menu() {
                         setCardFormData(prev => ({ ...prev, number: formatted }));
                       }}
                       placeholder="0000 0000 0000 0000"
-                      className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono tracking-wider focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                      className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums tracking-wider focus:ring-2 focus:ring-blue-500 focus:bg-white"
                     />
                     <CreditCard className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
                   </div>
@@ -7317,7 +7317,7 @@ export default function Menu() {
                         setCardFormData(prev => ({ ...prev, expiry: formatted }));
                       }}
                       placeholder="MM/AA"
-                      className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                      className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums text-center focus:ring-2 focus:ring-blue-500 focus:bg-white"
                     />
                   </div>
 
@@ -7329,7 +7329,7 @@ export default function Menu() {
                       value={cardFormData.cvv}
                       onChange={(e) => setCardFormData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
                       placeholder="123"
-                      className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                      className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums text-center focus:ring-2 focus:ring-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -7352,7 +7352,7 @@ export default function Menu() {
                       setCardFormData(prev => ({ ...prev, cpf: formatted }));
                     }}
                     placeholder="000.000.000-00"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:bg-white"
                   />
                 </div>
 
@@ -8044,7 +8044,7 @@ export default function Menu() {
                   value={authIdentifier}
                   onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
                   placeholder="00.000.000/0000-00 ou 000.000.000-00"
-                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all tabular-nums font-medium text-stone-900"
                   required
                 />
               </div>
@@ -8060,7 +8060,7 @@ export default function Menu() {
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                   placeholder="5 primeiros dígitos do CNPJ ou CPF"
-                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all tabular-nums font-medium text-stone-900"
                   required
                 />
               </div>
@@ -8141,7 +8141,7 @@ export default function Menu() {
                   value={authRegCpf}
                   onChange={(e) => setAuthRegCpf(formatCpfCnpj(e.target.value))}
                   placeholder="00.000.000/0000-00 ou 000.000.000-00"
-                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold text-sm"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all tabular-nums font-medium text-sm"
                   required
                 />
                 {previewAutoPass && (
@@ -8160,7 +8160,7 @@ export default function Menu() {
                   value={authPhone}
                   onChange={(e) => setAuthPhone(formatPhone(e.target.value))}
                   placeholder="(00) 00000-0000"
-                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold text-sm"
+                  className="w-full p-3 bg-stone-50 border-2 border-stone-200 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all tabular-nums font-medium text-sm"
                   required
                 />
               </div>
@@ -8221,7 +8221,7 @@ export default function Menu() {
                   value={authIdentifier}
                   onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
                   placeholder="Digite seu CNPJ ou CPF"
-                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all font-mono font-bold text-stone-900"
+                  className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all tabular-nums font-medium text-stone-900"
                   required
                 />
                 <p className="text-[11px] text-stone-500 mt-1">
@@ -9088,7 +9088,7 @@ export default function Menu() {
                                                 setActiveCartList(prev => prev.map(ci => isSameCartItem(ci, optCartItem) ? { ...ci, quantity: val } : ci));
                                               }
                                             }}
-                                            className={`font-black text-xs w-10 text-center py-0.5 rounded bg-stone-50 text-stone-900 border border-stone-300 font-mono ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
+                                            className={`font-black text-xs w-10 text-center py-0.5 rounded bg-stone-50 text-stone-900 border border-stone-300 tabular-nums ${minRequired > 1 ? 'cursor-not-allowed' : ''}`}
                                           />
 
                                           <button
@@ -9317,7 +9317,7 @@ export default function Menu() {
                                             }
                                           }}
                                           placeholder={String(minRequired)}
-                                          className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono ${minRequired > 1 ? 'cursor-not-allowed bg-stone-50' : ''}`}
+                                          className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs tabular-nums ${minRequired > 1 ? 'cursor-not-allowed bg-stone-50' : ''}`}
                                           title={minRequired > 1 ? `Quantidade mínima de ${minRequired} un (multiplicada pelos botões + / -)` : "Digite a quantidade (pode apagar tudo)"}
                                         />
 
@@ -9693,7 +9693,7 @@ export default function Menu() {
                               }
                             }}
                             placeholder="1"
-                            className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs font-mono ${(() => {
+                            className={`font-black text-xs sm:text-sm w-12 sm:w-14 text-center py-1 rounded-lg bg-white text-stone-900 border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:outline-none shadow-2xs tabular-nums ${(() => {
                               const prod = products.find(p => p.id === item.productId);
                               const isFrozen = item.isFrozen || item.prepType?.startsWith('congelado') || item.addons?.some((a: any) => a.isFrozen || a.productId === 'prod_congelado');
                               const minQ = getMinQty(prod, isFrozen);
@@ -9920,7 +9920,7 @@ export default function Menu() {
                   <h4 className="text-xs font-black uppercase text-orange-600 tracking-wider">
                     ➕ Novos Itens a Acrescentar ({appendCart.reduce((s, it) => s + it.quantity, 0)} un)
                   </h4>
-                  <span className="text-xs font-black text-stone-900 font-mono">
+                  <span className="text-xs font-black text-stone-900 tabular-nums">
                     +{formatCurrency(appendCartSubtotal)}
                   </span>
                 </div>
@@ -9942,7 +9942,7 @@ export default function Menu() {
                               {item.prepLabel}
                             </p>
                           )}
-                          <p className="text-[11px] text-stone-500 font-mono">
+                          <p className="text-[11px] text-stone-500 tabular-nums">
                             {formatCurrency(item.price)} un
                           </p>
                         </div>
@@ -9957,7 +9957,7 @@ export default function Menu() {
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="w-8 text-center font-black text-xs font-mono text-stone-900">
+                          <span className="w-8 text-center font-black text-xs tabular-nums text-stone-900">
                             {item.quantity}
                           </span>
                           <button
@@ -9992,7 +9992,7 @@ export default function Menu() {
                   <h4 className="text-[11px] font-black uppercase text-stone-500 tracking-wider">
                     📋 Itens Originais do Pedido #{String(appendOrderTarget.id).slice(-4).padStart(4, '0')}
                   </h4>
-                  <span className="text-xs font-bold text-stone-500 font-mono">
+                  <span className="text-xs font-bold text-stone-500 tabular-nums">
                     {formatCurrency(appendOrderTarget.total)}
                   </span>
                 </div>
@@ -10003,7 +10003,7 @@ export default function Menu() {
                       <span className="truncate max-w-[240px]">
                         <strong>{it.quantity}x</strong> {it.name} {it.prepLabel ? `(${it.prepLabel.split(' ')[1] || it.prepLabel})` : ''}
                       </span>
-                      <span className="font-mono text-stone-500 text-[11px]">
+                      <span className="tabular-nums text-stone-500 text-[11px]">
                         {formatCurrency(getEffectiveItemTotal(it))}
                       </span>
                     </div>
@@ -10015,15 +10015,15 @@ export default function Menu() {
               <div className="p-3.5 bg-stone-900 text-white rounded-2xl space-y-2">
                 <div className="flex justify-between text-xs text-stone-300">
                   <span>Valor Original:</span>
-                  <span className="font-mono">{formatCurrency(appendOrderTarget.total)}</span>
+                  <span className="tabular-nums">{formatCurrency(appendOrderTarget.total)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-orange-400 font-bold">
                   <span>+ Acréscimo Adicional:</span>
-                  <span className="font-mono">+{formatCurrency(appendCartSubtotal)}</span>
+                  <span className="tabular-nums">+{formatCurrency(appendCartSubtotal)}</span>
                 </div>
                 <div className="pt-2 border-t border-stone-700 flex justify-between items-center text-sm font-black">
                   <span className="uppercase text-amber-300">Novo Total a Pagar na Retirada:</span>
-                  <span className="text-base font-mono text-emerald-400">
+                  <span className="text-base tabular-nums text-emerald-400">
                     {formatCurrency(Number(appendOrderTarget.total) + appendCartSubtotal)}
                   </span>
                 </div>
@@ -10515,7 +10515,7 @@ export default function Menu() {
                     value={authIdentifier}
                     onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
                     placeholder="00.000.000/0000-00 ou 000.000.000-00"
-                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums font-medium text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -10536,7 +10536,7 @@ export default function Menu() {
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     placeholder="5 primeiros dígitos do CNPJ ou CPF"
-                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums font-medium text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -10587,7 +10587,7 @@ export default function Menu() {
                     value={authRegCpf}
                     onChange={(e) => setAuthRegCpf(formatCpfCnpj(e.target.value))}
                     placeholder="00.000.000/0000-00 ou 000.000.000-00"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums font-medium text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                   {authRegCpf.replace(/\D/g, '').length >= 5 && (
@@ -10604,7 +10604,7 @@ export default function Menu() {
                     value={authPhone}
                     onChange={(e) => setAuthPhone(formatPhone(e.target.value))}
                     placeholder="(00) 00000-0000"
-                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -10661,7 +10661,7 @@ export default function Menu() {
                     value={authIdentifier}
                     onChange={(e) => setAuthIdentifier(formatCpfCnpj(e.target.value))}
                     placeholder="Digite seu CNPJ ou CPF"
-                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-mono font-bold text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    className="w-full p-3.5 bg-stone-50 border border-stone-300 rounded-xl text-sm tabular-nums font-medium text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -10725,7 +10725,7 @@ export default function Menu() {
                 value={newGoalInput}
                 onChange={(e) => setNewGoalInput(e.target.value)}
                 placeholder="Ex: 1000"
-                className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl text-lg font-black font-mono text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                className="w-full p-3.5 bg-stone-50 border-2 border-stone-200 rounded-2xl text-lg font-black tabular-nums text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
               />
               <p className="text-xs text-stone-500 leading-relaxed font-medium">
                 Sua meta ajuda a acompanhar seus gastos e progresso ao longo do mês.
@@ -11055,7 +11055,7 @@ export default function Menu() {
                       if (changePassError) setChangePassError('');
                     }}
                     placeholder="Mínimo 5 caracteres"
-                    className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                    className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all tabular-nums font-medium text-stone-900"
                     required
                   />
                   <button
@@ -11083,7 +11083,7 @@ export default function Menu() {
                       if (changePassError) setChangePassError('');
                     }}
                     placeholder="Digite a nova senha novamente"
-                    className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all font-mono font-bold text-stone-900"
+                    className="w-full p-3.5 pr-11 bg-stone-50 border-2 border-stone-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all tabular-nums font-medium text-stone-900"
                     required
                   />
                   <button
